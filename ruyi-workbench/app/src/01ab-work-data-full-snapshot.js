@@ -52,7 +52,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     return Object.assign(new AggregateError(causes,code,{cause:causes[0]}),{code,apiCode:code,statusCode:503,
       cleanupFailed:true,ownershipRetained:true,helperMayStillRun:releaseFailed||causes.some(unknown)});
   }
-  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, preservedRead, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, readCapturedAuthority, preservedRead, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
@@ -70,6 +70,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     };
     if(restoredTreeFor!==undefined&&typeof restoredTreeFor!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
+    if(readCapturedAuthority!==undefined&&(preservedRead===undefined||typeof readCapturedAuthority!=='function'))fail('host_invalid');
     const tree = WorkDataTree.create(limits), recovery = WorkDataRecovery.create({ limits: Object.fromEntries(Object.entries(limits).filter(([key]) => ['bytes','files','directories'].includes(key))) });
     const readTree = owner => preservedRead === undefined ? tree : WorkDataTree.createPreserved({capturePreserved:preservedRead.capturePreserved,ownership:owner,assertExclusive,assertExclusiveSync,limits});
     const admission = async () => { if (await assertExclusive(ownership) !== true) fail('ownership_required'); };
@@ -77,7 +78,12 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     // Activation can consume only this producer's private restored object.
     // The public restore DTO stays unchanged; no caller hash grants authority.
     const restoredProofs = new WeakMap();
-    async function restoredFingerprint(root, owner, exclusive) {
+    function assertRestoredNamespace(captured, namespace) {
+      if(captured.files.length!==namespace.files.length || JSON.stringify([...captured.directories].sort())!==JSON.stringify(namespace.directories))fail('target_verification');
+      const actual=new Map(captured.files.map(row=>[row.path,row]));
+      for(const {path,sha256,size} of namespace.files){const row=actual.get(path);if(row?.sha256!==sha256||row.data.length!==size)fail('target_verification');}
+    }
+    async function restoredFingerprint(root, owner, exclusive, namespace) {
       if(typeof restoredTreeFor!=='function'||typeof exclusive!=='function')fail('restored_proof_unavailable');
       const admitted=async()=>{await admission();if(!owner||!Array.isArray(owner.roots)||!owner.roots.some(value=>keyOfPath(value)===keyOfPath(root))||await exclusive(owner)!==true)fail('target_ownership_required');};
       await admitted();const preserved=await restoredTreeFor({root,ownership:owner,assertExclusive:exclusive});
@@ -85,12 +91,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       const captured=await preserved.capture(root);
       let result,failed=false,primary;
       try {
+        if(namespace!==undefined)assertRestoredNamespace(captured,namespace);
+        const first=await preserved.fingerprint(captured);
         const verified=await preserved.verify(captured),value=await preserved.fingerprint(captured);
         if(verified?.nativeMetadata!=='preserved-reader-closed'||verified.domainValidation!=='host-owner-required'||!value||Object.keys(value).sort().join(',')!=='bytes,directories,domainValidation,files,nativeMetadata,nativeSha256,sha256'
           ||value.nativeMetadata!=='preserved-reader-closed'||value.domainValidation!=='host-owner-required'
           ||!['sha256','nativeSha256'].every(name=>typeof value[name]==='string'&&/^[a-f0-9]{64}$/.test(value[name]))
           ||!['bytes','files','directories'].every(name=>Number.isSafeInteger(value[name])&&value[name]>=0)
-          ||['sha256','bytes','files','directories','nativeSha256'].some(name=>verified[name]!==value[name]))fail('restored_proof_invalid');
+          ||['sha256','bytes','files','directories','nativeSha256'].some(name=>first?.[name]!==value[name]||verified[name]!==value[name]))fail('restored_proof_invalid');
         await admitted();result=Object.freeze({sha256:value.sha256,bytes:value.bytes,files:value.files,directories:value.directories,nativeSha256:value.nativeSha256});
       }catch(cause){failed=true;primary=cause;}
       const errors=[];let releaseFailed=false;
@@ -309,10 +317,12 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         ||value.activeRoot!=='generations/'+value.id||!directories.some(relative=>keyOfPath(relative)===keyOfPath('.work-data/'+value.activeRoot)))fail('authority_mismatch');
       if(value.mode==='encrypted'&&!files.some(file=>keyOfPath(file.path)===keyOfPath('.work-data/'+value.activeRoot+'/work-data-key-v1.json')&&json(file.data).instanceId))fail('key_missing');
     }
-    async function seal({ password, appVersion, generation, createdAt=new Date().toISOString() }={}) {
+    async function seal({ password, appVersion, generation:requestedGeneration, createdAt=new Date().toISOString() }={}) {
       return run(async()=>{
         const tree=readTree(ownership),captured=await tree.capture(base);disposable.push(captured);
         await verifyRecoveryControl(captured.files);
+        const before=readCapturedAuthority?.(captured),generation=before?.generation??requestedGeneration;
+        if(before&&requestedGeneration!==null&&generation!==requestedGeneration)fail('authority_mismatch');
         const native=nativeSource(captured.files,captured.directories);checkAuthority(captured.files,captured.directories,generation,native);
         const analyzed=await analyze(captured.files,[],null,captured.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
@@ -320,9 +330,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
         const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
         const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);await tree.verify(captured);
+        // The last physical census proves the selected authority files still
+        // have the captured identities and bytes. Reparse that verified view
+        // without a separate ordinary handle that could advance Access time.
+        const after=readCapturedAuthority?.(captured);
+        if(readCapturedAuthority!==undefined&&(!before||!after||before.generation!==after.generation||before.id!==after.id||before.mode!==after.mode||before.proof.sha256!==after.proof.sha256))fail('authority_mismatch');
         // Source proof ends here. Caller-owned additions may be written only after this return.
         // No glob exclusions or permission to ignore later source changes is issued.
-        return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),
+        return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),...(after?{verifiedGeneration:after.generation}:{}),
           profile:PROFILE,specialCoverage:analyzed.nativePlan?Object.freeze({type:'skill-backup-portable',sourcePath:analyzed.nativePlan.request.source.sourcePath,sourceSha256:analyzed.nativePlan.request.source.sourceSha256,originalObjects:analyzed.nativePlan.profile.originalObjects,terminalSnapshots:'source-history-only'}):null,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
       });
     }
@@ -368,8 +383,11 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             ||(row.dir?!snapshot.directories.includes(row.source):!snapshot.files.some(file=>file.path===row.source)))fail('special_owner_mapping');
           nativeNames.set(ownerPath(row.source),row.target);mappedTargets.add(ownerPath(row.target));
         }
-        const stagedName=name=>nativeNames.get(ownerPath(name))||name,expectedDirectories=snapshot.directories.map(stagedName),expectedFiles=snapshot.files.map(file=>({...file,sourcePath:file.path,path:stagedName(file.path)}));
-        if(new Set([...expectedDirectories,...expectedFiles.map(file=>file.path)].map(ownerPath)).size!==expectedDirectories.length+expectedFiles.length)fail('special_owner_mapping');
+        const stagedName=name=>nativeNames.get(ownerPath(name))||name;
+        const directories=Object.freeze(snapshot.directories.map(stagedName).sort());
+        const files=Object.freeze(snapshot.files.map(file=>{const data=replacements.get(file.path)||file.data;return Object.freeze({path:stagedName(file.path),sha256:hash(data),size:data.length});}));
+        if(new Set([...directories,...files.map(file=>file.path)].map(ownerPath)).size!==directories.length+files.length)fail('special_owner_mapping');
+        const namespace=Object.freeze({directories,files});
         const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
         await targetAdmission();await absent();let created=false;
@@ -380,15 +398,13 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
           }
           if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
-          const verified=await readTree(targetOwnership).capture(target);disposable.push(verified);if(verified.files.length!==snapshot.files.length||verified.directories.length!==snapshot.directories.length)fail('target_verification');
-          if(JSON.stringify([...verified.directories].sort())!==JSON.stringify([...expectedDirectories].sort()))fail('target_verification');
-          const actual=new Map(verified.files.map(file=>[file.path,file]));for(const file of expectedFiles)if(actual.get(file.path)?.sha256!==hash(replacements.get(file.sourcePath)||file.data))fail('target_verification');
+          const verified=await readTree(targetOwnership).capture(target);disposable.push(verified);assertRestoredNamespace(verified,namespace);
           const stagedStates=Object.freeze([...replacements].map(([relative,bytes])=>Object.freeze({path:relative,sourceSha256:hash(snapshot.files.find(file=>file.path===relative).data),stagedSha256:hash(bytes)})));
           if(nativeStage)nativeProof(await analyzed.nativePlan.owner.verifyPortableInstalled(nativeStage));
           await targetAdmission();const result=Object.freeze({target,files:snapshot.files.length,directories:snapshot.directories.length,manifestSha256:opened.manifestSha256,stagedStates,profile:PROFILE,
             mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:nativeStage?(nativeStage.profile.originalObjects==='new-owned-portable'?'new owned native objects with complete bound streams; destination inherited security; source IDs are historical':'new-default-files plus verified new native store identity; original-object-capsules-refused'):'new-default-files; original-object-capsules-require-special-owner',specialProfile:nativeStage?.profile||null});
-          if(restoredTreeFor!==undefined){const initial=await restoredFingerprint(target,targetOwnership,assertExclusive);await targetAdmission();
-            restoredProofs.set(result,Object.freeze({target,initial,packageSha256:hash(Buffer.from(serialized,'utf8')),packageBytes:Buffer.byteLength(serialized,'utf8'),manifestSha256:opened.manifestSha256}));}
+          if(restoredTreeFor!==undefined){const initial=await restoredFingerprint(target,targetOwnership,assertExclusive,namespace);await targetAdmission();
+            restoredProofs.set(result,Object.freeze({target,initial,namespace,packageSha256:hash(Buffer.from(serialized,'utf8')),packageBytes:Buffer.byteLength(serialized,'utf8'),manifestSha256:opened.manifestSha256}));}
           return result;
         }catch(cause){fail('restore_failed',{cause,targetRetained:created});}
       });

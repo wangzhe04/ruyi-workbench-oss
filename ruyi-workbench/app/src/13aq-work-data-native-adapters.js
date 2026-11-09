@@ -163,12 +163,17 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         check(); return bindings.ownership.owns(candidate,snapshotTargets?undefined:base);
       };
     }
-    function createSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}, onNativeCause) {
+    function createSnapshot(base, ownership, assertExclusive, {controlRecoveryProof,rehearsalReceipt=false,readCapturedAuthority} = {}, onNativeCause) {
       check(); if (typeof assertExclusive !== 'function' || !bindings.ownership.owns(ownership,base)) throw fail('ownership_required');
       const exclusiveSync = synchronousOwner(base,ownership,assertExclusive,true);
       if (onNativeCause !== undefined && (typeof onNativeCause !== 'function' || require('node:util').types.isProxy(onNativeCause) || require('node:util').types.isAsyncFunction(onNativeCause))) throw fail('snapshot_observer_invalid');
       const preservedRead = Object.freeze({profile:'bounded-native-v1',
         capturePreserved:(...args) => guarded(() => bindings.capturePreserved(...args))});
+      const restoredTreeFor = rehearsalReceipt ? ({root,ownership:targetOwner,assertExclusive:targetExclusive}) => {
+        const exclusive=synchronousOwner(root,targetOwner,targetExclusive);
+        return bindings.tree.createPreserved({ownership:targetOwner,assertExclusive:exclusive,assertExclusiveSync:exclusive,
+          capturePreserved:preservedRead.capturePreserved});
+      } : undefined;
       // Only the cold host can observe raw crypto failure before key/vault owners
       // sanitize it. The configured backend stays fixed and the original cause
       // stays primary even if this internal observer itself fails.
@@ -183,9 +188,18 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         }
       });
       const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,protector:snapshotProtector,
-        externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof});
+        externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof,restoredTreeFor,readCapturedAuthority});
+      const captureRestored = (result,{target,ownership:targetOwner}) => withSource(ownership,base,() => withSource(targetOwner,target,async () => {
+        const receipt=await owner.describeRestored(result);
+        if(receipt.target!==target||!exclusiveSync(targetOwner))throw fail('rehearsal_changed');
+        return Object.freeze({root:target,...receipt.namespace,packageSha256:receipt.packageSha256,
+          packageBytes:receipt.packageBytes,manifestSha256:receipt.manifestSha256,
+          verify:current => withSource(ownership,base,() => withSource(current,target,() =>
+            owner.verifyRestored(result,{ownership:current,assertExclusive:synchronousOwner(target,current,exclusiveSync)})))});
+      }));
       return Object.freeze({seal:value => withSource(ownership,base,() => owner.seal(value)),
-        restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value)))});
+        restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value))),
+        ...(rehearsalReceipt?{captureRestored}:{})});
     }
     function fullSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}) {
       return createSnapshot(base,ownership,assertExclusive,{controlRecoveryProof});
@@ -239,6 +253,13 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         }
       });
     }
+    function legacyConfigMode(bytes) {
+      if (!Buffer.isBuffer(bytes) || bytes.length > 4194304) throw fail('config_invalid');
+      const text = bytes.toString('utf8'); if (!Buffer.from(text).equals(bytes)) throw fail('config_invalid');
+      const config = JSON.parse(text.replace(/^\uFEFF/,''));
+      if (!config || typeof config !== 'object' || Array.isArray(config) || config.workDataEncryptionV1 !== undefined && typeof config.workDataEncryptionV1 !== 'boolean') throw fail('config_invalid');
+      return config.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
+    }
     async function readAuthority(base) { return guarded(async () => {
       const value = await bindings.manifest.create({base}).readActive();
       if (value.generation !== 0) return value;
@@ -255,10 +276,8 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         if (after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size || after.mtimeNs !== opened.mtimeNs || after.ctimeNs !== opened.ctimeNs
           || selected.isSymbolicLink() || selected.nlink !== 1n || selected.dev !== after.dev || selected.ino !== after.ino
           || selected.size !== after.size || selected.mtimeNs !== after.mtimeNs || selected.ctimeNs !== after.ctimeNs) throw fail('config_changed');
-        bytes = buffer.subarray(0,used); const text = bytes.toString('utf8'); if (!Buffer.from(text).equals(bytes)) throw fail('config_invalid');
-        const config = JSON.parse(text.replace(/^\uFEFF/,''));
-        if (!config || typeof config !== 'object' || Array.isArray(config) || config.workDataEncryptionV1 !== undefined && typeof config.workDataEncryptionV1 !== 'boolean') throw fail('config_invalid');
-        return Object.freeze({...value,mode:config.workDataEncryptionV1 === true ? 'encrypted' : 'plain'});
+        bytes = buffer.subarray(0,used);
+        return Object.freeze({...value,mode:legacyConfigMode(bytes)});
       } catch(error) { failed = true; primary = error; throw error; }
       finally {
         const cleanup = [];
@@ -289,13 +308,18 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         finalKeeper = sourceKeeper({base:request.target,ownership:owner});
         const exclusive = keeper.assertExclusive;
         if (!exclusive(owner)) throw fail('ownership_required');
-        const before = await readAuthority(request.target);
-        if (request.generation !== null && before.generation !== request.generation) throw fail('authority_changed');
-        const captured = await guarded(() => fullSnapshot(request.target,owner,exclusive).seal({password:request.password,appVersion:bindings.appVersion,generation:before.generation}));
-        const after = await readAuthority(request.target);
-        if (before.generation !== after.generation || before.id !== after.id || before.mode !== after.mode || before.proof.sha256 !== after.proof.sha256) throw fail('authority_changed');
+        const manifest=bindings.manifest.create({base:request.target});
+        const readCapturedAuthority=captured=>{
+          const value=manifest.readCaptured(captured);
+          if(request.generation!==null&&value.generation!==request.generation)throw fail('authority_changed');
+          if(value.generation!==0)return value;
+          const config=captured.files.find(row=>fold(row.path)==='config.json');
+          return Object.freeze({...value,mode:legacyConfigMode(config?.data)});
+        };
+        const snapshot=createSnapshot(request.target,owner,exclusive,{readCapturedAuthority});
+        const captured=await guarded(()=>snapshot.seal({password:request.password,appVersion:bindings.appVersion,generation:request.generation}));
         const reply = result({schema:1,kind:'verified-full',id:request.id,nonce:request.nonce,pid:proc.pid,target:request.target,
-          generation:after.generation,sourceSha256:captured.sourceProof.sha256,files:captured.files,directories:captured.directories},request,proc.pid);
+          generation:captured.verifiedGeneration,sourceSha256:captured.sourceProof.sha256,files:captured.files,directories:captured.directories},request,proc.pid);
         // A result is not permission to release an uncertain helper/owner.
         check(); await channel.send(reply); return reply;
       } catch(error) { failed = true; primary = error; latch(error); throw error; }
@@ -358,7 +382,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     function coldOperationHost(progress) {
       if (typeof progress !== 'function') throw fail('progress_invalid'); check();
       return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots);},sourceKeeper,flush,verifyFresh,captureRehearsal,
-        fullSnapshot:(base,ownership,assertExclusive,{onNativeCause}={})=>createSnapshot(base,ownership,assertExclusive,undefined,onNativeCause),
+        fullSnapshot:(base,ownership,assertExclusive,{onNativeCause,rehearsalReceipt}={})=>createSnapshot(base,ownership,assertExclusive,{rehearsalReceipt},onNativeCause),
         verifyDisposableNativeTree:disposable,migrationFactory:options => {
           check(); const {base,ownership,assertExclusive,onNativeCause}=options;
           const exclusive=synchronousOwner(base,ownership,assertExclusive),types=require('node:util').types;

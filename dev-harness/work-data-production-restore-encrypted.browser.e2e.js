@@ -9,6 +9,8 @@ const {attachProductionBrowser,safeFailure}=require('./lib/work-data-production-
 const {releaseEnvironment}=require('./lib/release-checks'),{snapshotProcessTable,ownDescendants}=require('./lib/kill-own-tree'),{getFreePort}=require('./free-port');
 const SOURCE_ID='sess_restore_synthetic',PAYLOAD_ID='sess_encrypted_browser_payload';
 const BODY_TERM='M3EncryptedBodyOnly20261101',BODY='Nonempty synthetic restored message '+BODY_TERM+' 已认证正文。';
+const ATTACHMENT_NAME='m3-restore-fixture.bin',ATTACHMENT_MIME='application/octet-stream';
+const ATTACHMENT_BYTES=Buffer.concat([Buffer.from('SYNTHETIC-M3-ATTACHMENT-20261109'),Buffer.from([0,0x80,0xff,0x0d,0x0a])]);
 const ENABLE_PASSWORD='SYNTHETIC encrypted browser enable 2026',EXPORT_PASSWORD='SYNTHETIC encrypted browser export only 2026';
 function bindTarget(){
  const original=plainBrowser.bindTarget(),extra=core.read(__filename).row;
@@ -25,7 +27,81 @@ function seed(f){
  assert.equal(head.title.includes(BODY_TERM),false,'query exists in body only');fs.writeFileSync(path.join(f.base,'sessions',PAYLOAD_ID+'.json'),JSON.stringify(head),{flag:'wx'});
  return head;
 }
-async function preparePackage(w,f,initial,recovery){
+async function uploadOriginalAttachment(w,f,ref){
+ const body=Buffer.from(JSON.stringify({name:ATTACHMENT_NAME,mime:ATTACHMENT_MIME,data:ATTACHMENT_BYTES.toString('base64')}));
+ try{
+  const uploaded=await upload.makeHttp(ref,'/api/upload',body,{method:'POST',headers:{'content-type':'application/json'},guard:w.healthy});
+  assert.equal(uploaded.status,200);assert.equal(uploaded.value?.ok,true);
+  const file=uploaded.value.file;assert.match(file.id,/^file_[a-f0-9]{16}$/);
+  assert.equal(file.name,ATTACHMENT_NAME);assert.equal(file.size,ATTACHMENT_BYTES.length);assert.equal(file.sealed,undefined);
+  const rawPath=path.join(f.base,'uploads',file.id,ATTACHMENT_NAME);
+  assert.equal(core.norm(file.path),core.norm(rawPath));
+  const captured=core.read(rawPath);
+  try{assert.ok(captured.bytes.equals(ATTACHMENT_BYTES),'original upload lands byte-exact in the plaintext source');}
+  finally{captured.bytes.fill(0);}
+  return{id:file.id,raw:captured.row};
+ }finally{body.fill(0);}
+}
+function assertNoAttachmentPlaintext(bytes){
+ assert.equal(bytes.includes(ATTACHMENT_BYTES),false,'active upload contains no original attachment bytes');
+ assert.equal(bytes.includes(ATTACHMENT_BYTES.toString('base64')),false,'active upload contains no encoded original attachment');
+}
+function exportAttachmentFiles(snapshot,prefix,attachment){
+ const directory=prefix+'uploads/',rows=snapshot.files.filter(row=>row.path.startsWith(directory));
+ assert.ok(!rows.some(row=>row.path.startsWith(directory+attachment.id+'/')),'export has no raw attachment in its active generation');
+ const catalog=rows.find(row=>row.path===directory+'_catalog-attachments-v1.json');
+ assert.ok(catalog,'export carries the sealed ordinary attachment catalog');
+ assert.equal(JSON.parse(catalog.data.toString('utf8').split('\n')[0]).workData,3);
+ const manifests=rows.filter(row=>/^[a-f0-9]{32}\/[a-f0-9]{32}\/manifest\.json$/.test(row.path.slice(directory.length)));
+ assert.equal(manifests.length,1,'one sealed manifest for the uploaded attachment');
+ const manifest=manifests[0],chunk=rows.find(row=>row.path===path.posix.dirname(manifest.path)+'/part-000000.json');
+ assert.ok(chunk,'export carries the sealed payload chunk');
+ for(const blob of [manifest,chunk])assert.equal(JSON.parse(blob.data.toString('utf8')).workData,2);
+ for(const row of rows)assertNoAttachmentPlaintext(row.data);
+ return[catalog,manifest,chunk].map(row=>({path:row.path,bytes:row.data.length,sha256:core.H(row.data)}));
+}
+function assertEncryptedAttachmentDisk(base,generationId,attachment,expectedFiles){
+ const uploadRoot=path.join(base,'.work-data','generations',generationId,'uploads');
+ assert.throws(()=>fs.lstatSync(path.join(uploadRoot,attachment.id)),{code:'ENOENT'},'active upload has no legacy plaintext directory');
+ const inventory=core.inventory(uploadRoot).files;
+ const files=new Map(inventory.map(row=>[core.norm(row.file),row]));
+ for(const file of expectedFiles){
+  const row=files.get(core.norm(path.join(base,...file.path.split('/'))));
+  assert.ok(row,'sealed export member exists in the active upload root');
+  assert.equal(row.bytes,file.bytes);assert.equal(row.sha256,file.sha256);
+ }
+ for(const row of inventory){const captured=core.read(row.file,row);try{assertNoAttachmentPlaintext(captured.bytes);}finally{captured.bytes.fill(0);}}
+}
+async function readRestoredAttachment(w,ref,attachment){
+ const url='/api/upload/content?id='+encodeURIComponent(attachment.id)+'&name='+encodeURIComponent(ATTACHMENT_NAME);
+ const whole=await upload.makeHttp(ref,url,undefined,{guard:w.healthy});
+ const start=5,end=17;
+ let range;
+ try{
+  range=await upload.makeHttp(ref,url,undefined,{headers:{range:'bytes='+start+'-'+end},guard:w.healthy});
+  assert.equal(whole.status,200);assert.equal(whole.headers['content-type'],ATTACHMENT_MIME);
+  assert.equal(whole.headers['accept-ranges'],'bytes');assert.equal(whole.headers['content-length'],String(ATTACHMENT_BYTES.length));
+  assert.ok(whole.raw.equals(ATTACHMENT_BYTES),'restored target serves the original attachment by the same id');
+  assert.equal(range.status,206);assert.equal(range.headers['content-range'],'bytes '+start+'-'+end+'/'+ATTACHMENT_BYTES.length);
+  assert.equal(range.headers['content-length'],String(end-start+1));
+  assert.ok(range.raw.equals(ATTACHMENT_BYTES.subarray(start,end+1)),'restored target serves the exact requested range');
+  return{bytes:whole.raw.length,sha256:core.H(whole.raw),wholeStatus:whole.status,rangeStatus:range.status,rangeStart:start,rangeEnd:end};
+ }finally{whole.raw.fill(0);range?.raw.fill(0);}
+}
+async function bindSourceSessionIndex(w,f,ref){
+ const listing=await upload.makeHttp(ref,'/api/sessions',undefined,{guard:w.healthy});
+ assert.equal(listing.status,200);
+ assert.deepEqual(listing.value.sessions.map(row=>row.id).sort(),[SOURCE_ID,PAYLOAD_ID].sort());
+ const relative='.work-data/generations/'+ref.status.authority.id+'/sessions/index.json';
+ const index=core.read(path.join(f.base,...relative.split('/')));
+ try{
+  const physical=index.bytes.toString('utf8');
+  assert.equal(JSON.parse(physical.split('\n',1)[0]).workData,3,'the source sidebar index is sealed');
+  for(const id of [SOURCE_ID,PAYLOAD_ID])assert.equal(physical.includes(id),false,'the sidebar index does not expose a session id');
+  return {relative,sha256:index.row.sha256,bytes:index.row.bytes};
+ }finally{index.bytes.fill(0);}
+}
+async function preparePackage(w,f,initial,recovery,inspectSnapshot,prepareSource){
  const enable=await w.runMaintenanceRound(f,initial,{phase:'encrypted-browser-enable',operation:'enable',
   body:({source})=>({operation:'enable',password:ENABLE_PASSWORD,expectedAuthority:source,backupDirectory:f.backups}),
   verify:async({status,jobId,source})=>{
@@ -35,6 +111,7 @@ async function preparePackage(w,f,initial,recovery){
    assert.deepEqual(status.authority,saved.authority);assert.equal(status.configMirror,true);w.assertNoIntent(f,'encrypted browser enable');
    w.checked('the same real product enabled the source and served its encrypted successor');return{};
   }});
+ const index=prepareSource===undefined?null:await prepareSource(enable.next);
  const exported=await w.runMaintenanceRound(f,enable.next,{phase:'encrypted-browser-export',operation:'export',
   body:({source})=>({operation:'export',password:EXPORT_PASSWORD,expectedAuthority:source,backupDirectory:f.backups}),
   verify:async({status,jobId,source})=>{
@@ -48,16 +125,24 @@ async function preparePackage(w,f,initial,recovery){
  assert.ok(captured.bytes.length>0&&captured.bytes.length<=1024*1024,'real export must fit the unchanged browser1MiB bound');
  assert.equal(recovery.inspectSealed(captured.bytes.toString('utf8')),true);
  const opened=await recovery.open(captured.bytes.toString('utf8'),EXPORT_PASSWORD);
+ let inspected;
  try{
   assert.equal(opened.snapshot.generation,exported.next.status.authority.generation);assert.ok(opened.snapshot.keys.length>=1,'real encrypted export has its own masters');
   const prefix='.work-data/generations/'+exported.next.status.authority.id+'/';
   assert.ok(opened.snapshot.files.some(row=>row.path===prefix+'work-data-key-v1.json'));
   assert.ok(opened.snapshot.files.some(row=>row.path===prefix+'sessions/'+PAYLOAD_ID+'.json'),'real export includes the encrypted nonempty session head');
   assert.ok(opened.snapshot.auxiliaries.some(row=>row.type==='skill-backup-portable'));
+  if(index){
+   const archived=opened.snapshot.files.find(row=>row.path===index.relative);
+   assert.ok(archived,'the real export carries the sealed sidebar index');
+   assert.equal(archived.data.length,index.bytes);assert.equal(core.H(archived.data),index.sha256);
+   w.checked('the real encrypted export binds the sealed sidebar index generated by the source');
+  }
+  if(inspectSnapshot)inspected=inspectSnapshot(opened.snapshot,prefix);
  }finally{opened.release();}
  w.record({kind:'encrypted-browser-real-export',source:'actual enable then actual export result.backup.path',file:captured.row.file,bytes:captured.row.bytes,sha256:captured.row.sha256,authority:exported.next.status.authority,packageBuiltByPureSeal:false});
  w.checked('the actual export backup carries encrypted data and independent masters, with a distinct package password');
- return{enable,exported,sealed:captured.bytes,packageFile:backup.path,packageRow:captured.row};
+ return{enable,exported,sealed:captured.bytes,packageFile:backup.path,packageRow:captured.row,inspected};
 }
 async function verifyHandoff({w,f,facts,sealed,jobId,markers}){
  assert.equal(facts.uploads.length,1);assert.equal(facts.jobs.length,1);assert.equal(facts.folderChoices.length,2);
@@ -98,13 +183,21 @@ async function runActual(argv=process.argv.slice(2)){
  const w=restore.createWorld({root,evidence,target,harness:__dirname,releaseEnvironment,snapshotProcessTable,ownDescendants,getFreePort});
  w.openJournal();let browser=null,submissionStarted=false,packageBytes=null;
  try{
-  w.record({kind:'fixture-owner',root,inputFiles:target.boundFiles,executionInputSha256:target.executionInputSha256,nativeFolderDialogSubstituted:true,workDataHttpSubstituted:false,scope:'One nonempty synthetic encrypted-browser restore; not all families, attachments, complete index or whole3.1.'});
+  w.record({kind:'fixture-owner',root,inputFiles:target.boundFiles,executionInputSha256:target.executionInputSha256,nativeFolderDialogSubstituted:true,workDataHttpSubstituted:false,scope:'One nonempty synthetic encrypted-browser restore with an ordinary migrated attachment; no full family, index or attachment matrix.'});
   w.ctx.phase='encrypted-browser-source';const f=w.fixture('encrypted-browser');seed(f);
   const port=await getFreePort('127.0.0.1'),handle=w.spawnServe(f,'encrypted-browser-initial-serve',port);await handle.spawned;
   const initial=await w.readyWarm(handle,f);await w.manager.captureNativeBirths(handle);await w.waitWorkerReady(initial);
+  w.ctx.phase='encrypted-browser-source-upload';
+  const attachment=await uploadOriginalAttachment(w,f,initial);
   const recovery=upload.loadPure(core.read(path.join(target.src,'01t-work-data-recovery.js')).bytes.toString('utf8'),'WorkDataRecovery');
-  const prepared=await preparePackage(w,f,initial,recovery);packageBytes=prepared.sealed;
+  const prepared=await preparePackage(w,f,initial,recovery,(snapshot,prefix)=>exportAttachmentFiles(snapshot,prefix,attachment),
+  enabled=>bindSourceSessionIndex(w,f,enabled));
+ packageBytes=prepared.sealed;
   const ref=prepared.exported.next;
+  const attachmentFiles=prepared.inspected;
+  assertEncryptedAttachmentDisk(f.base,ref.status.authority.id,attachment,attachmentFiles);
+  core.read(attachment.raw.file,attachment.raw).bytes.fill(0);
+  w.checked('the original ordinary attachment migrates into a sealed active generation and its exact ciphertext enters the real export');
   // Deliberate source divergence happens after export, before restore admission.
   const request=(url,bytes,options={})=>upload.makeHttp(ref,url,bytes,{...options,guard:w.healthy,timeout:restore.BUDGET.request});
   const sentinel=await request('/api/sessions',Buffer.from(JSON.stringify({title:'Encrypted browser source-only sentinel'})),{method:'POST',headers:{'content-type':'application/json'}});
@@ -133,6 +226,9 @@ async function runActual(argv=process.argv.slice(2)){
     w.assertTargetAuthority({target:targetDirectory,authority:status.authority,label:'encrypted browser target'});
     const result=w.assertRestoreResult({f,id:jobId,targetPath:targetDirectory,source,uploaded:prepared.sealed});
     const started=await w.assertStartedTarget({target:targetDirectory,sealed:prepared.sealed,password:EXPORT_PASSWORD,label:'encrypted browser target',successor:next,encrypted:true});
+    assertEncryptedAttachmentDisk(targetDirectory,status.authority.id,attachment,attachmentFiles);
+    const attachmentRead=await readRestoredAttachment(w,next,attachment);
+    w.checked('the restored encrypted successor preserves sealed ordinary attachment bytes and serves the exact whole file and byte range');
     const ids=await w.sessionIds(next);for(const id of [SOURCE_ID,PAYLOAD_ID])assert.ok(ids.includes(id));assert.equal(ids.includes(sentinelId),false);
     w.assertNoIntent(f,'encrypted browser target');await assertActivationConsumed(w,f,targetDirectory,ownership);await assertOwners(w,f,targetDirectory,ownership);
     const preference=await w.readBootRootPreference({f,target:targetDirectory,authority:status.authority,resultId:jobId,resultSha256:result.row.sha256,name:'encrypted-browser',notBefore:prePreference.at});
@@ -141,7 +237,7 @@ async function runActual(argv=process.argv.slice(2)){
     w.checked('one real201 and202 bind the export File, complete receiver and native handoff to the encrypted committed target');
     const readable=await browser.assertReadableRestoredSession({sessionId:PAYLOAD_ID,bodyTerm:BODY_TERM});
     w.checked('actual body-only search and message DOM read the nonempty restored encrypted session');
-    return{result,started,preference,readable,handoff,ids,sourcePins:w.sourcePins(f,['.work-data/active-v1.json','.work-data/generations/'+source.id+'/work-data-key-v1.json'])};
+    return{result,started,preference,readable,handoff,attachmentRead,ids,sourcePins:w.sourcePins(f,['.work-data/active-v1.json','.work-data/generations/'+source.id+'/work-data-key-v1.json'])};
    }});
   const browserClosed=await browser.close();browser=null;
   await w.waitWorkerReady(round.next);
@@ -155,10 +251,11 @@ async function runActual(argv=process.argv.slice(2)){
   }
   core.samePinned(core.read(round.verified.result.resultPath).row,round.verified.result.row);
   core.read(prepared.packageFile,prepared.packageRow).bytes.fill(0);
+  core.read(attachment.raw.file,attachment.raw).bytes.fill(0);
   for(const pin of round.verified.sourcePins)core.samePinned(core.read(path.join(f.base,...pin.relative.split('/'))).row,pin.row);
   w.checked('two ordinary serves without root overrides select the restored encrypted target and keep exact boot preference');
   const after=target.recheck();assert.equal(w.manager.hasUnclosed(),false);assert.equal(w.manager.hasUnverifiedSpawn(),false);assert.equal(w.ctx.unknown,false);
-  w.checkpoint('result',{schema:1,passed:w.ctx.checks.length,checks:w.ctx.checks,inputProof:after,authority:ready.authority,sourceResultId:round.jobId,export:{bytes:prepared.packageRow.bytes,sha256:prepared.packageRow.sha256},browserClosed,readable:round.verified.readable,preferenceBoots,sourceSessions:sourceServe.ids,exactlyOneUpload:true,exactlyOneRestoreJob:true,nativeFolderDialogSubstituted:true,workDataHttpSubstituted:false,retainedPlaintext:'Synthetic pre-enable legacy originals and historical representations remain; this batch proves active encrypted reads and authenticated package transport, not erasure.',allFamiliesComplete:false,attachmentsVerified:false,fullIndexMatrixComplete:false,whole3_1Complete:false});
+  w.checkpoint('result',{schema:1,passed:w.ctx.checks.length,checks:w.ctx.checks,inputProof:after,authority:ready.authority,sourceResultId:round.jobId,export:{bytes:prepared.packageRow.bytes,sha256:prepared.packageRow.sha256},browserClosed,readable:round.verified.readable,preferenceBoots,sourceSessions:sourceServe.ids,exactlyOneRestorePackageUpload:true,exactlyOneRestoreJob:true,nativeFolderDialogSubstituted:true,workDataHttpSubstituted:false,retainedPlaintext:'Synthetic pre-enable legacy originals and historical representations remain; this batch proves active encrypted reads and authenticated package transport, not erasure.',allFamiliesComplete:false,ordinaryAttachment:{...round.verified.attachmentRead,exportMembers:attachmentFiles},attachmentMatrixComplete:false,fullIndexMatrixComplete:false,whole3_1Complete:false});
   for(const label of w.ctx.checks)runner.ok(true,label);w.close();console.log('Retained synthetic encrypted browser restore evidence '+root);runner.done();
  }catch(error){
   const phase=w.ctx.phase;let browserFailure=browser?.failureDiagnostic()||error.browserFailure||null;

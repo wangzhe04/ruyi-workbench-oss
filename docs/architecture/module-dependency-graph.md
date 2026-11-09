@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4336 | 4286 | 940 | 67 | 0 | 1 |
+| 141 | 4336 | 4287 | 940 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -51,7 +51,7 @@
 | 33 | `01al-work-data-uploads-owner.js` | unclassified | 1 | 2 | 2 |
 | 34 | `01aa-work-data-tree.js` | unclassified | 1 | 2 | 2 |
 | 35 | `01ae-work-data-maintenance-result.js` | unclassified | 1 | 1 | 1 |
-| 36 | `01ab-work-data-full-snapshot.js` | unclassified | 1 | 11 | 10 |
+| 36 | `01ab-work-data-full-snapshot.js` | unclassified | 1 | 12 | 10 |
 | 37 | `01ad-work-data-migration-host.js` | unclassified | 1 | 6 | 6 |
 | 38 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 39 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
@@ -180,7 +180,7 @@
 | `01-config.js` | `07-autonomy.js` | forward | `DESKTOP_MCP_SERVER_ID`, `TOOL_PACK_DESCRIPTIONS`, `accPolicyHiddenToolNames`, `claudePermissionMode`, `getAgentRoleLibrary`, `nativeToolTier` |
 | `01aa-work-data-tree.js` | `00-boot.js` | backward | `paths` |
 | `01aa-work-data-tree.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
-| `01ab-work-data-full-snapshot.js` | `00-boot.js` | backward | `json`, `text` |
+| `01ab-work-data-full-snapshot.js` | `00-boot.js` | backward | `json`, `path`, `text` |
 | `01ab-work-data-full-snapshot.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
 | `01ab-work-data-full-snapshot.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `01ab-work-data-full-snapshot.js` | `01k-credential-vault.js` | backward | `CredentialVault` |

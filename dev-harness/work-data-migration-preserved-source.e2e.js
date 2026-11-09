@@ -10,6 +10,25 @@ async function readCodecTargetText(api,file,descriptor,keys){
  return api.WorkDataStore.createText({...descriptor,file:()=>file,keys,enabled:()=>true,
   maxPlaintextBytes:4*1024*1024,writeJson:api.atomicWriteJson}).read();
 }
+// This test-only observer is installed in the generated server's own scope.
+// Each reply and close still comes from the original broker and real child.
+function observeCensusBrokers(){
+  const original=migrationCapsuleBroker,records=[];
+  async function observed(...args){
+    const broker=await original(...args),row={commands:[],closed:false};records.push(row);
+    return Object.freeze({
+      async command(request){
+        const reply=await broker.command(request);
+        row.commands.push({cmd:request.cmd,revision:request.revision,firstRevision:request.firstRevision,replyRevision:reply?.revision,closedHandles:reply?.closedHandles});
+        return reply;
+      },
+      async close(){await broker.close();row.closed=true;},
+    });
+  }
+  Object.defineProperty(observed,'helperMayStillRun',{get:()=>original.helperMayStillRun,set:value=>{original.helperMayStillRun=value;}});
+  migrationCapsuleBroker=observed;
+  return {records,restore(){migrationCapsuleBroker=original;}};
+}
 // Preserve the first failure (including falsy values) through each cleanup.
 // An uncertain cleanup forbids later disposal and retains the genuine keeper.
 async function finishSourceFixture({complete,failed,primary,clear,unknown,retain,release,flush,remove}){
@@ -30,7 +49,7 @@ async function run(){
  if(process.platform!=='win32'){ok(true,'SKIP Windows NTFS source codec qualification');return;}
  const env=releaseEnvironment(process.env.HOME,path.join(process.env.HOME,'migration-preserved-data'));
  for(const name of Object.keys(process.env))if(!Object.hasOwn(env,name))delete process.env[name];Object.assign(process.env,env);
- const api=require('./lib/server-internals').loadServerInternals(['ServerOwnership','WorkDataTree','WorkDataMigrationCodecs','WorkDataKeys','WorkDataStore','WorkDataNativeAdapters','LocalSecretCrypto','MigrationHooks','migrationCapsuleCapturePreserved','atomicWriteJson','flushWorkbenchLogs']);
+  const api=require('./lib/server-internals').loadServerInternals(['ServerOwnership','WorkDataTree','WorkDataMigrationCodecs','WorkDataKeys','WorkDataStore','WorkDataNativeAdapters','LocalSecretCrypto','MigrationHooks','migrationCapsuleCapturePreserved','atomicWriteJson','flushWorkbenchLogs'],{withEval:true});
  await api.flushWorkbenchLogs({allowFailure:false});
  const temp=path.resolve(os.tmpdir()),root=await io.mkdtemp(path.join(temp,'ruyi-migration-preserved-source-')),source=path.join(root,'source'),target=path.join(root,'target'),relative='missions/one.json',file=path.join(source,'missions','one.json');
  let owner,keeper,keys,complete=false,failed=false,firstFailure,metadataUnknown=false,scopes=0,tokens=0,captures=0;
@@ -53,7 +72,18 @@ async function run(){
   keys=api.WorkDataKeys.create({protector:api.LocalSecretCrypto,enabled:()=>true,store:{read:async()=>api.WorkDataKeys.empty()}});
   const staged=await keys.stageNew();staged.lease.release();keys.clear();keys=api.WorkDataKeys.create({protector:api.LocalSecretCrypto,enabled:()=>true,store:{read:async()=>staged.header}});
   const bridge=api.WorkDataMigrationCodecs.create({sourceRoot:source,targetRoot:target,sourceKeys:keys,targetKeys:keys,writeJson:api.atomicWriteJson,withSourceReadScope,maxPhysicalBytes:4*1024*1024,maxLogicalBytes:4*1024*1024});
-  const result=await bridge.transform({relative,targetMode:'encrypted'});assert.equal(result.sourcePhysicalHash,hash(Buffer.from(logical)));assert.equal(result.logicalHash,hash(Buffer.from(logical)));assert.equal(scopes,2);assert.equal(tokens,2);assert.equal(captures,20);
+   const observed=api.__eval('('+observeCensusBrokers.toString()+')()');let result;
+   try{result=await bridge.transform({relative,targetMode:'encrypted'});}finally{observed.restore();}
+   assert.equal(result.sourcePhysicalHash,hash(Buffer.from(logical)));assert.equal(result.logicalHash,hash(Buffer.from(logical)));assert.equal(scopes,2);assert.equal(tokens,2);
+   assert.equal(captures,8);assert.equal(observed.records.length,8);
+   const revisions=new Set();let physicalReads=0;
+   for(const row of observed.records){
+    assert.equal(row.closed,true);assert.equal(row.commands.length,2);const [first,final]=row.commands;
+    assert.equal(first.cmd,'capture-preserved-census-first');assert.equal(first.firstRevision,undefined);assert.equal(first.closedHandles,4);
+    assert.equal(final.cmd,'capture-preserved-census-final');assert.equal(final.firstRevision,first.revision);assert.equal(final.closedHandles,undefined);
+    for(const receipt of [first,final]){assert.match(receipt.revision,/^[a-f0-9]{64}$/);assert.equal(receipt.replyRevision,receipt.revision);revisions.add(receipt.revision);physicalReads++;}
+   }
+   assert.equal(physicalReads,16);assert.equal(revisions.size,16);
   ok(true,'real text codec shares its physical decode read and uses two genuine grants in two closed preserved scopes');
   const bytes=await io.readFile(path.join(target,...relative.split('/')));assert.equal(bytes.includes(Buffer.from('中文😀')),false);assert.equal(hash(bytes),result.targetPhysicalHash);assert.equal(JSON.parse(bytes.toString('utf8').split('\n')[0]).workData,3);
   const descriptor=api.WorkDataMigrationCodecs.describe(relative);assert.equal(await readCodecTargetText(api,path.join(target,...relative.split('/')),descriptor,keys),logical);

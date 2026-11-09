@@ -1297,6 +1297,23 @@ public static class RuyiSkillCapsule {
     try {return Capture(args);}
     finally {try {RestoreBasic(new List<Node>(Nodes.Values));} finally {PreserveTimeHandles=previous;}}
   }
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetHandleInformation(IntPtr handle,out uint flags);
+  static object CapturePreservedCensusFirst(Dictionary<string,object> args) {
+    if(Nodes.Count!=0 || Snapshot!=null || OriginalRoot!=null || Capsule!=null || CapturedFlushScope || PreserveTimeHandles)Reject("census_scope");
+    object snapshot=CapturePreserved(args);
+    var handles=new List<SafeFileHandle>();
+    foreach(Node node in Nodes.Values) {handles.Add(node.Handle);handles.AddRange(node.Streams.Values);}
+    var addresses=new HashSet<IntPtr>();int closedHandles=handles.Count;
+    try {
+      foreach(SafeFileHandle handle in handles)if(handle.IsClosed || handle.IsInvalid || !addresses.Add(handle.DangerousGetHandle()))Reject("census_first_close_unverified");
+      Close();TotalBytes=0;
+      if(handles.Count==0 || Nodes.Count!=0 || Snapshot!=null || OriginalRoot!=null || Capsule!=null || CapturedFlushScope || PreserveTimeHandles)Reject("census_first_close_unverified");
+      foreach(SafeFileHandle handle in handles)if(!handle.IsClosed)Reject("census_first_close_unverified");
+      foreach(IntPtr address in addresses) {uint flags;if(GetHandleInformation(address,out flags) || Marshal.GetLastWin32Error()!=6)Reject("census_first_close_unverified");}
+    } catch {Reject("census_first_close_unverified");}
+    addresses.Clear();handles.Clear();Step="idle";
+    return new Dictionary<string,object>{{"revision",Str(args["revision"])},{"closedHandles",closedHandles},{"snapshot",snapshot}};
+  }
   static object CreateOwnedPortable(Dictionary<string,object> args) {
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     try {return CreateOwnedPortableCore(args);}
@@ -1414,17 +1431,33 @@ public static class RuyiSkillCapsule {
 
   public static void Run() {
     Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
+    int censusPhase=0,commands=0;string censusRoot=null,censusRevision=null;
     try {
       string line;
       while ((line = Console.ReadLine()) != null) {
         try {
           Dictionary<string,object> args = Dict(Json.DeserializeObject(line)); string command = Str(args["cmd"]); object result = null;
+          bool firstCommand=commands++==0;
+          if(censusPhase!=0 && command!="close" && (censusPhase!=1 || command!="capture-preserved-census-final"))Reject("census_scope");
           if(CapturedFlushScope && command!="flush-captured-directories" && command!="close")Reject("captured_flush_scope");
           if (command == "store-info") result=StoreInfo(args);
           else if (command == "store-move") result=MoveStore(args);
           else if (command == "create-owned-portable") result=CreateOwnedPortable(args);
           else if (command == "capture") result = Capture(args);
           else if (command == "capture-preserved") result=CapturePreserved(args);
+          else if (command == "capture-preserved-census-first") {
+            if(!firstCommand)Reject("census_scope");censusPhase=2;
+            censusRoot=System.IO.Path.GetFullPath(Str(args["root"]));censusRevision=Str(args["revision"]);
+            if(!System.Text.RegularExpressions.Regex.IsMatch(censusRevision,"^[a-f0-9]{64}$"))Reject("census_scope");
+            result=CapturePreservedCensusFirst(args);censusPhase=1;
+          }
+          else if (command == "capture-preserved-census-final") {
+            if(censusPhase!=1)Reject("census_scope");censusPhase=2;
+            string revision=Str(args["revision"]);
+            if(!String.Equals(System.IO.Path.GetFullPath(Str(args["root"])),censusRoot,StringComparison.OrdinalIgnoreCase) || Str(args["firstRevision"])!=censusRevision
+              || revision==censusRevision || !System.Text.RegularExpressions.Regex.IsMatch(revision,"^[a-f0-9]{64}$"))Reject("census_scope");
+            result=CapturePreserved(args);
+          }
           else if (command == "capture-owned-flush-ready") result=CaptureOwnedFlushReady(args);
           else if (command == "flush-captured-directories") result=FlushCapturedDirectories(args);
           else if (command == "short-probe") ProbeShortNames(args);
@@ -2331,10 +2364,51 @@ async function migrationCapsuleRoots(descriptor, intent) {
   for (const entry of await fsp.readdir(objects, { withFileTypes: true })) roots.push(path.join(objects, entry.name));
   return roots;
 }
-async function migrationCapsuleCapturePreserved(root, revision) {
+async function migrationCapsuleCapturePreserved(root, revision, readback) {
+  const paired=readback!==undefined;
+  if(paired&&!WorkDataTree.claimPreservedReadback(readback,root,revision))migrationCapsuleFail('census_scope');
+  const {revision:finalRevision,bind}=readback||{};
+  if(paired&&(!readback||!Object.isFrozen(readback)||Object.keys(readback).sort().join(',')!=='bind,revision'||typeof bind!=='function'
+    ||!/^[a-f0-9]{64}$/.test(revision)||!/^[a-f0-9]{64}$/.test(finalRevision)||finalRevision===revision))migrationCapsuleFail('census_scope');
   const broker = await migrationCapsuleBroker();
-  try { const snapshot = await broker.command({ cmd: 'capture-preserved', root, revision }); if (!migrationCapsuleShape(snapshot)) migrationCapsuleFail('shape'); return snapshot; }
-  finally { await broker.close(); }
+  if(!paired){
+    try{const snapshot=await broker.command({cmd:'capture-preserved',root,revision});if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('shape');return snapshot;}
+    finally{await broker.close();}
+  }
+  let primary,failed=false,final,firstCloseCause,idleClose;
+  try {
+    const unverified=cause=>{
+      migrationCapsuleBroker.helperMayStillRun=true;
+      firstCloseCause=cause;
+      const code='work_data_backup.census_first_close_unverified';
+      return Object.assign(new Error(code,{cause}),{code,apiCode:code,statusCode:503,helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});
+    };
+    let first;
+    try{first=await broker.command({cmd:'capture-preserved-census-first',root,revision});}
+    catch(cause){if(cause?.code==='work_data_backup.census_first_close_unverified')throw unverified(cause);throw cause;}
+    if(!first||Object.keys(first).sort().join(',')!=='closedHandles,revision,snapshot'||first.revision!==revision
+      ||!migrationCapsuleShape(first.snapshot)||first.snapshot.revision!==revision
+      ||first.closedHandles!==first.snapshot.entries.reduce((total,row)=>total+1+row.streams.filter(stream=>stream.name!=='').length,0))throw unverified();
+    // The first handles are closed. Bound the now-idle helper even if Node's
+    // identity checks are delayed, and still wait for the checks to settle.
+    const timers=require('node:timers');let idleError;
+    const timer=timers.setTimeout(()=>{
+      const code='work_data_backup.census_idle_timeout';
+      idleError=Object.assign(new Error(code),{code,apiCode:code,statusCode:503,retry:false});
+      idleClose=Promise.resolve().then(()=>broker.close());idleClose.catch(()=>{});
+    },120000);
+    try{await bind(first.snapshot);}
+    catch(cause){if(idleError)throw Object.assign(new AggregateError([cause,idleError],idleError.code,{cause}),{code:idleError.code,retry:false});throw cause;}
+    finally{timers.clearTimeout(timer);}
+    if(idleError)throw idleError;
+    final=await broker.command({cmd:'capture-preserved-census-final',root,firstRevision:revision,revision:finalRevision});
+    if(!migrationCapsuleShape(final)||final.revision!==finalRevision)migrationCapsuleFail('shape');
+  }catch(cause){failed=true;primary=cause;}
+  try{await (idleClose||broker.close());}catch(cause){
+    if(!failed)throw cause;
+    if(cause!==primary&&(firstCloseCause===undefined||cause!==firstCloseCause))throw migrationCapturedCleanupFailure(primary,true,[cause],false);
+  }
+  if(failed)throw primary;return final;
 }
 function migrationCapsuleSameMetadata(actual, expected) {
   if (!migrationCapsuleSame(actual, migrationCapsuleFingerprint(expected))) return false;

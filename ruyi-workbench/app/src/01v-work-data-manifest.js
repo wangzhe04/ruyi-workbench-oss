@@ -59,6 +59,26 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
     const generations = pathApi.join(control, 'generations'), active = pathApi.join(control, 'active-v1.json');
     const candidates = new WeakMap();
     let committing = false;
+    function activeFromBytes(bytes) {
+      if (!Buffer.isBuffer(bytes) || bytes.length > MAX_BYTES) throw error('invalid');
+      const raw = bytes.toString('utf8');
+      if (!Buffer.from(raw, 'utf8').equals(bytes)) throw error('invalid');
+      const state = parse(raw);
+      return receipt(raw, state, pathApi.join(generations, state.id));
+    }
+    // Pure parsing for a caller that holds and verifies a complete preserved
+    // capture. Its owner is responsible for physical admission and readback.
+    function readCaptured(captured) {
+      if (!captured || typeof captured.root !== 'string' || pathKey(captured.root) !== pathKey(root)
+        || !Array.isArray(captured.files) || !Array.isArray(captured.directories)) throw error('invalid');
+      const pointer = '.work-data/active-v1.json';
+      const rows = captured.files.filter(row => pathKey(row.path) === pointer);
+      if (rows.length > 1 || captured.directories.some(name => pathKey(name) === pointer)) throw error('invalid');
+      if (rows.length === 0) return receipt(null, null, root);
+      const selected = activeFromBytes(rows[0].data);
+      if (!captured.directories.some(name => pathKey(name) === '.work-data/generations/' + selected.id)) throw error('directory_unavailable');
+      return selected;
+    }
     async function readActive() {
       await directory(root);
       await directory(control, true);
@@ -85,11 +105,9 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
         if (String(cause.code || '').startsWith('work_data_manifest.')) throw cause;
         throw error('read_unavailable', cause);
       } finally { if (handle) await handle.close(); }
-      const raw = bytes.toString('utf8');
-      if (!Buffer.from(raw, 'utf8').equals(bytes)) throw error('invalid');
-      const state = parse(raw), target = pathApi.join(generations, state.id);
-      await directory(target);
-      return receipt(raw, state, target);
+      const selected = activeFromBytes(bytes);
+      await directory(selected.root);
+      return selected;
     }
     function expectedProof(expected) {
       const proof = expected?.proof;
@@ -177,7 +195,7 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
         committing = false;
       }
     }
-    return Object.freeze({ readActive, prepare, commit });
+    return Object.freeze({ readActive, readCaptured, prepare, commit });
   }
   return Object.freeze({ create, SCHEMA, Hooks });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

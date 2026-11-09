@@ -3,6 +3,7 @@
 // above the existing native owner's 96 MB engineering bound refuses; no tail,
 // stream or unknown object is omitted to make cleanup proceed.
 const WorkDataDisposableNativeTree = (() => {
+  const {Buffer}=require('node:buffer');
   const fail = () => { throw Object.assign(new Error('work_data_setup.rehearsal_changed'), {
     code:'work_data_setup.rehearsal_changed',apiCode:'work_data_setup.rehearsal_changed',statusCode:409,retry:false,
   }); };
@@ -25,7 +26,10 @@ const WorkDataDisposableNativeTree = (() => {
           if (!dirs.has(entry.rel) || !Array.isArray(entry.streams) || entry.streams.length !== 0) fail();
         } else {
           const file=files.get(entry.rel),stream=entry.streams?.[0];
-          if (!file || !Array.isArray(entry.streams) || entry.streams.length !== 1 || stream.name !== '' || stream.size !== file.data.length || stream.hash !== file.sha256) fail();
+          const dataSize=Buffer.isBuffer(file?.data)?file.data.length:undefined,size=dataSize ?? file?.size;
+          if (!file || (file.data!==undefined && dataSize===undefined) || (file.size!==undefined && file.size!==size)
+            || !Number.isSafeInteger(size) || size < 0 || !Array.isArray(entry.streams)
+            || entry.streams.length !== 1 || stream.name !== '' || stream.size !== size || stream.hash !== file.sha256) fail();
         }
       }
       if ([...dirs,...files.keys()].some(name=>!seen.has(name)) || await assertExclusive(ownership) !== true) fail();

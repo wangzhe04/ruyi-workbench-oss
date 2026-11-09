@@ -1,6 +1,7 @@
 'use strict';
 // Full ordinary default-stream snapshot, real CurrentUser DPAPI and a fresh Node
-// verifier. The opt-in --capsule case exercises the separate native owner gate.
+// verifier. The opt-in capsule cases exercise the native owner gate, including
+// the production cold export rehearsal under --capsule-export.
 require('./lib/self-isolate-home');
 const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
 const assert=require('node:assert/strict'),crypto=require('node:crypto');
@@ -11,7 +12,7 @@ const childMode=process.argv.includes('--verify')||process.argv.includes('--veri
 const root=childMode?null:fs.mkdtempSync(path.join(temporaryParent,'ruyi-full-snapshot-native-'));
 if(root){const isolated=releaseEnvironment(path.join(root,'home'),path.join(root,'source'));for(const key of Object.keys(process.env))if(!Object.hasOwn(isolated,key))delete process.env[key];Object.assign(process.env,isolated);}
 const {loadServerInternals}=require('./lib/server-internals');
-const api=loadServerInternals(['WorkDataKeys','WorkDataStore','WorkDataRecovery','WorkDataFullSnapshot','ServerOwnership','LocalSecretCrypto','ExternalBotCredentials','CredentialVault','PrivacyCore','atomicWriteJson','VERSION','WorkDataNativeAdapters','MigrationHooks','migrationCopySkills','migrationLogs','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','migrationUndoSkillCopy','readConfig','writeConfig','workDataKeys','flushWorkbenchLogs']);
+const api=loadServerInternals(['WorkDataKeys','WorkDataStore','WorkDataRecovery','WorkDataFullSnapshot','ServerOwnership','LocalSecretCrypto','ExternalBotCredentials','CredentialVault','PrivacyCore','atomicWriteJson','VERSION','WorkDataNativeAdapters','WorkDataColdOperations','WorkDataVerifierEntry','MigrationHooks','migrationCopySkills','migrationLogs','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','migrationUndoSkillCopy','readConfig','writeConfig','workDataKeys','flushWorkbenchLogs']);
 const password='synthetic native fullsnapshot password only',leases=[],owners=new Set(),keys=[],vaults=[];
 const digest=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 async function acquire(base){const owner=await api.ServerOwnership.acquire([base]);owners.add(owner);return owner;}
@@ -89,6 +90,15 @@ const capsuleMarkdown = revision => `---\nname: ${capsuleSkill}\ndescription: Ow
 const capsuleAds = Buffer.from([0, 13, 10, 128, 255]);
 const logicalCapsule = snapshot => snapshot.entries.map(({ rel, dir, attrs, times, shortName, streams }) => ({ rel, dir, attrs, times, shortName, streams }));
 const capsuleIds = snapshot => snapshot.entries.map(entry => entry.id);
+const byName = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+function capsuleSourceWitness({schema, platform, revision, entries}) {
+  // The native producer validates each stream hash. Object IDs include the NTFS
+  // volume serial; the opaque labels are newly generated for each capture.
+  return {schema, platform, revision, entries:entries.map(({rel, id, dir, attrs, times, shortName, streams}) => ({
+    rel, id, dir, attrs, times, shortName,
+    streams:streams.map(({name, size, hash}) => ({name, size, hash})).sort((a,b) => byName(a.name,b.name)),
+  })).sort((a,b) => byName(a.rel,b.rel))};
+}
 
 async function capsuleReceipt(id) {
   const log = (await api.migrationLogs()).find(row => row.id === id);
@@ -130,10 +140,80 @@ async function verifyCapsuleCold() {
   }
 }
 
-async function capsuleMain(t) {
+async function checkCapsulePackage(serialized, wrapper, original) {
+  const opened = await api.WorkDataRecovery.open(serialized, password);
+  try {
+    const source = api.WorkDataRecovery.skillBackupSource(opened.snapshot.files, opened.snapshot.directories);
+    const auxiliary = opened.snapshot.auxiliaries.filter(row => row.type === 'skill-backup-portable');
+    assert.equal(auxiliary.length, 1);
+    assert.equal(auxiliary[0].sourceSha256, source.sourceSha256);
+    assert.equal(auxiliary[0].sourcePath, source.sourcePath);
+    const portable = JSON.parse(auxiliary[0].data.toString('utf8'));
+    assert.equal(portable.originals.length, 1);
+    assert.equal(portable.originals[0].wrapper, wrapper);
+    assert.deepEqual(portable.records.find(record => record.path === wrapper + '/archive').value, original);
+  } finally { opened.release(); }
+}
+
+async function capsuleExport(t, {base, owner, native, receipt, wrapper, original}) {
+  const backupDirectory = path.join(root, 'exports');
+  await fsp.mkdir(backupDirectory);
+  const id = crypto.randomBytes(24).toString('hex');
+  const rehearsal = path.join(backupDirectory, '.ruyi-work-data-verify-' + id);
+  const revision = digest('source capsule export');
+  const captureSource = async () => capsuleSourceWitness(await api.migrationCapsuleCapturePreserved(receipt.backup, revision));
+  const before = await captureSource();
+  const sourceKeeper = api.ServerOwnership.createSourceKeeper(owner, base);
+  const phases = [], events = [];
+  const production = native.coldOperationHost(value => phases.push(value.phase));
+  const host = {...production,
+    async verifyFresh(value) {
+      assert.equal(value.target, rehearsal);
+      assert.equal(await production.verifyFresh(value), true);
+      events.push('fresh');
+      return true;
+    },
+    async verifyDisposableNativeTree(value) {
+      assert.equal(value.target, rehearsal);
+      assert.equal(api.ServerOwnership.owns(value.ownership, rehearsal), true);
+      const prefix = wrapper + '/objects/';
+      const newNames = [...value.snapshot.directories, ...value.snapshot.files.map(row => row.path)]
+        .filter(name => name.startsWith(prefix)).map(name => name.slice(prefix.length));
+      assert.equal(newNames.length, original.entries.length);
+      assert.ok(newNames.every(name => /^[a-f0-9]{64}$/.test(name) && original.entries.every(row => row.opaque !== name)));
+      assert.equal(await production.verifyDisposableNativeTree(value), true);
+      events.push('exact mapped census');
+      return true;
+    }
+  };
+  try {
+    const result = await api.WorkDataColdOperations.create(host).execute({id, base, operation:'export', password,
+      ownership:owner, assertExclusive:selected => selected === owner && sourceKeeper.assertExclusive(selected),
+      expectedAuthority:{generation:0, id:null, mode:'encrypted', sha256:null},
+      paths:{backupDirectory, targetDirectory:null, uploadFile:null, uploadSha256:null}});
+    assert.equal(result.state, 'verified');
+    assert.equal(result.operation, 'export');
+    assert.deepEqual(phases, ['snapshot','verify-backup']);
+    assert.deepEqual(events, ['fresh','exact mapped census']);
+    await assert.rejects(fsp.lstat(rehearsal), {code:'ENOENT'});
+    t.ok(true, 'production cold export restores a new native capsule, passes the independent verifier and removes only its verified rehearsal');
+    const bytes = await fsp.readFile(result.backup.path);
+    assert.equal(digest(bytes), result.backup.sha256);
+    await checkCapsulePackage(bytes.toString('utf8'), wrapper, original);
+    assert.deepEqual(await captureSource(), before);
+    t.ok(true, 'published export authenticates the original native evidence and preserves source capsule identity and metadata');
+  } finally {
+    if (native.helperMayStillRun()) sourceKeeper.retainUnknown();
+    else await sourceKeeper.releaseChecked(() => native.helperMayStillRun() === false);
+  }
+}
+
+async function capsuleMain(t, exporting) {
   const base = process.env.RUYI_HOME;
   const target = path.join(root, 'capsule-restored');
-  const native = api.WorkDataNativeAdapters.create();
+  const native = exporting
+    ? api.WorkDataVerifierEntry.createVerifier({entry:path.resolve(__dirname, '../ruyi-workbench/app/server.js')})
+    : api.WorkDataNativeAdapters.create();
   const uncertain = () => native.helperMayStillRun() !== false || api.MigrationHooks.helperMayStillRun() !== false;
   let owner, targetOwner, passed = false;
   try {
@@ -162,22 +242,17 @@ async function capsuleMain(t) {
     await api.flushWorkbenchLogs({ allowFailure: false });
     t.ok(true, 'production skill overwrite creates a non-empty authenticated native capsule and named DATA stream');
 
+    if (exporting) {
+      await capsuleExport(t, {base, owner, native, receipt, wrapper, original});
+      passed = true;
+      return;
+    }
+
     const snapshotHost = native.fullSnapshot(base, owner, selected => selected === owner || selected === targetOwner);
     const seal = () => snapshotHost.seal({ password, appVersion: api.VERSION, generation: 0 });
     const sealed = await seal();
     assert.equal(sealed.specialCoverage?.originalObjects, 'new-owned-portable');
-    const opened = await api.WorkDataRecovery.open(sealed.serialized, password);
-    try {
-      const source = api.WorkDataRecovery.skillBackupSource(opened.snapshot.files, opened.snapshot.directories);
-      const auxiliary = opened.snapshot.auxiliaries.filter(row => row.type === 'skill-backup-portable');
-      assert.equal(auxiliary.length, 1);
-      assert.equal(auxiliary[0].sourceSha256, source.sourceSha256);
-      assert.equal(auxiliary[0].sourcePath, source.sourcePath);
-      const portable = JSON.parse(auxiliary[0].data.toString('utf8'));
-      assert.equal(portable.originals.length, 1);
-      assert.equal(portable.originals[0].wrapper, wrapper);
-      assert.deepEqual(portable.records.find(record => record.path === wrapper + '/archive').value, original);
-    } finally { opened.release(); }
+    await checkCapsulePackage(sealed.serialized, wrapper, original);
     t.ok(true, 'ordinary full snapshot binds actual native capsule evidence to the authenticated source manifest');
 
     targetOwner = await api.ServerOwnership.acquire([target]);
@@ -240,11 +315,11 @@ if (process.argv.includes('--verify-capsule')) {
     console.error(error.stack || error); logCauses(error);
     process.exitCode = 1;
   });
-} else if (process.argv.includes('--capsule')) {
+} else if (process.argv.includes('--capsule') || process.argv.includes('--capsule-export')) {
   if (process.platform !== 'win32') console.log('SKIP Windows native portable capsule');
   else {
     const t = createRunner('WORK DATA FULL SNAPSHOT CAPSULE');
-    capsuleMain(t).catch(error => {
+    capsuleMain(t, process.argv.includes('--capsule-export')).catch(error => {
       t.fail(error.stack || String(error)); logCauses(error);
     }).finally(() => t.done());
   }

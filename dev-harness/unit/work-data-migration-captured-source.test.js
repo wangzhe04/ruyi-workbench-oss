@@ -4,9 +4,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),io=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),vm=require('node:vm'),zlib=require('node:zlib');
 const {loadWorkDataJournals}=require('../lib/work-data-journals-fixture');
 const {createPreservedReaderModel}=require('../lib/work-data-preserved-reader-model');
-const {functionBlock}=require('../lib/source-slice');
+const {constBlock,functionBlock}=require('../lib/source-slice');
 const rootDir=path.resolve(__dirname,'../../ruyi-workbench/app/src'),hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-async function fixture(t){
+async function fixture(t,{paired=false,legacyBridge=false}={}){
   const root=await io.mkdtemp(path.join(os.tmpdir(),'ruyi-migration-captured-unit-')),source=path.join(root,'source'),target=path.join(root,'target');
   await io.mkdir(source);await io.mkdir(target);
   t.after(async()=>{assert.equal(path.dirname(root),path.resolve(os.tmpdir()));assert.ok(path.basename(root).startsWith('ruyi-migration-captured-unit-'));await io.rm(root,{recursive:true,force:true});});
@@ -18,7 +18,7 @@ async function fixture(t){
     return io.open(file,flags,...args);
   },async readFile(file,...args){if(inSource(file)){state.sourceIO++;throw Error('ordinary source readFile forbidden');}return io.readFile(file,...args);}};
   const actual=loadWorkDataJournals({io:guardedIO,fsp:guardedIO,require:name=>name==='node:fs/promises'?guardedIO:require(name)});
-  const context={...actual,WorkDataStore:{...actual.WorkDataStore,createBinary(host){
+  const context={...actual,WorkDataStore:{...actual.WorkDataStore,...(legacyBridge?{Hooks:{}}:{}),createBinary(host){
     const store=actual.WorkDataStore.createBinary(host);return{...store,async readWithPhysical(options){
       const result=await store.readWithPhysical(options);state.copies.push(result.value);
       if(state.zeroFailure)Object.defineProperty(result.value,'fill',{value(){throw state.zeroFailure;}});
@@ -30,9 +30,37 @@ async function fixture(t){
     return bytes;
   }},require:name=>name==='node:fs/promises'?guardedIO:require(name),Buffer,process};vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(rootDir,'01aa-work-data-tree.js'),'utf8')+'\n'+fs.readFileSync(path.join(rootDir,'01x-work-data-migration-codecs.js'),'utf8'),context);
+  if(legacyBridge){
+    const bridge=context.WorkDataStore.Hooks.capturedFiles;
+    Object.defineProperty(actual.store.Hooks,'capturedFiles',{value:Object.freeze({
+      async read(token,file){const bytes=await bridge.read(token,file);await state.afterDirectRead?.(file);return bytes;},
+      verify:bridge.verify,assert:bridge.assert,
+    })});
+  }
   const api=vm.runInContext('({tree:WorkDataTree,codecs:WorkDataMigrationCodecs})',context),owner={roots:[source]};
-  const nativeCapture=createPreservedReaderModel(async()=>{state.native++;if(state.onNativeCapture)await state.onNativeCapture();});
-  const reader=api.tree.createPreserved({capturePreserved:nativeCapture,ownership:owner,assertExclusive:value=>value===owner,assertExclusiveSync:value=>value===owner});
+  const singleCapture=createPreservedReaderModel(async()=>{state.native++;if(state.onNativeCapture)await state.onNativeCapture();});
+  const nativeCapture=async(root,revision,readback)=>{
+    if(!paired||!readback)return singleCapture(root,revision);
+    state.pairs=(state.pairs||0)+1;
+    assert.equal(api.tree.claimPreservedReadback({...readback},root,revision),false);
+    assert.equal(api.tree.claimPreservedReadback(readback,root,readback.revision),false);
+    assert.equal(api.tree.claimPreservedReadback(readback,root,revision),true);
+    assert.equal(api.tree.claimPreservedReadback(readback,root,revision),false);
+    if(state.earlyBindFailure){
+      void readback.bind({revision:readback.revision});
+      await new Promise(resolve=>setImmediate(resolve));
+      return singleCapture(root,readback.revision);
+    }
+    if(state.providerFailure){
+      const first=await singleCapture(root,revision);state.ownerFailure=state.bindFailure;
+      void readback.bind(first);
+      throw state.providerFailure;
+    }
+    await readback.bind(await singleCapture(root,revision));
+    await state.beforeReadback?.();
+    return singleCapture(root,readback.revision);
+  };
+  const reader=api.tree.createPreserved({capturePreserved:nativeCapture,ownership:owner,assertExclusive:value=>{if(state.ownerFailure)throw state.ownerFailure;return value===owner;},assertExclusiveSync:value=>value===owner});
   const master=crypto.randomBytes(32),keys={async snapshot(){const key=Buffer.from(master);state.keyCopies.push(key);return{key,instanceId:'b'.repeat(32),release(){state.releases++;key.fill(0);if(state.releaseFailure)throw state.releaseFailure;}};}};
   const scope=async work=>{
     state.scopes++;assert.equal(state.scopeOpen,false);state.scopeOpen=true;const capture=await reader.capture(source);
@@ -52,17 +80,135 @@ for(const [name,bytes,method,reads] of [
 ])test('captured migration reads '+name+' with fresh one-read grants and no ordinary source DATA IO',async t=>{
   const f=await fixture(t),input=await f.put(name,bytes),result=await f.bridge[method]({relative:name,targetMode:'encrypted'});
   assert.equal(result.sourcePhysicalHash,hash(bytes));assert.equal(f.state.sourceIO,0);assert.equal(f.state.scopes,2);assert.equal(f.state.tokens.length,reads);
-  // The historical text/gzip profile was 26: only its duplicate raw grant is
-  // gone. Each surviving grant still costs six native checks; scopes cost eight.
-  assert.equal(new Set(f.state.tokens.map(row=>row.token)).size,reads);assert.ok(f.state.writes>0);assert.equal(f.state.native,reads*6+8,'all original token and scope verifications remain');
+  // The private Store copy remains in the bridge until the full pre-work
+  // census completes. Post-work and both separate source scopes still verify.
+  assert.equal(new Set(f.state.tokens.map(row=>row.token)).size,reads);assert.ok(f.state.writes>0);assert.equal(f.state.native,reads*4+8);
   for(const{token,file}of f.state.tokens)assert.throws(()=>f.api.tree.assertCapturedFile(token,file),/captured_file_invalid/);
   for(const key of f.state.keyCopies)assert.ok(key.every(byte=>byte===0));assert.deepEqual(await io.readFile(input),bytes);
   const target=await io.readFile(path.join(f.target,...name.split('/')));assert.equal(hash(target),result.targetPhysicalHash);
 });
 test('readonly captured codec authenticates the same physical decode read without writes',async t=>{
   const f=await fixture(t),name='sessions/one.json',bytes=Buffer.from('{"id":"one"}');await f.put(name,bytes);
-  const proof=await f.bridge.verify({relative:name,targetMode:'plain'});assert.equal(proof.physicalHash,hash(bytes));assert.equal(f.state.scopes,1);assert.equal(f.state.tokens.length,1);assert.equal(f.state.native,10);assert.equal(f.state.writes,0);
+  const proof=await f.bridge.verify({relative:name,targetMode:'plain'});assert.equal(proof.physicalHash,hash(bytes));assert.equal(f.state.scopes,1);assert.equal(f.state.tokens.length,1);assert.equal(f.state.native,8);assert.equal(f.state.writes,0);
   await assert.rejects(f.bridge.verify({relative:name,targetMode:'encrypted'}),{code:'work_data_migration.verification_failed'});assert.equal(f.state.sourceIO,0);
+});
+
+test('paired census preserves both readings and catches a changed source after the first handle scope closed',async t=>{
+  const f=await fixture(t,{paired:true}),name='sessions/one.json',file=await f.put(name,'{"id":"one"}');
+  await f.bridge.verify({relative:name,targetMode:'plain'});
+  assert.equal(f.state.native,8);assert.equal(f.state.pairs,4);assert.equal(f.state.sourceIO,0);
+  f.state.beforeReadback=()=>io.writeFile(file,'{"id":"two"}');
+  await assert.rejects(f.bridge.transform({relative:name,targetMode:'encrypted'}),{code:'work_data_tree.source_changed'});
+  assert.equal(f.state.writes,0);assert.equal(f.state.sourceIO,0);
+});
+for(const legacyBridge of [false,true])test('Store refuses a changed carrier before consumption with '+(legacyBridge?'the legacy verified read bridge':'a private copy'),async t=>{
+  const f=await fixture(t,{legacyBridge}),name='sessions/one.json',file=await f.put(name,'{}');
+  const host={file:()=>file,purpose:'session',schema:2,scopeId:'sessions',recordId:'one',keys:f.keys,enabled:()=>true,writeJson:f.actual.atomicWriteJson};
+  await loadWorkDataJournals().store.createText(host).write('{"id":"one"}');f.state.keyCopies.length=0;
+  let changed=false,physicalCalls=0;
+  const change=async()=>{assert.equal(changed,false);changed=true;await io.writeFile(file,'{"id":"two"}');};
+  if(legacyBridge)f.state.afterDirectRead=async actual=>{assert.equal(actual,file);assert.equal(f.state.native,4);await change();};
+  else f.state.onNativeCapture=async()=>{if(f.state.native===3)await change();};
+  await assert.rejects(f.scope(factory=>f.actual.store.createText({...host,capturedFile:()=>factory(file)})
+    .readWithPhysical({maxBytes:4096,assertPhysical:()=>{physicalCalls++;}})),{code:'work_data_tree.source_changed'});
+  assert.equal(changed,true);assert.equal(physicalCalls,0);assert.equal(f.state.keyCopies.length,0);assert.equal(f.state.sourceIO,0);
+});
+test('standalone captured-file consumers still verify the live carrier before returning bytes',async t=>{
+  const f=await fixture(t),file=await f.put('sessions/one.json','{"id":"one"}'),captured=await f.reader.capture(f.source);
+  try{
+    const token=await f.api.tree.borrowCapturedFile(captured,file,f.owner);
+    f.state.onNativeCapture=async()=>{if(f.state.native===3)await io.writeFile(file,'{"id":"two"}');};
+    await assert.rejects(f.api.tree.readCapturedFile(token,file),{code:'work_data_tree.source_changed'});
+    assert.equal(f.state.native,4);assert.equal(f.state.sourceIO,0);
+  }finally{captured.release();}
+});
+test('paired census observes a binding rejection before a provider returns without awaiting it',async t=>{
+  const f=await fixture(t,{paired:true}),name='sessions/one.json';await f.put(name,'{"id":"one"}');
+  f.state.earlyBindFailure=true;
+  await assert.rejects(f.bridge.verify({relative:name,targetMode:'plain'}),{code:'work_data_tree.preserved_native_invalid'});
+  assert.equal(f.state.writes,0);
+});
+test('paired census preserves a distinct binding uncertainty after the provider fails first',async t=>{
+  const f=await fixture(t,{paired:true}),name='sessions/one.json';await f.put(name,'{"id":"one"}');
+  const primary=Error('native provider failed'),bind=Object.assign(Error('Node binding uncertain'),{helperMayStillRun:true});
+  const host=fs.readFileSync(path.join(rootDir,'01ad-work-data-migration-host.js'),'utf8'),detect=constBlock(host,'sourceUnknown');
+  assert.ok(detect);
+  const sourceUnknown=vm.runInNewContext(detect+'\nsourceUnknown;',{require});
+  f.state.providerFailure=primary;f.state.bindFailure=bind;
+  await assert.rejects(f.bridge.verify({relative:name,targetMode:'plain'}),error=>{
+    const aggregate=error.cause;
+    assert.equal(aggregate.cause,primary);assert.equal(aggregate.errors[0],primary);assert.equal(aggregate.errors[1],bind);
+    assert.equal(sourceUnknown(new AggregateError(aggregate.errors)),true);assert.equal(sourceUnknown(error),true);
+    return aggregate.helperMayStillRun===true&&aggregate.ownershipRetained===true;
+  });
+  assert.equal(f.state.writes,0);
+});
+
+function censusProducerModel(fault){
+  const src=fs.readFileSync(path.join(rootDir,'13u-migration-center.js'),'utf8');
+  const functions=['migrationCapsuleShape','migrationCapsuleFail','migrationCapturedCleanupFailure','migrationCapsuleCapturePreserved'].map(name=>functionBlock(src,name));
+  assert.ok(functions.every(Boolean));
+  const root='synthetic-owned-root',first='1'.repeat(64),last='2'.repeat(64),events=[];
+  const snapshot=revision=>({schema:1,platform:'ntfs-objects-v1',revision,entries:[
+    {rel:'',dir:true,id:'a'.repeat(24),opaque:'a'.repeat(64),attrs:16,times:['1','2','3','4'],shortName:'',streams:[]},
+    {rel:'one',dir:false,id:'b'.repeat(24),opaque:'b'.repeat(64),attrs:32,times:['1','2','3','4'],shortName:'',streams:['',':named:$DATA'].map(name=>({name,size:0,hash:hash(Buffer.alloc(0)),data:''}))},
+  ]});
+  const nativeError=Object.assign(new Error('native did not prove close'),{code:'work_data_backup.census_first_close_unverified'});
+  let started,release,idle;
+  const closing=new Promise(resolve=>{started=resolve;}),closed=new Promise(resolve=>{release=resolve;});
+  const migrationCapsuleBroker=async()=>{events.push('spawn');return{
+    async command(args){
+      events.push(args.cmd);assert.equal(args.root,root);
+      if(args.cmd==='capture-preserved-census-first'){
+        assert.equal(args.revision,first);if(fault==='unclosed')throw nativeError;
+        return {closedHandles:fault==='count'?2:3,revision:fault==='nonce'?last:first,snapshot:snapshot(first)};
+      }
+      assert.equal(args.cmd,'capture-preserved-census-final');assert.equal(args.revision,last);assert.equal(args.firstRevision,first);
+      return snapshot(fault==='final-nonce'?first:last);
+    },
+    async close(){events.push('close');started();await closed;if(fault==='unclosed')throw nativeError;
+      if(fault==='idle-close')throw Object.assign(new Error('unknown close'),{helperMayStillRun:true});},
+  };};
+  const issued=new WeakSet(),WorkDataTree={claimPreservedReadback(token,selected,revision){return selected===root&&revision===first&&issued.delete(token);}};
+  const timers={setTimeout(callback,ms){assert.equal(ms,120000);idle=callback;return 1;},clearTimeout(){idle=null;}};
+  const capture=vm.runInNewContext(functions.join('\n')+'\nmigrationCapsuleCapturePreserved;',{Buffer,crypto,migrationCapsuleBroker,WorkDataTree,require(name){assert.equal(name,'node:timers');return timers;}});
+  return {events,first,last,root,release,closing,unknown:()=>migrationCapsuleBroker.helperMayStillRun,
+    fireIdle(){assert.equal(typeof idle,'function');idle();},
+    run(bind,{forged=false}={}){const token=Object.freeze({revision:last,bind});if(!forged)issued.add(token);return capture(root,first,token);}};
+}
+test('paired producer binds only after the closed first receipt and releases only after final actual close',async()=>{
+  const f=censusProducerModel();let finished=false;
+  const result=f.run(value=>{assert.equal(value.revision,f.first);f.events.push('node-bind');}).then(value=>{finished=true;return value;});
+  await Promise.race([f.closing,result]);
+  assert.deepEqual(f.events,['spawn','capture-preserved-census-first','node-bind','capture-preserved-census-final','close']);
+  assert.equal(finished,false);f.release();assert.equal((await result).revision,f.last);assert.equal(f.unknown(),undefined);
+});
+for(const fault of ['count','nonce','unclosed'])test('paired producer latches a failed first close proof '+fault+' and never sends the final command',async()=>{
+  const f=censusProducerModel(fault);f.release();
+  await assert.rejects(f.run(()=>assert.fail('unproven first receipt reached Node')),
+    {code:'work_data_backup.census_first_close_unverified',helperMayStillRun:true,ownershipRetained:true});
+  assert.deepEqual(f.events,['spawn','capture-preserved-census-first','close']);assert.equal(f.unknown(),true);
+});
+test('paired producer refuses an unissued readback before starting a broker',async()=>{
+  const f=censusProducerModel();await assert.rejects(f.run(()=>{}, {forged:true}),{code:'work_data_backup.census_scope'});
+  assert.deepEqual(f.events,[]);
+});
+test('paired producer refuses a final result replaying the first nonce after actual close',async()=>{
+  const f=censusProducerModel('final-nonce'),result=f.run(()=>{});
+  await Promise.race([f.closing,result]);f.release();
+  await assert.rejects(result,{code:'work_data_backup.shape'});
+  assert.equal(f.unknown(),undefined);
+});
+test('paired producer bounds idle native close but settles the Node bind and retains both failures',async()=>{
+  const f=censusProducerModel('idle-close'),primary=Error('Node binding failed');let bindStarted,rejectBind,settled=false;
+  const started=new Promise(resolve=>{bindStarted=resolve;}),binding=new Promise((resolve,reject)=>{rejectBind=reject;});
+  const result=f.run(()=>{bindStarted();return binding;});
+  result.then(()=>{settled=true;},()=>{settled=true;});
+  await Promise.race([started,result]);f.fireIdle();await f.closing;f.release();await Promise.resolve();assert.equal(settled,false);
+  rejectBind(primary);
+  await assert.rejects(result,error=>error.helperMayStillRun===true&&error.ownershipRetained===true
+    &&error.cause.code==='work_data_backup.census_idle_timeout'&&error.cause.cause===primary);
+  assert.deepEqual(f.events,['spawn','capture-preserved-census-first','close']);
 });
 
 for(const kind of ['text','sealed-text','chunked-text','gzip','sealed-gzip'])test('Store physical receipt hashes the exact '+kind+' carrier after the real decode lifecycle',async t=>{
@@ -77,7 +223,7 @@ for(const kind of ['text','sealed-text','chunked-text','gzip','sealed-gzip'])tes
   });
   assert.equal(Object.isFrozen(result),true);assert.equal(Object.isFrozen(result.physical),true);assert.equal(result.physical.sha256,hash(physical));
   if(binary){assert.deepEqual(result.value,logical);result.value.fill(0);}else assert.equal(result.value,logical);
-  assert.equal(f.state.native,10);assert.equal(f.state.tokens.length,1);assert.equal(f.state.sourceIO,0);
+  assert.equal(f.state.native,8);assert.equal(f.state.tokens.length,1);assert.equal(f.state.sourceIO,0);
 });
 
 for(const kind of ['invalid-utf8','physical-limit','nonvoid-guard'])test('same-read '+kind+' refuses before credentials or target writes',async t=>{
@@ -106,7 +252,7 @@ test('same-read decoded binary is cleared when its closed source scope fails lat
 
 test('same-read binary returns no receipt and clears its Buffer after a late token verification failure',async t=>{
   const f=await fixture(t),file=await f.put('checkpoints/one/1-2.gz',zlib.gzipSync(Buffer.from('{}'))),primary=Object.assign(Error('post-decode changed'),{code:'work_data_tree.source_changed'});let decoded,returned=false;
-  f.state.onNativeCapture=()=>{if(f.state.native===7)throw primary;};
+  f.state.onNativeCapture=()=>{if(decoded)throw primary;};
   await assert.rejects(f.scope(async factory=>{
     const store=f.actual.store.createBinary({file:()=>file,purpose:'session',schema:1,scopeId:'one',recordId:'1-2.gz',keys:f.keys,enabled:()=>true,writeJson:f.actual.atomicWriteJson,chunked:true,maxPlaintextBytes:4096,maxBinaryBytes:4096,capturedFile:()=>factory(file),validateLegacyBinary:bytes=>{decoded=bytes;return true;}});
     const result=await store.readWithPhysical({maxBytes:4096,assertPhysical:()=>{}});returned=true;return result;

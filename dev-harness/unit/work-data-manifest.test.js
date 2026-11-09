@@ -54,6 +54,20 @@ test('commit selects exactly one candidate and preserves old authority roots', a
   assert.equal((await fresh.readActive()).proof.raw, next.proof.raw);
 });
 
+test('captured authority uses the same bounded parser without ordinary file or directory reads', async () => {
+  const f=await fixture(),prepared=await f.prepare(),current=await f.api.commit(prepared);
+  const blocked=load(new Proxy({}, {get(){assert.fail('capture authority must not reopen the filesystem');}})).create({base:f.base});
+  const capture={root:f.base,directories:['.work-data','.work-data/generations','.work-data/generations/'+current.id],
+    files:[{path:'.work-data/active-v1.json',data:Buffer.from(current.proof.raw)}]};
+  const selected=blocked.readCaptured(capture);
+  assert.deepEqual({...selected,proof:{...selected.proof}}, {...current,proof:{...current.proof}});
+  assert.equal(blocked.readCaptured({...capture,files:[]}).generation,0);
+  assert.throws(()=>blocked.readCaptured({...capture,directories:[]}),code('directory_unavailable'));
+  assert.throws(()=>blocked.readCaptured({...capture,files:[{...capture.files[0],data:Buffer.alloc(4097)}]}),code('invalid'));
+  assert.throws(()=>blocked.readCaptured({...capture,files:[{...capture.files[0],data:Buffer.from([255])}]}),code('invalid'));
+  assert.throws(()=>blocked.readCaptured({...capture,root:path.dirname(f.base)}),code('invalid'));
+});
+
 test('malformed, unsupported, oversized, invalid UTF8 and traversal manifests never become legacy', async () => {
   const f = await fixture(); await f.prepare();
   const id = 'a'.repeat(48), good = { schema: 1, generation: 1, id, mode: 'encrypted', activeRoot: 'generations/' + id };

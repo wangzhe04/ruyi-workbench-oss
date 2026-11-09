@@ -152,16 +152,27 @@ const WorkDataStore = ((fsp, pathModule) => {
     const bridge = Hooks.capturedFiles;
     if (!bridge || !Object.isFrozen(bridge)
       || ['read', 'verify', 'assert'].some(name => typeof bridge[name] !== 'function')) fail('captured_file_unavailable');
+    const consume = Object.getOwnPropertyDescriptor(bridge, 'consume');
+    if (consume && (!Object.hasOwn(consume, 'value') || typeof consume.value !== 'function')) fail('captured_file_unavailable');
     let token, bytes, result, failed = false, failure;
     const assert = () => { if (bridge.assert(token, target) !== true) fail('captured_file_invalid'); };
     const verify = async () => { if (await bridge.verify(token, target) !== true) fail('captured_file_invalid'); assert(); };
     try {
       token = await (typeof host.capturedFile === 'function' ? host.capturedFile() : host.capturedFile);
       if (!token || typeof token !== 'object' || typeof token.release !== 'function') fail('captured_file_invalid');
-      bytes = await bridge.read(token, target);
-      if (!Buffer.isBuffer(bytes)) fail('captured_file_invalid');
-      await verify();
-      result = await work(bytes, assert);
+      if (consume) {
+        result = await consume.value(token, target, owned => {
+          bytes = owned;
+          if (!Buffer.isBuffer(bytes)) fail('captured_file_invalid');
+          assert();
+          return work(bytes, assert);
+        });
+      } else {
+        bytes = await bridge.read(token, target);
+        if (!Buffer.isBuffer(bytes)) fail('captured_file_invalid');
+        await verify();
+        result = await work(bytes, assert);
+      }
       await verify(); assert();
     } catch (error) { failed = true; failure = error; }
     const cleanupErrors=[];let releaseFailed=false;

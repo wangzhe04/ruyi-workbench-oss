@@ -8,10 +8,14 @@ for(const generation of [0,1])test(generation?'generation-prefix source reads co
  else{await f.write('config.json','{}');await f.write('sessions/one.json','{"id":"one","text":"ORIGINAL"}');}
  const original=await fsp.readFile(path.join(root,'sessions/one.json')),expected=await f.manifest.readActive(),backup=await f.backupFirst();
  if(generation){await assert.rejects(f.host.prepare({...backup,expected,targetMode:'encrypted'}),{code:'work_data_backup.binding_missing',operationMayHaveExecuted:true});
-   const bytes=await fsp.readFile(path.join(f.state.candidate.root,'sessions/one.json'));assert.equal(bytes.includes(Buffer.from('ORIGINAL')),false);assert.ok(f.state.nativeCaptures.length>=26);assert.deepEqual(await fsp.readFile(path.join(root,'sessions/one.json')),original);assert.equal((await f.manifest.readActive()).generation,1);return;
+   const bytes=await fsp.readFile(path.join(f.state.candidate.root,'sessions/one.json'));assert.equal(bytes.includes(Buffer.from('ORIGINAL')),false);
+   // This branch stops before the final base check. The codec still performs
+   // sixteen physical reads across its two read scopes, after base and active-root captures.
+   assert.deepEqual(f.state.nativeCaptures,[f.base,f.base,root,root,...Array(20).fill(f.base)]);
+   assert.deepEqual(await fsp.readFile(path.join(root,'sessions/one.json')),original);assert.equal((await f.manifest.readActive()).generation,1);return;
  }
  const token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});
- assert.equal(token.transformed.length,1);assert.equal(token.sourceGeneration,generation);assert.ok(f.state.nativeCaptures.length>=26);
+ assert.equal(token.transformed.length,1);assert.equal(token.sourceGeneration,generation);assert.deepEqual(f.state.nativeCaptures,Array(26).fill(f.base));
  await f.host.publish(token);const count=f.state.nativeCaptures.length,proof=await f.host.verifyPublished(token);assert.equal(proof.generation,generation+1);assert.equal(proof.logicalFiles,1);assert.ok(f.state.nativeCaptures.length>count);assert.deepEqual(await fsp.readFile(path.join(root,'sessions/one.json')),original);
 });
 

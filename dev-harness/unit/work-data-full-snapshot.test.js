@@ -39,6 +39,82 @@ test('a non-empty capsule tree reaches the snapshot only through its portable ow
   assert.ok(payload.files > 0, 'the capsule tree was present when the owner captured it');
  } finally { opened.release(); }
 });
+test('private restored receipt binds mapped paths, staged DATA and an unchanged native fingerprint', async t => {
+ const f=await fixture(t,{apiNames:['WorkDataTree']}),target=path.join(f.root,'portable-target');
+ const objects='migrations/skill-backups/2026-11-09T00-00-00Z/Test_Skill/objects/';
+ const oldFile=objects+'a'.repeat(64),newFile=objects+'b'.repeat(64);
+ const oldDirectory=objects+'c'.repeat(64),newDirectory=objects+'d'.repeat(64);
+ const archive=objects.slice(0,-'objects/'.length)+'archive',staged=Buffer.from('synthetic rebound archive');
+ const opaque=Buffer.alloc(0),profile={originalObjects:'new-owned-portable'};
+ await f.write('config.json','{"workDataEncryptionV1":false}');
+ await f.write(oldFile,opaque);await f.write(archive,'synthetic source archive');
+ await fsp.mkdir(path.join(f.base,...oldDirectory.split('/')));
+ const at=relative=>path.join(target,...relative.split('/'));
+ const installed={target,readOnly:true,...profile,terminalSnapshots:'source-history-only'};
+ const skillBackupOwner=async()=>({
+  async capturePortable(){return {data:Buffer.from('synthetic native portable'),profile};},
+  async validatePortable(){return {profile};},
+  async stagePortable(){return {profile,files:[{path:archive,data:staged}],skipDirectories:[oldDirectory],skipFiles:[archive,oldFile],
+   pathMappings:[{source:oldFile,target:newFile,dir:false},{source:oldDirectory,target:newDirectory,dir:true}]};},
+  async installPortable(){await fsp.mkdir(at(newDirectory));await fsp.writeFile(at(newFile),opaque);await fsp.writeFile(at(archive),staged);return installed;},
+  async verifyPortableInstalled(){return installed;},
+ });
+ const sourceOwner={roots:[f.base]},firstOwner={roots:[target]},nextOwner={roots:[target]};
+ const live=new Set([sourceOwner,firstOwner]),exclusive=owner=>live.has(owner);
+ let stamp='1'.repeat(64),refreshOnVerify=false;
+ const restoredTreeFor=({ownership,assertExclusive})=>{
+  assert.equal(assertExclusive(ownership),true);
+  const tree=f.api.WorkDataTree.create(),proofs=new WeakMap();
+  const proof=value=>Object.freeze({...value,nativeMetadata:'preserved-reader-closed',nativeSha256:stamp});
+  return {
+   async capture(root){const captured=await tree.capture(root);proofs.set(captured,proof(await tree.verify(captured)));return captured;},
+   async verify(captured){if(refreshOnVerify)stamp='3'.repeat(64);const actual=proof(await tree.verify(captured));proofs.set(captured,actual);return actual;},
+   fingerprint:captured=>proofs.get(captured),
+  };
+ };
+ const producer=()=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership:sourceOwner,assertExclusive:exclusive,
+  protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,skillBackupOwner,restoredTreeFor});
+ const owner=producer(),{serialized}=await owner.seal({password,appVersion:'3.0.1',generation:0});
+ const result=await owner.restore({serialized,password,target,targetOwnership:firstOwner});
+ const receipt=await owner.describeRestored(result),files=new Map(receipt.namespace.files.map(row=>[row.path,row]));
+ assert.equal(receipt.packageSha256,hash(Buffer.from(serialized)));
+ assert.equal(receipt.manifestSha256,result.manifestSha256);
+ assert.equal(files.has(oldFile),false);assert.equal(files.get(newFile).size,0);
+ assert.equal(files.get(archive).sha256,hash(staged));
+ assert.ok(receipt.namespace.directories.includes(newDirectory));assert.ok(!receipt.namespace.directories.includes(oldDirectory));
+ assert.ok(Object.isFrozen(receipt.namespace.files[0]));assert.equal(Object.hasOwn(result,'namespace'),false);
+ await assert.rejects(producer().describeRestored(result),{code:'work_data_full.restored_receipt_invalid'});
+ await assert.rejects(owner.describeRestored({...result}),{code:'work_data_full.restored_receipt_invalid'});
+ const verify=ownership=>owner.verifyRestored(result,{ownership,assertExclusive:exclusive});
+ live.delete(firstOwner);live.add(nextOwner);
+ await assert.rejects(verify(firstOwner),{code:'work_data_full.target_ownership_required'});
+ assert.equal(await verify(nextOwner),true);
+ stamp='2'.repeat(64);
+ await assert.rejects(verify(nextOwner),{code:'work_data_full.restored_target_changed'});
+ stamp='1'.repeat(64);refreshOnVerify=true;
+ await assert.rejects(verify(nextOwner),{code:'work_data_full.restored_proof_invalid'});
+});
+test('verifier seal derives both authority checks from the preserved view and refuses a late physical config change', async t => {
+ const {createPreservedReaderModel}=require('../lib/work-data-preserved-reader-model');
+ const f=await fixture(t),ownership={roots:[f.base]},exclusive=value=>value===ownership;
+ const config=marker=>JSON.stringify({workDataEncryptionV1:false,marker});
+ await f.write('config.json',config('before'));
+ const manifest=f.api.WorkDataManifest.create({base:f.base}),seen=[];
+ let captures=0,tamper=false;
+ const capturePreserved=createPreservedReaderModel(async()=>{
+  captures++;
+  if(tamper&&captures===7)await f.write('config.json',config('tamper'));
+ });
+ const owner=f.api.WorkDataFullSnapshot.create({base:f.base,ownership,assertExclusive:exclusive,assertExclusiveSync:exclusive,
+  protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,preservedRead:{profile:'bounded-native-v1',capturePreserved},
+  readCapturedAuthority:capture=>{seen.push(captures);return manifest.readCaptured(capture);}});
+ const seal=()=>owner.seal({password,appVersion:'3.0.1',generation:null});
+ assert.equal((await seal()).verifiedGeneration,0);
+ assert.deepEqual(seen,[2,8]);
+ seen.length=0;captures=0;tamper=true;
+ await assert.rejects(seal(),{code:'work_data_tree.source_changed'});
+ assert.deepEqual(seen,[2]);
+});
 test('C11 control profile hook defaults closed and installs only the immutable real validator',async t=>{
  const f=await fixture(t),ownership={roots:[f.base]},owner=proof=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership,assertExclusive:async value=>value===ownership,protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,controlRecoveryProof:proof});
  assert.equal(f.api.WorkDataFullSnapshot.Hooks?.controlRecoveryProfile,undefined);

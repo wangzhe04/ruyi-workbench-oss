@@ -22,7 +22,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   }
   // Only an actual preserved owner may lend its already captured file bytes.
   // Tokens have no serializable authority; ordinary captures never enter here.
-  const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap();
+  const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap(), preservedReadbacks = new WeakMap();
+  function claimPreservedReadback(token, root, revision) {
+    const known = preservedReadbacks.get(token);
+    return !!known && known.root === root && known.revision === revision && preservedReadbacks.delete(token);
+  }
   const fileKey = file => typeof file === 'string' && pathApi.isAbsolute(file) ? pathKey(pathApi.resolve(file)) : null;
   function currentCapturedFile(token, file) {
     const known = capturedFileLeases.get(token);
@@ -61,6 +65,18 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     const known = await checkedCapturedFile(token, file);
     currentCapturedFile(token, file); if (known.read) fail('captured_file_invalid'); known.read = true;
     const bytes = Buffer.from(known.bytes); known.copies.push(bytes); return bytes;
+  }
+  async function consumeCapturedFile(token, file, consume) {
+    if (typeof consume !== 'function') fail('captured_file_invalid');
+    const known = currentCapturedFile(token, file);
+    if (known.read) fail('captured_file_invalid');
+    known.read = true;
+    // Copy privately, then run the Store's pre-consumption gate. The copy
+    // cannot reach the Store until the live tree and this exact grant agree.
+    const bytes = Buffer.from(known.bytes); known.copies.push(bytes);
+    await known.capture.verify();
+    currentCapturedFile(token, file);
+    return consume(bytes);
   }
   async function verifyCapturedFile(token, file) { await checkedCapturedFile(token, file); return assertCapturedFile(token, file); }
   const validName = name => {
@@ -267,9 +283,11 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     }
     async function census(root, retain) {
       await admitted(root); await realDirectory(root);
-      const first = parse(await capturePreserved(root, cryptoApi.randomBytes(32).toString('hex')));
-      let second, result, success = false, failed=false, primary;
-      try {
+      const firstRevision = cryptoApi.randomBytes(32).toString('hex'), revision = cryptoApi.randomBytes(32).toString('hex');
+      let first, second, result, binding, bindingCompleted = false, accepting = true, success = false, failed = false, primary;
+      async function bindFirst(snapshot) {
+        if(snapshot?.revision!==firstRevision)fail('preserved_native_invalid');
+        first = parse(snapshot);
         await admitted(root);
         result = { root, directories: [], files: [], bytes: first.used }; const bound = new Map();
         // All Node metadata/namespace checks precede the final, closed native
@@ -301,7 +319,32 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         };
         result.rootIdentity = bound.get(''); walk('');
         await admitted(root);
-        second = parse(await capturePreserved(root, cryptoApi.randomBytes(32).toString('hex')));
+      }
+      const bind = snapshot => {
+        if(!accepting||binding)fail('preserved_native_invalid');
+        binding = bindFirst(snapshot).then(() => { bindingCompleted = true; });
+        binding.catch(()=>{}); // Even a provider failing before it awaits bind must not orphan this rejection.
+        return binding;
+      };
+      const readback = Object.freeze({ revision, bind });
+      preservedReadbacks.set(readback,{root,revision:firstRevision});
+      try {
+        // The native producer may use one broker for both readings. Its first
+        // response proves all captured handles closed before these Node checks,
+        // and its final response is withheld until the actual broker closes.
+        let snapshot = await capturePreserved(root, firstRevision, readback);
+        accepting = false;
+        if (!binding) {
+          // Hosts implementing only the original single-read interface still
+          // provide two fully closed, independent native readings.
+          await bindFirst(snapshot);
+          snapshot = await capturePreserved(root, revision);
+        } else if (!bindingCompleted) {
+          await binding;
+          fail('preserved_native_invalid');
+        }
+        if(snapshot?.revision!==revision)fail('preserved_native_invalid');
+        second = parse(snapshot);
         if (second.nativeSha256 !== first.nativeSha256) fail('source_changed');
         // Only the actual owner assertion runs after final native close. It must
         // inspect its held lease, not reopen target data/namespace.
@@ -309,7 +352,10 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         return { result, nativeSha256: second.nativeSha256 };
       } catch(cause){failed=true;primary=cause;throw cause;}
       finally {
+        accepting=false;
+        preservedReadbacks.delete(readback);
         const errors=[];let releaseFailed=false;
+        if(binding&&!bindingCompleted)try{await binding;}catch(cause){if(!failed||!Object.is(cause,primary))errors.push(cause);}
         for(const captured of [first,second])if(captured)try{const released=captured.release();if(released!==undefined){Promise.resolve(released).catch(()=>{});throw new Error('captured_release_unproven');}}catch(cause){releaseFailed=true;errors.push(cause);}
         // No buffers escape either an unsuccessful proof or an uncertain cleanup.
         if((!success||errors.length)&&result)for(const row of result.files)try{row.data?.fill(0);}catch(cause){errors.push(cause);}
@@ -355,12 +401,12 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     return Object.freeze({ capture, verify, fingerprint });
   }
 
-  return Object.freeze({ create, createPreserved, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile });
+  // Late, immutable adapter: only this module can validate its private issued
+  // capabilities. The store keeps its parser and cryptographic context.
+  if (typeof WorkDataStore !== 'undefined' && WorkDataStore.Hooks) Object.defineProperty(WorkDataStore.Hooks, 'capturedFiles', {
+    enumerable: true, configurable: false, writable: false, value: Object.freeze({
+      read: readCapturedFile, consume: consumeCapturedFile, verify: verifyCapturedFile, assert: assertCapturedFile,
+    }),
+  });
+  return Object.freeze({ create, createPreserved, claimPreservedReadback, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
-// Late, immutable adapter: only this module can validate its private issued
-// capabilities. The store keeps its existing parser and cryptographic context.
-if (typeof WorkDataStore !== 'undefined' && WorkDataStore.Hooks) Object.defineProperty(WorkDataStore.Hooks, 'capturedFiles', {
-  enumerable: true, configurable: false, writable: false, value: Object.freeze({
-    read: WorkDataTree.readCapturedFile, verify: WorkDataTree.verifyCapturedFile, assert: WorkDataTree.assertCapturedFile,
-  }),
-});

@@ -117,8 +117,14 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
   const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,claim:WorkDataHandoffClaim,control:WorkDataMaintenanceControl,keys:WorkDataKeys,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);
   const authority = { generation: 1, id: 'a'.repeat(48), mode: 'encrypted', proof: { sha256: 'b'.repeat(64) } };
   const fullAuthority = { generation: authority.generation, id: authority.id, mode: authority.mode, sha256: authority.proof.sha256 };
-  const nativeBindings = { ownership: api.ownership, manifest: { create: () => ({ readActive: async () => authority }) },
-    fullSnapshot: { create: () => ({ seal: async () => ({ sourceProof: { sha256: 'd'.repeat(64), bytes: 17, files: 1, directories: 1 }, files: 1, directories: 1 }), restore: async () => ({ ok: true }) }) },
+  const nativeBindings = { ownership: api.ownership, manifest: { create: () => ({ readActive: async () => authority, readCaptured: () => authority }) },
+    fullSnapshot: { create: options => ({ async seal() {
+      const captured={root:options.base,files:[],directories:[]};
+      options.readCapturedAuthority?.(captured);
+      const after=options.readCapturedAuthority?.(captured);
+      return {sourceProof:{sha256:'d'.repeat(64),bytes:17,files:1,directories:1},files:1,directories:1,
+        ...(after?{verifiedGeneration:after.generation}:{})};
+    }, restore: async () => ({ ok: true }) }) },
     nativePublish: { createFlush: () => async directories => { events.push('flush'); if(state.flushFailure)throw state.flushFailure; return { ok: true, flushDirectories: directories, directoryFlush: directories.map(() => 0) }; } },
     disposableTree: { create: () => async () => true }, tree: {createPreserved:()=>{throw Error('preserved tree must be bound by this test');}}, migrationHost: { create: () => ({}) },
     worker: { create: () => ({}), spawnCold() { throw Error('No real child in pure fixture'); }, processChannel() { throw Error('No real IPC in pure fixture'); } },

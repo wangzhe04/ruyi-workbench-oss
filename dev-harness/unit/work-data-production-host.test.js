@@ -165,7 +165,7 @@ for (const queued of [false, true]) test('verifier microtask revocation cannot r
   const f = createFixture(); let owner, pending, sent = 0;
   const acquire = f.api.ownership.acquire;
   f.nativeBindings.ownership = { ...f.api.ownership, acquire: async roots => { owner = await acquire(roots); return owner; } };
-  if (queued) f.nativeBindings.fullSnapshot.create = () => ({ seal: async () => { pending = owner.release(); pending.catch(() => {}); return { sourceProof: { sha256: 'd'.repeat(64) }, files: 1, directories: 1 }; } });
+  if (queued) f.nativeBindings.fullSnapshot.create = () => ({ seal: async () => { pending = owner.release(); pending.catch(() => {}); return { sourceProof: { sha256: 'd'.repeat(64) }, files: 1, directories: 1, verifiedGeneration: 1 }; } });
   const target = await f.api.ownership.canonicalRoot(f.paths.base), bytes = Buffer.from(JSON.stringify({ schema: 1, kind: 'verify-full', id: 'a'.repeat(48), nonce: 'c'.repeat(64), parentPid: 888, target, generation: 1, password: 'synthetic verifier password' }));
   const enqueue = n => n === 0 ? f.state.unknown = true : queueMicrotask(() => enqueue(n - 1));
   await assert.rejects(() => f.native.runVerifier({ parentConnected: () => true, parentPid: () => 888, readInput: async () => bytes, send: async () => { sent++; enqueue(4); } }));
@@ -832,7 +832,14 @@ test('the real verifier accepts a Windows case variant and keeps the requested p
   const f = createFixture(), target = f.paths.base.toUpperCase();
   const seen = { acquire: [], manifest: [], snapshot: [] };
   const ownership = { ...f.api.ownership, acquire: async roots => { seen.acquire.push([...roots]); return f.api.ownership.acquire(roots); } };
-  const manifest = { ...f.nativeBindings.manifest, create: options => { seen.manifest.push(options.base); return f.nativeBindings.manifest.create(options); } };
+  const manifest = { create: options => ({
+    async readActive() { assert.fail('the verifier must not reopen the authority pointer'); },
+    readCaptured(captured) {
+      assert.equal(captured.root, options.base);
+      seen.manifest.push(options.base);
+      return f.nativeBindings.manifest.create(options).readCaptured(captured);
+    },
+  }) };
   const fullSnapshot = { ...f.nativeBindings.fullSnapshot, create: options => { seen.snapshot.push(options.base); return f.nativeBindings.fullSnapshot.create(options); } };
   const adapter = f.api.native.create({ bindings: { ...f.nativeBindings, ownership, manifest, fullSnapshot }, proc: f.proc, clock: verifierClock });
   // The memory filesystem is case-insensitive and the fixture models win32, so this
@@ -850,6 +857,26 @@ test('the real verifier accepts a Windows case variant and keeps the requested p
   assert.deepEqual(seen.manifest, [target, target], 'both authority reads keep the original path');
   assert.deepEqual(seen.snapshot, [target], 'the snapshot keeps the original path');
   assert.ok(bytes.every(value => value === 0));
+});
+
+test('verifier derives generation-zero mode from the bounded preserved config and refuses malformed config', async () => {
+  for (const [text,mode] of [['\uFEFF{"workDataEncryptionV1":true}','encrypted'],['{"workDataEncryptionV1":"true"}',null]]) {
+    const f=createFixture(),seen=[],sent=[];
+    f.nativeBindings.manifest={create:()=>({
+      async readActive(){assert.fail('the verifier must not reopen the legacy config');},
+      readCaptured(){return {generation:0,id:null,mode:'plain',proof:{sha256:null}};},
+    })};
+    f.nativeBindings.fullSnapshot.create=options=>({async seal(value){
+      assert.equal(value.generation,null);
+      const capture={root:options.base,files:[{path:'CONFIG.JSON',data:Buffer.from(text)}],directories:[]};
+      seen.push(options.readCapturedAuthority(capture).mode,options.readCapturedAuthority(capture).mode);
+      return {sourceProof:{sha256:'d'.repeat(64)},files:1,directories:0,verifiedGeneration:0};
+    }});
+    const request=JSON.parse(verifierInput(f.paths.base));request.generation=null;
+    const verifying=f.native.runVerifier(verifierChannel(Buffer.from(JSON.stringify(request)),sent));
+    if(mode){assert.equal((await verifying).generation,0);assert.deepEqual(seen,[mode,mode]);assert.equal(sent.length,1);}
+    else {await assert.rejects(verifying,{code:'work_data_adapter.config_invalid'});assert.deepEqual(sent,[]);}
+  }
 });
 
 test('the real verifier still refuses a junction alias and a different physical target', async () => {

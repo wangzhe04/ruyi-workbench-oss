@@ -120,8 +120,8 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
       };
       // The genuine host owns preserved source reads and synchronous admission.
       // Do not fall back to the ordinary reader when that capability is missing.
-      const full = () => {
-        const snapshot = host.fullSnapshot(base,context.ownership,assertExclusive,{onNativeCause:retainHelper});
+      const full = (rehearsalReceipt=false) => {
+        const snapshot = host.fullSnapshot(base,context.ownership,assertExclusive,{onNativeCause:retainHelper,rehearsalReceipt});
         const types = require('node:util').types;
         if (snapshot && (types.isProxy(snapshot) || types.isPromise(snapshot))) {
           // A factory may already have started asynchronous work. Observe only
@@ -130,7 +130,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           throw fail('snapshot_host_uncertain',{helperMayStillRun:true});
         }
         if (!snapshot || typeof snapshot !== 'object') throw fail('snapshot_host_invalid');
-        for (const name of ['seal','restore']) {
+        for (const name of rehearsalReceipt ? ['seal','restore','captureRestored'] : ['seal','restore']) {
           const method = Object.getOwnPropertyDescriptor(snapshot,name);
           if (method && !Object.hasOwn(method,'value')) throw fail('snapshot_host_uncertain',{helperMayStillRun:true});
           if (typeof method?.value !== 'function') throw fail('snapshot_host_invalid');
@@ -298,24 +298,36 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         rehearsalStarted = true;
         await absent(rehearsal);
         const rehearsalOwner = await acquire(rehearsal);
-        const rehearsed = await full().restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
-        const cleanupProof = await host.captureRehearsal({target:rehearsal,ownership:rehearsalOwner,assertExclusive});
+        const rehearsalReceipt = context.operation === 'export' && captured.specialCoverage?.originalObjects === 'new-owned-portable';
+        const rehearsalSnapshot = full(rehearsalReceipt);
+        const rehearsed = await rehearsalSnapshot.restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
+        const cleanupProof = rehearsalReceipt
+          ? await rehearsalSnapshot.captureRestored(rehearsed,{target:rehearsal,ownership:rehearsalOwner})
+          : await host.captureRehearsal({target:rehearsal,ownership:rehearsalOwner,assertExclusive});
         let cleanupReleaseAttempted=false,cleanupPrimary,cleanupFailed=false;
         const releaseCleanupProof=()=>{
-          if(cleanupReleaseAttempted)return;cleanupReleaseAttempted=true;
+          if(rehearsalReceipt||cleanupReleaseAttempted)return;cleanupReleaseAttempted=true;
           try {
             const returned=cleanupProof.release();
             if(returned!==undefined){observePending(returned);throw fail('rehearsal_release_unproven');}
           } catch(cause){helperUncertain=true;throw fail('rehearsal_cleanup_uncertain',{cause,helperMayStillRun:true});}
         };
         try {
-          const original = await WorkDataRecovery.open(captured.serialized, context.password);
-          try {
-            const expectedFiles = new Map(original.snapshot.files.map(row => [row.path, hash(row.data)]));
-            for (const row of rehearsed.stagedStates) expectedFiles.set(row.path, row.stagedSha256);
-            if (JSON.stringify([...cleanupProof.directories].sort()) !== JSON.stringify([...original.snapshot.directories].sort())
-              || cleanupProof.files.length !== expectedFiles.size || cleanupProof.files.some(row => row.sha256 !== expectedFiles.get(row.path))) throw fail('rehearsal_changed');
-          } finally { original.release(); }
+          if (rehearsalReceipt) {
+            // Portable restore has new opaque paths. The same restore producer
+            // binds those paths and the pre-verifier fingerprint to this package.
+            if (rehearsed.specialProfile?.originalObjects !== 'new-owned-portable' || cleanupProof.root !== rehearsal
+              || cleanupProof.packageSha256 !== backup.sha256 || cleanupProof.packageBytes !== issuedBackups.get(backup.path)?.bytes
+              || cleanupProof.manifestSha256 !== rehearsed.manifestSha256) throw fail('rehearsal_changed');
+          } else {
+            const original = await WorkDataRecovery.open(captured.serialized, context.password);
+            try {
+              const expectedFiles = new Map(original.snapshot.files.map(row => [row.path, hash(row.data)]));
+              for (const row of rehearsed.stagedStates) expectedFiles.set(row.path, row.stagedSha256);
+              if (JSON.stringify([...cleanupProof.directories].sort()) !== JSON.stringify([...original.snapshot.directories].sort())
+                || cleanupProof.files.length !== expectedFiles.size || cleanupProof.files.some(row => row.sha256 !== expectedFiles.get(row.path))) throw fail('rehearsal_changed');
+            } finally { original.release(); }
+          }
           await release(rehearsalOwner);
           if (await host.verifyFresh({ target: rehearsal, password: context.password, generation: expected.generation }) !== true) throw fail('fresh_verification_failed');
           const cleanupOwner = await acquire(rehearsal);

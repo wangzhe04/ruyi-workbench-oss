@@ -1753,6 +1753,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"

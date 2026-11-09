@@ -5,7 +5,7 @@
   "summary": {
     "modules": 141,
     "providedSymbols": 4336,
-    "requiredSymbols": 4286,
+    "requiredSymbols": 4287,
     "edges": 940,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -1832,6 +1832,13 @@
           "symbol": "json",
           "kinds": [
             "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
             "read"
           ]
         },
@@ -36007,6 +36014,7 @@
       "to": "00-boot.js",
       "symbols": [
         "json",
+        "path",
         "text"
       ],
       "direction": "backward"
