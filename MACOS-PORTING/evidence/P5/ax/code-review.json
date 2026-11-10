@@ -161,5 +161,8 @@
   "finalLifecycleReadiness": "Final frozen functional acceptance and final engineering gates passed. Current-host core slice may be committed. P5 and P5-03 remain in_progress.",
   "finalEngineeringReview": "independent-final/engineering-review.json",
   "finalEngineeringBound": true,
-  "finalDefaultRuntimeSha256": "04fe4308080fd8b3acd59118301be48c0ace3e51faf1f56349d0821c60a638bf"
+  "finalDefaultRuntimeSha256": "04fe4308080fd8b3acd59118301be48c0ace3e51faf1f56349d0821c60a638bf",
+  "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
+  "commitBindingReview": "independent-final/commit-binding-review.json",
+  "committedSourceVerified": true
 }

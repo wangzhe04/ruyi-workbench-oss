@@ -157,3 +157,5 @@ P5-02 键鼠、中文输入与应用启动切片实现提交 `508174dc2ba77c930c
 2026-11-10 P5-03 开始 AX 核心后端开发。窗口/菜单树、私有元素引用、原生属性动作与如意 App 正常入口已实现，主执行34项真实AX、12项App AX与61项Python检查通过。独立复核补强父子双向成员与滚动视口可见性，56项源码冻结后进行独立执行。TextEdit/Finder/Chromium实际AX场景继续按后续切片推进，P5-03整体in_progress。[AX记录](evidence/P5/ax/README.md)
 
 2026-11-10 P5-03 AX核心切片完成当前主机最终独立验收。提交前补查修复已观测拒绝/锁屏后的引用同步失效，最终56源逐命令匹配。263条Node与61项Python、真实62秒TTL、如意App三入口及原输入/截图回归通过，强制退出负向按预期失败并清理。单元2491通过/18既有跳过、静态80/80、语法1144及构建新鲜度通过，交付helper与最终独立执行同一SHA。P5-03整体in_progress，实际TextEdit/Finder/Chromium AX与外部环境门继续后续推进。[最终独立报告](evidence/P5/ax/independent-final/review.json) [最终工程](evidence/P5/ax/engineering-final.json)
+
+P5-03 AX核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，56项提交源码逐项匹配最终独立验收候选，默认helper与最终验收二进制一致。P5/P5-03继续in_progress。[提交绑定](evidence/P5/ax/commit-binding.json)

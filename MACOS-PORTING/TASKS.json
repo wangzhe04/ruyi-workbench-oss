@@ -1487,7 +1487,7 @@
           "baselineCommit": "c1b90ad2",
           "progress": "AX核心及如意App入口当前主机独立验收通过。最终56源逐命令指纹匹配，10项Node命令263条断言与5项Python共61测试通过，真实62秒TTL及受控生命周期通过。工程单元2491通过/18既有跳过、静态80/80、语法1144与构建新鲜度通过，交付helper与最终独立验收二进制同一SHA。实际AX应用场景、真实撤权/锁屏和外部环境继续保留，P5-03整体in_progress。",
           "coreSlice": {
-            "status": "accepted_current_host_pending_commit",
+            "status": "committed_current_host",
             "baselineCommit": "c1b90ad2",
             "sourceFingerprint": "evidence/P5/ax/source-fingerprint-final.json",
             "sourceFiles": 56,
@@ -1496,7 +1496,6 @@
             "mainAppAXAssertions": 12,
             "mainPythonTests": 61,
             "pending": [
-              "Implementation commit binding",
               "TextEdit/Finder/Chromium real AX selected scenarios in a following P5-03 slice",
               "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity"
             ],
@@ -1506,7 +1505,9 @@
             "engineering": "evidence/P5/ax/engineering-final.json",
             "independentNodeAssertions": 263,
             "independentPythonTests": 61,
-            "realAXExpiryWaitMs": 62000
+            "realAXExpiryWaitMs": 62000,
+            "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
+            "commitBinding": "evidence/P5/ax/commit-binding.json"
           }
         },
         {

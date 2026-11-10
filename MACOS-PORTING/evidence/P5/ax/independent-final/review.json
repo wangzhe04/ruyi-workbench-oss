@@ -301,5 +301,8 @@
   "finalEngineeringReview": "engineering-review.json",
   "finalEngineeringBound": true,
   "finalDefaultRuntimeSha256": "04fe4308080fd8b3acd59118301be48c0ace3e51faf1f56349d0821c60a638bf",
-  "commitReadiness": "Final current-host core slice may be committed. P5 and P5-03 remain in_progress."
+  "commitReadiness": "Current-host core implementation committed and independently bound. P5 and P5-03 remain in_progress.",
+  "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
+  "commitBindingReview": "commit-binding-review.json",
+  "committedSourceVerified": true
 }
