@@ -1,6 +1,6 @@
 # P5-05 受控原生输入录制切片
 
-2026-11-10，当前主机 macOS 27.0.1 arm64、Python 3.12.10、Node 24.15.0。`record_start(target)`、`record_stop(save_as?)`、`macro_list` 及 `macro_run(recording=..., target=...)` 已通过当前主机工程门与独立验收，实施提交绑定进行中。P5 与 P5-05 继续进行中。
+2026-11-10，当前主机 macOS 27.0.1 arm64、Python 3.12.10、Node 24.15.0。`record_start(target)`、`record_stop(save_as?)`、`macro_list` 及 `macro_run(recording=..., target=...)` 已通过当前主机工程门与独立验收。P5 与 P5-05 继续进行中。
 
 ## 录制来源与边界
 
@@ -55,3 +55,9 @@ macro_list 返回至多 200 份有界 metadata。文件按目录 FD 打开，拒
 工程四门通过，语法 1149 文件、构建新鲜度、完整单元 2499 通过与 18 项既有跳过、静态 80/80、零 flaky、测试浏览器残留零。各门前后完整 97 项指纹一致。[工程记录](acceptance/engineering/results.json)
 
 独立源码审查的四项发现全部关闭，Windows record 模块字节保持一致，通用 batch_actions/wait 入口及共享调度除新增取消检查点外的 AST 核对通过。验收后仅收口 README 中英文、TASKS、阶段文档与跟踪记录五份文档，功能源码和测试继续沿用执行候选。[源码审查](code-review.json) [最终交付指纹](source-fingerprint-final-delivery.json)
+
+## 实施提交绑定
+
+实施提交 `0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6` 的 94 份完整原始 Git blob 共 10,935,192 字节，在提交后首次绑定快照中逐份匹配最终交付指纹和工作区字节。3 份运行产物指纹一致。[提交绑定](commit-binding.json)
+
+独立复核再次完整读取该提交的 94 份 blob，核对当前工作区、3 份产物及 43 份关键证据均一致。[独立提交绑定](independent-commit-binding.json)
