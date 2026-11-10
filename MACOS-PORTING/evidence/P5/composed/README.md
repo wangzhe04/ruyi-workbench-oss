@@ -49,3 +49,7 @@ effect_observed 表示 ROI 至少八个原生像素发生变化，confirmed 为 
 工程四门通过，语法 1148 文件、构建新鲜度、完整单元 2499 通过和 18 项既有跳过、静态 80/80、零 flaky、测试浏览器残留零。各门前后完整 91 项指纹一致。验收后收口 TASKS、阶段文档及跟踪记录三份文档，功能与测试源码沿用独立候选。[工程记录](acceptance/engineering/results.json) [最终交付指纹](source-fingerprint-final-delivery.json)
 
 独立源码复核已关闭零预算变化误报，迁移函数与 Windows 入口的 AST 比对通过。默认 helper 与如意 App 的严格签名验证通过，二进制字节沿用已验版本。[代码复核](code-review.json)
+
+## 实施提交绑定
+
+提交后首次绑定快照中，实施提交 `d1b30f6099be9e40d2c838a0d22a955662180840` 的 88 份 raw Git blob 共 10,858,878 字节，经 Python 完整读取后逐份匹配最终交付指纹及当时工作区字节。3 份运行产物指纹一致。[提交绑定](commit-binding.json)
