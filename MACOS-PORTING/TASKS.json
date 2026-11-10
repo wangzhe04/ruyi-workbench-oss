@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-11-08",
+  "date": "2026-11-10",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -1403,7 +1403,9 @@
             "evidence/P5/capture/README.md"
           ],
           "startedDate": "2026-11-08",
-          "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e"
+          "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+          "implementationCommit": "0de6d03e",
+          "implementationScope": "当前macOS27.0.1 arm64单Retina主机实现与独立复核完成；物理多屏、撤权、捕获中布局变化、Windows同候选继续待验"
         },
         {
           "id": "P5-02",
@@ -1413,9 +1415,27 @@
             "high": 4
           },
           "deliverable": "Mac 键位、Cmd 粘贴、中文输入、鼠标/滚轮、文本与图片剪贴板、应用启动和窗口动作；保护焦点和目标身份。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex（实施）；/root/p5_review_resumed（首批独立验收）",
+          "evidence": [
+            "evidence/P5/input/README.md"
+          ],
+          "startedDate": "2026-11-10",
+          "baselineCommit": "0de6d03e",
+          "progress": "窗口与剪贴板首批当前主机实现及独立验收通过。独立六件120条Node与29项Python通过、零skip，37项指纹零漂移，实际302秒TTL通过。完整单元2491通过/18既有跳过、静态80、语法1140与构建新鲜度通过。键盘、Cmd粘贴、中文输入、鼠标滚轮、应用启动及App启动链继续后续开发，P5-02整体仍进行中。",
+          "firstSlice": {
+            "scope": "window_and_clipboard_current_host",
+            "status": "accepted_for_commit",
+            "date": "2026-11-10",
+            "baselineCommit": "0de6d03e",
+            "review": "evidence/P5/input/independent/review.json",
+            "sourceFingerprint": "evidence/P5/input/source-fingerprint.json",
+            "engineering": "evidence/P5/input/engineering.json",
+            "sourceFiles": 37,
+            "nodeAssertions": 120,
+            "pythonTests": 29,
+            "realIdleExpiryWaitMs": 302000
+          }
         },
         {
           "id": "P5-03",

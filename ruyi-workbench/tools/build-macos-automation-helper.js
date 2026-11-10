@@ -17,7 +17,9 @@ function buildMacAutomationHelper({ output, testing = false } = {}) {
       '-mmacosx-version-min=14.0', '-arch', architecture, '-framework', 'AppKit', '-framework', 'ApplicationServices',
       '-framework', 'ScreenCaptureKit', '-framework', 'ImageIO', '-framework', 'UniformTypeIdentifiers',
       ...(testing ? ['-DRUYI_AUTOMATION_TESTING=1'] : []),
-      path.join(root, 'resources', 'macos-automation-helper.m'), '-o', temporary],
+      path.join(root, 'resources', 'macos-automation-helper.m'),
+      path.join(root, 'resources', 'macos-automation-input.m'),
+      path.join(root, 'resources', 'macos-automation-session.m'), '-o', temporary],
     { encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024 });
     if (result.error || result.status !== 0) throw new Error(result.error?.message || result.stderr);
     const signed = cp.spawnSync('/usr/bin/codesign', ['--force', '--sign', '-', '--identifier',

@@ -1,6 +1,6 @@
 # 执行与交接看板
 
-更新时间：2026-11-08。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows后续待验、正式身份暂缓、macOS14实际运行交接O2/P6；P5/P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
+更新时间：2026-11-10。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows后续待验、正式身份暂缓、macOS14实际运行交接O2/P6；P5进行中，P6待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
 
@@ -11,7 +11,7 @@
 | P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
 | P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
 | P4 | P2、P3 | done（用户批准的当前Mac范围，后续待验项独立保留） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
-| P5 | P4 | planned | 未分配 | 未记录 | 无 |
+| P5 | P4 | in_progress | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
 
 29 个工作包的详细状态维护在 [TASKS.json](TASKS.json)。状态值使用 `planned / in_progress / blocked / in_review / done`。`done` 必须有验收、独立复核和处理结果；`blocked` 写具体依赖与可继续的独立任务，不能只写“平台问题”。未开始不记为“0 人日完成”。
@@ -141,3 +141,7 @@
 
 
 2026-11-10 恢复P5推进。P5-01当前主机最终独立九件166项Node与21项Python通过，31项指纹匹配；完整单元2491通过/18既有跳过，静态80/80、语法和构建新鲜度通过。补齐真实锁屏截图拒绝及解锁状态恢复证据。物理多屏/非Retina、撤权、捕获中布局变化和Windows同候选仍待验，P5-01继续in_progress。用户要求不锁定，已启用4小时临时保活，开发验收期间按需续期。[最终独立验收](evidence/P5/capture/independent-final-fixed/review.json)
+
+2026-11-10 推进 P5-02 首批窗口与剪贴板后端。新增每 MCP 私有的串行原生工作进程和有时限 AX 引用，当前真实窗口、重叠窗口、跨工作进程引用拒绝、最小化恢复与拒绝关闭、Unicode 和图片剪贴板主链通过。正在进行最终工程门与独立复验，键鼠及应用启动继续后续开发。[当前记录](evidence/P5/input/README.md)
+
+2026-11-10 P5-02 窗口与剪贴板首批当前主机独立验收完成。六件120条Node与29项Python通过、零跳过，真实302秒TTL通过，37项源码指纹全程匹配，自有进程无残留。完整单元2491通过/18既有跳过、静态80、语法1140及构建新鲜度通过。P5-02键鼠、Cmd粘贴、中文输入与应用启动继续开发，各环境待验项保持独立登记。[独立报告](evidence/P5/input/independent/review.json)

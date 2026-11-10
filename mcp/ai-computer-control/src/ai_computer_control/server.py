@@ -58,6 +58,9 @@ async def _tool_lifespan(_server):
     try:
         yield {}
     finally:
+        native_input = sys.modules.get("ai_computer_control.utils.macos_session")
+        if native_input is not None:
+            native_input.close_input_session()
         # Normal stdio EOF must release browsers before the server exits. Never
         # import optional toolsets while shutting down a minimal installation.
         browser = sys.modules.get("ai_computer_control.tools.browser")
@@ -80,7 +83,10 @@ class PlatformMCP(FastMCP):
         state = await asyncio.to_thread(macos.capability)
         return [info for info in tools
                 if (info.name not in macos.CAPTURE_TOOLS or state["ready"])
-                and (info.name not in macos.DISPLAY_TOOLS or state.get("queryReady"))]
+                and (info.name not in macos.DISPLAY_TOOLS or state.get("queryReady"))
+                and (info.name not in macos.WINDOW_TOOLS or state.get("windowReady"))
+                and (info.name not in macos.WINDOW_QUERY_TOOLS or state.get("windowQueryReady"))
+                and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))]
 
 
 mcp = PlatformMCP(
@@ -320,8 +326,8 @@ _TOOLSET_MODULES = {
 }
 _ALWAYS_MODULES = ["audit", "diagnostics"]
 
-# P5 registers the Mac capture backend separately. Other desktop implementations
-# remain absent until their Mac work packages have real backends.
+# P5 registers Mac capture, window and clipboard backends separately. Remaining
+# desktop modules stay absent until their Mac work packages have real backends.
 _MAC_UNSUPPORTED_TOOLSETS = frozenset({
     "desktop", "uia", "ocr", "vision", "macro", "observe", "audio", "sync",
 })
@@ -332,12 +338,16 @@ _UNSUPPORTED_MODULES = {
 if sys.platform == "darwin":
     _UNSUPPORTED_MODULES.pop("screen", None)
     _UNSUPPORTED_MODULES.pop("capture", None)
+    _UNSUPPORTED_MODULES.pop("window", None)
+    _UNSUPPORTED_MODULES.pop("clipboard", None)
 
 
 def _platform_modules(modules: list[str]) -> list[str]:
     active = [module for module in modules if module not in _UNSUPPORTED_MODULES]
     if sys.platform == "darwin":
-        active = ["macos_capture" if module in {"screen", "capture"} else module for module in active]
+        replacements = {"screen": "macos_capture", "capture": "macos_capture",
+                        "window": "macos_input", "clipboard": "macos_input"}
+        active = [replacements.get(module, module) for module in active]
     return list(dict.fromkeys(active))
 
 

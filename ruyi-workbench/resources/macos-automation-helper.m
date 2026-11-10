@@ -1,28 +1,27 @@
 // P5 native desktop backend. One bounded JSON request on stdin, one JSON result on stdout.
 // Coordinates use Quartz global logical points, with the primary display's top-left at (0,0).
-#import <AppKit/AppKit.h>
-#import <ApplicationServices/ApplicationServices.h>
+#import "macos-automation.h"
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 #import <ImageIO/ImageIO.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include <poll.h>
 #include <unistd.h>
 
-static NSDictionary *Failure(NSString *code, NSString *message) {
+NSDictionary *RuyiAutomationFailure(NSString *code, NSString *message) {
     return @{@"ok":@NO, @"code":code, @"error":message};
 }
 
-static NSDictionary *RectFields(CGRect rect) {
+NSDictionary *RuyiAutomationRectFields(CGRect rect) {
     return @{@"x":@(rect.origin.x), @"y":@(rect.origin.y),
         @"width":@(rect.size.width), @"height":@(rect.size.height)};
 }
 
-static BOOL Locked(void) {
+BOOL RuyiAutomationLocked(void) {
     NSDictionary *session = CFBridgingRelease(CGSessionCopyCurrentDictionary());
     return !session || [session[@"CGSSessionScreenIsLocked"] boolValue];
 }
 
-static NSArray *Displays(void) {
+NSArray *RuyiAutomationDisplays(void) {
     CGDirectDisplayID ids[64]; uint32_t count = 0;
     if (CGGetActiveDisplayList(64, ids, &count) != kCGErrorSuccess) return @[];
     NSMutableArray *out = [NSMutableArray array];
@@ -33,7 +32,7 @@ static NSArray *Displays(void) {
                 scale = screen.backingScaleFactor; break;
             }
         }
-        NSMutableDictionary *display = [RectFields(CGDisplayBounds(ids[i])) mutableCopy];
+        NSMutableDictionary *display = [RuyiAutomationRectFields(CGDisplayBounds(ids[i])) mutableCopy];
         [display addEntriesFromDictionary:@{@"index":@(i), @"id":@(ids[i]), @"scale":@(scale),
             @"is_primary":@(ids[i] == CGMainDisplayID())}];
         [out addObject:display];
@@ -51,14 +50,16 @@ static CGRect DisplayUnion(NSArray *displays) {
 }
 
 static NSDictionary *Status(void) {
-    NSArray *displays = Displays();
+    NSArray *displays = RuyiAutomationDisplays();
     BOOL granted = CGPreflightScreenCaptureAccess();
-    BOOL locked = Locked();
-    return @{@"ok":@YES, @"protocolVersion":@1, @"coordinate_space":@"macos_global_points",
+    BOOL locked = RuyiAutomationLocked();
+    NSMutableDictionary *out = [@{@"ok":@YES, @"protocolVersion":@1, @"coordinate_space":@"macos_global_points",
         @"authorization":granted ? @"granted" : @"denied", @"locked":@(locked),
         @"ready":@(granted && !locked && displays.count > 0), @"monitors":displays,
-        @"virtual":displays.count ? RectFields(DisplayUnion(displays)) : @{},
-        @"permissionRequestsMade":@NO, @"backend":@"ScreenCaptureKit"};
+        @"virtual":displays.count ? RuyiAutomationRectFields(DisplayUnion(displays)) : @{},
+        @"permissionRequestsMade":@NO, @"backend":@"ScreenCaptureKit"} mutableCopy];
+    [out addEntriesFromDictionary:RuyiAutomationInputStatus()];
+    return out;
 }
 
 static void Content(void (^completion)(SCShareableContent *, NSError *)) {
@@ -77,15 +78,14 @@ static void Image(SCContentFilter *filter, CGRect source, CGFloat scale,
     [SCScreenshotManager captureImageWithFilter:filter configuration:config completionHandler:completion];
 }
 
-static NSDictionary *Encoded(CGImageRef image, CGRect bounds, NSDictionary *extra) {
-    if (!image || Locked() || !CGPreflightScreenCaptureAccess())
-        return Failure(@"capture_unavailable", @"Capture authorization or desktop session changed during capture");
+NSDictionary *RuyiAutomationEncodeImage(CGImageRef image, BOOL rejectBlank) {
+    if (!image) return RuyiAutomationFailure(@"capture_failed", @"Missing image bitmap");
     size_t width = CGImageGetWidth(image), height = CGImageGetHeight(image);
     CGColorSpaceRef colors = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     CGContextRef bitmap = CGBitmapContextCreate(NULL, width, height, 8, width * 4, colors,
         kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast);
     CGColorSpaceRelease(colors);
-    if (!bitmap) return Failure(@"capture_capacity", @"Cannot verify capture bitmap");
+    if (!bitmap) return RuyiAutomationFailure(@"capture_capacity", @"Cannot verify capture bitmap");
     CGContextDrawImage(bitmap, CGRectMake(0, 0, width, height), image);
     const uint8_t *pixels = CGBitmapContextGetData(bitmap);
     BOOL black = YES;
@@ -94,21 +94,29 @@ static NSDictionary *Encoded(CGImageRef image, CGRect bounds, NSDictionary *extr
     }
     CGImageRef normalized = CGBitmapContextCreateImage(bitmap);
     CGContextRelease(bitmap);
-    if (black || !normalized) {
+    if ((rejectBlank && black) || !normalized) {
         if (normalized) CGImageRelease(normalized);
-        return Failure(@"capture_blank", @"Capture is completely black. Check the desktop session and screen permission");
+        return RuyiAutomationFailure(@"capture_blank", @"Capture is completely black. Check the desktop session and screen permission");
     }
     NSMutableData *png = [NSMutableData data];
     CGImageDestinationRef destination = CGImageDestinationCreateWithData((__bridge CFMutableDataRef)png,
         (__bridge CFStringRef)UTTypePNG.identifier, 1, NULL);
-    if (!destination) { CGImageRelease(normalized); return Failure(@"capture_failed", @"Cannot create image encoder"); }
+    if (!destination) { CGImageRelease(normalized); return RuyiAutomationFailure(@"capture_failed", @"Cannot create image encoder"); }
     CGImageDestinationAddImage(destination, normalized, NULL); CGImageRelease(normalized);
     BOOL encoded = CGImageDestinationFinalize(destination); CFRelease(destination);
-    if (!encoded || png.length > 48 * 1024 * 1024) return Failure(@"capture_capacity", @"Encoded image exceeds capture capacity");
-    NSMutableDictionary *out = [@{@"ok":@YES, @"protocolVersion":@1,
-        @"png": [png base64EncodedStringWithOptions:0], @"width":@(CGImageGetWidth(image)),
-        @"height":@(CGImageGetHeight(image)), @"logical_bounds":RectFields(bounds),
-        @"coordinate_space":@"macos_global_points", @"method":@"ScreenCaptureKit"} mutableCopy];
+    if (!encoded || png.length > 48 * 1024 * 1024) return RuyiAutomationFailure(@"capture_capacity", @"Encoded image exceeds capture capacity");
+    return @{@"ok":@YES, @"protocolVersion":@1, @"png":[png base64EncodedStringWithOptions:0],
+        @"width":@(width), @"height":@(height)};
+}
+
+static NSDictionary *Encoded(CGImageRef image, CGRect bounds, NSDictionary *extra) {
+    if (!image || RuyiAutomationLocked() || !CGPreflightScreenCaptureAccess())
+        return RuyiAutomationFailure(@"capture_unavailable", @"Capture authorization or desktop session changed during capture");
+    NSDictionary *encoded = RuyiAutomationEncodeImage(image, YES);
+    if (![encoded[@"ok"] boolValue]) return encoded;
+    NSMutableDictionary *out = [encoded mutableCopy];
+    [out addEntriesFromDictionary:@{@"logical_bounds":RuyiAutomationRectFields(bounds),
+        @"coordinate_space":@"macos_global_points", @"method":@"ScreenCaptureKit"}];
     [out addEntriesFromDictionary:extra];
     return out;
 }
@@ -130,7 +138,7 @@ static void CaptureWindow(NSDictionary *request, SCShareableContent *content, vo
         if ([window.title caseInsensitiveCompare:title] == NSOrderedSame) [exact addObject:window];
     }
     if (exact.count) matches = exact;
-    if (!matches.count) { done(Failure(@"window_not_found", @"No matching capturable window")); return; }
+    if (!matches.count) { done(RuyiAutomationFailure(@"window_not_found", @"No matching capturable window")); return; }
     if (matches.count != 1) {
         NSMutableArray *candidates = [NSMutableArray array];
         for (SCWindow *window in matches) {
@@ -142,22 +150,22 @@ static void CaptureWindow(NSDictionary *request, SCShareableContent *content, vo
             @"candidates":candidates}); return;
     }
     SCWindow *window = matches.firstObject;
-    if (!window.isOnScreen) { done(Failure(@"window_not_visible", @"Window is minimized or outside the active desktop")); return; }
+    if (!window.isOnScreen) { done(RuyiAutomationFailure(@"window_not_visible", @"Window is minimized or outside the active desktop")); return; }
     CGRect bounds = window.frame;
     SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:window];
     CGFloat scale = filter.pointPixelScale;
-    if (!WithinCapacity(bounds, scale)) { done(Failure(@"capture_capacity", @"Window size exceeds capture capacity")); return; }
+    if (!WithinCapacity(bounds, scale)) { done(RuyiAutomationFailure(@"capture_capacity", @"Window size exceeds capture capacity")); return; }
     // A desktop-independent filter captures the selected window even when covered.
     // No focus or restore operation is performed as a side effect of observation.
     Image(filter, CGRectMake(0, 0, bounds.size.width, bounds.size.height), scale, ^(CGImageRef image, NSError *error) {
-        if (error || !image) { done(Failure(@"capture_failed", @"Window capture failed or the window disappeared")); return; }
+        if (error || !image) { done(RuyiAutomationFailure(@"capture_failed", @"Window capture failed or the window disappeared")); return; }
         NSArray *current = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionIncludingWindow, window.windowID));
         NSDictionary *identity = current.firstObject;
         CGRect frame = CGRectNull;
         if (identity) CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)identity[(__bridge NSString *)kCGWindowBounds], &frame);
         if (!identity || [identity[(__bridge NSString *)kCGWindowOwnerPID] intValue] != window.owningApplication.processID
             || ![identity[(__bridge NSString *)kCGWindowIsOnscreen] boolValue] || !CGRectEqualToRect(frame, bounds)) {
-            done(Failure(@"window_changed", @"Window identity, visibility or geometry changed during capture")); return;
+            done(RuyiAutomationFailure(@"window_changed", @"Window identity, visibility or geometry changed during capture")); return;
         }
         done(Encoded(image, bounds, @{@"matched_title":window.title, @"window_id":@(window.windowID),
             @"pid":@(window.owningApplication.processID), @"occluded_possible":@NO}));
@@ -165,24 +173,24 @@ static void CaptureWindow(NSDictionary *request, SCShareableContent *content, vo
 }
 
 static NSDictionary *PlanDisplays(NSDictionary *request, NSArray *displays) {
-    if (!displays.count) return Failure(@"display_unavailable", @"No active displays");
+    if (!displays.count) return RuyiAutomationFailure(@"display_unavailable", @"No active displays");
     CGRect requested = CGRectNull;
     id region = request[@"region"];
     id monitor = request[@"monitor"];
     if (region) {
         if (![region isKindOfClass:NSArray.class] || [region count] != 4) {
-            return Failure(@"invalid_args", @"region must contain x, y, width, height");
+            return RuyiAutomationFailure(@"invalid_args", @"region must contain x, y, width, height");
         }
         for (id value in region) {
             if (![value isKindOfClass:NSNumber.class] || CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID()
                 || !isfinite([value doubleValue]) || [value doubleValue] != trunc([value doubleValue])) {
-                return Failure(@"invalid_args", @"region coordinates must be finite integers");
+                return RuyiAutomationFailure(@"invalid_args", @"region coordinates must be finite integers");
             }
         }
         requested = CGRectMake([region[0] doubleValue], [region[1] doubleValue],
             [region[2] doubleValue], [region[3] doubleValue]);
         if (requested.size.width <= 0 || requested.size.height <= 0) {
-            return Failure(@"invalid_args", @"region size must be positive");
+            return RuyiAutomationFailure(@"invalid_args", @"region size must be positive");
         }
     } else if ([monitor isEqual:@"all"] || [monitor isEqual:@"virtual"]) {
         requested = DisplayUnion(displays);
@@ -191,7 +199,7 @@ static NSDictionary *PlanDisplays(NSDictionary *request, NSArray *displays) {
         for (NSDictionary *display in displays) {
             if ((!monitor && [display[@"is_primary"] boolValue]) || [monitor isEqual:display[@"index"]]) selected = display;
         }
-        if (!selected) return Failure(@"monitor_not_found", @"Monitor index not found");
+        if (!selected) return RuyiAutomationFailure(@"monitor_not_found", @"Monitor index not found");
         requested = CGRectMake([selected[@"x"] doubleValue], [selected[@"y"] doubleValue],
             [selected[@"width"] doubleValue], [selected[@"height"] doubleValue]);
     }
@@ -204,25 +212,25 @@ static NSDictionary *PlanDisplays(NSDictionary *request, NSArray *displays) {
         CGRect intersection = CGRectIntersection(clipped, bounds);
         if (CGRectIsNull(intersection) || CGRectIsEmpty(intersection)) continue;
         scale = MAX(scale, [display[@"scale"] doubleValue]);
-        [parts addObject:@{@"display_id":display[@"id"], @"rect":RectFields(intersection), @"bounds":RectFields(bounds),
-            @"source":RectFields(CGRectOffset(intersection, -bounds.origin.x, -bounds.origin.y))}];
+        [parts addObject:@{@"display_id":display[@"id"], @"rect":RuyiAutomationRectFields(intersection), @"bounds":RuyiAutomationRectFields(bounds),
+            @"source":RuyiAutomationRectFields(CGRectOffset(intersection, -bounds.origin.x, -bounds.origin.y))}];
     }
-    if (!parts.count) return Failure(@"region_outside_desktop", @"Region does not intersect an active display");
-    if (!WithinCapacity(clipped, scale)) return Failure(@"capture_capacity", @"Region exceeds capture capacity");
-    NSMutableDictionary *plan = [@{@"ok":@YES, @"protocolVersion":@1, @"parts":parts, @"bounds":RectFields(clipped),
+    if (!parts.count) return RuyiAutomationFailure(@"region_outside_desktop", @"Region does not intersect an active display");
+    if (!WithinCapacity(clipped, scale)) return RuyiAutomationFailure(@"capture_capacity", @"Region exceeds capture capacity");
+    NSMutableDictionary *plan = [@{@"ok":@YES, @"protocolVersion":@1, @"parts":parts, @"bounds":RuyiAutomationRectFields(clipped),
         @"scale":@(scale), @"clipped":@(!CGRectEqualToRect(requested, clipped))} mutableCopy];
-    if (region && !CGRectEqualToRect(requested, clipped)) plan[@"requested_region"] = RectFields(requested);
+    if (region && !CGRectEqualToRect(requested, clipped)) plan[@"requested_region"] = RuyiAutomationRectFields(requested);
     if (monitor) plan[@"monitor"] = monitor;
     return plan;
 }
 
-static CGRect FieldsRect(NSDictionary *value) {
+CGRect RuyiAutomationFieldsRect(NSDictionary *value) {
     return CGRectMake([value[@"x"] doubleValue], [value[@"y"] doubleValue],
         [value[@"width"] doubleValue], [value[@"height"] doubleValue]);
 }
 
 static void CaptureDisplays(NSDictionary *request, SCShareableContent *content, void (^done)(NSDictionary *)) {
-    NSArray *baseline = Displays();
+    NSArray *baseline = RuyiAutomationDisplays();
     NSMutableArray *displays = [NSMutableArray array];
     NSMutableDictionary *filters = [NSMutableDictionary dictionary];
     for (SCDisplay *display in content.displays) {
@@ -232,26 +240,26 @@ static void CaptureDisplays(NSDictionary *request, SCShareableContent *content, 
     for (NSDictionary *display in baseline) {
         NSMutableDictionary *details = [display mutableCopy];
         SCContentFilter *filter = filters[display[@"id"]];
-        if (!filter) { done(Failure(@"display_changed", @"Active display is missing from the capturable layout")); return; }
+        if (!filter) { done(RuyiAutomationFailure(@"display_changed", @"Active display is missing from the capturable layout")); return; }
         details[@"scale"] = @(filter.pointPixelScale); [displays addObject:details];
     }
     NSDictionary *plan = PlanDisplays(request, displays);
     if (![plan[@"ok"] boolValue]) { done(plan); return; }
     NSArray *parts = plan[@"parts"];
     CGFloat scale = [plan[@"scale"] doubleValue];
-    CGRect clipped = FieldsRect(plan[@"bounds"]);
+    CGRect clipped = RuyiAutomationFieldsRect(plan[@"bounds"]);
     size_t width = (size_t)llround(clipped.size.width * scale), height = (size_t)llround(clipped.size.height * scale);
     CGColorSpaceRef colors = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     CGContextRef canvas = CGBitmapContextCreate(NULL, width, height, 8, width * 4, colors, kCGImageAlphaPremultipliedLast);
     CGColorSpaceRelease(colors);
-    if (!canvas) { done(Failure(@"capture_capacity", @"Cannot allocate capture bitmap")); return; }
+    if (!canvas) { done(RuyiAutomationFailure(@"capture_capacity", @"Cannot allocate capture bitmap")); return; }
     // Serialize callbacks to avoid concurrent writes into the shared canvas.
     __block NSUInteger index = 0;
     __block void (^next)(void);
     next = ^{
         if (index == parts.count) {
-            if (![baseline isEqual:Displays()]) {
-                CGContextRelease(canvas); done(Failure(@"display_changed", @"Display identity, layout or scale changed during capture")); next = nil; return;
+            if (![baseline isEqual:RuyiAutomationDisplays()]) {
+                CGContextRelease(canvas); done(RuyiAutomationFailure(@"display_changed", @"Display identity, layout or scale changed during capture")); next = nil; return;
             }
             CGImageRef image = CGBitmapContextCreateImage(canvas); CGContextRelease(canvas);
             NSMutableDictionary *extra = [plan mutableCopy];
@@ -260,14 +268,14 @@ static void CaptureDisplays(NSDictionary *request, SCShareableContent *content, 
             next = nil; return;
         }
         NSDictionary *part = parts[index++];
-        CGRect rect = FieldsRect(part[@"rect"]);
-        CGRect source = FieldsRect(part[@"source"]);
+        CGRect rect = RuyiAutomationFieldsRect(part[@"rect"]);
+        CGRect source = RuyiAutomationFieldsRect(part[@"source"]);
         Image(filters[part[@"display_id"]], source, scale, ^(CGImageRef image, NSError *error) {
             if (image) CGImageRetain(image);
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (error || !image) {
                     if (image) CGImageRelease(image);
-                    CGContextRelease(canvas); done(Failure(@"capture_failed", @"Display capture failed")); next = nil; return;
+                    CGContextRelease(canvas); done(RuyiAutomationFailure(@"capture_failed", @"Display capture failed")); next = nil; return;
                 }
                 CGRect target = CGRectMake(round((rect.origin.x - clipped.origin.x) * scale),
                     round((clipped.origin.y + clipped.size.height - CGRectGetMaxY(rect)) * scale),
@@ -283,7 +291,7 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
     if (![request[@"version"] isKindOfClass:NSNumber.class]
         || CFGetTypeID((__bridge CFTypeRef)request[@"version"]) == CFBooleanGetTypeID()
         || ![request[@"version"] isEqual:@1] || ![request[@"op"] isKindOfClass:NSString.class]) {
-        done(Failure(@"invalid_args", @"Expected protocol version 1 and an operation")); return;
+        done(RuyiAutomationFailure(@"invalid_args", @"Expected protocol version 1 and an operation")); return;
     }
     NSString *op = request[@"op"];
 #ifdef RUYI_AUTOMATION_TESTING
@@ -292,33 +300,38 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
         done(PlanDisplays(request, request[@"displays"])); return;
     }
 #endif
+    if ([op hasPrefix:@"window."] || [op hasPrefix:@"clipboard."]) {
+        done(RuyiAutomationInputRequest(request)); return;
+    }
     NSSet *keys = [NSSet setWithArray:@[@"version", @"op", @"region", @"monitor", @"window_title"]];
     for (NSString *key in request) {
-        if (![keys containsObject:key]) { done(Failure(@"invalid_args", @"Unexpected request field")); return; }
+        if (![keys containsObject:key]) { done(RuyiAutomationFailure(@"invalid_args", @"Unexpected request field")); return; }
     }
     if ([op isEqual:@"status"]) {
-        if (request.count != 2) { done(Failure(@"invalid_args", @"status does not accept capture arguments")); return; }
+        if (request.count != 2) { done(RuyiAutomationFailure(@"invalid_args", @"status does not accept capture arguments")); return; }
         done(Status()); return;
     }
-    if (![op isEqual:@"capture"]) { done(Failure(@"invalid_args", @"Unsupported operation")); return; }
+    if (![op isEqual:@"capture"]) { done(RuyiAutomationFailure(@"invalid_args", @"Unsupported operation")); return; }
     id title = request[@"window_title"];
     if (title && (![title isKindOfClass:NSString.class] || ![title length] || [title length] > 1024)) {
-        done(Failure(@"invalid_args", @"window_title must contain 1 to 1024 characters")); return;
+        done(RuyiAutomationFailure(@"invalid_args", @"window_title must contain 1 to 1024 characters")); return;
     }
-    if (Locked()) { done(Failure(@"session_locked", @"Unlock the desktop before capturing")); return; }
+    if (RuyiAutomationLocked()) { done(RuyiAutomationFailure(@"session_locked", @"Unlock the desktop before capturing")); return; }
     if (!CGPreflightScreenCaptureAccess()) {
-        done(Failure(@"permission_denied", @"Enable Screen Recording for the responsible application in System Settings, then retry")); return;
+        done(RuyiAutomationFailure(@"permission_denied", @"Enable Screen Recording for the responsible application in System Settings, then retry")); return;
     }
     Content(^(SCShareableContent *content, NSError *error) {
-        if (error || !content) { done(Failure(@"capture_unavailable", @"Cannot enumerate capturable content")); return; }
+        if (error || !content) { done(RuyiAutomationFailure(@"capture_unavailable", @"Cannot enumerate capturable content")); return; }
         dispatch_async(dispatch_get_main_queue(), ^{
             if (title) CaptureWindow(request, content, done); else CaptureDisplays(request, content, done);
         });
     });
 }
 
-int main(void) {
+int main(int argc, const char *argv[]) {
     @autoreleasepool {
+        if (argc == 2 && strcmp(argv[1], "--input-session") == 0) return RuyiAutomationRunInputSession();
+        if (argc != 1) return 64;
         NSMutableData *input = [NSMutableData data];
         NSTimeInterval inputDeadline = NSProcessInfo.processInfo.systemUptime + 3;
         while (input.length <= 65536) {
@@ -343,9 +356,9 @@ int main(void) {
                 exit([result[@"ok"] boolValue] ? 0 : 1);
             }
         };
-        if (![request isKindOfClass:NSDictionary.class]) done(Failure(@"invalid_args", @"Invalid or oversized JSON request"));
+        if (![request isKindOfClass:NSDictionary.class]) done(RuyiAutomationFailure(@"invalid_args", @"Invalid or oversized JSON request"));
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 12 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            done(Failure(@"capture_timeout", @"Desktop request exceeded its deadline"));
+            done(RuyiAutomationFailure(@"capture_timeout", @"Desktop request exceeded its deadline"));
         });
         HandleRequest(request, done);
         [NSApplication sharedApplication];

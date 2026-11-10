@@ -16,6 +16,10 @@ _SLOTS = threading.BoundedSemaphore(2)
 _OUTPUT_LIMIT = 68 * 1024 * 1024
 CAPTURE_TOOLS = frozenset({"screenshot", "screenshot_region", "window_screenshot"})
 DISPLAY_TOOLS = frozenset({"get_screen_info", "list_monitors", "get_dpi_info"})
+WINDOW_TOOLS = frozenset({"get_active_window", "focus_window", "minimize_window", "close_window",
+                          "move_window", "resize_window", "maximize_window"})
+WINDOW_QUERY_TOOLS = frozenset({"list_windows"})
+CLIPBOARD_TOOLS = frozenset({"get_clipboard", "set_clipboard", "get_clipboard_image", "set_clipboard_image"})
 
 
 class DesktopError(RuntimeError):
@@ -40,6 +44,31 @@ def _identity(path):
     return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
 
 
+def _request_bytes(payload):
+    try:
+        data = json.dumps({**payload, "version": 1}, allow_nan=False, ensure_ascii=False).encode("utf-8")
+    except (ValueError, TypeError, UnicodeError):
+        raise DesktopError("invalid_args", "Desktop request must be valid UTF-8 JSON") from None
+    if len(data) > 65536:
+        raise DesktopError("invalid_args", "Desktop request exceeds the input limit")
+    return data
+
+
+def _failure_details(result):
+    details = {}
+    if isinstance(result.get("candidates"), list):
+        details["candidates"] = result["candidates"][:20]
+    for key in ("acted", "action_sent", "restored"):
+        if type(result.get(key)) is bool:
+            details[key] = result[key]
+    if result.get("outcome") in ("unknown", "unconfirmed", "rolled_back"):
+        details["outcome"] = result["outcome"]
+    for key in ("actual_bounds", "window"):
+        if isinstance(result.get(key), dict):
+            details[key] = result[key]
+    return details
+
+
 def request(payload, timeout=15):
     """Run a child with bounded input, output, concurrency and lifetime. Never return native stderr."""
     path = helper_path()
@@ -47,9 +76,7 @@ def request(payload, timeout=15):
         identity = _identity(path)
     except OSError:
         raise DesktopError("dependency_missing", "Build or install the macOS automation helper") from None
-    data = json.dumps({**payload, "version": 1}, allow_nan=False).encode("utf-8")
-    if len(data) > 65536:
-        raise DesktopError("invalid_args", "Desktop request exceeds the input limit")
+    data = _request_bytes(payload)
     if not _SLOTS.acquire(blocking=False):
         raise DesktopError("capture_busy", "Two native desktop requests are already running")
     child = None
@@ -101,9 +128,8 @@ def request(payload, timeout=15):
         if not isinstance(result, dict) or not isinstance(result.get("ok"), bool):
             raise DesktopError("capture_failed", "Invalid native desktop response envelope")
         if status != 0 or not result["ok"]:
-            details = {"candidates":result["candidates"][:20]} if isinstance(result.get("candidates"),list) else {}
-            raise DesktopError(str(result.get("code") or "capture_failed"), str(result.get("error") or "Native desktop request failed"),details)
-        if result.get("protocolVersion") != 1:
+            raise DesktopError(str(result.get("code") or "capture_failed"), str(result.get("error") or "Native desktop request failed"), _failure_details(result))
+        if type(result.get("protocolVersion")) is not int or result["protocolVersion"] != 1:
             raise DesktopError("capture_failed", "Unsupported native desktop protocol")
         return result
     except (OSError, BrokenPipeError):
@@ -127,6 +153,9 @@ def capability():
         if not isinstance(status.get("monitors"), list) or status.get("coordinate_space") != "macos_global_points":
             raise DesktopError("capture_failed", "Invalid desktop status metadata")
         out["queryReady"] = True
+        out.update(windowReady=bool(status.get("windowReady") and status.get("locked") is False),
+                   windowQueryReady=bool(status.get("windowListReady") and status.get("locked") is False),
+                   clipboardReady=bool(status.get("clipboardReady") and status.get("locked") is False))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))
@@ -136,6 +165,22 @@ def capability():
     except (OSError, DesktopError) as error:
         out["reasonCode"] = getattr(error, "code", "dependency_missing")
         return out
+
+
+def image_response(result):
+    """Decode the bounded native PNG envelope shared by screen and clipboard observations."""
+    result = dict(result)
+    try:
+        raw = base64.b64decode(result.pop("png"), validate=True)
+        image = Image.open(io.BytesIO(raw))
+        if image.width * image.height > 32000000:
+            raise ValueError("image capacity")
+        image.load()
+        if image.format != "PNG" or image.size != (result["width"], result["height"]):
+            raise ValueError("image metadata")
+    except (KeyError, TypeError, ValueError, OSError, Image.DecompressionBombError):
+        raise DesktopError("capture_failed", "Invalid native capture image or geometry") from None
+    return image, result
 
 
 def capture(region=None, monitor=None, window_title=None):
@@ -152,20 +197,11 @@ def capture(region=None, monitor=None, window_title=None):
         payload["monitor"] = value
     if window_title is not None:
         payload = {"op": "capture", "window_title": window_title}
-    result = request(payload)
-    try:
-        raw = base64.b64decode(result.pop("png"), validate=True)
-        image = Image.open(io.BytesIO(raw))
-        if image.width * image.height > 32000000:
-            raise ValueError("image capacity")
-        image.load()
-        bounds = result["logical_bounds"]
-        valid_bounds = isinstance(bounds, dict) and all(type(bounds.get(key)) in (int, float)
-            and math.isfinite(bounds[key]) for key in ("x", "y", "width", "height"))
-        if not valid_bounds or result.get("coordinate_space") != "macos_global_points" \
-            or image.format != "PNG" or image.size != (result["width"], result["height"]) \
-            or bounds["width"] <= 0 or bounds["height"] <= 0:
-            raise ValueError("image metadata")
-    except (KeyError, TypeError, ValueError, OSError, Image.DecompressionBombError):
-        raise DesktopError("capture_failed", "Invalid native capture image or geometry") from None
+    image, result = image_response(request(payload))
+    bounds = result.get("logical_bounds")
+    valid_bounds = isinstance(bounds, dict) and all(type(bounds.get(key)) in (int, float)
+        and math.isfinite(bounds[key]) for key in ("x", "y", "width", "height"))
+    if not valid_bounds or result.get("coordinate_space") != "macos_global_points" \
+        or bounds["width"] <= 0 or bounds["height"] <= 0:
+        raise DesktopError("capture_failed", "Invalid native capture geometry")
     return image, result

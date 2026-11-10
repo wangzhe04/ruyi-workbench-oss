@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-10T04:35:11.251Z",
+  "sourceFingerprint": "source-fingerprint.json",
+  "sourceFiles": 37,
+  "sourceDrift": [],
+  "syntax": {
+    "command": "node dev-harness/syntax-gate.js",
+    "exitCode": 0,
+    "files": 1140,
+    "failed": 0,
+    "log": "syntax.txt"
+  },
+  "buildFreshness": {
+    "command": "node ruyi-workbench/app/build.js --check",
+    "exitCode": 0,
+    "log": "build-check.txt"
+  },
+  "static": {
+    "command": "node dev-harness/run-all.js --fast",
+    "exitCode": 0,
+    "passed": 80,
+    "failed": 0,
+    "liveSkipped": 7,
+    "log": "static.txt"
+  },
+  "unit": {
+    "command": "node --test 'dev-harness/unit/*.test.js'",
+    "exitCode": 0,
+    "log": "unit.txt",
+    "tests": 2509,
+    "suites": 192,
+    "pass": 2491,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 18,
+    "todo": 0
+  }
+}
