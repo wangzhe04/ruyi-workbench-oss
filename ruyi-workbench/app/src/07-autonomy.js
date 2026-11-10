@@ -156,7 +156,7 @@ async function policyDesktopOverrideFor(ctx) {
 
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
-  if (process.platform === 'darwin' && (name === 'powershell_run' || NATIVE_DESKTOP_TOOL_NAMES.has(name))) {
+  if (process.platform === 'darwin' && (name === 'powershell_run' || name === 'keyboard_send_keys')) {
     return 'platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现';
   }
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
@@ -311,7 +311,7 @@ function buildOpenAiTools(config, caps, opts) {
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. orchestrate_agents (exec)
     // is already suppressed for sub-turns via noAgentTools, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
-    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.includes('processSupervisor');
+    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.some(cap => ['processSupervisor', 'desktopCapture'].includes(cap));
     if ((caps || needsRuntime) && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }

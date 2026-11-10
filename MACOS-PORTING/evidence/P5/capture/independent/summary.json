@@ -1,0 +1,110 @@
+{
+  "reviewer": "/root/p5_acceptance",
+  "time": "2026-11-08T09:28:22.004Z",
+  "filesChecked": 29,
+  "drift": [],
+  "runs": [
+    {
+      "name": "contract",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 6623,
+      "passLines": 38,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/contract.txt"
+    },
+    {
+      "name": "live",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 7625,
+      "passLines": 30,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/live.txt"
+    },
+    {
+      "name": "host",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 2463,
+      "passLines": 5,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/host.txt"
+    },
+    {
+      "name": "python-capture",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 3696,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonSummary": "Ran 13 tests in 3.437s",
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/python-capture.txt"
+    },
+    {
+      "name": "python-shared",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 2828,
+      "passLines": 0,
+      "failLines": 0,
+      "pythonSummary": "Ran 8 tests in 2.697s",
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/python-shared.txt"
+    },
+    {
+      "name": "capabilities",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 8514,
+      "passLines": 25,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/capabilities.txt"
+    },
+    {
+      "name": "mcp-capabilities",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 1050,
+      "passLines": 12,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/mcp-capabilities.txt"
+    },
+    {
+      "name": "acc-shared",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 749,
+      "passLines": 15,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/acc-shared.txt"
+    },
+    {
+      "name": "checkpoint",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 2455,
+      "passLines": 41,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/checkpoint.txt"
+    }
+  ],
+  "nodeAssertions": 166,
+  "pythonTests": 21,
+  "remainingScopedProcesses": []
+}

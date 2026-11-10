@@ -44,6 +44,7 @@ if sys.platform == "win32":
 import functools
 import inspect
 import time
+import asyncio
 from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import FastMCP
@@ -70,7 +71,19 @@ async def _tool_lifespan(_server):
                 raise RuntimeError("browser cleanup timed out")
 
 
-mcp = FastMCP(
+class PlatformMCP(FastMCP):
+    async def list_tools(self):
+        tools = await super().list_tools()
+        if sys.platform != "darwin":
+            return tools
+        from ai_computer_control.utils import macos
+        state = await asyncio.to_thread(macos.capability)
+        return [info for info in tools
+                if (info.name not in macos.CAPTURE_TOOLS or state["ready"])
+                and (info.name not in macos.DISPLAY_TOOLS or state.get("queryReady"))]
+
+
+mcp = PlatformMCP(
     "AI Computer Control",
     instructions="A comprehensive toolkit for AI agents to control Windows computers. "
     "Provides screen capture, mouse/keyboard control, window management, "
@@ -186,6 +199,11 @@ def _fail_envelope(e: BaseException, tool: str | None = None) -> dict:
     """Envelope for an exception that escaped a tool: 'Type: message' + a hint when one applies."""
     text = exc_text(e)
     out = {"ok": False, "error": text}
+    if sys.platform == "darwin":
+        from ai_computer_control.utils.macos import DesktopError
+        if isinstance(e, DesktopError):
+            out["code"] = e.code
+            out.update(e.details)
     h = hint_for(text, tool)
     if h:
         out["hint"] = h
@@ -302,9 +320,8 @@ _TOOLSET_MODULES = {
 }
 _ALWAYS_MODULES = ["audit", "diagnostics"]
 
-# P3 shared Mac subset. Desktop/TCC backends belong to P5; importing their Windows
-# implementations (even if an optional package happens to be installed) must not
-# advertise tools that cannot execute. Windows registration remains unchanged.
+# P5 registers the Mac capture backend separately. Other desktop implementations
+# remain absent until their Mac work packages have real backends.
 _MAC_UNSUPPORTED_TOOLSETS = frozenset({
     "desktop", "uia", "ocr", "vision", "macro", "observe", "audio", "sync",
 })
@@ -312,10 +329,16 @@ _UNSUPPORTED_MODULES = {
     module: "platform.unsupported: macOS desktop backend is not implemented"
     for group in _MAC_UNSUPPORTED_TOOLSETS for module in _TOOLSET_MODULES[group]
 } if sys.platform == "darwin" else {}
+if sys.platform == "darwin":
+    _UNSUPPORTED_MODULES.pop("screen", None)
+    _UNSUPPORTED_MODULES.pop("capture", None)
 
 
 def _platform_modules(modules: list[str]) -> list[str]:
-    return [module for module in modules if module not in _UNSUPPORTED_MODULES]
+    active = [module for module in modules if module not in _UNSUPPORTED_MODULES]
+    if sys.platform == "darwin":
+        active = ["macos_capture" if module in {"screen", "capture"} else module for module in active]
+    return list(dict.fromkeys(active))
 
 
 def _active_modules() -> list[str]:

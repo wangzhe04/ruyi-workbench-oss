@@ -1,0 +1,171 @@
+"""Bounded IPC to the offline macOS automation helper, shared by Mac tool modules."""
+import base64
+import io
+import json
+import math
+import os
+from pathlib import Path
+import selectors
+import subprocess
+import threading
+import time
+
+from PIL import Image
+
+_SLOTS = threading.BoundedSemaphore(2)
+_OUTPUT_LIMIT = 68 * 1024 * 1024
+CAPTURE_TOOLS = frozenset({"screenshot", "screenshot_region", "window_screenshot"})
+DISPLAY_TOOLS = frozenset({"get_screen_info", "list_monitors", "get_dpi_info"})
+
+
+class DesktopError(RuntimeError):
+    def __init__(self, code, message, details=None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
+def helper_path():
+    explicit = os.environ.get("RUYI_MACOS_AUTOMATION_HELPER")
+    if explicit:
+        return Path(explicit)
+    # Source checkout fallback. Installed/release layouts supply the explicit path.
+    return Path(__file__).resolve().parents[5] / "ruyi-workbench/runtime/macos/ruyi-automation-helper"
+
+
+def _identity(path):
+    stat = path.stat()
+    if not path.is_file() or not os.access(path, os.X_OK):
+        raise OSError("helper is not executable")
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
+
+
+def request(payload, timeout=15):
+    """Run a child with bounded input, output, concurrency and lifetime. Never return native stderr."""
+    path = helper_path()
+    try:
+        identity = _identity(path)
+    except OSError:
+        raise DesktopError("dependency_missing", "Build or install the macOS automation helper") from None
+    data = json.dumps({**payload, "version": 1}, allow_nan=False).encode("utf-8")
+    if len(data) > 65536:
+        raise DesktopError("invalid_args", "Desktop request exceeds the input limit")
+    if not _SLOTS.acquire(blocking=False):
+        raise DesktopError("capture_busy", "Two native desktop requests are already running")
+    child = None
+    try:
+        child = subprocess.Popen([str(path)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"})
+        output = bytearray()
+        stderr_size = 0
+        deadline = time.monotonic() + timeout
+        written = 0
+        os.set_blocking(child.stdin.fileno(), False)
+        with selectors.DefaultSelector() as streams:
+            streams.register(child.stdin, selectors.EVENT_WRITE)
+            streams.register(child.stdout, selectors.EVENT_READ)
+            streams.register(child.stderr, selectors.EVENT_READ)
+            while streams.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise DesktopError("capture_timeout", "Native desktop request timed out")
+                for key, _ in streams.select(min(remaining, 0.25)):
+                    if key.fileobj is child.stdin:
+                        written += os.write(child.stdin.fileno(), data[written:written + 4096])
+                        if written == len(data):
+                            streams.unregister(child.stdin)
+                            child.stdin.close()
+                        continue
+                    chunk = os.read(key.fileobj.fileno(), 65536)
+                    if not chunk:
+                        streams.unregister(key.fileobj)
+                    elif key.fileobj is child.stdout:
+                        output.extend(chunk)
+                        if len(output) > _OUTPUT_LIMIT:
+                            raise DesktopError("capture_capacity", "Native desktop response exceeds its limit")
+                    else:
+                        stderr_size += len(chunk)
+                        if stderr_size > 8192:
+                            raise DesktopError("capture_failed", "Native desktop diagnostics exceed their limit")
+        try:
+            status = child.wait(timeout=max(0.01, deadline - time.monotonic()))
+            result = json.loads(output)
+        except (ValueError, subprocess.TimeoutExpired):
+            raise DesktopError("capture_failed", "Invalid native desktop response") from None
+        try:
+            unchanged = _identity(path) == identity
+        except OSError:
+            unchanged = False
+        if not unchanged:
+            raise DesktopError("dependency_changed", "The native helper changed during the request")
+        if not isinstance(result, dict) or not isinstance(result.get("ok"), bool):
+            raise DesktopError("capture_failed", "Invalid native desktop response envelope")
+        if status != 0 or not result["ok"]:
+            details = {"candidates":result["candidates"][:20]} if isinstance(result.get("candidates"),list) else {}
+            raise DesktopError(str(result.get("code") or "capture_failed"), str(result.get("error") or "Native desktop request failed"),details)
+        if result.get("protocolVersion") != 1:
+            raise DesktopError("capture_failed", "Unsupported native desktop protocol")
+        return result
+    except (OSError, BrokenPipeError):
+        raise DesktopError("capture_failed", "Cannot communicate with the native desktop helper") from None
+    finally:
+        if child is not None:
+            if child.poll() is None:
+                child.kill()
+            child.wait()
+            for stream in (child.stdin, child.stdout, child.stderr):
+                stream.close()
+        _SLOTS.release()
+
+
+def capability():
+    out = {"supported": True, "installed": False, "authorization": "unknown", "ready": False}
+    try:
+        _identity(helper_path())
+        out["installed"] = True
+        status = request({"op": "status"}, timeout=3)
+        if not isinstance(status.get("monitors"), list) or status.get("coordinate_space") != "macos_global_points":
+            raise DesktopError("capture_failed", "Invalid desktop status metadata")
+        out["queryReady"] = True
+        out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
+                   ready=bool(status.get("ready") and status.get("authorization") == "granted"
+                              and status.get("locked") is False and status["monitors"]))
+        out["reasonCode"] = "" if out["ready"] else ("session_locked" if status.get("locked") else
+            "permission_denied" if status.get("authorization") != "granted" else "display_unavailable")
+        return out
+    except (OSError, DesktopError) as error:
+        out["reasonCode"] = getattr(error, "code", "dependency_missing")
+        return out
+
+
+def capture(region=None, monitor=None, window_title=None):
+    payload = {"op": "capture"}
+    if region is not None:
+        payload["region"] = list(region)
+    elif monitor is not None:
+        value = str(monitor).strip().lower()
+        if value not in ("all", "virtual"):
+            try:
+                value = int(value)
+            except ValueError:
+                raise DesktopError("invalid_args", "monitor must be 'all' or a monitor index") from None
+        payload["monitor"] = value
+    if window_title is not None:
+        payload = {"op": "capture", "window_title": window_title}
+    result = request(payload)
+    try:
+        raw = base64.b64decode(result.pop("png"), validate=True)
+        image = Image.open(io.BytesIO(raw))
+        if image.width * image.height > 32000000:
+            raise ValueError("image capacity")
+        image.load()
+        bounds = result["logical_bounds"]
+        valid_bounds = isinstance(bounds, dict) and all(type(bounds.get(key)) in (int, float)
+            and math.isfinite(bounds[key]) for key in ("x", "y", "width", "height"))
+        if not valid_bounds or result.get("coordinate_space") != "macos_global_points" \
+            or image.format != "PNG" or image.size != (result["width"], result["height"]) \
+            or bounds["width"] <= 0 or bounds["height"] <= 0:
+            raise ValueError("image metadata")
+    except (KeyError, TypeError, ValueError, OSError, Image.DecompressionBombError):
+        raise DesktopError("capture_failed", "Invalid native capture image or geometry") from None
+    return image, result

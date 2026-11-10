@@ -91,6 +91,7 @@ const ProcessRuntime = (() => {
       capabilities['process.supervisor'] = supervisor;
       capabilities['shell.exec'] = shell;
       capabilities['shell.session'] = shell;
+      capabilities['desktop.capture'] = await MacDesktopAutomation.capabilitySnapshot();
     }
     return Object.freeze({ platform: process.platform, arch: process.arch, capabilities: Object.freeze(capabilities) });
   }

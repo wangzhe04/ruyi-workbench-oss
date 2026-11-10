@@ -68,8 +68,9 @@ test('[N4] 命令 / 桌面工具开关在分发点也生效(且与 offer 面同�
   assert.equal(fs.existsSync(proof), false);
   // 会话级桌面覆盖 true 放行(全局关也一样);覆盖 false 拒
   const overridden = H.nativeToolDisabledByPolicy('desktop_screenshot', off, true);
-  if (process.platform === 'darwin') assert.match(overridden, /platform\.unsupported/, 'session override cannot supply a missing platform implementation');
-  else assert.equal(overridden, '');
+  assert.equal(overridden, '', 'the implemented screenshot backend honours the session desktop override');
+  if (process.platform === 'darwin') assert.match(H.nativeToolDisabledByPolicy('keyboard_send_keys',off,true),
+    /platform\.unsupported/, 'session override cannot supply a missing input backend');
   assert.notEqual(H.nativeToolDisabledByPolicy('desktop_screenshot', { allowDesktopTools: true }, false), '');
   // offer 面:被拒的工具不在 schema 里
   const names = buildOpenAiTools({ ...off, toolLoadingMode: 'auto' }, null, {}).map(t => t.function.name);

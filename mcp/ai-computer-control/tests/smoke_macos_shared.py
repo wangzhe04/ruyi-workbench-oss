@@ -4,6 +4,7 @@ No desktop permissions, external services, or system writes. Run with the instal
 Python 3.12 environment. Windows registry assertions remain in smoke_registry.
 """
 import importlib.util
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -40,10 +41,10 @@ class MacShared(unittest.TestCase):
 
     def test_registry_and_diagnostics_are_truthful(self):
         s = self.server
-        names = {t.name for t in s.mcp._tool_manager.list_tools()}
+        names = {t.name for t in asyncio.run(s.mcp.list_tools())}
         self.assertTrue({"read_file", "edit_file", "write_document", "excel_read", "write_pptx",
                          "chart_image", "browser_open", "diagnostics"} <= names)
-        self.assertFalse({"screenshot", "mouse_click", "ocr_image", "ui_inspect", "macro_run",
+        self.assertFalse({"mouse_click", "ocr_image", "ui_inspect", "macro_run",
                           "wait_for_pixel", "beep", "observe"} & names)
         d = s.mcp._tool_manager.get_tool("diagnostics").fn()
         self.assertEqual(d["load_errors"], {})
@@ -51,10 +52,11 @@ class MacShared(unittest.TestCase):
         self.assertFalse(d["optional"]["ocr"])
         self.assertFalse(d["optional"]["uia"])
         self.assertFalse(d["optional"]["pynput"])
-        self.assertEqual(names, {t.name for t in s.mcp._tool_manager.list_tools()})
+        self.assertEqual("screenshot" in names, d["capabilities"]["desktop.capture"]["ready"])
+        self.assertEqual(names, {t.name for t in asyncio.run(s.mcp.list_tools())})
         # Pure registration selection retains all Windows groups. No Windows backend
         # is imported or executed by this assertion.
-        with patch.object(s, "_UNSUPPORTED_MODULES", {}):
+        with patch.object(s, "_UNSUPPORTED_MODULES", {}), patch.object(s.sys,"platform","win32"):
             self.assertIn("screen", s._active_modules())
             self.assertIn("ocr", s._active_modules())
 

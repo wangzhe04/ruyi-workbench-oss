@@ -135,3 +135,9 @@
 独立复验随后发现首发 SSE 可能携带启动暂态 classic。真实 View Transition 延迟负对照稳定复现后，组合根改为复用视角控制器的最新意图，保留默认动画与原断言，最终候选重新冻结执行原生、浏览器及工程验收。旧失败及负对照来源保留。[首发修正](evidence/P4/full-mac-acceptance/README.md)
 
 最终修正候选独立串行复跑八组、255项全部通过，均自然退出0，53项源码指纹无漂移且观察到的自有进程已退出。本任务防休眠保持停止，当前Mac功能验收完成，既有待验边界保留。[最终独立验收](evidence/P4/full-mac-acceptance/review.json)
+
+
+2026-11-08 开始 P5，基线 `4e83cec4`，开发分支 `codex/p5-macos-automation`。P5-01 接入 ScreenCaptureKit 截图、全局逻辑点与原生像素映射、ACC 与原生截图入口。Codex 与真实 LaunchServices 如意 App 分别授权并取得真实截图，当前继续工程回归和独立验收。双屏/非 Retina 实机、最低系统与正式签名的证据边界分别记录。[当前记录](evidence/P5/capture/README.md)
+
+
+2026-11-10 恢复P5推进。P5-01当前主机最终独立九件166项Node与21项Python通过，31项指纹匹配；完整单元2491通过/18既有跳过，静态80/80、语法和构建新鲜度通过。补齐真实锁屏截图拒绝及解锁状态恢复证据。物理多屏/非Retina、撤权、捕获中布局变化和Windows同候选仍待验，P5-01继续in_progress。用户要求不锁定，已启用4小时临时保活，开发验收期间按需续期。[最终独立验收](evidence/P5/capture/independent-final-fixed/review.json)

@@ -1383,7 +1383,7 @@
       "dependsOn": [
         "P4"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "effortDays": {
         "low": 16,
         "high": 26
@@ -1397,9 +1397,13 @@
             "high": 5
           },
           "deliverable": "使用适合最低系统版本的截图后端；建立逻辑点/像素/缩放/原点契约；处理 Retina、多屏、负坐标和权限拒绝。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex（实施）；/root/p5_acceptance（独立验收）",
+          "evidence": [
+            "evidence/P5/capture/README.md"
+          ],
+          "startedDate": "2026-11-08",
+          "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e"
         },
         {
           "id": "P5-02",
@@ -1449,7 +1453,9 @@
           "owner": null,
           "evidence": []
         }
-      ]
+      ],
+      "startedDate": "2026-11-08",
+      "owner": "Codex"
     },
     {
       "id": "P6",

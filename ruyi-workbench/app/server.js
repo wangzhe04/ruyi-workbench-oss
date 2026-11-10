@@ -2599,6 +2599,97 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
   return Object.freeze({ acquire, canonicalRoot, endpointFor, legacyEndpointFor, socketRecordFor });
 })(require('net'), require('fs'), require('path'), require('os'), require('crypto'));
 
+// P5 bounded native desktop IPC. The helper is a leaf and never starts child processes.
+const MacDesktopAutomationHooks = { helperPath: () => process.env.RUYI_MACOS_AUTOMATION_HELPER
+  || require('node:path').resolve(__dirname, '..', 'runtime', 'macos', 'ruyi-automation-helper') };
+const MacDesktopAutomation = (() => {
+  const nativeProcess = require('node:child_process');
+  const nativeFiles = require('node:fs');
+  let active = 0;
+  let probe = null;
+  const fail = (code, error) => ({ ok: false, code, error });
+  function stamp(file) {
+    const stat = nativeFiles.statSync(file, { bigint: true });
+    if (!stat.isFile()) throw new Error('Not a regular helper');
+    nativeFiles.accessSync(file, nativeFiles.constants.X_OK);
+    return [file, stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs, stat.mode].join('|');
+  }
+  async function request(payload, signal, timeoutMs) {
+    if (signal?.aborted) return fail('aborted', 'Desktop request cancelled');
+    let input;
+    try { input = JSON.stringify({ ...payload, version: 1 }); }
+    catch { return fail('invalid_args', 'Desktop request cannot be encoded'); }
+    if (Buffer.byteLength(input) > 65536) return fail('invalid_args', 'Desktop request exceeds its input limit');
+    const file = MacDesktopAutomationHooks.helperPath();
+    let identity;
+    try { identity = stamp(file); }
+    catch { return fail('dependency_missing', 'Mac automation helper is missing or not executable'); }
+    if (active >= 2) return fail('capture_busy', 'Two native desktop requests are already running');
+    active++;
+    return new Promise(resolve => {
+      let child, failure = null, size = 0, completed = false;
+      const chunks = [];
+      const stop = result => {
+        failure = failure || result;
+        if (child) { try { child.kill('SIGKILL'); } catch { /* owned leaf may already have exited */ } }
+      };
+      const abort = () => stop(fail('aborted', 'Desktop request cancelled'));
+      const deadline = Math.max(1, Math.min(15000, Number(timeoutMs) || (payload.op === 'status' ? 3000 : 15000)));
+      const timer = setTimeout(() => stop(fail('capture_timeout', 'Native desktop request timed out')), deadline);
+      signal?.addEventListener('abort', abort, { once: true });
+      const finish = result => {
+        if (completed) return;
+        completed = true;
+        clearTimeout(timer); signal?.removeEventListener('abort', abort); active--;
+        chunks.length = 0; resolve(result);
+      };
+      try {
+        child = nativeProcess.spawn(file, [], { stdio: ['pipe', 'pipe', 'ignore'], env: {} });
+        child.once('error', () => { failure = fail('capture_failed', 'Cannot start native desktop helper'); });
+        child.stdin.on('error', () => stop(fail('capture_failed', 'Native desktop input failed')));
+        child.stdout.on('error', () => stop(fail('capture_failed', 'Native desktop output failed')));
+        child.stdout.on('data', bytes => {
+          size += bytes.length;
+          if (failure) return;
+          if (size > (payload.op === 'status' ? 65536 : 68 * 1024 * 1024)) {
+            stop(fail('capture_capacity', 'Native desktop output exceeded its limit')); return;
+          }
+          chunks.push(bytes);
+        });
+        child.once('close', code => {
+          if (failure) { finish(failure); return; }
+          try {
+            if (stamp(file) !== identity) { finish(fail('dependency_changed', 'Native desktop helper changed during request')); return; }
+            const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            if (!result || typeof result !== 'object' || typeof result.ok !== 'boolean'
+              || (result.ok && (code !== 0 || result.protocolVersion !== 1))) throw new Error('Invalid envelope');
+            finish(result);
+          } catch { finish(fail('capture_failed', 'Invalid native desktop response')); }
+        });
+        child.stdin.end(input);
+        if (signal?.aborted) abort();
+      } catch {
+        const result = fail('capture_failed', 'Cannot start native desktop helper');
+        if (child) stop(result); else finish(result);
+      }
+    });
+  }
+  async function capabilitySnapshot() {
+    if (process.platform !== 'darwin') return { supported: false, installed: false, authorization: 'not_required', ready: false };
+    if (probe) return probe;
+    probe = request({ op: 'status' }).then(status => ({ supported: true, installed: status.code !== 'dependency_missing',
+      authorization: status.authorization || 'unknown', ready: status.ok === true && !!status.ready
+        && status.authorization === 'granted' && status.locked === false && status.coordinate_space === 'macos_global_points'
+        && Array.isArray(status.monitors) && status.monitors.length > 0,
+      reasonCode: status.ok ? status.locked ? 'session_locked' : status.authorization !== 'granted' ? 'permission_denied'
+        : !Array.isArray(status.monitors) || !status.monitors.length ? 'display_unavailable' : '' : status.code,
+      coordinate_space: status.coordinate_space,
+    })).finally(() => { probe = null; });
+    return probe;
+  }
+  return { request, capabilitySnapshot };
+})();
+
 // Handles authorize an owned execution. PIDs remain diagnostic values, never lookup keys.
 const ProcessRuntimeHooks = {};
 const ProcessRuntime = (() => {
@@ -2692,6 +2783,7 @@ const ProcessRuntime = (() => {
       capabilities['process.supervisor'] = supervisor;
       capabilities['shell.exec'] = shell;
       capabilities['shell.session'] = shell;
+      capabilities['desktop.capture'] = await MacDesktopAutomation.capabilitySnapshot();
     }
     return Object.freeze({ platform: process.platform, arch: process.arch, capabilities: Object.freeze(capabilities) });
   }
@@ -31844,11 +31936,17 @@ const TOOL_REQUIRES = {
   script_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
   powershell_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
   shell_start: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
+  desktop_screenshot: { requires: ['desktopCapture'], reason: 'Mac 屏幕捕获尚未就绪，请检查屏幕录制权限和自动化组件' },
 };
 // Is a tool's requirement met given the capability matrix? Unknown cap keys are treated as satisfied
 // (fail-open: a typo in the table must never silently strip a tool). `enabled` gates testOnly entries.
 // `config` is consulted for capability keys that live in config rather than the probe matrix (searchBackend).
 function runtimeToolRequirementsMet(toolName, runtime) {
+  if (process.platform === 'darwin' && TOOL_REQUIRES[toolName]?.requires.includes('desktopCapture')
+    && runtime?.capabilities?.['desktop.capture']?.ready !== true) {
+    return { met: false, reason: TOOL_REQUIRES[toolName].reason,
+      code: runtime?.capabilities?.['desktop.capture']?.reasonCode || 'capture_unavailable' };
+  }
   const requiresSupervisor = TOOL_REQUIRES[toolName]?.requires.includes('processSupervisor');
   if (process.platform !== 'darwin' || !requiresSupervisor || runtime?.capabilities?.['process.supervisor']?.ready === true) return { met: true };
   return { met: false, reason: 'Mac 进程监督器尚未就绪' };
@@ -31859,7 +31957,7 @@ function toolRequirementsMet(toolName, caps, toolRequiresEnabled, config) {
   if (spec.testOnly && !toolRequiresEnabled) return { met: true }; // test hook off → treat as no requirement
   const reqs = Array.isArray(spec.requires) ? spec.requires : [];
   for (const cap of reqs) {
-    if (cap === 'processSupervisor') {
+    if (cap === 'processSupervisor' || cap === 'desktopCapture') {
       const requirement = runtimeToolRequirementsMet(toolName, caps && caps.runtime);
       if (requirement.met) continue;
       return requirement;
@@ -42032,7 +42130,7 @@ async function policyDesktopOverrideFor(ctx) {
 
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
-  if (process.platform === 'darwin' && (name === 'powershell_run' || NATIVE_DESKTOP_TOOL_NAMES.has(name))) {
+  if (process.platform === 'darwin' && (name === 'powershell_run' || name === 'keyboard_send_keys')) {
     return 'platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现';
   }
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
@@ -42187,7 +42285,7 @@ function buildOpenAiTools(config, caps, opts) {
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. orchestrate_agents (exec)
     // is already suppressed for sub-turns via noAgentTools, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
-    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.includes('processSupervisor');
+    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.some(cap => ['processSupervisor', 'desktopCapture'].includes(cap));
     if ((caps || needsRuntime) && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }
@@ -63713,7 +63811,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const desktopOverride = await policyDesktopOverrideFor(ctx);
   const { bridged, catalog, runtime } = await adaptiveCatalogForMcp(config, { desktopOverride });
   const runtimeRequirement = runtimeToolRequirementsMet(targetName, runtime);
-  if (!runtimeRequirement.met) return { ok: false, code: runtime.capabilities['process.supervisor'].code || 'runtime-unavailable', error: runtimeRequirement.reason };
+  if (!runtimeRequirement.met) return { ok: false, code: runtimeRequirement.code || runtime.capabilities['process.supervisor'].code || 'runtime-unavailable', error: runtimeRequirement.reason };
   // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的目标在【目录查找之前】拒,回与原生一致的 tool-disabled ——
   // 目录里已经没有它(11 adaptiveCatalogForMcp 滤掉了),先查目录只会得到一句误导的 unknown-tool。判据与 09 / 08 同一个
   // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生与桥接目标在查目录前统一判。
@@ -65939,13 +66037,15 @@ const SHELL_TOOL_HANDLERS = {
 // 副本缺失(PS 缩放失败 / 旧路径)回落到 PNG 本体,但超过上限就不内嵌(只回路径 + 说明),避免一张 4K PNG 把历史撑爆。
 const VISION_SIDECAR_SUFFIX = '.vision.jpg';
 const SCREENSHOT_EMBED_MAX_BYTES = 2500000;
-async function attachScreenshotImage(result, outPath) {
+async function attachScreenshotImage(result, outPath, useSidecar = true) {
   if (!result || result.ok === false) return result;
   const sidecar = outPath + VISION_SIDECAR_SUFFIX;
   try {
     let buf = null;
-    try { buf = await fsp.readFile(sidecar); } catch { buf = null; }
-    finally { await fsp.rm(sidecar, { force: true }).catch(() => {}); }
+    if (useSidecar) {
+      try { buf = await fsp.readFile(sidecar); } catch { buf = null; }
+      finally { await fsp.rm(sidecar, { force: true }).catch(() => {}); }
+    }
     if (!buf || !buf.length) {
       const st = await fsp.stat(outPath).catch(() => null);
       if (!st || !st.isFile()) return result;
@@ -66024,6 +66124,28 @@ const DESKTOP_TOOL_HANDLERS = {
         const gShot = await guardFileToolPath(outPathRaw, ctx, { tool: 'desktop_screenshot', write: true });
         if (!gShot.ok) return { ok: false, error: gShot.error, code: gShot.code, path: outPathRaw };
         outPath = gShot.absPath;
+      }
+      if (process.platform === 'darwin') {
+        const captured = await MacDesktopAutomation.request({ op: 'capture' }, ctx && ctx.signal, args.timeoutMs);
+        if (!captured.ok) return captured;
+        let image;
+        try {
+          image = Buffer.from(captured.png, 'base64');
+          if (image.length < 24 || image.toString('hex', 0, 8) !== '89504e470d0a1a0a'
+            || image.readUInt32BE(16) !== captured.width || image.readUInt32BE(20) !== captured.height
+            || image.toString('base64') !== captured.png || !captured.logical_bounds
+            || !['x','y','width','height'].every(key => Number.isFinite(captured.logical_bounds[key]))
+            || captured.logical_bounds.width <= 0 || captured.logical_bounds.height <= 0
+            || captured.width <= 0 || captured.height <= 0 || captured.width * captured.height > 32000000
+            || captured.coordinate_space !== 'macos_global_points') throw new Error('Invalid PNG or geometry');
+        } catch { return { ok: false, code: 'capture_failed', error: 'Invalid native screenshot image' }; }
+        if (ctx?.signal?.aborted) return { ok: false, code: 'aborted', error: 'Desktop request cancelled' };
+        await fsp.mkdir(path.dirname(outPath), { recursive: true });
+        await FileTextIo.writeFileAtomic(outPath, image, { signal: ctx && ctx.signal });
+        const bounds = captured.logical_bounds;
+        return await attachScreenshotImage({ ok: true, path: outPath, width: captured.width, height: captured.height,
+          origin: { x: bounds.x, y: bounds.y }, scale: captured.width / bounds.width,
+          scale_y: captured.height / bounds.height, coordinate_space: captured.coordinate_space, method: captured.method }, outPath, false);
       }
       const ps = buildDesktopScreenshotScript(outPath);
       const result = powershellMissingOr(await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal), '桌面截图只能在 Windows 上使用(依赖 Windows PowerShell 与 System.Drawing)');
@@ -67806,7 +67928,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'desktop_screenshot',
-    description: 'Capture the primary Windows screen to a PNG file',
+    description: 'Capture the primary screen to a PNG file. On macOS, requires Screen Recording permission and returns global logical-point origin with image scale and scale_y.',
     inputSchema: {
       type: 'object',
       properties: { outputPath: { type: 'string', description: 'PNG path; default: app generated folder' }, timeoutMs: { type: 'number', description: 'ms' } },
@@ -69234,7 +69356,7 @@ async function handleApi(req, res, pathname) {
       errorClasses: ERROR_CLASSES,
       // 116c: /api/status 的工具清单是【设置页面向用户的目录】,管家工具族一律不出现在这里(四个
       // offer 面之一)—— 它们只属于 kind==='steward' 的管家会话,不是用户可挑选的会话工具。
-      tools: MCP_TOOLS.filter(t => !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      tools: MCP_TOOLS.filter(t => runtimeToolRequirementsMet(t.name, runtime).met && !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     }));
   }
   // v0.8-S6: capability matrix (§7.2). Read-only → same-origin gate is enough (not in needsToken). 60s

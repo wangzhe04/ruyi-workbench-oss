@@ -1,0 +1,5 @@
+PASS native capture component installs independently of authorization
+PASS unavailable desktop returns an explicit failure
+FAIL real capture acceptance requires screen permission and an unlocked desktop
+
+MACOS CAPTURE E2E: FAIL (1)

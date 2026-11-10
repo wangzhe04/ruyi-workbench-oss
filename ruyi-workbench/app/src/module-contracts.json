@@ -361,13 +361,30 @@
       "requires": []
     },
     {
+      "file": "01n-desktop-automation.js",
+      "layer": "foundation",
+      "provides": [
+        "MacDesktopAutomation",
+        "MacDesktopAutomationHooks"
+      ],
+      "requires": []
+    },
+    {
       "file": "01h-process-runtime.js",
       "layer": "foundation",
       "provides": [
         "ProcessRuntime",
         "ProcessRuntimeHooks"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "01n-desktop-automation.js",
+          "symbol": "MacDesktopAutomation",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "01i-privacy-rules.js",
@@ -12938,6 +12955,13 @@
         {
           "provider": "01h-process-runtime.js",
           "symbol": "ProcessRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01n-desktop-automation.js",
+          "symbol": "MacDesktopAutomation",
           "kinds": [
             "read"
           ]

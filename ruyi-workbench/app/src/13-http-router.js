@@ -314,7 +314,7 @@ async function handleApi(req, res, pathname) {
       errorClasses: ERROR_CLASSES,
       // 116c: /api/status 的工具清单是【设置页面向用户的目录】,管家工具族一律不出现在这里(四个
       // offer 面之一)—— 它们只属于 kind==='steward' 的管家会话,不是用户可挑选的会话工具。
-      tools: MCP_TOOLS.filter(t => !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      tools: MCP_TOOLS.filter(t => runtimeToolRequirementsMet(t.name, runtime).met && !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     }));
   }
   // v0.8-S6: capability matrix (§7.2). Read-only → same-origin gate is enough (not in needsToken). 60s

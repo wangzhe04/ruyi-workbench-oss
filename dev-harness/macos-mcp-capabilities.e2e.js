@@ -25,18 +25,26 @@ let runtime;
     const entry = path.join(root, 'mcp-entry.js');
     fs.writeFileSync(entry, `const S=require(${JSON.stringify(path.resolve(__dirname, 'lib/server-internals'))}).loadServerInternals(['startMcp','ProcessRuntimeHooks']);S.ProcessRuntimeHooks.helperPath=()=>${JSON.stringify(helper)};S.startMcp().catch(e=>{console.error(e.message);process.exitCode=1});`);
     client = new S.McpStdioClient({ id: 'capability-fixture', command: process.execPath, args: [entry],
-      env: fixtureChildEnv({ RUYI_HOME: childData, WIN_CLAUDE_WORKBENCH_HOME: childData }) });
+      env: { ...fixtureChildEnv(), RUYI_HOME: childData, WIN_CLAUDE_WORKBENCH_HOME: childData,
+        RUYI_MACOS_AUTOMATION_HELPER:path.join(root,'missing-capture-helper') } });
     await client.start();
     let names = client.listTools().map(tool => tool.name);
+    if (!names.includes('shell_run') || !names.includes('git_status')) {
+      const initial = await client.callTool('workbench_self_status',{section:'capabilities'},5000);
+      console.log('Initial runtime diagnostic '+JSON.stringify(initial.capabilities?.runtime || initial));
+    }
     t.ok(names.includes('shell_run') && names.includes('git_status'), 'real MCP tools/list offers managed tools with ready helper');
-    const windowsOnly = ['powershell_run', 'desktop_screenshot', 'keyboard_send_keys'];
+    const windowsOnly = ['powershell_run', 'keyboard_send_keys'];
     t.ok(windowsOnly.every(name => !names.includes(name)), 'MCP tools/list excludes Windows-only implementations on Mac');
     const desktopSearch = await client.callTool('tool_search', { query: 'desktop_screenshot keyboard_send_keys powershell_run', limit: 20 }, 5000);
     t.ok(desktopSearch.ok && !desktopSearch.matches.some(item => windowsOnly.includes(item.name)),
       'adaptive MCP discovery excludes the same Windows-only tools');
-    const unsupported = await client.callTool('tool_invoke_exec', { name: 'desktop_screenshot', arguments: {} }, 5000);
+    const unsupported = await client.callTool('tool_invoke_exec', { name: 'keyboard_send_keys', arguments: {} }, 5000);
     t.ok(!unsupported.ok && unsupported.code === 'tool-disabled' && unsupported.error.includes('platform.unsupported'),
       'stale MCP proxy invocation cannot reach a Windows-only handler');
+    t.ok(!names.includes('desktop_screenshot'), 'MCP listing removes capture when its Mac helper is missing');
+    const missingCapture = await client.callTool('tool_invoke_exec',{name:'desktop_screenshot',arguments:{}},5000);
+    t.ok(!missingCapture.ok && missingCapture.code==='dependency_missing', 'stale MCP capture reports the actual missing dependency');
     fs.unlinkSync(helper);
     names = (await client.refreshTools(5000)).map(tool => tool.name);
     t.ok(!names.includes('shell_run') && !names.includes('script_run') && !names.includes('git_status'),

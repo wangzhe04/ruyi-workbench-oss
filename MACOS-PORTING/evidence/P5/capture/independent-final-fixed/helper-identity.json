@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-11-10T03:43:27.794Z",
+  "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+  "sha256": "8d55b2c40166ba793a64e3c979540be1b0266784d1d5a432d4f27eef9041a430",
+  "codesign": {
+    "status": 0,
+    "signal": null,
+    "output": [
+      null,
+      "",
+      "Executable=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=354 flags=0x2(adhoc) hashes=5+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=c4d3554ca065608fdf050082fd78e4bb3a4805aa\nCandidateCDHashFull sha256=c4d3554ca065608fdf050082fd78e4bb3a4805aa7675c4556eb65a416025b6d7\nHash choices=sha256\nCMSDigest=c4d3554ca065608fdf050082fd78e4bb3a4805aa7675c4556eb65a416025b6d7\nCMSDigestType=2\nCDHash=c4d3554ca065608fdf050082fd78e4bb3a4805aa\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+    ],
+    "pid": 9311,
+    "stdout": "",
+    "stderr": "Executable=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=354 flags=0x2(adhoc) hashes=5+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=c4d3554ca065608fdf050082fd78e4bb3a4805aa\nCandidateCDHashFull sha256=c4d3554ca065608fdf050082fd78e4bb3a4805aa7675c4556eb65a416025b6d7\nHash choices=sha256\nCMSDigest=c4d3554ca065608fdf050082fd78e4bb3a4805aa7675c4556eb65a416025b6d7\nCMSDigestType=2\nCDHash=c4d3554ca065608fdf050082fd78e4bb3a4805aa\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+  },
+  "verify": {
+    "status": 0,
+    "signal": null,
+    "output": [
+      null,
+      "",
+      ""
+    ],
+    "pid": 9312,
+    "stdout": "",
+    "stderr": ""
+  }
+}

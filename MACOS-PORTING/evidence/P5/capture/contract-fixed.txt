@@ -1,0 +1,31 @@
+PASS production planner combines negative-origin mixed-scale displays
+PASS secondary display crop uses local source coordinates
+PASS non-Retina selected display retains one pixel per logical point
+PASS negative-origin partial overflow clips using logical coordinates
+PASS region inside bounding union but in a display gap fails
+PASS wholly off-desktop region fails before allocating pixels
+PASS nonpositive region fails in production planner
+PASS production binary excludes fixture-only protocol operations
+PASS native protocol rejects malformed input before querying desktop
+PASS native protocol rejects malformed input before querying desktop
+PASS native protocol rejects malformed input before querying desktop
+PASS valid native status is independently ready
+PASS Provider discovery uses the capture capability snapshot
+PASS permission denial and locked sessions retract readiness
+PASS permission denial and locked sessions retract readiness
+PASS Mac screenshot embeds its own PNG and preserves unrelated sidecar files
+PASS invalid native geometry cannot produce a file or claimed success
+PASS normal screenshot entry point honours its timeout before writing
+PASS normal screenshot cancellation reaps its leaf before returning
+PASS oversized native status output is bounded
+PASS malformed native envelope fails closed
+PASS removing native helper retracts capture readiness
+PASS real native MCP tools/list advertises ready capture
+PASS same MCP process refresh retracts capture after permission loss
+PASS stale native MCP invocation reports permission loss
+PASS permission recovery restores native MCP discovery without restart
+PASS same MCP process refresh detects missing capture helper
+PASS native supervisor confirms MCP subtree cleanup
+PASS owned MCP process is reaped
+
+MACOS CAPTURE CONTRACT E2E: ALL PASS

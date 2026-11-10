@@ -35,11 +35,17 @@ const TOOL_REQUIRES = {
   script_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
   powershell_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
   shell_start: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
+  desktop_screenshot: { requires: ['desktopCapture'], reason: 'Mac 屏幕捕获尚未就绪，请检查屏幕录制权限和自动化组件' },
 };
 // Is a tool's requirement met given the capability matrix? Unknown cap keys are treated as satisfied
 // (fail-open: a typo in the table must never silently strip a tool). `enabled` gates testOnly entries.
 // `config` is consulted for capability keys that live in config rather than the probe matrix (searchBackend).
 function runtimeToolRequirementsMet(toolName, runtime) {
+  if (process.platform === 'darwin' && TOOL_REQUIRES[toolName]?.requires.includes('desktopCapture')
+    && runtime?.capabilities?.['desktop.capture']?.ready !== true) {
+    return { met: false, reason: TOOL_REQUIRES[toolName].reason,
+      code: runtime?.capabilities?.['desktop.capture']?.reasonCode || 'capture_unavailable' };
+  }
   const requiresSupervisor = TOOL_REQUIRES[toolName]?.requires.includes('processSupervisor');
   if (process.platform !== 'darwin' || !requiresSupervisor || runtime?.capabilities?.['process.supervisor']?.ready === true) return { met: true };
   return { met: false, reason: 'Mac 进程监督器尚未就绪' };
@@ -50,7 +56,7 @@ function toolRequirementsMet(toolName, caps, toolRequiresEnabled, config) {
   if (spec.testOnly && !toolRequiresEnabled) return { met: true }; // test hook off → treat as no requirement
   const reqs = Array.isArray(spec.requires) ? spec.requires : [];
   for (const cap of reqs) {
-    if (cap === 'processSupervisor') {
+    if (cap === 'processSupervisor' || cap === 'desktopCapture') {
       const requirement = runtimeToolRequirementsMet(toolName, caps && caps.runtime);
       if (requirement.met) continue;
       return requirement;

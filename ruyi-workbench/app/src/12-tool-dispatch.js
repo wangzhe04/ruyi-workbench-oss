@@ -243,7 +243,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const desktopOverride = await policyDesktopOverrideFor(ctx);
   const { bridged, catalog, runtime } = await adaptiveCatalogForMcp(config, { desktopOverride });
   const runtimeRequirement = runtimeToolRequirementsMet(targetName, runtime);
-  if (!runtimeRequirement.met) return { ok: false, code: runtime.capabilities['process.supervisor'].code || 'runtime-unavailable', error: runtimeRequirement.reason };
+  if (!runtimeRequirement.met) return { ok: false, code: runtimeRequirement.code || runtime.capabilities['process.supervisor'].code || 'runtime-unavailable', error: runtimeRequirement.reason };
   // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的目标在【目录查找之前】拒,回与原生一致的 tool-disabled ——
   // 目录里已经没有它(11 adaptiveCatalogForMcp 滤掉了),先查目录只会得到一句误导的 unknown-tool。判据与 09 / 08 同一个
   // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生与桥接目标在查目录前统一判。
@@ -2469,13 +2469,15 @@ const SHELL_TOOL_HANDLERS = {
 // 副本缺失(PS 缩放失败 / 旧路径)回落到 PNG 本体,但超过上限就不内嵌(只回路径 + 说明),避免一张 4K PNG 把历史撑爆。
 const VISION_SIDECAR_SUFFIX = '.vision.jpg';
 const SCREENSHOT_EMBED_MAX_BYTES = 2500000;
-async function attachScreenshotImage(result, outPath) {
+async function attachScreenshotImage(result, outPath, useSidecar = true) {
   if (!result || result.ok === false) return result;
   const sidecar = outPath + VISION_SIDECAR_SUFFIX;
   try {
     let buf = null;
-    try { buf = await fsp.readFile(sidecar); } catch { buf = null; }
-    finally { await fsp.rm(sidecar, { force: true }).catch(() => {}); }
+    if (useSidecar) {
+      try { buf = await fsp.readFile(sidecar); } catch { buf = null; }
+      finally { await fsp.rm(sidecar, { force: true }).catch(() => {}); }
+    }
     if (!buf || !buf.length) {
       const st = await fsp.stat(outPath).catch(() => null);
       if (!st || !st.isFile()) return result;
@@ -2554,6 +2556,28 @@ const DESKTOP_TOOL_HANDLERS = {
         const gShot = await guardFileToolPath(outPathRaw, ctx, { tool: 'desktop_screenshot', write: true });
         if (!gShot.ok) return { ok: false, error: gShot.error, code: gShot.code, path: outPathRaw };
         outPath = gShot.absPath;
+      }
+      if (process.platform === 'darwin') {
+        const captured = await MacDesktopAutomation.request({ op: 'capture' }, ctx && ctx.signal, args.timeoutMs);
+        if (!captured.ok) return captured;
+        let image;
+        try {
+          image = Buffer.from(captured.png, 'base64');
+          if (image.length < 24 || image.toString('hex', 0, 8) !== '89504e470d0a1a0a'
+            || image.readUInt32BE(16) !== captured.width || image.readUInt32BE(20) !== captured.height
+            || image.toString('base64') !== captured.png || !captured.logical_bounds
+            || !['x','y','width','height'].every(key => Number.isFinite(captured.logical_bounds[key]))
+            || captured.logical_bounds.width <= 0 || captured.logical_bounds.height <= 0
+            || captured.width <= 0 || captured.height <= 0 || captured.width * captured.height > 32000000
+            || captured.coordinate_space !== 'macos_global_points') throw new Error('Invalid PNG or geometry');
+        } catch { return { ok: false, code: 'capture_failed', error: 'Invalid native screenshot image' }; }
+        if (ctx?.signal?.aborted) return { ok: false, code: 'aborted', error: 'Desktop request cancelled' };
+        await fsp.mkdir(path.dirname(outPath), { recursive: true });
+        await FileTextIo.writeFileAtomic(outPath, image, { signal: ctx && ctx.signal });
+        const bounds = captured.logical_bounds;
+        return await attachScreenshotImage({ ok: true, path: outPath, width: captured.width, height: captured.height,
+          origin: { x: bounds.x, y: bounds.y }, scale: captured.width / bounds.width,
+          scale_y: captured.height / bounds.height, coordinate_space: captured.coordinate_space, method: captured.method }, outPath, false);
       }
       const ps = buildDesktopScreenshotScript(outPath);
       const result = powershellMissingOr(await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal), '桌面截图只能在 Windows 上使用(依赖 Windows PowerShell 与 System.Drawing)');

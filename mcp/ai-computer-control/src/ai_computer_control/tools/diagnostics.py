@@ -77,7 +77,7 @@ def _optional() -> dict:
 
 def _monitors_summary() -> dict:
     try:
-        mod = sys.modules.get(_TOOLS_PKG + "desktop_extra")
+        mod = sys.modules.get(_TOOLS_PKG + ("macos_capture" if sys.platform == "darwin" else "desktop_extra"))
         if mod is None:  # toolset not loaded (ACC_TOOLSETS) — don't load it just to report
             return {"count": None, "monitors": []}
         m = mod.list_monitors()
@@ -90,7 +90,7 @@ def _monitors_summary() -> dict:
 
 def _dpi_summary() -> dict:
     try:
-        mod = sys.modules.get(_TOOLS_PKG + "desktop_extra")
+        mod = sys.modules.get(_TOOLS_PKG + ("macos_capture" if sys.platform == "darwin" else "desktop_extra"))
         if mod is None:
             return {"awareness": None, "primary_scale": None}
         return mod.get_dpi_info()
@@ -111,6 +111,10 @@ def diagnostics() -> dict:
         tool_count = len(mcp._tool_manager.list_tools())
     except Exception:
         tool_count = None
+    desktop = {}
+    if sys.platform == "darwin":
+        from ai_computer_control.utils.macos import capability
+        desktop["desktop.capture"] = capability()
     return {
         "ok": True,
         "version": VERSION,
@@ -130,6 +134,7 @@ def diagnostics() -> dict:
         # Deliberately unsupported modules are distinct from broken dependencies.
         # These tools never enter tools/list, regardless of ACC_TOOLSETS.
         "unsupported_modules": dict(_server._UNSUPPORTED_MODULES),
+        "capabilities": desktop,
         # Tools the host removed via ACC_HIDE_TOOLS (sorted). Empty list = nothing hidden.
         "hidden_tools": list(getattr(_server, "HIDDEN_TOOLS", [])),
     }
