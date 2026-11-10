@@ -89,7 +89,8 @@ class PlatformMCP(FastMCP):
                 and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))
                 and (info.name not in macos.INPUT_TOOLS or state.get("inputReady"))
                 and (info.name not in macos.POINTER_QUERY_TOOLS or state.get("pointerQueryReady"))
-                and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))]
+                and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))
+                and (info.name not in macos.AX_TOOLS or state.get("axReady"))]
 
 
 mcp = PlatformMCP(
@@ -99,7 +100,8 @@ mcp = PlatformMCP(
     "file operations, browser automation, document editing, and more. "
     "Every tool returns a dict with a boolean 'ok' field. "
     "On macOS implemented shared and native desktop tools are registered according to current readiness. "
-    "Mac input requires a complete current window target. Diagnostics reports unsupported backends.",
+    "Mac input and accessibility require a complete current window target. AX actions also require a private "
+    "element_ref from a recent observation and exact foreground focus. Diagnostics reports unsupported backends.",
     lifespan=_tool_lifespan,
 )
 
@@ -347,6 +349,7 @@ if sys.platform == "darwin":
     _UNSUPPORTED_MODULES.pop("keyboard", None)
     _UNSUPPORTED_MODULES.pop("mouse", None)
     _UNSUPPORTED_MODULES.pop("application", None)
+    _UNSUPPORTED_MODULES.pop("uia", None)
 
 
 def _platform_modules(modules: list[str]) -> list[str]:
@@ -354,7 +357,8 @@ def _platform_modules(modules: list[str]) -> list[str]:
     if sys.platform == "darwin":
         replacements = {"screen": "macos_capture", "capture": "macos_capture",
                         "window": "macos_input", "clipboard": "macos_input",
-                        "keyboard": "macos_events", "mouse": "macos_events", "application": "macos_application"}
+                        "keyboard": "macos_events", "mouse": "macos_events", "application": "macos_application",
+                        "uia": "macos_ax"}
         active = [replacements.get(module, module) for module in active]
     return list(dict.fromkeys(active))
 

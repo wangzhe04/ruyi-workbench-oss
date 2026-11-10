@@ -27,9 +27,13 @@
 
 static NSMutableDictionary<NSString *, RuyiWindowBinding *> *bindings;
 
-void RuyiAutomationResetInputBindings(void) { [bindings removeAllObjects]; }
+void RuyiAutomationResetInputBindings(void) {
+    [bindings removeAllObjects];
+    RuyiAutomationResetAXBindings();
+}
 
 void RuyiAutomationRefreshInputBindings(void) {
+    RuyiAutomationRefreshAXBindings();
     if (RuyiAutomationLocked() || !AXIsProcessTrusted()) {
         RuyiAutomationReleaseEvents(); RuyiAutomationResetInputBindings(); return;
     }
@@ -77,7 +81,9 @@ NSString *RuyiAutomationProcessIdentity(pid_t pid) {
 
 CFTypeRef RuyiAutomationCopyAttribute(AXUIElementRef element, CFStringRef attribute) {
     CFTypeRef value = NULL;
-    if (AXUIElementCopyAttributeValue(element, attribute, &value) != kAXErrorSuccess) return NULL;
+    AXError error = AXUIElementCopyAttributeValue(element, attribute, &value);
+    if (error == kAXErrorAPIDisabled) RuyiAutomationResetInputBindings();
+    if (error != kAXErrorSuccess) { if (value) CFRelease(value); return NULL; }
     return value;
 }
 
@@ -229,12 +235,20 @@ static BOOL UniqueWindowHit(NSDictionary *row, AXUIElementRef window, NSTimeInte
 AXUIElementRef RuyiAutomationCopyTargetWindow(NSDictionary *row, NSDictionary **failure) {
     AXUIElementRef app = AXUIElementCreateApplication([row[@"pid"] intValue]);
     AXUIElementSetMessagingTimeout(app, 0.15);
-    CFTypeRef raw = RuyiAutomationCopyAttribute(app, kAXWindowsAttribute);
+    CFTypeRef raw = NULL;
+    AXError enumerationError = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute, &raw);
     CFRelease(app);
     if (!raw || CFGetTypeID(raw) != CFArrayGetTypeID()) {
         if (raw)
             CFRelease(raw);
-        *failure = RuyiAutomationFailure(@"window_unsupported", @"Application does not expose accessible windows");
+        if (enumerationError == kAXErrorAPIDisabled) {
+            RuyiAutomationResetInputBindings();
+            *failure = RuyiAutomationFailure(@"permission_denied", @"Application denied Accessibility access");
+            return NULL;
+        }
+        *failure = enumerationError == kAXErrorCannotComplete ?
+            RuyiAutomationFailure(@"accessibility_timeout", @"Application accessibility window enumeration timed out") :
+            RuyiAutomationFailure(@"window_unsupported", @"Application does not expose accessible windows");
         return NULL;
     }
     AXUIElementRef matched = NULL;
@@ -771,11 +785,13 @@ NSDictionary *RuyiAutomationInputStatus(void) {
         @"windowListReady":@(!locked), @"clipboardReady":@(!locked),
         @"inputReady":@(trusted && CGPreflightPostEventAccess() && !locked),
         @"eventAuthorization":CGPreflightPostEventAccess() ? @"granted" : @"denied",
-        @"pointerQueryReady":@(!locked), @"applicationReady":@(!locked)};
+        @"pointerQueryReady":@(!locked), @"applicationReady":@(!locked),
+        @"axSupported":@YES, @"axReady":@(trusted && !locked)};
 }
 
 static NSDictionary *HandleInputRequest(NSDictionary *request) {
     NSString *op = request[@"op"];
+    if ([op hasPrefix:@"ax."]) return RuyiAutomationAXRequest(request);
 #ifdef RUYI_AUTOMATION_TESTING
     if ([op isEqual:@"test_stall_clipboard"]) return RuyiAutomationTestBlockedClipboard(request);
 #endif
@@ -808,7 +824,7 @@ NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
     NSDictionary *result = HandleInputRequest(request);
     NSString *op = request[@"op"];
     BOOL events = [op hasPrefix:@"keyboard."] || ([op hasPrefix:@"mouse."] && ![op isEqual:@"mouse.position"]);
-    BOOL accessibility = events || ([op hasPrefix:@"window."] && ![op isEqual:@"window.list"]);
+    BOOL accessibility = events || [op hasPrefix:@"ax."] || ([op hasPrefix:@"window."] && ![op isEqual:@"window.list"]);
     BOOL locked = RuyiAutomationLocked();
     BOOL denied = (accessibility && !AXIsProcessTrusted()) || (events && !CGPreflightPostEventAccess());
     if ([result[@"ok"] boolValue] && (locked || denied)) {

@@ -9,6 +9,9 @@ NSArray *RuyiAutomationDisplays(void);
 NSDictionary *RuyiAutomationEncodeImage(CGImageRef image, BOOL rejectBlank);
 NSDictionary *RuyiAutomationInputStatus(void);
 NSDictionary *RuyiAutomationInputRequest(NSDictionary *request);
+NSDictionary *RuyiAutomationAXRequest(NSDictionary *request);
+void RuyiAutomationResetAXBindings(void);
+void RuyiAutomationRefreshAXBindings(void);
 void RuyiAutomationRefreshInputBindings(void);
 void RuyiAutomationResetInputBindings(void);
 int RuyiAutomationRunInputSession(void);
@@ -34,4 +37,5 @@ NSString *RuyiAutomationRestorePendingClipboard(void);
 #ifdef RUYI_AUTOMATION_TESTING
 NSDictionary *RuyiAutomationTestInputState(void);
 NSDictionary *RuyiAutomationTestBlockedClipboard(NSDictionary *request);
+NSDictionary *RuyiAutomationTestAXState(NSDictionary *request);
 #endif

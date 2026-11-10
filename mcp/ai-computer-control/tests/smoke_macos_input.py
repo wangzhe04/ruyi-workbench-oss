@@ -111,6 +111,13 @@ class InputSession(unittest.TestCase):
         error = self.assert_error("input_session_timeout", timeout=0.3)
         self.assertEqual(error.details, {})
 
+    def test_ax_observation_failure_is_read_only_but_invoke_is_uncertain(self):
+        for operation in ("ax.inspect", "ax.find", "ax.invoke"):
+            with self.subTest(operation=operation):
+                self.worker("sys.exit(0)")
+                error = self.assert_error("input_session_failed", {"op": operation})
+                self.assertEqual(error.details, {"action_sent": True, "outcome": "unknown"} if operation == "ax.invoke" else {})
+
     def test_eof_and_response_capacity_close_the_worker(self):
         self.worker("sys.exit(0)")
         error = self.assert_error("input_session_failed", {"op":"clipboard.set", "text":"controlled"})

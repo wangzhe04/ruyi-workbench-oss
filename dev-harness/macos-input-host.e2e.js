@@ -3,6 +3,7 @@ require('./lib/self-isolate-home');
 // LaunchServices Ruyi.app -> owned workbench -> normal HTTP invoke -> real ACC -> native input worker.
 // All injected events target a self-owned fixture. RUYI_P5_APP_PASTE=1 also verifies guarded Cmd+V.
 // RUYI_P5_APP_EXIT_FAILURE=1 forces an owned App crash after input and expects one injected failure.
+// RUYI_P5_APP_AX=1 also exercises native AX queries and confirmed AXValue writes through the normal App route.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -18,6 +19,7 @@ const data = path.join(root, 'data'); fs.mkdirSync(data);
 let fixture, launcher, owned, ownedTree = [];
 const paste = process.env.RUYI_P5_APP_PASTE === '1';
 const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
+const ax = process.env.RUYI_P5_APP_AX === '1';
 const events = [];
 async function until(read, timeout = 45000) {
   const deadline = Date.now() + timeout;
@@ -87,7 +89,7 @@ async function cleanupOwned() {
       ...(process.env.DYLD_FRAMEWORK_PATH ? { DYLD_FRAMEWORK_PATH: process.env.DYLD_FRAMEWORK_PATH } : {}),
       ...(process.env.DYLD_LIBRARY_PATH ? { DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH } : {}),
       PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
-      ACC_TOOLSETS: 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
+      ACC_TOOLSETS: ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
     const schema = require('../ruyi-workbench/app/server').CONFIG_SCHEMA;
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: schema, permissionMode: 'bypass',
       defaultWorkspace: root, workspaces: [{ path: root }], allowDesktopTools: true, allowCommandTools: true,
@@ -110,15 +112,23 @@ const invoke=async(name,args={})=>{
 };
 const diag=await invoke('diagnostics');
 const capabilities=diag.capabilities?.['desktop.capture'];
-if(!capabilities?.inputReady) return {capabilities,diagOK:diag.ok,unavailable:true};
+if(!capabilities || (${ax} ? !capabilities.axReady : !capabilities.inputReady)) return {capabilities,diagOK:diag.ok,unavailable:true};
 const listed=await invoke('list_windows');
 const row=listed.windows?.find(window=>window.pid===${fixture.pid}&&window.handle===${ready.id});
 if(!row) return {capabilities,error:'owned_window_missing'};
 const focused=await invoke('focus_window',{target:row.target});
-const typed=focused.ok?await invoke('type_text',{text:${JSON.stringify(sample)},target:row.target,use_clipboard:${paste},interval:0}):null;
+const typed=!${ax}&&focused.ok?await invoke('type_text',{text:${JSON.stringify(sample)},target:row.target,use_clipboard:${paste},interval:0}):null;
+let ax=null;
+if(${ax} && focused.ok){
+  const found=await invoke('ui_find',{target:row.target,control_type:'AXTextArea',max_results:2});
+  const element=found.count===1?found.matches[0]:null;
+  const written=element?await invoke('ui_invoke',{target:row.target,element_ref:element.element_ref,action:'set_value',text:'App AX fixture baseline'}):null;
+  const restored=written?.ok?await invoke('ui_invoke',{target:row.target,element_ref:element.element_ref,action:'set_value',text:${JSON.stringify(sample)}}):null;
+  ax={foundCount:found.count,element,written,restored};
+}
 const clicked=typed?.ok?await invoke('mouse_click',{...${JSON.stringify(pad)},target:row.target}):null;
 const scrolled=clicked?.ok?await invoke('mouse_scroll',{...${JSON.stringify(pad)},target:row.target,clicks:-2}):null;
-return {capabilities,focused,typed,clicked,scrolled};`);
+return {capabilities,focused,typed,clicked,scrolled,ax};`);
     const env = { ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, RUYI_NODE_PATH: process.execPath };
     const launchEnv = { HOME: env.HOME, USERPROFILE: env.USERPROFILE, LOCALAPPDATA: env.LOCALAPPDATA, APPDATA: env.APPDATA,
       RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, RUYI_NODE_PATH: process.execPath };
@@ -157,17 +167,26 @@ return {capabilities,focused,typed,clicked,scrolled};`);
     t.ok(result.nativePID > 0 && result.servicePID > 0, 'LaunchServices Ruyi App owns the actual workbench service');
     t.ok(owned?.pid === result.nativePID && ownedTree.some(row => row.pid === result.servicePID),
       'App and service process identities were observed before shutdown');
-    if (!extra.capabilities?.inputReady) console.log('App input readiness ' + JSON.stringify(extra));
-    t.ok(extra.capabilities?.inputReady && extra.capabilities.windowAuthorization === 'granted'
-      && extra.capabilities.eventAuthorization === 'granted', 'App-launched ACC has its own actual Accessibility and event authorization');
+    if (!(ax ? extra.capabilities?.axReady : extra.capabilities?.inputReady)) console.log('App input readiness ' + JSON.stringify(extra));
+    t.ok(extra.capabilities?.windowAuthorization === 'granted' && (ax ? extra.capabilities.axReady :
+      extra.capabilities.inputReady && extra.capabilities.eventAuthorization === 'granted'),
+    ax ? 'App-launched ACC has actual Accessibility authorization for native AX' : 'App-launched ACC has its own actual Accessibility and event authorization');
     t.ok(extra.focused?.ok && extra.focused.foreground_verified, 'normal App HTTP tool route focuses the exact owned receiver');
-    t.ok(extra.typed?.ok && extra.typed.method === (paste ? 'clipboard' : 'typewrite'),
+    if (!ax) t.ok(extra.typed?.ok && extra.typed.method === (paste ? 'clipboard' : 'typewrite'),
       paste ? 'normal App HTTP tool route sends Chinese through Cmd+V' : 'normal App HTTP tool route sends Chinese Unicode events');
-    if (paste) t.ok(extra.typed?.restore === 'done' && state.clipboardPreserved, 'App Cmd+V restores the prior image and private clipboard formats');
-    t.ok(extra.clicked?.ok && extra.scrolled?.ok, 'App launch chain sends guarded pointer and wheel events');
-    t.ok(state.text === sample && state.counts.key_down > 0, 'real receiver confirms the App-originated Chinese text');
-    t.ok(state.counts.left_down === 1 && state.counts.left_up === 1 && state.counts.vertical_scroll > 0,
-      'real receiver confirms the App-originated balanced click and wheel events');
+    if (paste && !ax) t.ok(extra.typed?.restore === 'done' && state.clipboardPreserved, 'App Cmd+V restores the prior image and private clipboard formats');
+    if (ax) {
+      t.ok(extra.capabilities?.axReady, 'App-origin native AX backend reports actual ready authorization');
+      t.ok(extra.ax?.foundCount === 1 && extra.ax.element.element_ref, 'normal App HTTP route resolves the exact owned AX text area');
+      t.ok(extra.ax?.written?.confirmed && extra.ax?.restored?.confirmed && state.text === sample,
+        'App-origin AXValue writes change and restore the real receiver with confirmed readback');
+    }
+    if (!ax) {
+      t.ok(extra.clicked?.ok && extra.scrolled?.ok, 'App launch chain sends guarded pointer and wheel events');
+      t.ok(state.text === sample && state.counts.key_down > 0, 'real receiver confirms the App-originated Chinese text');
+      t.ok(state.counts.left_down === 1 && state.counts.left_up === 1 && state.counts.vertical_scroll > 0,
+        'real receiver confirms the App-originated balanced click and wheel events');
+    }
     t.ok(!state.leftHeld && state.modifierFlags === 0, 'App input leaves actual button and modifier state released');
     if (forceAppExit) {
       if (!owned || !remainingOwned().some(row => row.pid === owned.pid)) throw new Error('Cannot verify the App before controlled crash');

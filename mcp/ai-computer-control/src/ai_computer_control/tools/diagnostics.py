@@ -47,7 +47,7 @@ def _optional_modules() -> dict:
     return out
 
 
-def _optional() -> dict:
+def _optional(mac_capture=None) -> dict:
     """Compact optional-backend availability with the exact keys the workbench probe scans.
 
     The Win Claude Workbench `probeDesktopMcp` reads `diagnostics().optional` for the boolean keys
@@ -65,7 +65,8 @@ def _optional() -> dict:
 
     return {
         "ocr": flag("ai_computer_control.tools.ocr", "winsdk"),
-        "uia": flag("ai_computer_control.tools.uia", "uiautomation"),
+        "uia": bool(mac_capture and mac_capture.get("axSupported") and sys.modules.get("ai_computer_control.tools.macos_ax"))
+            if sys.platform == "darwin" else flag("ai_computer_control.tools.uia", "uiautomation"),
         "cv2": flag("ai_computer_control.tools.vision", "cv2"),
         "playwright": flag("ai_computer_control.tools.browser", "playwright"),
         "pynput": flag("ai_computer_control.tools.record", "pynput"),
@@ -115,6 +116,11 @@ def diagnostics() -> dict:
     if sys.platform == "darwin":
         from ai_computer_control.utils.macos import capability
         desktop["desktop.capture"] = capability()
+        state = desktop["desktop.capture"]
+        desktop["desktop.accessibility"] = {"supported": state.get("axSupported", False),
+            "installed": bool(state.get("installed") and state.get("axSupported")),
+            "authorization": state.get("windowAuthorization", "unknown"), "ready": state.get("axReady", False),
+            "backend": "AXUIElement", "coordinate_space": "macos_global_points"}
     return {
         "ok": True,
         "version": VERSION,
@@ -125,7 +131,7 @@ def diagnostics() -> dict:
         "monitors": _monitors_summary(),
         "dpi": _dpi_summary(),
         # Compact, probe-aligned availability (top-level, boolean) — read by workbench probeDesktopMcp.
-        "optional": _optional(),
+        "optional": _optional(desktop.get("desktop.capture")),
         # Fuller import-level map kept for humans / debugging.
         "optional_modules": _optional_modules(),
         "tool_count": tool_count,

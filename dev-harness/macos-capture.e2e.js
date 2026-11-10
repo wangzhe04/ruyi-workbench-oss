@@ -93,7 +93,7 @@ function checkPattern(result, content, label) {
     const diagnostics = await client.callTool('diagnostics', {});
     t.ok(names.includes('mouse_click') === diagnostics.capabilities['desktop.capture'].inputReady,
       'Mac input discovery follows the implemented backend readiness');
-    t.ok(!names.includes('ui_inspect'), 'later AX backend stays absent');
+    t.ok(!names.includes('ui_inspect'), 'AX tools stay outside the selected desktop and vision toolsets');
     t.ok(S.auditBridgedWriteCoverage(names).uncovered.length === 0, 'live capture writers retain checkpoint coverage');
     const info = await client.callTool('get_screen_info',{});
     t.ok(info.ok && info.authorization === 'granted' && info.coordinate_space === 'macos_global_points',

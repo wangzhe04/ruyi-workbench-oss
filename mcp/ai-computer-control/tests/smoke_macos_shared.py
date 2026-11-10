@@ -44,15 +44,17 @@ class MacShared(unittest.TestCase):
         names = {t.name for t in asyncio.run(s.mcp.list_tools())}
         self.assertTrue({"read_file", "edit_file", "write_document", "excel_read", "write_pptx",
                          "chart_image", "browser_open", "diagnostics"} <= names)
-        self.assertFalse({"mouse_click", "ocr_image", "ui_inspect", "macro_run",
+        self.assertFalse({"ocr_image", "macro_run",
                           "wait_for_pixel", "beep", "observe"} & names)
         d = s.mcp._tool_manager.get_tool("diagnostics").fn()
         self.assertEqual(d["load_errors"], {})
-        self.assertIn("uia", d["unsupported_modules"])
+        self.assertNotIn("uia", d["unsupported_modules"])
         self.assertFalse(d["optional"]["ocr"])
-        self.assertFalse(d["optional"]["uia"])
+        self.assertEqual(d["optional"]["uia"], d["capabilities"]["desktop.capture"].get("axSupported", False))
         self.assertFalse(d["optional"]["pynput"])
         self.assertEqual("screenshot" in names, d["capabilities"]["desktop.capture"]["ready"])
+        self.assertEqual("mouse_click" in names, d["capabilities"]["desktop.capture"].get("inputReady", False))
+        self.assertEqual("ui_inspect" in names, d["capabilities"]["desktop.capture"].get("axReady", False))
         self.assertEqual(names, {t.name for t in asyncio.run(s.mcp.list_tools())})
         # Pure registration selection retains all Windows groups. No Windows backend
         # is imported or executed by this assertion.
@@ -60,13 +62,15 @@ class MacShared(unittest.TestCase):
             self.assertIn("screen", s._active_modules())
             self.assertIn("ocr", s._active_modules())
 
-    def test_explicit_toolsets_cannot_enable_mac_desktop(self):
+    def test_explicit_toolsets_select_implemented_mac_backends(self):
         with patch.dict(os.environ, {"ACC_TOOLSETS": "desktop,uia,ocr,office,browser"}):
             active = self.server._active_modules()
         self.assertIn("document", active)
         self.assertIn("browser", active)
         self.assertNotIn("screen", active)
         self.assertNotIn("uia", active)
+        self.assertIn("macos_ax", active)
+        self.assertNotIn("ocr", active)
 
     def test_system_roots_aliases_and_temporary_workspaces(self):
         guard = self.safety.protected_path_reason

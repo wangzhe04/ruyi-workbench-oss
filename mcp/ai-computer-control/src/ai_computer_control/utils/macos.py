@@ -23,6 +23,7 @@ CLIPBOARD_TOOLS = frozenset({"get_clipboard", "set_clipboard", "get_clipboard_im
 INPUT_TOOLS = frozenset({"type_text", "press_key", "hotkey", "mouse_click", "mouse_move", "mouse_drag", "mouse_scroll", "scroll_at"})
 POINTER_QUERY_TOOLS = frozenset({"get_mouse_position"})
 APPLICATION_TOOLS = frozenset({"launch_application"})
+AX_TOOLS = frozenset({"ui_inspect", "ui_find", "ui_invoke"})
 
 
 class DesktopError(RuntimeError):
@@ -61,7 +62,7 @@ def _failure_details(result):
     details = {}
     if isinstance(result.get("candidates"), list):
         details["candidates"] = result["candidates"][:20]
-    for key in ("acted", "action_sent", "restored", "reached"):
+    for key in ("acted", "action_sent", "restored", "reached", "confirmed"):
         if type(result.get(key)) is bool:
             details[key] = result[key]
     for key in ("actual_x", "actual_y"):
@@ -69,7 +70,7 @@ def _failure_details(result):
             details[key] = result[key]
     if result.get("outcome") in ("unknown", "unconfirmed", "rolled_back"):
         details["outcome"] = result["outcome"]
-    for key in ("actual_bounds", "window"):
+    for key in ("actual_bounds", "window", "control"):
         if isinstance(result.get(key), dict):
             details[key] = result[key]
     if result.get("restore") in ("none", "done", "failed", "skipped_changed", "unconfirmed"):
@@ -171,6 +172,9 @@ def capability():
                    applicationReady=bool(status.get("applicationReady") and status.get("locked") is False),
                    windowAuthorization=status.get("windowAuthorization", "unknown"),
                    eventAuthorization=status.get("eventAuthorization", "unknown"))
+        out.update(axSupported=status.get("axSupported") is True,
+                   axReady=bool(status.get("axSupported") is True and status.get("axReady")
+                                and status.get("windowAuthorization") == "granted" and status.get("locked") is False))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))

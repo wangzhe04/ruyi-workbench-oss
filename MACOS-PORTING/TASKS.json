@@ -1478,9 +1478,36 @@
             "high": 8
           },
           "deliverable": "实现元素查询、定位、支持的动作；处理失效元素、超时/深度/数量上限与应用不支持；替代 UIA 特定属性映射。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
+          "evidence": [
+            "evidence/P5/ax/README.md"
+          ],
+          "startedDate": "2026-11-10",
+          "baselineCommit": "c1b90ad2",
+          "progress": "AX核心及如意App入口当前主机独立验收通过。最终56源逐命令指纹匹配，10项Node命令263条断言与5项Python共61测试通过，真实62秒TTL及受控生命周期通过。工程单元2491通过/18既有跳过、静态80/80、语法1144与构建新鲜度通过，交付helper与最终独立验收二进制同一SHA。实际AX应用场景、真实撤权/锁屏和外部环境继续保留，P5-03整体in_progress。",
+          "coreSlice": {
+            "status": "accepted_current_host_pending_commit",
+            "baselineCommit": "c1b90ad2",
+            "sourceFingerprint": "evidence/P5/ax/source-fingerprint-final.json",
+            "sourceFiles": 56,
+            "codeReview": "evidence/P5/ax/code-review.json",
+            "mainNativeAssertions": 36,
+            "mainAppAXAssertions": 12,
+            "mainPythonTests": 61,
+            "pending": [
+              "Implementation commit binding",
+              "TextEdit/Finder/Chromium real AX selected scenarios in a following P5-03 slice",
+              "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity"
+            ],
+            "historicalEngineering": "evidence/P5/ax/engineering.json",
+            "finalEngineeringPending": false,
+            "finalIndependent": "evidence/P5/ax/independent-final/review.json",
+            "engineering": "evidence/P5/ax/engineering-final.json",
+            "independentNodeAssertions": 263,
+            "independentPythonTests": 61,
+            "realAXExpiryWaitMs": 62000
+          }
         },
         {
           "id": "P5-04",

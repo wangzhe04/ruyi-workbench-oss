@@ -45,7 +45,7 @@ const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'
     const names = client.listTools().map(tool => tool.name);
     ok(['read_file', 'write_file', 'write_document', 'write_pptx', 'chart_image', 'browser_open'].every(n => names.includes(n)),
       'production stdio transport lists shared file, Office and browser tools');
-    ok(['ocr_image', 'ui_inspect', 'record_start', 'beep'].every(n => !names.includes(n)),
+    ok(['ocr_image', 'record_start', 'beep'].every(n => !names.includes(n)),
       'unsupported desktop backends are absent from the model tool registry');
     ok(auditBridgedWriteCoverage(names).uncovered.length === 0,
       'every live shared ACC write tool remains covered by the workbench checkpoint inventory');
@@ -54,9 +54,11 @@ const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'
       'capture discovery matches the implemented Mac backend readiness');
     ok(names.includes('mouse_click') === diag.capabilities['desktop.capture'].inputReady,
       'native input discovery matches current Mac authorization and desktop readiness');
-    ok(diag.ok && Object.keys(diag.load_errors).length === 0 && !!diag.unsupported_modules.uia,
+    ok(names.includes('ui_inspect') === diag.capabilities['desktop.capture'].axReady,
+      'native AX discovery matches current authorization and backend readiness');
+    ok(diag.ok && Object.keys(diag.load_errors).length === 0 && !!diag.unsupported_modules.ocr && !diag.unsupported_modules.uia,
       'diagnostics distinguishes unsupported modules from failed imports');
-    ok(!diag.optional.ocr && !diag.optional.uia && !diag.optional.pynput &&
+    ok(!diag.optional.ocr && diag.optional.uia === diag.capabilities['desktop.capture'].axSupported && !diag.optional.pynput &&
        diag.optional.playwright === diag.optional_modules.playwright,
       'diagnostics accurately reports absent or unsupported optional backends');
     const note = path.join(workspace, '中文.txt');
