@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T11:41:45.930757+00:00",
+  "status": "code_review_passed_effective_independent_functional_acceptance_recorded",
+  "file": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+  "sourceSha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+  "sourceFingerprint": "../source-fingerprint-worker-ready.json",
+  "reviewedBehavior": [
+    "Warmup window.list acknowledges from the same session child PID. Marker absence is checked before starting the mutation timer.",
+    "The original mutation budget0.5s, one sent marker line, session invalidation, elapsed<2s and no later replay assertions remain. The timed-out worker must be reaped.",
+    "A separate startup-before-read sleep10s fixture exercises a frame written to the pipe without proven consumption. It preserves the0.5s budget and requires action_sent/unknown, no marker, child reaping, elapsed<2s and no later replay.",
+    "No production IPC behavior, deadline or native action guard changed. The historical missing marker cause is not retroactively proven."
+  ],
+  "findings": [],
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedDuringReview": false,
+  "mainAgentEvidenceRead": {
+    "log": "main-final.txt",
+    "sha256": "4a768036b9c69505c5d7953ce4998696bec0d9a46509486a22601d93291179bf",
+    "tests": 18,
+    "passed": true,
+    "executor": "main agent; read by independent reviewer"
+  },
+  "reuseReview": "../source-reuse-review.json",
+  "reuseScope": "Old completed Node commands remain bound to the selected-apps manifest. Final Python batches and App forced-exit command will bind the worker-ready manifest. All60 common source files are proven identical; the old changed-test hash is explicitly retained for each reused command.",
+  "pendingAcceptance": "Independent five Python batches expected62 total tests and the remaining expected App forced-exit negative, then root final engineering and commit binding. P5/P5-03 remain in_progress.",
+  "independentAcceptanceEvidence": "independent-completion/review.json",
+  "finalSourceFingerprint": "source-fingerprint-worker-ready.json",
+  "sourceReuseEvidence": "source-reuse-review.json"
+}

@@ -1,0 +1,28 @@
+PASS TextEdit document belongs to a newly created fixture process
+PASS real TextEdit consumes Chinese Unicode events and Cmd+S saves the exact owned UTF-8 document
+PASS saved TextEdit fixture window closes with verified AX absence
+PASS only the observed new TextEdit process is reaped
+PASS nonactivating fixture preserves the pre-browser clipboard
+FAIL Error: 等满 15003 ms 仍没有指向 http://127.0.0.1:55070/ 的 page 目标;进程还活着(= 慢,不是死);/json/list never-responded;最后看到的目标: (一个都没有)
+Browser diagnostics
+[29468:766990:1110/190956.322579:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+
+DevTools listening on ws://127.0.0.1:55072/devtools/browser/7ab4b788-79c4-4fb4-9463-45887cf53cf8
+[29468:767025:1110/190959.053223:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[29468:767025:1110/190959.054826:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[29468:767025:1110/190959.055002:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[29468:767025:1110/190959.246981:ERROR:google_apis/gcm/engine/mcs_client.cc:702]   Error code: 401  Error message: Authentication Failed: wrong_secret
+[29468:767025:1110/190959.247033:ERROR:google_apis/gcm/engine/mcs_client.cc:704] Failed to log in to GCM, resetting connection.
+
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:242:30
+PASS all recorded browser and descendant identities are absent before profile removal
+PASS all early-registered TextEdit process identities are absent on final cleanup
+PASS selected-app input MCP and native worker cleanup is confirmed
+PASS selected-app fixture restores the pre-test clipboard
+PASS controlled browser profile is removed after its processes exit
+
+MACOS INPUT APPS E2E: FAIL (1)

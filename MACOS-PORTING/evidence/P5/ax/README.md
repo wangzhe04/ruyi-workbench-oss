@@ -44,7 +44,7 @@ App 初次组合探针中，AXTextArea 缺省 enabled 被错误当作不可操�
 
 最终 56 项源码、配置及构建文件已重新冻结，与原候选仅有 5 项已复核变更。最终独立执行逐命令记录前后指纹、自然退出、实际二进制与自有进程清理，包含真实等待 62 秒的 AX 引用过期，以及既有输入、窗口、截图和共享 ACC 回归。[最终源码指纹](source-fingerprint-final.json)
 
-- TextEdit、Finder、Chromium 的实际 AX 选定场景在 P5-03 后续切片推进。这些应用场景保留各自的实际验收记录要求。
+- 核心切片冻结时保留的 TextEdit、Finder、Chromium 实际 AX 选定场景已由后续应用切片补齐当前主机证据，应用版本与限制分别记录。[应用切片](apps/README.md)
 - 真实撤权、动作中锁屏、物理多屏/非 Retina、输入法配置、Windows 同候选、实际 macOS 14 与正式签名身份继续待验。
 - P5-04 OCR、P5-05 录制和组合动作继续按原计划推进。
 
@@ -57,3 +57,7 @@ App 初次组合探针中，AXTextArea 缺省 enabled 被错误当作不可操�
 最终工程门通过。语法检查 1144 文件、构建新鲜度、单元 2491 通过/18 项既有跳过，以及静态 80/80、零 flaky、测试浏览器残留 0。56 项源码指纹全程一致。默认 helper 的最终 SHA-256 为 `04fe4308080fd8b3acd59118301be48c0ace3e51faf1f56349d0821c60a638bf`，最终独立执行与工程期间保持同一二进制，实际 AX 与相关授权均就绪。首轮候选的不同重建指纹分别保留在原记录中。[最终工程](engineering-final.json) [独立工程终审](independent-final/engineering-review.json) [运行状态](runtime-status-final.json)
 
 核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，提交内56项源码逐项匹配最终独立验收候选。[提交绑定](commit-binding.json)
+
+## 真实应用后续切片
+
+2026-11-10 TextEdit、Finder 和 Chromium 选定 AX 场景完成当前主机功能独立验收，有效 350 条 E2E、8 项 focused unit、62 项 Python 及三项负向清理通过。Chromium 默认页面树缺失与配置后页面动作的成员关系限制分别列证。最终工程门与独立终审通过，提交绑定待完成。[应用场景](apps/README.md)

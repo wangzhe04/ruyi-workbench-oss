@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T11:44:14.459915+00:00",
+  "workPackage": "P5-03",
+  "scope": "Current-host selected TextEdit/Finder/CFT AX scenarios, explicit renderer limitations, bounded CDP waiting and input/capture/App regressions",
+  "status": "current_host_selected_application_functional_and_engineering_acceptance_passed_commit_pending",
+  "finalSourceFingerprint": "../source-fingerprint-worker-ready.json",
+  "sourceFiles": 61,
+  "evidenceLayers": {
+    "reusedNode": {
+      "manifest": "../source-fingerprint-selected-apps.json",
+      "runs": "../independent-selected-apps/runs.json",
+      "commands": 17,
+      "positiveE2EAssertions": 350,
+      "focusedNodeUnitTests": 8,
+      "intentionalNegatives": [
+        "finder-forced-failure",
+        "apps-blocked-cdp"
+      ],
+      "binding": "Each original command retains all61 old hashes. The only difference from final61 is the standalone Python input smoke script. All60 common source hashes match per command before and after; no Node runtime dependency on the changed test file was found."
+    },
+    "finalIncremental": {
+      "manifest": "../source-fingerprint-worker-ready.json",
+      "runs": "runs.json",
+      "commands": 6,
+      "pythonTests": 62,
+      "pythonBatches": {
+        "ax": 8,
+        "input": 18,
+        "shared": 8,
+        "events": 15,
+        "capture": 13
+      },
+      "intentionalNegative": "app-ax-forced-exit",
+      "binding": "All61 final source hashes checked before and after every command, with final working hashes matching."
+    },
+    "reuseProof": "../source-reuse-review.json",
+    "oldPythonFailureExcluded": "../independent-selected-apps/python-input/run.txt remains an error run. Final effective Python results come exclusively from the new five-batch completion run."
+  },
+  "effectiveResults": {
+    "commands": 23,
+    "positiveE2EAssertions": 350,
+    "focusedNodeUnitTests": 8,
+    "pythonTests": 62,
+    "unexpectedFailuresInEffectiveEvidence": 0,
+    "intentionalNegativeCommands": 3,
+    "allCommandsNaturalExit": true,
+    "automaticRetries": 0,
+    "externalManualProcessInterventions": 0,
+    "sourceDelta": "Exactly one isolated test file differs between evidence layers; all60 shared files match. Old commands are not described as having used the new61-file content."
+  },
+  "intentionalNegatives": [
+    {
+      "name": "finder-forced-failure",
+      "exitCode": 1,
+      "passLines": 8,
+      "failLines": 1,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "apps-blocked-cdp",
+      "exitCode": 1,
+      "passLines": 10,
+      "failLines": 1,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "app-ax-forced-exit",
+      "exitCode": 1,
+      "passLines": 11,
+      "failLines": 1,
+      "expectedOutcomeMatched": true
+    }
+  ],
+  "applicationCoverage": {
+    "textEdit": {
+      "version": "1.21",
+      "bundleID": "com.apple.TextEdit",
+      "scenario": "Chinese/emoji native AXValue edit, confirmed readback and exact owned UTF-8 file bytes after normal save."
+    },
+    "finder": {
+      "version": "27.0",
+      "build": "1865",
+      "scenario": "Opt-in no-content-window baseline, exact two canonical content URLs plus unique CG window/title/geometry and process birth ownership, complete tree, actual view radio AXValue0-to1 effect, exact-window close with shared Finder preserved.",
+      "ownershipNegatives": [
+        "wrong/duplicate content URL set",
+        "additional AXWindow",
+        "AXTabGroup with missing count",
+        "multiple reported tabs"
+      ]
+    },
+    "chromium": {
+      "product": "Chrome/148.0.7778.96",
+      "bundleID": "com.google.chrome.for.testing",
+      "default": "Native address field AXValue positive. Full46-node window has no WebArea and reports web_area_not_observed. Scope/truncation/non-Chromium and zero-match suppression contracts pass.",
+      "configured": "Requested binary symlink is resolved to the real CFT bundle executable. Documented renderer flag yields54-node tree with WebArea/TextArea. AXValue and AXPress reject asymmetric reciprocal membership with element_stale before side effects. DOM value/click count stay unchanged.",
+      "limitation": "Renderer DOM AX mutation remains unsupported under the current membership guard."
+    }
+  },
+  "boundedWaitCoverage": "Eight focused unit cases plus normal theme-browser11 and actual nonresponding endpoint negative. The latter reaches roughly15s and naturally executes clipboard/MCP/browser/profile cleanup. This bounds discovery and does not establish the earlier CFT startup-hang cause.",
+  "captureCoverage": "33 assertions preserve all four marker colors/tolerance and origin/scale contracts at the explicitly moved owned-window position, with actual primary-display bounds containment. Original overlay-collision failure remains separate.",
+  "binaryVerification": {
+    "defaultHelperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029",
+    "identicalAcrossBothLayersBeforeAfter": true,
+    "strictHelperAndAppSignatureVerified": true,
+    "appSixBuildSourceHashesMatch": true,
+    "evidence": "runs.json binaryBefore/binaryAfter plus ../independent-selected-apps/runs.json",
+    "runtimeStatus": "runtime-status.json"
+  },
+  "processEvidence": "process-cleanup.json",
+  "allObservedOwnedProcessesAbsent": true,
+  "sharedFinderPreservedAndFixtureWindowsClosed": true,
+  "historicalEvidencePreserved": [
+    "independent/ initial symlink startup failure",
+    "independent-final/ externally cancelled CFT startup hang with successful clipboard recovery",
+    "independent-bounded/ overlay-caused desktop marker mismatch",
+    "independent-selected-apps/python-input/ missing fake-worker sent marker error",
+    "Earlier P5-02 clipboard-content loss remains documented separately and is not erased by passing restoration tests."
+  ],
+  "pending": [
+    "Independent binding of the actual local implementation commit.",
+    "Actual mid-action TCC revocation/lock, physical multi-display/non-Retina, supported real input methods, Windows runtime, minimum macOS14 runtime and formal signing.",
+    "Chromium renderer DOM AX mutation support if later required.",
+    "P5-04 OCR and P5-05 recording/composite work."
+  ],
+  "phaseCompletion": "Current-host selected-application functional slice accepted. P5 and P5-03 remain in_progress.",
+  "guiExecutionOwnership": "All independent completion commands finished. GUI/test ownership released to /root after this record.",
+  "finalEngineeringBound": true,
+  "finalDeliveryReview": "../final-delivery-review.json",
+  "finalDeliveryFingerprint": "../source-fingerprint-final-delivery.json",
+  "commitReadiness": "Current-host selected-application slice ready for local implementation commit with reviewed three-layer source binding. P5/P5-03 remain in_progress."
+}

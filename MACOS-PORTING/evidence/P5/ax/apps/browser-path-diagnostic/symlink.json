@@ -1,0 +1,39 @@
+{
+  "kind": "symlink",
+  "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/CFT binary link",
+  "resolved": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "args": [
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-sync",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--use-mock-keychain",
+    "--password-store=basic",
+    "--window-size=1200,850",
+    "--force-renderer-accessibility=complete",
+    "--user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/symlink-profile",
+    "--remote-debugging-port=54240",
+    "about:blank"
+  ],
+  "beforeCleanup": {
+    "pid": 25272,
+    "exitCode": null,
+    "signal": "SIGABRT",
+    "cdp": null,
+    "elapsed": 106,
+    "stdout": "",
+    "stderr": "dlopen /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework: dlopen(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework, 0x0105): tried: '/Users/jiming/.local/esp-runtimes/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file), '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file), '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file)."
+  },
+  "processes": [
+    {
+      "pid": 25272,
+      "created": "1794308114538475"
+    }
+  ],
+  "remaining": [],
+  "exitCode": null,
+  "signal": "SIGABRT",
+  "stdout": "",
+  "stderr": "dlopen /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework: dlopen(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework, 0x0105): tried: '/Users/jiming/.local/esp-runtimes/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file), '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file), '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/../Frameworks/Google Chrome for Testing Framework.framework/Versions/148.0.7778.96/Google Chrome for Testing Framework' (no such file)."
+}

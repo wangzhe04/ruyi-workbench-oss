@@ -72,6 +72,11 @@ int main(void) {
             while (getline(&line, &capacity, stdin) > 0) {
                 NSString *command = [@(line) stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
                 dispatch_async(dispatch_get_main_queue(), ^{
+                    if ([command isEqual:@"place-low"]) {
+                        [window setFrameOrigin:NSMakePoint(160,80)];
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ Report(window,command); });
+                        return;
+                    }
                     if ([command isEqual:@"cover"]) [others addObject:Window(@"P5 Cover", [window contentRectForFrameRect:window.frame], NO)];
                     if ([command isEqual:@"duplicate"]) [others addObject:Window(title, NSMakeRect(850,300,300,180), NO)];
                     if ([command isEqual:@"overlap"]) {

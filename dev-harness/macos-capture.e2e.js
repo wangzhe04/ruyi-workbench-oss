@@ -78,7 +78,14 @@ function checkPattern(result, content, label) {
       }
     });
     fixture.stderr.on('data', bytes => { errors = (errors + bytes).slice(-4000); });
-    const ready = await until(() => reports.find(report => report.event === 'ready'));
+    const initialReady = await until(() => reports.find(report => report.event === 'ready'));
+    fixture.stdin.write('place-low\n');
+    const ready = await until(() => reports.find(report => report.event === 'place-low'));
+    t.ok(ready.content.x === initialReady.content.x && ready.content.y === initialReady.content.y + 160
+      && ready.content.width === initialReady.content.width && ready.content.height === initialReady.content.height,
+    'owned fixture moves to the lower test area before visible desktop captures');
+    evidence.initialFixture = initialReady;
+    evidence.placementReason = 'Use the lower test area after diagnosing a system overlay over the original green marker';
     evidence.fixture = ready;
     const repo = path.resolve(__dirname, '../mcp/ai-computer-control');
     const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python');
@@ -99,6 +106,10 @@ function checkPattern(result, content, label) {
     t.ok(info.ok && info.authorization === 'granted' && info.coordinate_space === 'macos_global_points',
       'live display query reports permission and logical-point coordinate space');
     evidence.displays = info;
+    t.ok(ready.content.x >= info.primary.x && ready.content.y >= info.primary.y
+      && ready.content.x + ready.content.width <= info.primary.x + info.primary.width
+      && ready.content.y + ready.content.height <= info.primary.y + info.primary.height,
+    'all fixture markers lie inside the actual primary display bounds');
     const region = `${ready.content.x},${ready.content.y},${ready.content.width},${ready.content.height}`;
     const captured = await client.callTool('screenshot',{region,max_width:333});
     t.ok(captured.ok && captured.width === 333 && captured.source_pixel_scale.x === info.primary.scale,

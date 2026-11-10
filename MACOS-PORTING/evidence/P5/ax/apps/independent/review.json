@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T10:53:26.600030+00:00",
+  "status": "incomplete_stopped_on_unexpected_renderer_startup_failure",
+  "candidateBinding": "../source-fingerprint.json",
+  "frozenFiles": 58,
+  "runs": "runs.json",
+  "executedCommands": 9,
+  "passedCommands": 8,
+  "passedPositiveNodeAssertions": 208,
+  "pythonTestsExecuted": 0,
+  "failedRun": {
+    "name": "apps-ax-renderer",
+    "log": "apps-ax-renderer/run.txt",
+    "exitCode": 1,
+    "naturalExit": true,
+    "passLines": 13,
+    "failLines": 1,
+    "stage": "CFT browser startup / CDP page discovery after launching through a temporary binary symlink. Chromium AX steps were not reached.",
+    "reason": "No /json/list response for the 15-second page discovery deadline. Process was alive. Cause remains undetermined.",
+    "cleanup": "Recorded browser/descendant and TextEdit identities absent, MCP/helper reaped, prior clipboard restored, controlled profile removed."
+  },
+  "allExecutedBeforeAfterSourceHashesMatch": true,
+  "allObservedOwnedProcessesAbsent": true,
+  "binaryStableDuringExecutedCommands": true,
+  "executionPolicy": "Stopped at the first unexpected outcome. No automatic retry, source edit or additional GUI diagnostic was performed.",
+  "notYetExecuted": [
+    "finder",
+    "finder-forced-failure",
+    "capture",
+    "capture-contract",
+    "shared",
+    "python-ax",
+    "python-input",
+    "python-shared",
+    "python-events",
+    "python-capture",
+    "app-ax-forced-exit"
+  ],
+  "acceptance": "Final selected-application candidate acceptance remains pending. The earlier source review and historical passing runs do not replace this failure."
+}

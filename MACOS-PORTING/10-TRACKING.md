@@ -159,3 +159,9 @@ P5-02 键鼠、中文输入与应用启动切片实现提交 `508174dc2ba77c930c
 2026-11-10 P5-03 AX核心切片完成当前主机最终独立验收。提交前补查修复已观测拒绝/锁屏后的引用同步失效，最终56源逐命令匹配。263条Node与61项Python、真实62秒TTL、如意App三入口及原输入/截图回归通过，强制退出负向按预期失败并清理。单元2491通过/18既有跳过、静态80/80、语法1144及构建新鲜度通过，交付helper与最终独立执行同一SHA。P5-03整体in_progress，实际TextEdit/Finder/Chromium AX与外部环境门继续后续推进。[最终独立报告](evidence/P5/ax/independent-final/review.json) [最终工程](evidence/P5/ax/engineering-final.json)
 
 P5-03 AX核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，56项提交源码逐项匹配最终独立验收候选，默认helper与最终验收二进制一致。P5/P5-03继续in_progress。[提交绑定](evidence/P5/ax/commit-binding.json)
+
+2026-11-10 P5-03 真实应用选定场景主执行通过。TextEdit 1.21 AXValue 中文写盘、Finder 27.0 自有窗口视图 AXPress 及独立原生读回、CFT 148 原生地址栏和默认/配置页面观察均验证。配置后的 Chromium 页面 AX 动作因父子关系不对称被成员校验拒绝，保留明确限制。独立复核修复 Finder 缺失角色/畸形 children/tabs 的归属拒绝，以及默认应用夹具 wrapper/symlink 兼容性，58源冻结后串行独立验收进行中。首次 Finder 身份探针失败曾保留自有窗口，随后已重新证明归属并清理。[应用切片](evidence/P5/ax/apps/README.md)
+
+2026-11-10 应用切片前两轮独立验收分别停在 CFT symlink 的 Frameworks 定位失败、默认 wrapper 浏览器的偶发调试端口挂起。前者已让 AX 夹具解析真实 binary，后者根因未定，人工保全剪贴板快照后恢复清理。另修复公共 CDP 等待按轮询计数而缺少真实截止的问题，8 项单元、15 秒真实阻塞端点清理、默认/AX/renderer 与既有无头浏览器主链通过。61源重新冻结，完整独立验收进行中。旧失败及人工干预记录保留。[等待修复](evidence/P5/ax/apps/bounded-wait/code-review.json) [当前源码](evidence/P5/ax/apps/source-fingerprint-bounded.json)
+
+2026-11-10 真实应用切片完成当前主机功能独立验收和最终工程终审。有效23命令350条E2E、8项focused unit、62项Python及三项预期负向清理通过。系统浮窗遮挡通过自有截图夹具下移验证，Python首帧marker时序经同worker就绪ACK与独立未消费帧case区分，原四轮失败均保留。Node61、Python61、最终工程63的纯测试/清册差异已独立绑定，最终单元2499通过/18既有跳过、静态80/80、语法1146、构建新鲜度及严格签名通过，默认helper全程同SHA。实现提交绑定待完成，P5/P5-03继续in_progress。[交付终审](evidence/P5/ax/apps/final-delivery-review.json)

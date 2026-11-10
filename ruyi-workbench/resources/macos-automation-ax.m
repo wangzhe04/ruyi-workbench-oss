@@ -255,6 +255,7 @@ static NSString *Observe(AXUIElementRef element, AXUIElementRef root, NSDictiona
 @property(nonatomic) NSInteger maxNodes;
 @property(nonatomic) NSInteger maxResults;
 @property(nonatomic) NSTimeInterval deadline;
+@property(nonatomic) BOOL webAreaObserved;
 @property(nonatomic, strong) NSDictionary *request;
 @property(nonatomic, strong) NSDictionary *row;
 @property(nonatomic, strong) NSDictionary *failure;
@@ -296,6 +297,7 @@ static NSMutableDictionary *Walk(RuyiAXWalk *walk, AXUIElementRef element, AXUIE
     NSDictionary *failure = nil;
     NSMutableDictionary *node = [ReadNode(element, [walk.row[@"pid"] intValue], walk.deadline, &failure) mutableCopy];
     if (!node) { walk.failure = failure; return nil; }
+    if ([node[@"type"] isEqual:@"AXWebArea"]) walk.webAreaObserved = YES;
     ApplyClip(node, clip);
     if ([walk.request[@"visible_only"] boolValue] && ![node[@"offscreen"] boolValue] && Matches(node, walk.request, NO)) {
         BOOL visible = VisibleHit(element, root, walk.row, walk.request[@"scope"], node, walk.deadline, &failure);
@@ -402,7 +404,7 @@ static NSDictionary *Membership(AXUIElementRef element, AXUIElementRef root, pid
         CFRelease(current); current = (AXUIElementRef)parent;
     }
     CFRelease(current); CFRelease(seen);
-    return failure ?: Guard(deadline) ?: (found ? nil : RuyiAutomationFailure(@"element_stale", @"Element is no longer a member of its observed tree"));
+    return failure ?: Guard(deadline) ?: (found ? nil : RuyiAutomationFailure(@"element_stale", @"Element membership could not be verified in its observed tree"));
 }
 
 static NSDictionary *Action(NSDictionary *request, NSDictionary *row, AXUIElementRef window, NSTimeInterval deadline) {
@@ -564,6 +566,14 @@ NSDictionary *RuyiAutomationAXRequest(NSDictionary *request) {
             else { out[@"tree"] = tree ?: @{}; out[@"nodes"] = @(walk.count); }
             if (walk.count == 1 && walk.maxDepth > 0 && !walk.truncatedBy.count)
                 out[@"accessibility_limited"] = @YES;
+            NSString *bundle = [NSRunningApplication runningApplicationWithProcessIdentifier:[row[@"pid"] intValue]].bundleIdentifier;
+            BOOL chromium = [@[@"com.google.Chrome", @"org.chromium.Chromium", @"com.google.chrome.for.testing"] containsObject:bundle ?: @""];
+            if ([request[@"scope"] isEqual:@"window"] && chromium && !walk.webAreaObserved && !walk.truncatedBy.count) {
+                out[@"accessibility_limited"] = @YES;
+                out[@"reason_code"] = @"web_area_not_observed";
+                out[@"reason"] = @"This complete window traversal did not observe an AXWebArea. Native browser controls may still be available";
+                out[@"hint"] = @"Use attached browser DOM tools or a current screenshot for page content. A dedicated Chromium instance can expose its renderer through --force-renderer-accessibility=complete, followed by a fresh observation";
+            }
             result = out;
         }
     } @finally {

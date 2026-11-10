@@ -1,0 +1,12 @@
+PASS public AXWindows and all-space WindowServer baseline exclude existing Finder content windows
+FAIL Error: Finder identity observation failed {"error":"Attribute AXValue error -25200","ok":false,"pid":692,"bundleID":"com.apple.finder"}
+
+    at snapshot (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:39:31)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:87:21
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+FAIL Finder cleanup Finder identity observation failed {"error":"Attribute AXValue error -25200","ok":false,"pid":692,"bundleID":"com.apple.finder"}
+
+PASS Finder scenario MCP and native helper exit completely
+FAIL Finder ownership could not be re-proved, fixture retained at /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-finder-V5gPVt
+
+MACOS AX FINDER E2E: FAIL (3)

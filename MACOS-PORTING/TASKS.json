@@ -1446,7 +1446,6 @@
             "mainRealEventEvidence": "evidence/P5/input/events/events-final.txt",
             "mainPythonContracts": "evidence/P5/input/events/smoke_macos_events-latest.txt",
             "pending": [
-              "Finder selected scenario with P5-03 AX backend",
               "Existing Windows, physical/display, live revocation/lock, input method, macOS14 and formal signing carryovers"
             ],
             "mainRealEventAssertions": 42,
@@ -1467,7 +1466,8 @@
             "executedSourceFingerprint": "evidence/P5/input/events/source-fingerprint-final.json",
             "whitespaceOnlyBinding": "evidence/P5/input/events/whitespace-only-binding.json",
             "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
-            "commitBinding": "evidence/P5/input/events/commit-binding.json"
+            "commitBinding": "evidence/P5/input/events/commit-binding.json",
+            "finderFollowup": "evidence/P5/ax/apps/independent-completion/review.json"
           }
         },
         {
@@ -1481,11 +1481,12 @@
           "status": "in_progress",
           "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
           "evidence": [
-            "evidence/P5/ax/README.md"
+            "evidence/P5/ax/README.md",
+            "evidence/P5/ax/apps/README.md"
           ],
           "startedDate": "2026-11-10",
           "baselineCommit": "c1b90ad2",
-          "progress": "AX核心及如意App入口当前主机独立验收通过。最终56源逐命令指纹匹配，10项Node命令263条断言与5项Python共61测试通过，真实62秒TTL及受控生命周期通过。工程单元2491通过/18既有跳过、静态80/80、语法1144与构建新鲜度通过，交付helper与最终独立验收二进制同一SHA。实际AX应用场景、真实撤权/锁屏和外部环境继续保留，P5-03整体in_progress。",
+          "progress": "真实应用切片当前主机独立验收与终审通过，350条E2E、8项focused unit、62项Python及三负向完成。三层测试/清册差异逐项绑定，最终63文件指纹匹配；完整单元2499通过/18既有跳过、静态80/80、语法1146与构建新鲜度通过，helper/App指纹和严格签名通过，提交绑定待完成。Chromium页面AX动作限制、历史未定启动挂起与原环境门保留，P5-03整体in_progress。",
           "coreSlice": {
             "status": "committed_current_host",
             "baselineCommit": "c1b90ad2",
@@ -1496,7 +1497,6 @@
             "mainAppAXAssertions": 12,
             "mainPythonTests": 61,
             "pending": [
-              "TextEdit/Finder/Chromium real AX selected scenarios in a following P5-03 slice",
               "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity"
             ],
             "historicalEngineering": "evidence/P5/ax/engineering.json",
@@ -1508,6 +1508,54 @@
             "realAXExpiryWaitMs": 62000,
             "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
             "commitBinding": "evidence/P5/ax/commit-binding.json"
+          },
+          "applicationSlice": {
+            "status": "verified_current_host_commit_pending",
+            "baselineCommit": "d1b01adb",
+            "evidence": "evidence/P5/ax/apps/README.md",
+            "sourceFingerprint": "evidence/P5/ax/apps/source-fingerprint-final-delivery.json",
+            "sourceFiles": 63,
+            "codeReview": "evidence/P5/ax/apps/code-review.json",
+            "mainDefaultAXAssertions": 31,
+            "mainRendererAXAssertions": 33,
+            "mainFinderAssertions": 10,
+            "chromiumRendererAXActions": "blocked_by_verified_asymmetric_provider_membership",
+            "finderScope": "explicit opt-in, initially windowless Finder, exact controlled content URLs, shared process retained",
+            "pending": [
+              "Commit binding",
+              "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity",
+              "Chromium renderer AX actions under the existing bidirectional membership contract"
+            ],
+            "historicalIndependent": [
+              "evidence/P5/ax/apps/independent/review.json",
+              "evidence/P5/ax/apps/independent-final/review.json",
+              "evidence/P5/ax/apps/independent-bounded/review.json",
+              "evidence/P5/ax/apps/independent-selected-apps/review.json"
+            ],
+            "finalIndependent": "evidence/P5/ax/apps/independent-completion/review.json",
+            "launchPathCorrection": "AX fixture resolves actual binary before launch after CFT symlink-relative Frameworks failure; final independent validation in progress",
+            "boundedWaitReview": "evidence/P5/ax/apps/bounded-wait/code-review.json",
+            "boundedWaitMainUnitTests": 8,
+            "knownHistoricalFailure": "CFT startup stalled before CDP, root cause undetermined. Deadline logic fixed separately; clipboard restored after identity-checked browser-only intervention.",
+            "captureFixturePlacement": "Diagnosed layer-8 system overlay over one desktop marker. Owned fixture placed lower, original four marker assertions retained; current independent validation pending.",
+            "nodeEvidence": "evidence/P5/ax/apps/independent-selected-apps/review.json",
+            "sourceBinding": "350 E2E assertions and 8 focused unit tests bind selected-apps fingerprint; final Python batch binds worker-ready fingerprint. Only the isolated Python fixture differs, with 60 common sources byte-identical.",
+            "functionalFinalFingerprint": "evidence/P5/ax/apps/source-fingerprint-worker-ready.json",
+            "nodeFingerprint": "evidence/P5/ax/apps/source-fingerprint-selected-apps.json",
+            "independentNodeE2EAssertions": 350,
+            "independentFocusedNodeUnitTests": 8,
+            "independentPythonTests": 62,
+            "effectiveCommands": 23,
+            "intentionalNegativeCommands": 3,
+            "inventoryReview": "evidence/P5/ax/apps/inventory-sync/code-review.json",
+            "engineering": "evidence/P5/ax/apps/engineering-final.json",
+            "deliveryReview": "evidence/P5/ax/apps/final-delivery-review.json",
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringStaticTotal": 80,
+            "engineeringSyntaxFiles": 1146,
+            "helperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029"
           }
         },
         {

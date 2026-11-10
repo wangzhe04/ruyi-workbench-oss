@@ -1,6 +1,8 @@
 'use strict';
 require('./lib/self-isolate-home');
 // Selected real application scenarios. All documents, pages and browser profiles are fixture-owned.
+// RUYI_P5_APPS_AX=1 adds selected TextEdit and Chromium native AX scenarios.
+// RUYI_P5_APPS_BLOCK_CDP=1 injects a nonresponding discovery endpoint to verify bounded failure cleanup.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -17,12 +19,16 @@ const { buildMacAutomationHelper } = require('../ruyi-workbench/tools/build-maco
 const t = createRunner('MACOS INPUT APPS');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-p5-apps-'));
 process.env.RUYI_HOME = path.join(root, 'data');
-let client, runtime, textLauncher, textIdentity, browser, cdp, server, clipboard;
+let client, runtime, textLauncher, textIdentity, browser, cdp, server, clipboard, debugBlocker;
 let registerTextEdit;
 const textIdentities = new Map();
 const browserIdentities = new Map();
 const browserProfile = path.join(root, 'profile');
 const reports = [];
+const ax = process.env.RUYI_P5_APPS_AX === '1';
+const rendererAX = process.env.RUYI_P5_APPS_AX_RENDERER === '1';
+const axResults = {};
+function flatten(node) { return [node, ...(node.children || []).flatMap(flatten)]; }
 async function until(read, timeout = 12000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -111,13 +117,15 @@ function remainingBrowser() {
     const connection = { id: 'ai-computer-control', command: process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python'),
       args: ['-X', 'utf8', '-m', 'ai_computer_control.server'], cwd: repo,
       env: { ...fixtureChildEnv(), PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
-        ACC_TOOLSETS: 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper } };
+        ACC_TOOLSETS: ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper } };
     client = new S.McpStdioClient(connection);
     await client.start();
     const note = path.join(root, 'P5 TextEdit ' + process.pid + '.txt');
     fs.writeFileSync(note, 'controlled baseline\n');
     const before = new Set(snapshotProcessTable().map(row => row.pid));
     const textExecutable = '/System/Applications/TextEdit.app/Contents/MacOS/TextEdit';
+    const textVersion = cp.execFileSync('/usr/bin/plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-',
+      '/System/Applications/TextEdit.app/Contents/Info.plist'], { encoding: 'utf8', timeout: 1000 }).trim();
     registerTextEdit = () => {
       for (const row of snapshotProcessTable() || []) {
         if (before.has(row.pid)) continue;
@@ -151,6 +159,23 @@ function remainingBrowser() {
     await until(() => fs.readFileSync(note, 'utf8') === documentText);
     t.ok(typed.method === 'typewrite' && fs.readFileSync(note, 'utf8') === documentText,
       'real TextEdit consumes Chinese Unicode events and Cmd+S saves the exact owned UTF-8 document');
+    if (ax) {
+      const textAreas = await call('ui_find', { target: textWindow.target, control_type: 'AXTextArea', max_results: 2 });
+      t.ok(textAreas.count === 1 && textAreas.matches[0].value_settable,
+        'TextEdit exposes exactly one writable native AX text area in the owned document');
+      if (textAreas.count !== 1) throw new Error('TextEdit AX area ambiguity');
+      const axText = 'P5 AX TextEdit 中文😀\n原生属性赋值';
+      const changed = await call('ui_invoke', { target: textWindow.target, element_ref: textAreas.matches[0].element_ref,
+        action: 'set_value', text: axText });
+      await call('hotkey', { keys: 'cmd+s', target: textWindow.target });
+      await until(() => fs.readFileSync(note, 'utf8') === axText);
+      t.ok(changed.confirmed && fs.readFileSync(note, 'utf8') === axText,
+        'real TextEdit AXValue edit and normal save persist the exact owned UTF-8 document');
+      const noMatch = await call('ui_find', { target: textWindow.target, name: 'P5 absent fixture selector', max_depth: 20 });
+      t.ok(!noMatch.truncated && !noMatch.reason_code && !noMatch.hint,
+        'complete non-Chromium zero-match traversal omits the Chromium limitation reason');
+      axResults.textEdit = { valueConfirmed: changed.confirmed, savedExact: true };
+    }
     const closed = await call('close_window', { target: textWindow.target });
     t.ok(closed.matched, 'saved TextEdit fixture window closes with verified AX absence');
     await stopTextEdit();
@@ -180,7 +205,7 @@ function remainingBrowser() {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end('<!doctype html><meta charset="utf-8"><title>' + pageTitle + '</title>'
         + '<style>body{margin:40px;font:18px sans-serif}main{width:2800px;height:6000px}textarea{display:block;width:640px;height:160px}button{margin-top:30px;width:300px;height:60px}</style>'
-        + '<main><h1>P5 controlled page</h1><textarea id="draft" autofocus></textarea><button id="apply">Apply</button><pre id="result"></pre></main>'
+        + '<main><h1>P5 controlled page</h1><textarea id="draft" aria-label="P5 AX draft" autofocus></textarea><button id="apply">Apply</button><pre id="result"></pre></main>'
         + '<script>window.events={clicks:0};document.querySelector("#apply").addEventListener("click",event=>{events.clicks++;events.trusted=event.isTrusted;document.querySelector("#result").textContent=document.querySelector("#draft").value});'
         + 'addEventListener("wheel",event=>{events.wheel={trusted:event.isTrusted,x:event.deltaX,y:event.deltaY}});</script>');
     });
@@ -188,19 +213,43 @@ function remainingBrowser() {
     const url = 'http://127.0.0.1:' + server.address().port + '/';
     const executable = findBrowserExecutable();
     if (!executable) throw new Error('Set RUYI_E2E_BROWSER to an installed Chromium executable');
+    const launchExecutable = ax ? fs.realpathSync(executable) : executable;
     const debugPort = await getFreePort();
-    browser = cp.spawn(executable, ['--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-extensions',
+    let browserDebugPort = debugPort;
+    if (process.env.RUYI_P5_APPS_BLOCK_CDP === '1') {
+      debugBlocker = http.createServer(() => {});
+      await new Promise(resolve => debugBlocker.listen(debugPort, '127.0.0.1', resolve));
+      browserDebugPort = await getFreePort();
+    }
+    browser = cp.spawn(launchExecutable, ['--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-extensions',
       '--disable-background-networking', '--use-mock-keychain', '--password-store=basic', '--window-size=1200,850',
-      '--user-data-dir=' + browserProfile, '--remote-debugging-port=' + debugPort, url],
+      ...(rendererAX ? ['--force-renderer-accessibility=complete'] : []),
+      '--user-data-dir=' + browserProfile, '--remote-debugging-port=' + browserDebugPort, url],
     { env: fixtureChildEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
-    browser.stdout.resume(); browser.stderr.resume();
+    let browserDiagnostics = '';
+    browser.stdout.resume();
+    browser.stderr.on('data', chunk => { browserDiagnostics = (browserDiagnostics + chunk.toString('utf8')).slice(-8192); });
     trackBrowser();
+    const discoveryStarted = performance.now();
     const found = await waitForTarget(debugPort, url, browser);
-    if (!found.target) throw new Error(found.why);
+    if (process.env.RUYI_P5_EVIDENCE) {
+      fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
+      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, 'browser-startup.json'), JSON.stringify({ executable,
+        launchExecutable, pid: browser.pid, exitCode: browser.exitCode, signal: browser.signalCode,
+        targetObserved: Boolean(found.target), elapsedMs: performance.now() - discoveryStarted,
+        injectedNonrespondingEndpoint: Boolean(debugBlocker), reason: found.why || null, diagnostics: browserDiagnostics }, null, 2) + '\n');
+    }
+    if (!found.target) throw new Error(found.why + '\nBrowser diagnostics\n' + browserDiagnostics);
     trackBrowser();
     t.ok(browserIdentities.size > 1 && fs.existsSync(browserProfile), 'browser and descendant creation identities belong to the controlled profile');
     cdp = new CdpClient(found.target.webSocketDebuggerUrl); await cdp.connect();
     const version = await cdp.send('Browser.getVersion');
+    const plist = ax ? path.resolve(path.dirname(fs.realpathSync(executable)), '../Info.plist') : null;
+    const bundleID = ax ? cp.spawnSync('/usr/bin/plutil', ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', plist],
+      { encoding: 'utf8', timeout: 1000 }) : null;
+    const observedCommand = ax ? cp.spawnSync('/bin/ps', ['-ww', '-p', String(browser.pid), '-o', 'command='],
+      { encoding: 'utf8', timeout: 1000 }) : null;
+    if (ax && (bundleID.status !== 0 || observedCommand.status !== 0)) throw new Error('Cannot observe the selected browser identity');
     const chromeWindow = await focusStableWindow(window => window.pid === browser.pid && window.title.includes(pageTitle));
     const activeChrome = await call('get_active_window');
     t.ok(activeChrome.window.handle === chromeWindow.handle && activeChrome.window.pid === browser.pid,
@@ -218,6 +267,64 @@ function remainingBrowser() {
     await until(() => cdp.evaluate('events.clicks===1 && events.trusted===true'));
     t.ok(clicked.reached && await cdp.evaluate('document.querySelector("#result").textContent') === draft,
       'native logical-point click reaches the Chromium DOM as a trusted event');
+    if (ax) {
+      t.ok(bundleID.stdout.trim() === 'com.google.chrome.for.testing'
+        && observedCommand.stdout.includes('--force-renderer-accessibility=complete') === rendererAX,
+      'actual CFT bundle identity and running argv agree with the selected renderer configuration');
+      const bars = await call('ui_find', { target: chromeWindow.target, control_type: 'AXTextField', visible_only: true, max_depth: 16 });
+      if (bars.count !== 1) throw new Error('Chromium native address field ambiguity ' + JSON.stringify(bars));
+      const address = await call('ui_invoke', { target: chromeWindow.target, element_ref: bars.matches[0].element_ref,
+        action: 'set_value', text: 'P5 AX address field marker' });
+      await call('press_key', { target: chromeWindow.target, key: 'escape' });
+      t.ok(address.confirmed && await cdp.evaluate('location.href') === url,
+        'Chromium native address field confirms AXValue edit and Escape returns to the controlled page');
+      const tree = await call('ui_inspect', { target: chromeWindow.target, max_depth: 20, max_nodes: 1000 });
+      const webArea = flatten(tree.tree).some(node => node.type === 'AXWebArea');
+      t.ok(!tree.truncated && (webArea ? !tree.reason_code && !tree.hint
+        : tree.accessibility_limited && tree.reason_code === 'web_area_not_observed'),
+      'complete Chromium inspection distinguishes the actually observed WebArea surface');
+      for (const [label, operation, args] of [
+        ['depth', 'ui_inspect', { max_depth: 0 }],
+        ['node', 'ui_inspect', { max_nodes: 1 }],
+        ['result', 'ui_find', { max_results: 1 }]
+      ]) {
+        const limited = await call(operation, { target: chromeWindow.target, ...args });
+        t.ok(limited.truncated && !limited.reason_code && !limited.hint,
+          'Chromium ' + label + ' truncation cannot infer an absent WebArea');
+      }
+      const menu = await call('ui_inspect', { target: chromeWindow.target, scope: 'menu_bar', max_depth: 20, max_nodes: 1000 });
+      t.ok(!menu.reason_code && !menu.hint, 'Chromium menu scope omits the window WebArea limitation reason');
+      const missing = await call('ui_find', { target: chromeWindow.target, name: 'P5 absent fixture selector', max_depth: 20 });
+      t.ok(missing.count === 0 && !missing.truncated && (webArea ? !missing.reason_code && !missing.hint
+        : missing.reason_code === 'web_area_not_observed'),
+      'zero-match selectors use the full visited tree when reporting the Chromium surface');
+      axResults.chromium = { nativeAddressValueConfirmed: address.confirmed, webAreaObserved: webArea,
+        nodesScanned: tree.nodes_scanned, truncated: tree.truncated, reasonCode: tree.reason_code || null };
+      const areas = await call('ui_find', { target: chromeWindow.target, name: 'P5 AX draft', control_type: 'TextArea', max_depth: 16 });
+      if (areas.count === 0) {
+        t.ok(areas.accessibility_limited && areas.reason_code === 'web_area_not_observed' && !areas.truncated,
+          'complete Chromium traversal reports the absent page AX surface separately from a zero-match selector');
+        if (rendererAX) throw new Error('Configured Chromium AX area missing ' + JSON.stringify(areas));
+      } else {
+        t.ok(areas.count === 1 && areas.matches[0].value_settable,
+          'Chromium accessibility tree exposes exactly one writable fixture DOM text area');
+        if (areas.count !== 1) throw new Error('Chromium AX area ambiguity');
+        const axText = 'Chromium AX 中文😀\n第二次输入';
+        const changed = await client.callTool('ui_invoke', { target: chromeWindow.target, element_ref: areas.matches[0].element_ref,
+          action: 'set_value', text: axText });
+        t.ok(!changed.ok && changed.code === 'element_stale' && !changed.action_sent && !changed.acted
+          && await cdp.evaluate('document.querySelector("#draft").value') === draft,
+        'CFT renderer asymmetric parent membership refuses AXValue before mutation and preserves the DOM');
+        const buttons = await call('ui_find', { target: chromeWindow.target, name: 'Apply', control_type: 'Button', max_depth: 16 });
+        if (buttons.count !== 1) throw new Error('Chromium AX button missing or ambiguous ' + JSON.stringify(buttons));
+        const pressed = await client.callTool('ui_invoke', { target: chromeWindow.target, element_ref: buttons.matches[0].element_ref });
+        t.ok(!pressed.ok && pressed.code === 'element_stale' && !pressed.action_sent && !pressed.acted
+          && await cdp.evaluate('events.clicks') === 1,
+        'CFT renderer asymmetric parent membership refuses AXPress before a DOM event');
+        axResults.chromium.rendererValueRefusal = changed.code;
+        axResults.chromium.rendererPressRefusal = pressed.code;
+      }
+    }
     await call('mouse_scroll', { ...button, clicks: -4, target: chromeWindow.target });
     await until(() => cdp.evaluate('scrollY>0 && events.wheel?.trusted===true'));
     t.ok(await cdp.evaluate('scrollY>0'), 'real Chromium scroll position confirms native vertical wheel direction');
@@ -249,10 +356,11 @@ function remainingBrowser() {
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
       fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, 'selected-apps.json'), JSON.stringify({ textEdit: { pid: textIdentity.pid,
-        ownDocumentExact: true, closed: true }, chromium: { executable, product: version.product, pid: browser.pid,
+        ownDocumentExact: true, closed: true, version: textVersion, bundleID: 'com.apple.TextEdit' }, chromium: { executable, launchExecutable, product: version.product, pid: browser.pid,
         windowTitle: chromeWindow.title, bounds: chromeWindow.target.bounds, clipboardRestored: board.clipboardPreserved,
         trustedClick: true, scrollY: await cdp.evaluate('scrollY'), scrollX: await cdp.evaluate('scrollX'),
-        ambiguousRebindRefused: true } }, null, 2) + '\n');
+        ambiguousRebindRefused: true, bundleID: bundleID?.stdout.trim() || null, observedCommand: observedCommand?.stdout.trim() || null,
+        rendererAccessibilityRequested: rendererAX }, nativeAXScenariosRequested: ax, axResults }, null, 2) + '\n');
     }
   } catch (error) { t.fail(error.stack || String(error)); }
   finally {
@@ -291,6 +399,10 @@ function remainingBrowser() {
     if (reports.some(report => report.event === 'seed-clipboard' && report.clipboardSnapshot))
       t.ok(reports.some(report => report.event === 'clipboard-restore' && report.restored), 'selected-app fixture restores the pre-test clipboard');
     if (server) await new Promise(resolve => server.close(resolve));
+    if (debugBlocker) {
+      debugBlocker.closeAllConnections();
+      await new Promise(resolve => debugBlocker.close(resolve));
+    }
     if (browserClean) {
       fs.rmSync(root, { recursive: true, force: true });
       if (browserIdentities.size) t.ok(!fs.existsSync(browserProfile), 'controlled browser profile is removed after its processes exit');

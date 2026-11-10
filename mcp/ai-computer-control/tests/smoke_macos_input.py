@@ -29,9 +29,9 @@ class InputSession(unittest.TestCase):
         self.env.stop()
         self.directory.cleanup()
 
-    def worker(self, body):
+    def worker(self, body, startup=""):
         self.helper.write_text("#!/usr/bin/python3\nimport json, os, sys, time\n"
-                               "for line in sys.stdin:\n    request = json.loads(line)\n"
+                               + startup + "\nfor line in sys.stdin:\n    request = json.loads(line)\n"
                                + "\n".join("    " + line for line in body.splitlines()) + "\n", encoding="utf-8")
         self.helper.chmod(0o700)
 
@@ -94,17 +94,41 @@ class InputSession(unittest.TestCase):
 
     def test_timeout_reaps_and_never_replays_a_mutation(self):
         marker = self.root / "sent"
-        self.worker("with open(" + repr(str(marker)) + ", 'a') as record: record.write('sent\\n')\n"
+        self.worker("if request['op'] == 'window.list':\n"
+                    "    print(json.dumps({'ok':True, 'protocolVersion':1, 'id':request['id'], 'pid':os.getpid()}), flush=True)\n"
+                    "    continue\n"
+                    "with open(" + repr(str(marker)) + ", 'a') as record: record.write('sent\\n')\n"
                     "time.sleep(10)")
+        ready = macos_session.request({"op":"window.list"})
+        self.assertTrue(ready["ok"])
+        worker = macos_session._SESSION["child"]
+        self.assertEqual(ready["pid"], worker.pid)
+        self.assertFalse(marker.exists())
         started = time.monotonic()
         error = self.assert_error("input_session_timeout", {"op":"window.move"}, timeout=0.5)
         self.assertEqual(error.details, {"action_sent":True, "outcome":"unknown"})
         self.assertEqual(marker.read_text(), "sent\n")
         self.assertIsNone(macos_session._SESSION)
+        self.assertIsNotNone(worker.poll())
         self.assertLess(time.monotonic() - started, 2)
         self.reply("{'ok':True, 'protocolVersion':1, 'id':request['id']}")
         self.assertTrue(macos_session.request({"op":"window.list"})["ok"])
         self.assertEqual(marker.read_text(), "sent\n")
+
+    def test_timeout_before_worker_consumes_frame_is_uncertain_without_replay(self):
+        marker = self.root / "sent"
+        self.worker("open(" + repr(str(marker)) + ", 'w').close()", startup="time.sleep(10)")
+        worker = macos_session._session()["child"]
+        started = time.monotonic()
+        error = self.assert_error("input_session_timeout", {"op":"window.move"}, timeout=0.5)
+        self.assertEqual(error.details, {"action_sent":True, "outcome":"unknown"})
+        self.assertFalse(marker.exists())
+        self.assertIsNone(macos_session._SESSION)
+        self.assertIsNotNone(worker.poll())
+        self.assertLess(time.monotonic() - started, 2)
+        self.reply("{'ok':True, 'protocolVersion':1, 'id':request['id']}")
+        self.assertTrue(macos_session.request({"op":"window.list"})["ok"])
+        self.assertFalse(marker.exists())
 
     def test_read_timeout_has_no_mutation_metadata(self):
         self.worker("time.sleep(10)")
