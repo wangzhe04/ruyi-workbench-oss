@@ -1,0 +1,54 @@
+{
+  "checkedAt": "2026-11-10T07:55:34.827Z",
+  "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+  "sha256": "0d37469404e1ef948430089064e474abf2755e8cd96a9aa736012eefb3fafec9",
+  "expectedSha256": "0d37469404e1ef948430089064e474abf2755e8cd96a9aa736012eefb3fafec9",
+  "shaMatches": true,
+  "signature": {
+    "exitCode": 0,
+    "details": "Executable=/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper\nIdentifier=org.ruyi.workbench.automation.development\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=546 flags=0x2(adhoc) hashes=11+2 location=embedded\nHash type=sha256 size=32\nCandidateCDHash sha256=177450ca92a6329a423ce55583c527fdd505bdab\nCandidateCDHashFull sha256=177450ca92a6329a423ce55583c527fdd505bdab6da78f93023ecb487d8bb499\nHash choices=sha256\nCMSDigest=177450ca92a6329a423ce55583c527fdd505bdab6da78f93023ecb487d8bb499\nCMSDigestType=2\nCDHash=177450ca92a6329a423ce55583c527fdd505bdab\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n"
+  },
+  "strictVerify": {
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "mainAgentStatusEvidence": "../runtime-status.json",
+  "mainAgentStatus": {
+    "applicationReady": 1,
+    "authorization": "granted",
+    "backend": "ScreenCaptureKit",
+    "clipboardReady": 1,
+    "coordinate_space": "macos_global_points",
+    "eventAuthorization": "granted",
+    "inputReady": 1,
+    "locked": false,
+    "monitors": [
+      {
+        "height": 1107,
+        "id": 1,
+        "index": 0,
+        "is_primary": 1,
+        "scale": 2,
+        "width": 1710,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "ok": true,
+    "permissionRequestsMade": false,
+    "pointerQueryReady": 1,
+    "protocolVersion": 1,
+    "ready": 1,
+    "virtual": {
+      "height": 1107,
+      "width": 1710,
+      "x": 0,
+      "y": 0
+    },
+    "windowAuthorization": "granted",
+    "windowListReady": 1,
+    "windowReady": 1
+  },
+  "sourceFingerprint": "../source-fingerprint-final.json",
+  "currentSourceDrift": []
+}

@@ -1416,13 +1416,13 @@
           },
           "deliverable": "Mac 键位、Cmd 粘贴、中文输入、鼠标/滚轮、文本与图片剪贴板、应用启动和窗口动作；保护焦点和目标身份。",
           "status": "in_progress",
-          "owner": "Codex（实施）；/root/p5_review_resumed（首批独立验收）",
+          "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
           "evidence": [
             "evidence/P5/input/README.md"
           ],
           "startedDate": "2026-11-10",
           "baselineCommit": "0de6d03e",
-          "progress": "窗口与剪贴板首批当前主机实现及独立验收通过。独立六件120条Node与29项Python通过、零skip，37项指纹零漂移，实际302秒TTL通过。完整单元2491通过/18既有跳过、静态80、语法1140与构建新鲜度通过。键盘、Cmd粘贴、中文输入、鼠标滚轮、应用启动及App启动链继续后续开发，P5-02整体仍进行中。",
+          "progress": "窗口与剪贴板首批已提交并独立验收。键盘、中文Unicode/Cmd+V、键鼠与LaunchServices切片完成当前主机独立验收，最终51项源指纹零漂移，当前功能套件212条Node与44项Python、夹具静态33项通过。工程单元2491通过/18既有跳过、静态80/80、语法1143及构建新鲜度通过，默认helper已重建并确认授权就绪。保留一次无输入发送的TextEdit焦点变化拒绝（原样复跑通过，原因未定）与历史剪贴板事故，P5-02整体仍进行中。",
           "firstSlice": {
             "scope": "window_and_clipboard_current_host",
             "status": "committed_current_host",
@@ -1436,6 +1436,37 @@
             "pythonTests": 29,
             "realIdleExpiryWaitMs": 302000,
             "implementationCommit": "fc74153d145acba7519fb5c133691017ab00964e"
+          },
+          "currentInputSlice": {
+            "status": "accepted_current_host_pending_commit",
+            "baselineCommit": "af7485ce",
+            "date": "2026-11-10",
+            "evidence": "evidence/P5/input/events/README.md",
+            "implemented": "Native guarded keyboard/Unicode/Cmd+V, pointer click/move/drag/scroll, LaunchServices app launch, owned state and conditional clipboard cleanup",
+            "mainRealEventEvidence": "evidence/P5/input/events/events-final.txt",
+            "mainPythonContracts": "evidence/P5/input/events/smoke_macos_events-latest.txt",
+            "pending": [
+              "Implementation commit binding",
+              "Finder selected scenario with P5-03 AX backend",
+              "Existing Windows, physical/display, live revocation/lock, input method, macOS14 and formal signing carryovers"
+            ],
+            "mainRealEventAssertions": 42,
+            "pythonContractTests": 15,
+            "codeReview": "evidence/P5/input/events/code-review.json",
+            "clipboardTestIncident": "evidence/P5/input/events/clipboard-test-incident.json",
+            "sourceFingerprint": "evidence/P5/input/events/source-fingerprint-commit.json",
+            "sourceFiles": 51,
+            "appUnicodeAssertions": 13,
+            "appPasteAssertions": 16,
+            "selectedApplicationAssertions": 19,
+            "windowClipboardRegressionAssertions": 37,
+            "independentReview": "evidence/P5/input/events/independent/review.json",
+            "engineering": "evidence/P5/input/events/engineering.json",
+            "independentNodeAssertions": 212,
+            "independentPythonTests": 44,
+            "independentFixtureContractAssertions": 33,
+            "executedSourceFingerprint": "evidence/P5/input/events/source-fingerprint-final.json",
+            "whitespaceOnlyBinding": "evidence/P5/input/events/whitespace-only-binding.json"
           }
         },
         {

@@ -19,6 +19,7 @@ function buildMacAutomationHelper({ output, testing = false } = {}) {
       ...(testing ? ['-DRUYI_AUTOMATION_TESTING=1'] : []),
       path.join(root, 'resources', 'macos-automation-helper.m'),
       path.join(root, 'resources', 'macos-automation-input.m'),
+      path.join(root, 'resources', 'macos-automation-events.m'),
       path.join(root, 'resources', 'macos-automation-session.m'), '-o', temporary],
     { encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024 });
     if (result.error || result.status !== 0) throw new Error(result.error?.message || result.stderr);

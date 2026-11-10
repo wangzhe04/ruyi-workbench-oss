@@ -1,0 +1,549 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-02",
+  "slice": "Keyboard, pointer, Chinese input, clipboard and LaunchServices application entry",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T07:55:34.828Z",
+  "baselineCommit": "af7485ce9d6e09f47a0adf95c1f11c5f912c0e1b",
+  "candidateBinding": "../source-fingerprint-final.json",
+  "sourceFilesBound": 51,
+  "productSourceEditedByReviewer": false,
+  "status": "accepted_for_commit_current_host_scope",
+  "normalExecution": {
+    "commands": [
+      {
+        "name": "events",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-events.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 26297,
+        "passLines": 42,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/events/run.txt"
+      },
+      {
+        "name": "apps",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-apps.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 7946,
+        "passLines": 16,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/apps/run.txt"
+      },
+      {
+        "name": "app-unicode",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-host.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 4858,
+        "passLines": 13,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/app-unicode/run.txt"
+      },
+      {
+        "name": "app-paste",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-host.e2e.js"
+        ],
+        "extraEnvironment": {
+          "RUYI_P5_APP_PASTE": "1"
+        },
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 5047,
+        "passLines": 16,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/app-paste/run.txt"
+      },
+      {
+        "name": "window-clipboard",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-window-clipboard.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 7189,
+        "passLines": 37,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/window-clipboard/run.txt"
+      },
+      {
+        "name": "capture-real",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-capture.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 7793,
+        "passLines": 31,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/capture-real/run.txt"
+      },
+      {
+        "name": "capture-contract",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-capture-contract.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 6120,
+        "passLines": 38,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/capture-contract/run.txt"
+      },
+      {
+        "name": "acc-shared",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-acc-shared.e2e.js"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 714,
+        "passLines": 16,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/acc-shared/run.txt"
+      },
+      {
+        "name": "python-events",
+        "command": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "args": [
+          "-X",
+          "utf8",
+          "mcp/ai-computer-control/tests/smoke_macos_events.py"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 319,
+        "passLines": 0,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": "Ran 15 tests in 0.199s",
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/python-events/run.txt"
+      },
+      {
+        "name": "python-input",
+        "command": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "args": [
+          "-X",
+          "utf8",
+          "mcp/ai-computer-control/tests/smoke_macos_input.py"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 7024,
+        "passLines": 0,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": "Ran 16 tests in 6.902s",
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/python-input/run.txt"
+      },
+      {
+        "name": "python-capture",
+        "command": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "args": [
+          "-X",
+          "utf8",
+          "mcp/ai-computer-control/tests/smoke_macos_capture.py"
+        ],
+        "extraEnvironment": {},
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 2060,
+        "passLines": 0,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": "Ran 13 tests in 1.908s",
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/python-capture/run.txt"
+      }
+    ],
+    "count": 11,
+    "nodeAssertions": 209,
+    "pythonTests": 44,
+    "skips": 0,
+    "allNaturalExitZero": true
+  },
+  "negativeExecution": {
+    "runs": [
+      {
+        "name": "negative-watchdog",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-events.e2e.js"
+        ],
+        "extraEnvironment": {
+          "RUYI_P5_WATCHDOG_ONLY": "1",
+          "RUYI_P5_WATCHDOG_FAIL_AFTER_WRITE": "1"
+        },
+        "exitCode": 1,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 7,
+        "failLines": 1,
+        "expectedInjectedFailure": "Injected premature watchdog-fixture failure",
+        "matched": true,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/negative-watchdog/run.txt"
+      },
+      {
+        "name": "negative-textedit",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-apps.e2e.js"
+        ],
+        "extraEnvironment": {
+          "RUYI_P5_TEXTEDIT_FAIL_BEFORE_OBSERVE": "1"
+        },
+        "exitCode": 1,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 2,
+        "failLines": 1,
+        "expectedInjectedFailure": "Injected TextEdit pre-observation fixture failure",
+        "matched": true,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/negative-textedit/run.txt"
+      },
+      {
+        "name": "negative-app-exit",
+        "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "args": [
+          "dev-harness/macos-input-host.e2e.js"
+        ],
+        "extraEnvironment": {
+          "RUYI_P5_APP_EXIT_FAILURE": "1"
+        },
+        "exitCode": 1,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 12,
+        "failLines": 1,
+        "expectedInjectedFailure": "Injected App-exit cleanup fixture failure",
+        "matched": true,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/negative-app-exit/run.txt"
+      }
+    ],
+    "allExpectedFailureOnly": true,
+    "note": "These three runs intentionally preserve exit1 and one injected FAIL each. Their successful cleanup/restoration assertions do not convert them into successful functional runs."
+  },
+  "candidateIntegrity": {
+    "allPerCommandBeforeAfterHashesMatch": true,
+    "finalDrift": [],
+    "allIsolatedRootsCleaned": true,
+    "allPerCommandScopedProcessRemaindersEmpty": true,
+    "hostProcessEvidence": "host-process-cleanup.json",
+    "allObservedAppProcessIdsAbsent": true
+  },
+  "runtime": {
+    "swVers": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+    "arch": "arm64",
+    "sdk": "15.2",
+    "node": "v24.15.0",
+    "python": "Python 3.12.10",
+    "browser": "Chrome/148.0.7778.96",
+    "identityEvidence": "runtime-identities.json",
+    "signingScope": "Development/ad-hoc App/helper identities used in this source checkout. This is not formal Developer ID/notarization acceptance.",
+    "appBuildFreshness": "app-build-freshness.json",
+    "appBuildAllSourceMatches": true,
+    "defaultHelperDeliveryNote": "The initial default helper identity was captured before the final clipboard metadata change. Functional tests compiled their own frozen-source helper. The default runtime was subsequently rebuilt from the same final sources, independently hashed and strictly signature-verified, and its final main-agent status reports capture/window/input ready with all three authorizations granted.",
+    "defaultRuntimeFinal": "default-runtime-final.json"
+  },
+  "codeReview": {
+    "record": "../code-review.json",
+    "openActionableFindings": [],
+    "closedFindingIds": [
+      "E1",
+      "E2",
+      "E3",
+      "E4",
+      "E5",
+      "E6",
+      "E7",
+      "E8",
+      "E9"
+    ],
+    "finalAcceptanceBarrier": "Confirmed successful explicit clipboard writes mark acted/action_sent so late lock/readiness failure retains unconfirmed side effects."
+  },
+  "provenCurrentHost": [
+    "Exact target process/start/window identity, foreground checks, WindowServer plus AX mouseDown hit correlation and refusal of an AX-hidden same-process floating panel",
+    "Direct Chinese/emoji Unicode events, Cmd shortcuts and multiline Chinese Cmd+V consumption in the controlled AppKit receiver",
+    "Complete prior clipboard image/private-format restoration, concurrent writer skip, cooperative SIGTERM paste restore and balanced modifiers/buttons",
+    "Actual blocked native main-thread sleep is terminated by the unchanged reader watchdog; cleanup restores its all-format clipboard snapshot",
+    "Real TextEdit exact UTF-8 save and close/reap, real Chrome for Testing148 trusted click, Chinese paste, wheel directions, decorated-title identity and duplicate-geometry ambiguity refusal",
+    "Actual LaunchServices Ruyi App -> owned Node HTTP tool_invoke_exec -> ACC -> native helper chain, with independent Unicode and Cmd+V cases and separately verified App Accessibility/event authorization",
+    "P5-01 real capture and geometry/IPC contract regressions and shared ACC dynamic capability discovery",
+    "Early-failure negative probes reclaim the watchdog writer, pre-observation TextEdit and detached service descendants after an App crash"
+  ],
+  "testIncident": {
+    "record": "../clipboard-test-incident.json",
+    "userNotified": true,
+    "originalClipboardFromHistoricalIncidentRecovered": false,
+    "description": "A previous main-agent failed fixture lost the original clipboard when its in-memory snapshot exited before pending input completed. That original content was not recoverable. No original clipboard content was logged.",
+    "thisAcceptance": "All normal and injected-failure clipboard cases in this independent run report restoration/ownership-safe cleanup. The historical incident remains disclosed."
+  },
+  "remainingUnverified": [
+    "Physical multiple displays, negative-origin hardware layout, non-Retina input/capture and in-flight physical layout changes",
+    "Actual system lock or TCC revocation during an input sequence, beyond current native readiness checks and prior P5-01 lock evidence",
+    "Hardware/third-party input method compositions and layout-specific key behavior beyond tested Unicode and application shortcuts",
+    "Other application versions and Finder application-specific input scenarios beyond the listed controlled/TextEdit/CFT cases",
+    "Same-candidate Windows runtime and minimum macOS14 runtime",
+    "Formal signing/notarization, clean-machine installation and TCC upgrade identity under O2/P6",
+    "P5-03 AX element tools, P5-04 OCR and P5-05 recording/composite verification remain separate work packages"
+  ],
+  "engineering": {
+    "status": "passed_and_independently_bound",
+    "executor": "main agent",
+    "independentReviewer": "/root/p5_review_resumed",
+    "evidence": "../engineering.json",
+    "sourceFiles": 51,
+    "perCommandBindings": [
+      {
+        "name": "syntax",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFilesBefore": 51,
+        "sourceFilesAfter": 51,
+        "beforeMatches": true,
+        "afterMatches": true,
+        "log": "syntax-accepted.txt"
+      },
+      {
+        "name": "build-check",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFilesBefore": 51,
+        "sourceFilesAfter": 51,
+        "beforeMatches": true,
+        "afterMatches": true,
+        "log": "build-check-accepted.txt"
+      },
+      {
+        "name": "unit",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFilesBefore": 51,
+        "sourceFilesAfter": 51,
+        "beforeMatches": true,
+        "afterMatches": true,
+        "log": "unit-accepted.txt"
+      },
+      {
+        "name": "static",
+        "exitCode": 0,
+        "signal": null,
+        "sourceFilesBefore": 51,
+        "sourceFilesAfter": 51,
+        "beforeMatches": true,
+        "afterMatches": true,
+        "log": "static-accepted.txt"
+      }
+    ],
+    "syntax": {
+      "files": 1143,
+      "failed": 0
+    },
+    "buildFreshness": {
+      "exitCode": 0
+    },
+    "unit": {
+      "passed": 2491,
+      "skipped": 18,
+      "failed": 0
+    },
+    "static": {
+      "passed": 80,
+      "failed": 0,
+      "flaky": 0,
+      "skippedLiveProbes": 7,
+      "residualTestBrowsers": 0
+    },
+    "currentSourceDrift": [],
+    "historicalFailure": "The original source50 static run passed79/80. Its fixture-home failure logs are preserved. A checked Mac browser-cleanup contract and final51 incremental independent execution resolved the issue."
+  },
+  "executionControl": {
+    "allIndependentGuiAndTestsFinished": true,
+    "releasedToMainAgent": true,
+    "releasedAfterRunsFinishedAt": "2026-11-10T07:32:31.254Z"
+  },
+  "completionStatement": "The current-host slice is accepted for commit after independent functional/negative execution, final51 fixture delta review and final engineering/runtime binding. The one pre-input focus refusal, historical static failure and earlier clipboard incident remain recorded. P5, P5-02 and the listed external environment acceptance items remain in progress.",
+  "originalCandidateBinding": "../source-fingerprint.json",
+  "finalIncremental": {
+    "candidateBinding": "../source-fingerprint-final.json",
+    "runs": "final-incremental/runs.json",
+    "sourceFiles": 51,
+    "delta": {
+      "added": [
+        "dev-harness/fixture-home.static.e2e.js"
+      ],
+      "changed": [
+        "dev-harness/macos-input-apps.e2e.js"
+      ],
+      "removed": []
+    },
+    "productionSourceUnchanged": true,
+    "codeReviewPassed": true,
+    "results": [
+      {
+        "name": "apps",
+        "exitCode": 1,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 3,
+        "failLines": 1,
+        "skipLines": 0,
+        "expectedOutcomeMatched": false,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/final-incremental/apps/run.txt",
+        "isolatedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-final-check-VtY0Bt",
+        "isolatedRootCleaned": false,
+        "scopedProcessesAfter": []
+      },
+      {
+        "name": "apps-repeat",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 19,
+        "failLines": 0,
+        "skipLines": 0,
+        "expectedOutcomeMatched": true,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/final-incremental/apps-repeat/run.txt",
+        "isolatedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-final-check-16yt3n",
+        "isolatedRootCleaned": true,
+        "scopedProcessesAfter": []
+      },
+      {
+        "name": "negative-textedit",
+        "exitCode": 1,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 2,
+        "failLines": 1,
+        "skipLines": 0,
+        "expectedOutcomeMatched": true,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/final-incremental/negative-textedit/run.txt",
+        "isolatedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-final-check-oc5pGs",
+        "isolatedRootCleaned": true,
+        "scopedProcessesAfter": []
+      },
+      {
+        "name": "fixture-home",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "passLines": 33,
+        "failLines": 0,
+        "skipLines": 0,
+        "expectedOutcomeMatched": true,
+        "log": "MACOS-PORTING/evidence/P5/input/events/independent/final-incremental/fixture-home/run.txt",
+        "isolatedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-final-check-RKDuQn",
+        "isolatedRootCleaned": true,
+        "scopedProcessesAfter": []
+      }
+    ],
+    "allPerCommandHashesMatch": true,
+    "finalDrift": [],
+    "latestApps": {
+      "pass": 19,
+      "fail": 0,
+      "naturalExit0": true
+    },
+    "fixtureHome": {
+      "pass": 33,
+      "fail": 0,
+      "naturalExit0": true
+    },
+    "negativeTextEdit": {
+      "pass": 2,
+      "expectedInjectedFailures": 1,
+      "naturalExit1": true
+    },
+    "effectiveLatestFunctionalNodeAssertions": 212,
+    "pythonTests": 44,
+    "staticAssertionsAdditional": 33,
+    "historicalFailure": {
+      "log": "final-incremental/apps/run.txt",
+      "exitCode": 1,
+      "passLines": 3,
+      "failLines": 1,
+      "code": "focus_changed",
+      "actionSent": false,
+      "rootCause": "undetermined",
+      "description": "TextEdit type_text was refused before sending input by the native focus guard. Creation-identity TextEdit and MCP cleanup passed with no observed process remainder. An unchanged source/command rerun passed all19 assertions. The original failed-run isolated directory is retained for diagnosis.",
+      "retainedIsolatedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-final-check-VtY0Bt"
+    }
+  },
+  "acceptance": {
+    "acceptedForCommit": true,
+    "scope": "Current macOS27.0.1 arm64 host, this keyboard/pointer/Chinese input/clipboard/application slice and listed application scenarios",
+    "phaseStatus": "P5 and P5-02 remain in_progress",
+    "openActionableFindings": [],
+    "externalAcceptanceItemsRemainOpen": true
+  },
+  "commitCandidateBinding": "../source-fingerprint-commit.json",
+  "commitCandidateSourceFiles": 51,
+  "commitCandidateEquivalence": {
+    "approved": true,
+    "evidence": "../whitespace-only-independent-review.json",
+    "sourceChanges": "Only one EOF LF removed from fixture header and two EOF LFs removed from shared text-input helper. Other49 hashes unchanged.",
+    "acceptanceRemainsApplicable": true
+  }
+}

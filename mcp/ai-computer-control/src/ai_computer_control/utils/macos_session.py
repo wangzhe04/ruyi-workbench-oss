@@ -125,7 +125,7 @@ def request(payload, timeout=15):
         uncertain = error.code.startswith("input_session_") or error.code == "dependency_changed"
         if uncertain:
             _close_input_session()
-            if sent and payload.get("op") not in {"window.list", "window.active", "clipboard.get", "clipboard.image.get"}:
+            if sent and payload.get("op") not in {"window.list", "window.active", "clipboard.get", "clipboard.image.get", "mouse.position"}:
                 error.details.update(action_sent=True, outcome="unknown")
         raise error
     finally:

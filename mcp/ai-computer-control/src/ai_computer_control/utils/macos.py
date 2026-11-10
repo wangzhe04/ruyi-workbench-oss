@@ -20,6 +20,9 @@ WINDOW_TOOLS = frozenset({"get_active_window", "focus_window", "minimize_window"
                           "move_window", "resize_window", "maximize_window"})
 WINDOW_QUERY_TOOLS = frozenset({"list_windows"})
 CLIPBOARD_TOOLS = frozenset({"get_clipboard", "set_clipboard", "get_clipboard_image", "set_clipboard_image"})
+INPUT_TOOLS = frozenset({"type_text", "press_key", "hotkey", "mouse_click", "mouse_move", "mouse_drag", "mouse_scroll", "scroll_at"})
+POINTER_QUERY_TOOLS = frozenset({"get_mouse_position"})
+APPLICATION_TOOLS = frozenset({"launch_application"})
 
 
 class DesktopError(RuntimeError):
@@ -58,14 +61,19 @@ def _failure_details(result):
     details = {}
     if isinstance(result.get("candidates"), list):
         details["candidates"] = result["candidates"][:20]
-    for key in ("acted", "action_sent", "restored"):
+    for key in ("acted", "action_sent", "restored", "reached"):
         if type(result.get(key)) is bool:
+            details[key] = result[key]
+    for key in ("actual_x", "actual_y"):
+        if type(result.get(key)) in (int, float) and math.isfinite(result[key]):
             details[key] = result[key]
     if result.get("outcome") in ("unknown", "unconfirmed", "rolled_back"):
         details["outcome"] = result["outcome"]
     for key in ("actual_bounds", "window"):
         if isinstance(result.get(key), dict):
             details[key] = result[key]
+    if result.get("restore") in ("none", "done", "failed", "skipped_changed", "unconfirmed"):
+        details["restore"] = result["restore"]
     return details
 
 
@@ -153,9 +161,16 @@ def capability():
         if not isinstance(status.get("monitors"), list) or status.get("coordinate_space") != "macos_global_points":
             raise DesktopError("capture_failed", "Invalid desktop status metadata")
         out["queryReady"] = True
-        out.update(windowReady=bool(status.get("windowReady") and status.get("locked") is False),
+        out.update(windowReady=bool(status.get("windowReady") and status.get("windowAuthorization") == "granted"
+                                   and status.get("locked") is False),
                    windowQueryReady=bool(status.get("windowListReady") and status.get("locked") is False),
                    clipboardReady=bool(status.get("clipboardReady") and status.get("locked") is False))
+        out.update(inputReady=bool(status.get("inputReady") and status.get("windowAuthorization") == "granted"
+                                  and status.get("eventAuthorization") == "granted" and status.get("locked") is False),
+                   pointerQueryReady=bool(status.get("pointerQueryReady") and status.get("locked") is False),
+                   applicationReady=bool(status.get("applicationReady") and status.get("locked") is False),
+                   windowAuthorization=status.get("windowAuthorization", "unknown"),
+                   eventAuthorization=status.get("eventAuthorization", "unknown"))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))

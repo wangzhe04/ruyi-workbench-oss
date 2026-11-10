@@ -30,7 +30,10 @@ static NSMutableDictionary<NSString *, RuyiWindowBinding *> *bindings;
 void RuyiAutomationResetInputBindings(void) { [bindings removeAllObjects]; }
 
 void RuyiAutomationRefreshInputBindings(void) {
-    if (RuyiAutomationLocked() || !AXIsProcessTrusted()) { RuyiAutomationResetInputBindings(); return; }
+    if (RuyiAutomationLocked() || !AXIsProcessTrusted()) {
+        RuyiAutomationReleaseEvents(); RuyiAutomationResetInputBindings(); return;
+    }
+    if (!CGPreflightPostEventAccess()) RuyiAutomationReleaseEvents();
     NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
     for (NSString *ref in bindings.allKeys) {
         if (now - bindings[ref].touched > 300) [bindings removeObjectForKey:ref];
@@ -65,22 +68,22 @@ static NSDictionary *ObserveWindow(NSDictionary *row) {
     return out;
 }
 
-static NSString *ProcessIdentity(pid_t pid) {
+NSString *RuyiAutomationProcessIdentity(pid_t pid) {
     struct proc_bsdinfo info = {0};
     if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info)) != sizeof(info)) return nil;
     return [NSString stringWithFormat:@"%llu:%llu", (unsigned long long)info.pbi_start_tvsec,
         (unsigned long long)info.pbi_start_tvusec];
 }
 
-static CFTypeRef CopyAttribute(AXUIElementRef element, CFStringRef attribute) {
+CFTypeRef RuyiAutomationCopyAttribute(AXUIElementRef element, CFStringRef attribute) {
     CFTypeRef value = NULL;
     if (AXUIElementCopyAttributeValue(element, attribute, &value) != kAXErrorSuccess) return NULL;
     return value;
 }
 
 static CGRect AXBounds(AXUIElementRef window) {
-    CFTypeRef position = CopyAttribute(window, kAXPositionAttribute);
-    CFTypeRef size = CopyAttribute(window, kAXSizeAttribute);
+    CFTypeRef position = RuyiAutomationCopyAttribute(window, kAXPositionAttribute);
+    CFTypeRef size = RuyiAutomationCopyAttribute(window, kAXSizeAttribute);
     CGPoint point; CGSize dimensions;
     BOOL valid = position && size && CFGetTypeID(position) == AXValueGetTypeID()
         && CFGetTypeID(size) == AXValueGetTypeID()
@@ -99,7 +102,7 @@ static BOOL NearRect(CGRect first, CGRect second) {
 
 static NSDictionary *WindowRow(NSDictionary *info) {
     pid_t pid = [info[(__bridge NSString *)kCGWindowOwnerPID] intValue];
-    NSString *identity = ProcessIdentity(pid);
+    NSString *identity = RuyiAutomationProcessIdentity(pid);
     CGRect bounds = CGRectNull;
     NSDictionary *raw = info[(__bridge NSString *)kCGWindowBounds];
     if (!identity || !raw || !CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)raw, &bounds)
@@ -156,7 +159,7 @@ static BOOL ValidTarget(NSDictionary *target) {
         && [target[@"bounds"][@"height"] doubleValue] > 0;
 }
 
-static NSDictionary *CheckTarget(NSDictionary *target) {
+NSDictionary *RuyiAutomationCheckTarget(NSDictionary *target) {
     if (!ValidTarget(target)) return RuyiAutomationFailure(@"target_invalid", @"Pass the target returned by list_windows or get_active_window");
     RuyiAutomationRefreshInputBindings();
     RuyiWindowBinding *binding = bindings[target[@"ref"]];
@@ -165,7 +168,7 @@ static NSDictionary *CheckTarget(NSDictionary *target) {
     if (![stored[@"handle"] isEqual:target[@"handle"]] || ![stored[@"pid"] isEqual:target[@"pid"]]
         || ![stored[@"process_start"] isEqual:target[@"process_start"]])
         return RuyiAutomationFailure(@"target_stale", @"Window target does not match its retained reference");
-    if (![stored[@"process_start"] isEqual:ProcessIdentity([stored[@"pid"] intValue])]) {
+    if (![stored[@"process_start"] isEqual:RuyiAutomationProcessIdentity([stored[@"pid"] intValue])]) {
         [bindings removeObjectForKey:target[@"ref"]];
         return RuyiAutomationFailure(@"target_stale", @"Process or window identity no longer matches its observation");
     }
@@ -173,8 +176,8 @@ static NSDictionary *CheckTarget(NSDictionary *target) {
         return RuyiAutomationFailure(@"window_changed", @"Window reference has newer observed geometry");
     NSDictionary *current = ReadWindow([target[@"handle"] unsignedIntValue]);
     if ((!current || [binding.row[@"minimized"] boolValue]) && binding.element) {
-        CFTypeRef minimized = CopyAttribute(binding.element, kAXMinimizedAttribute);
-        // Minimized AX windows may report Dock geometry. CopyTargetWindow below still
+        CFTypeRef minimized = RuyiAutomationCopyAttribute(binding.element, kAXMinimizedAttribute);
+        // Minimized AX windows may report Dock geometry. RuyiAutomationCopyTargetWindow below still
         // requires the retained element to belong to this exact process's window list.
         BOOL valid = minimized && CFGetTypeID(minimized) == CFBooleanGetTypeID() && CFBooleanGetValue(minimized);
         if (minimized) CFRelease(minimized);
@@ -190,57 +193,136 @@ static NSDictionary *CheckTarget(NSDictionary *target) {
     return out;
 }
 
-static AXUIElementRef CopyTargetWindow(NSDictionary *row, NSDictionary **failure) {
+static BOOL UniqueWindowHit(NSDictionary *row, AXUIElementRef window, NSTimeInterval deadline) {
+    CGRect expected = RuyiAutomationFieldsRect(row[@"target"][@"bounds"]);
+    NSArray *rows = CFBridgingRelease(CGWindowListCopyWindowInfo(
+        kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID));
+    NSUInteger matches = 0;
+    for (NSDictionary *raw in rows) {
+        if (NSProcessInfo.processInfo.systemUptime >= deadline)
+            return NO;
+        if (![raw[(__bridge NSString *)kCGWindowOwnerPID] isEqual:row[@"pid"]] ||
+            [raw[(__bridge NSString *)kCGWindowLayer] intValue] != 0)
+            continue;
+        CGRect bounds;
+        if (CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)raw[(__bridge NSString *)kCGWindowBounds],
+                                                   &bounds) &&
+            NearRect(bounds, expected))
+            matches++;
+    }
+    if (matches != 1)
+        return NO;
+    CGPoint points[] = {CGPointMake(CGRectGetMidX(expected), CGRectGetMidY(expected)),
+                        CGPointMake(CGRectGetMidX(expected), CGRectGetMinY(expected) + 12),
+                        CGPointMake(CGRectGetMinX(expected) + 20, CGRectGetMinY(expected) + 12),
+                        CGPointMake(CGRectGetMaxX(expected) - 20, CGRectGetMinY(expected) + 12),
+                        CGPointMake(CGRectGetMinX(expected) + 10, CGRectGetMidY(expected))};
+    for (NSUInteger i = 0; i < sizeof(points) / sizeof(points[0]); i++) {
+        if (NSProcessInfo.processInfo.systemUptime >= deadline)
+            return NO;
+        if (!RuyiAutomationPointGuard(row, window, points[i]))
+            return YES;
+    }
+    return NO;
+}
+
+AXUIElementRef RuyiAutomationCopyTargetWindow(NSDictionary *row, NSDictionary **failure) {
     AXUIElementRef app = AXUIElementCreateApplication([row[@"pid"] intValue]);
     AXUIElementSetMessagingTimeout(app, 0.15);
-    CFTypeRef raw = CopyAttribute(app, kAXWindowsAttribute); CFRelease(app);
+    CFTypeRef raw = RuyiAutomationCopyAttribute(app, kAXWindowsAttribute);
+    CFRelease(app);
     if (!raw || CFGetTypeID(raw) != CFArrayGetTypeID()) {
-        if (raw) CFRelease(raw);
-        *failure = RuyiAutomationFailure(@"window_unsupported", @"Application does not expose accessible windows"); return NULL;
+        if (raw)
+            CFRelease(raw);
+        *failure = RuyiAutomationFailure(@"window_unsupported", @"Application does not expose accessible windows");
+        return NULL;
     }
     AXUIElementRef matched = NULL;
+    NSMutableArray *candidates = [NSMutableArray array];
     CGRect expected = RuyiAutomationFieldsRect(row[@"target"][@"bounds"]);
     NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 2;
     CFIndex count = CFArrayGetCount(raw);
-    if (count > 64) { CFRelease(raw); *failure = RuyiAutomationFailure(@"accessibility_capacity", @"Cannot establish a unique window within the enumeration limit"); return NULL; }
+    if (count > 64) {
+        CFRelease(raw);
+        *failure = RuyiAutomationFailure(@"accessibility_capacity",
+                                         @"Cannot establish a unique window within the enumeration limit");
+        return NULL;
+    }
     AXUIElementRef cached = bindings[row[@"target"][@"ref"]].element;
     for (CFIndex i = 0; i < count; i++) {
         if (NSProcessInfo.processInfo.systemUptime >= deadline) {
-            if (matched) CFRelease(matched); CFRelease(raw);
-            *failure = RuyiAutomationFailure(@"accessibility_timeout", @"Cannot establish a unique window before the enumeration deadline"); return NULL;
+            if (matched)
+                CFRelease(matched);
+            CFRelease(raw);
+            *failure = RuyiAutomationFailure(@"accessibility_timeout",
+                                             @"Cannot establish a unique window before the enumeration deadline");
+            return NULL;
         }
         AXUIElementRef window = (AXUIElementRef)CFArrayGetValueAtIndex(raw, i);
-        if (CFGetTypeID(window) != AXUIElementGetTypeID()) continue;
+        if (CFGetTypeID(window) != AXUIElementGetTypeID())
+            continue;
         AXUIElementSetMessagingTimeout(window, 0.15);
         if (cached) {
-            if (!matched && CFEqual(cached, window)) matched = (AXUIElementRef)CFRetain(window);
+            if (!matched && CFEqual(cached, window))
+                matched = (AXUIElementRef)CFRetain(window);
             continue;
         }
-        if (!NearRect(AXBounds(window), expected)) continue;
-        NSString *title = CFBridgingRelease(CopyAttribute(window, kAXTitleAttribute));
-        if ([row[@"title"] length] && ![row[@"title"] isEqual:title]) continue;
+        CGRect actual = AXBounds(window);
+        NSMutableDictionary *candidate = [NSMutableDictionary dictionary];
+        if (!CGRectIsNull(actual))
+            candidate[@"bounds"] = RuyiAutomationRectFields(actual);
+        if (candidates.count < 20)
+            [candidates addObject:candidate];
+        if (!NearRect(actual, expected))
+            continue;
+        NSString *title = CFBridgingRelease(RuyiAutomationCopyAttribute(window, kAXTitleAttribute));
+        if ([title isKindOfClass:NSString.class])
+            candidate[@"title"] = [title substringToIndex:MIN(title.length, 256)];
+        BOOL exactTitle = [row[@"title"] length] && [row[@"title"] isEqual:title];
+        if (!exactTitle && !UniqueWindowHit(row, window, deadline))
+            continue;
         if (matched) {
-            CFRelease(matched); CFRelease(raw);
-            *failure = RuyiAutomationFailure(@"window_ambiguous", @"Multiple accessibility windows match the observed target"); return NULL;
+            CFRelease(matched);
+            CFRelease(raw);
+            *failure =
+                RuyiAutomationFailure(@"window_ambiguous", @"Multiple accessibility windows match the observed target");
+            return NULL;
         }
         matched = (AXUIElementRef)CFRetain(window);
     }
     CFRelease(raw);
-    if (matched) [bindings[row[@"target"][@"ref"]] bindElement:matched];
-    if (!matched) *failure = RuyiAutomationFailure(@"window_unsupported", @"Cannot bind this window to a unique accessibility element");
+    if (NSProcessInfo.processInfo.systemUptime >= deadline) {
+        if (matched)
+            CFRelease(matched);
+        *failure = RuyiAutomationFailure(@"accessibility_timeout",
+                                         @"Cannot complete window binding before its enumeration deadline");
+        return NULL;
+    }
+    if (matched)
+        [bindings[row[@"target"][@"ref"]] bindElement:matched];
+    if (!matched)
+        *failure = @{
+            @"ok" : @NO,
+            @"code" : @"window_unsupported",
+            @"error" : @"Cannot bind this window to a unique accessibility element",
+            @"candidates" : candidates,
+            @"window" : row
+        };
     return matched;
 }
 
-static BOOL ForegroundMatches(NSDictionary *row, AXUIElementRef expected) {
+BOOL RuyiAutomationForegroundMatches(NSDictionary *row, AXUIElementRef expected) {
     pid_t pid = [row[@"pid"] intValue];
     if (NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier != pid) return NO;
     AXUIElementRef app = AXUIElementCreateApplication(pid); AXUIElementSetMessagingTimeout(app, 0.15);
-    CFTypeRef focused = CopyAttribute(app, kAXFocusedWindowAttribute); CFRelease(app);
+    CFTypeRef focused = RuyiAutomationCopyAttribute(app, kAXFocusedWindowAttribute); CFRelease(app);
     if (!focused || CFGetTypeID(focused) != AXUIElementGetTypeID()) { if (focused) CFRelease(focused); return NO; }
     AXUIElementSetMessagingTimeout((AXUIElementRef)focused, 0.15);
     CGRect bounds = AXBounds((AXUIElementRef)focused);
-    NSString *title = CFBridgingRelease(CopyAttribute((AXUIElementRef)focused, kAXTitleAttribute));
-    BOOL identity = expected ? CFEqual(expected, focused) : ![row[@"title"] length] || [row[@"title"] isEqual:title];
+    NSString *title = CFBridgingRelease(RuyiAutomationCopyAttribute((AXUIElementRef)focused, kAXTitleAttribute));
+    BOOL identity = expected ? CFEqual(expected, focused) : [row[@"title"] length] && [row[@"title"] isEqual:title];
+    if (!expected && !identity && NearRect(bounds, RuyiAutomationFieldsRect(row[@"target"][@"bounds"])))
+        identity = UniqueWindowHit(row, (AXUIElementRef)focused, NSProcessInfo.processInfo.systemUptime + 0.5);
     CFRelease(focused);
     return identity && NearRect(bounds, RuyiAutomationFieldsRect(row[@"target"][@"bounds"]));
 }
@@ -250,7 +332,7 @@ static NSDictionary *ActiveWindow(void) {
     NSArray *windows = ListWindows()[@"windows"];
     NSDictionary *matched = nil;
     for (NSDictionary *row in windows) {
-        if ([row[@"pid"] intValue] == pid && ForegroundMatches(row, NULL)) {
+        if ([row[@"pid"] intValue] == pid && RuyiAutomationForegroundMatches(row, NULL)) {
             if (matched) return RuyiAutomationFailure(@"window_ambiguous", @"Focused window matches multiple screen windows");
             matched = row;
         }
@@ -259,11 +341,11 @@ static NSDictionary *ActiveWindow(void) {
     return @{@"ok":@YES, @"protocolVersion":@1, @"window":matched, @"foreground_verified":@YES};
 }
 
-static void RunBriefly(void) {
+void RuyiAutomationRunBriefly(void) {
     [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
 }
 
-static BOOL FiniteNumber(id value) {
+BOOL RuyiAutomationFiniteNumber(id value) {
     return [value isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)value) != CFBooleanGetTypeID()
         && isfinite([value doubleValue]);
 }
@@ -271,9 +353,9 @@ static BOOL FiniteNumber(id value) {
 static CGRect RequestedBounds(NSDictionary *request, NSDictionary *row) {
     CGRect bounds = RuyiAutomationFieldsRect(row[@"target"][@"bounds"]);
     NSString *op = request[@"op"];
-    if ([op isEqual:@"window.move"] && FiniteNumber(request[@"x"]) && FiniteNumber(request[@"y"])) {
+    if ([op isEqual:@"window.move"] && RuyiAutomationFiniteNumber(request[@"x"]) && RuyiAutomationFiniteNumber(request[@"y"])) {
         bounds.origin = CGPointMake([request[@"x"] doubleValue], [request[@"y"] doubleValue]);
-    } else if ([op isEqual:@"window.resize"] && FiniteNumber(request[@"width"]) && FiniteNumber(request[@"height"])) {
+    } else if ([op isEqual:@"window.resize"] && RuyiAutomationFiniteNumber(request[@"width"]) && RuyiAutomationFiniteNumber(request[@"height"])) {
         bounds.size = CGSizeMake([request[@"width"] doubleValue], [request[@"height"] doubleValue]);
     } else if ([op isEqual:@"window.maximize"]) {
         NSScreen *selected = nil; CGFloat area = 0;
@@ -305,19 +387,20 @@ static NSDictionary *WindowFailure(NSDictionary *row, AXUIElementRef window, NSS
     CGRect actual = AXBounds(window);
     if (!CGRectIsNull(actual)) out[@"actual_bounds"] = RuyiAutomationRectFields(actual);
     NSDictionary *current = ReadWindow([row[@"handle"] unsignedIntValue]);
-    if (current && [current[@"pid"] isEqual:row[@"pid"]] && [current[@"process_start"] isEqual:row[@"process_start"]])
+    if (current && !RuyiAutomationLocked() && AXIsProcessTrusted()
+        && [current[@"pid"] isEqual:row[@"pid"]] && [current[@"process_start"] isEqual:row[@"process_start"]])
         out[@"window"] = ObserveWindow(current);
     return out;
 }
 
 static BOOL WindowClosed(NSDictionary *row, AXUIElementRef expected) {
     pid_t pid = [row[@"pid"] intValue];
-    NSString *identity = ProcessIdentity(pid);
+    NSString *identity = RuyiAutomationProcessIdentity(pid);
     if (identity && ![row[@"process_start"] isEqual:identity]) return YES;
     if (!identity) return kill(pid, 0) != 0 && errno == ESRCH;
     AXUIElementRef app = AXUIElementCreateApplication(pid);
     AXUIElementSetMessagingTimeout(app, 0.15);
-    CFTypeRef windows = CopyAttribute(app, kAXWindowsAttribute); CFRelease(app);
+    CFTypeRef windows = RuyiAutomationCopyAttribute(app, kAXWindowsAttribute); CFRelease(app);
     if (!windows || CFGetTypeID(windows) != CFArrayGetTypeID() || CFArrayGetCount(windows) > 64) {
         if (windows) CFRelease(windows);
         return NO;
@@ -334,11 +417,16 @@ static BOOL WindowClosed(NSDictionary *row, AXUIElementRef expected) {
 }
 
 static NSDictionary *WindowAction(NSDictionary *request) {
-    NSDictionary *row = CheckTarget(request[@"target"]);
+    NSDictionary *row = RuyiAutomationCheckTarget(request[@"target"]);
     if (row[@"error"]) return row;
     NSDictionary *failure = nil;
-    AXUIElementRef window = CopyTargetWindow(row, &failure);
+    AXUIElementRef window = RuyiAutomationCopyTargetWindow(row, &failure);
     if (!window) return failure;
+    BOOL locked = RuyiAutomationLocked();
+    if (locked || !AXIsProcessTrusted()) {
+        CFRelease(window); RuyiAutomationResetInputBindings();
+        return RuyiAutomationFailure(locked ? @"session_locked" : @"permission_denied", @"Window interaction is no longer authorized or unlocked");
+    }
     NSString *op = request[@"op"];
     AXError result = kAXErrorActionUnsupported;
     CGRect requested = CGRectNull;
@@ -356,7 +444,7 @@ static NSDictionary *WindowAction(NSDictionary *request) {
     } else if ([op isEqual:@"window.minimize"]) {
         result = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute, kCFBooleanTrue);
     } else if ([op isEqual:@"window.close"]) {
-        CFTypeRef button = CopyAttribute(window, kAXCloseButtonAttribute);
+        CFTypeRef button = RuyiAutomationCopyAttribute(window, kAXCloseButtonAttribute);
         if (button && CFGetTypeID(button) == AXUIElementGetTypeID())
             result = AXUIElementPerformAction((AXUIElementRef)button, kAXPressAction);
         if (button) CFRelease(button);
@@ -384,6 +472,11 @@ static NSDictionary *WindowAction(NSDictionary *request) {
     BOOL matched = NO;
     NSDictionary *current = nil;
     do {
+        BOOL unavailable = RuyiAutomationLocked() || !AXIsProcessTrusted();
+        if (unavailable) {
+            NSDictionary *out = WindowFailure(row, window, @"window_action_unconfirmed", @"Window action was sent before desktop readiness changed");
+            RuyiAutomationResetInputBindings(); CFRelease(window); return out;
+        }
         current = ReadWindow([row[@"handle"] unsignedIntValue]);
         if (current && (![current[@"pid"] isEqual:row[@"pid"]]
             || ![current[@"process_start"] isEqual:row[@"process_start"]])) {
@@ -392,16 +485,16 @@ static NSDictionary *WindowAction(NSDictionary *request) {
             CFRelease(window);
             return out;
         }
-        if ([op isEqual:@"window.focus"]) matched = current && ForegroundMatches(current, window);
+        if ([op isEqual:@"window.focus"]) matched = current && RuyiAutomationForegroundMatches(current, window);
         else if ([op isEqual:@"window.close"]) {
             matched = WindowClosed(row, window);
         } else if ([op isEqual:@"window.minimize"]) {
-            CFTypeRef minimized = CopyAttribute(window, kAXMinimizedAttribute);
+            CFTypeRef minimized = RuyiAutomationCopyAttribute(window, kAXMinimizedAttribute);
             matched = minimized && CFGetTypeID(minimized) == CFBooleanGetTypeID() && CFBooleanGetValue(minimized);
             if (minimized) CFRelease(minimized);
         } else matched = current && NearRect(AXBounds(window), requested)
             && NearRect(RuyiAutomationFieldsRect(current[@"target"][@"bounds"]), requested);
-        if (!matched) RunBriefly();
+        if (!matched) RuyiAutomationRunBriefly();
     } while (!matched && NSProcessInfo.processInfo.systemUptime < deadline);
     if (!matched) {
         NSDictionary *out = WindowFailure(row, window, @"window_action_unconfirmed", @"Window action was sent but the requested result is unconfirmed");
@@ -419,7 +512,7 @@ static NSDictionary *WindowAction(NSDictionary *request) {
         @"window":current ?: @{}, @"foreground_verified":@([op isEqual:@"window.focus"])};
 }
 
-static NSArray *SnapshotClipboard(NSPasteboard *board, NSInteger *version) {
+NSArray *RuyiAutomationSnapshotClipboard(NSPasteboard *board, NSInteger *version) {
     *version = board.changeCount;
     NSMutableArray *items = [NSMutableArray array];
     NSUInteger bytes = 0;
@@ -436,20 +529,32 @@ static NSArray *SnapshotClipboard(NSPasteboard *board, NSInteger *version) {
     return board.changeCount == *version ? items : nil;
 }
 
-static NSDictionary *WriteClipboard(NSPasteboard *board, NSArray *objects) {
+NSString *RuyiAutomationRestoreClipboard(NSPasteboard *board, NSArray *previous, NSInteger expected) {
+    if (board.changeCount != expected) return @"skipped_changed";
+    [board clearContents];
+    return previous.count == 0 || [board writeObjects:previous] ? @"done" : @"failed";
+}
+
+NSDictionary *RuyiAutomationWriteClipboard(NSPasteboard *board, NSArray *objects, NSArray **previous) {
     NSInteger before;
-    NSArray *saved = SnapshotClipboard(board, &before);
+    NSArray *saved = RuyiAutomationSnapshotClipboard(board, &before);
     if (!saved) return RuyiAutomationFailure(@"clipboard_unavailable", @"Cannot preserve the current clipboard within its capacity limit");
     if (board.changeCount != before) return RuyiAutomationFailure(@"clipboard_changed", @"Clipboard changed before the requested write");
+    if (previous && !RuyiAutomationTrackClipboard(saved, before))
+        return RuyiAutomationFailure(@"input_cancelled", @"Native input session stopped before the temporary clipboard write");
     NSInteger mine = [board clearContents];
+    if (previous) RuyiAutomationUpdateClipboardVersion(mine);
     if (![board writeObjects:objects]) {
-        BOOL restored = NO;
-        if (board.changeCount == mine) {
-            [board clearContents]; restored = saved.count == 0 || [board writeObjects:saved];
-        }
-        return @{@"ok":@NO, @"code":@"clipboard_failed", @"error":@"System clipboard rejected the write", @"restored":@(restored)};
+        BOOL restored = [RuyiAutomationRestoreClipboard(board, saved, mine) isEqual:@"done"];
+        if (previous) RuyiAutomationFinishClipboardWrite();
+        return @{@"ok":@NO, @"code":@"clipboard_failed", @"error":@"System clipboard rejected the write",
+            @"acted":@YES, @"action_sent":@YES, @"outcome":restored ? @"rolled_back" : @"unconfirmed", @"restored":@(restored)};
     }
-    return @{@"ok":@YES, @"protocolVersion":@1, @"change_count":@(board.changeCount)};
+    if (previous) *previous = saved;
+    if (previous) RuyiAutomationUpdateClipboardVersion(board.changeCount);
+    if (previous) RuyiAutomationFinishClipboardWrite();
+    return @{@"ok":@YES, @"protocolVersion":@1, @"acted":@YES, @"action_sent":@YES,
+        @"change_count":@(board.changeCount)};
 }
 
 static NSDictionary *Clipboard(NSDictionary *request) {
@@ -468,7 +573,7 @@ static NSDictionary *Clipboard(NSDictionary *request) {
         NSString *text = request[@"text"];
         if (![text isKindOfClass:NSString.class] || [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 48000)
             return RuyiAutomationFailure(@"invalid_args", @"Clipboard text must fit within 48000 UTF-8 bytes");
-        NSMutableDictionary *out = [WriteClipboard(board, @[text]) mutableCopy];
+        NSMutableDictionary *out = [RuyiAutomationWriteClipboard(board, @[text], NULL) mutableCopy];
         if ([out[@"ok"] boolValue]) out[@"length"] = @(text.length);
         return out;
     }
@@ -503,21 +608,182 @@ static NSDictionary *Clipboard(NSDictionary *request) {
         CGImageRef bitmap = CGImageSourceCreateImageAtIndex(source, 0, NULL); CFRelease(source);
         if (!bitmap) return RuyiAutomationFailure(@"image_invalid", @"Cannot decode the image file");
         NSImage *image = [[NSImage alloc] initWithCGImage:bitmap size:NSMakeSize(width,height)]; CGImageRelease(bitmap);
-        NSMutableDictionary *out = [WriteClipboard(board, @[image]) mutableCopy];
+        NSMutableDictionary *out = [RuyiAutomationWriteClipboard(board, @[image], NULL) mutableCopy];
         if ([out[@"ok"] boolValue]) [out addEntriesFromDictionary:@{@"width":@(width), @"height":@(height)}];
         return out;
     }
     return RuyiAutomationFailure(@"invalid_args", @"Unsupported clipboard operation");
 }
 
+static BOOL SameApplicationURL(NSURL *first, NSURL *second) {
+    struct stat left, right;
+    return first && second && stat(first.path.fileSystemRepresentation, &left) == 0 &&
+           stat(second.path.fileSystemRepresentation, &right) == 0 && left.st_dev == right.st_dev &&
+           left.st_ino == right.st_ino;
+}
+
+static NSDictionary *OpenBoundApplication(NSDictionary *request) {
+    NSSet *keys = [NSSet setWithArray:@[ @"version", @"op", @"path", @"args", @"ready_timeout" ]];
+    for (NSString *key in request)
+        if (![keys containsObject:key])
+            return RuyiAutomationFailure(@"invalid_args", @"Unexpected application launch field");
+    NSString *path = request[@"path"];
+    NSArray *arguments = request[@"args"];
+    NSCharacterSet *nul = [NSCharacterSet characterSetWithRange:NSMakeRange(0, 1)];
+    if (![path isKindOfClass:NSString.class] || !path.length || path.length > 4096 ||
+        [path rangeOfCharacterFromSet:nul].location != NSNotFound || ![arguments isKindOfClass:NSArray.class] ||
+        arguments.count > 64 || !RuyiAutomationFiniteNumber(request[@"ready_timeout"]) ||
+        [request[@"ready_timeout"] doubleValue] < 0 || [request[@"ready_timeout"] doubleValue] > 3)
+        return RuyiAutomationFailure(
+            @"invalid_args",
+            @"Pass an app name, bundle ID or absolute .app path, bounded arguments and readiness timeout 0..3 seconds");
+    for (id argument in arguments) {
+        if (![argument isKindOfClass:NSString.class] ||
+            [argument lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 4096 ||
+            [argument rangeOfCharacterFromSet:nul].location != NSNotFound)
+            return RuyiAutomationFailure(@"invalid_args", @"Application arguments must be bounded strings without NUL");
+    }
+    NSURL *url = nil;
+    if (path.isAbsolutePath)
+        url = [NSURL fileURLWithPath:path];
+    else if ([path containsString:@"/"])
+        return RuyiAutomationFailure(@"invalid_args", @"Use an absolute application path");
+    else {
+        url = [NSWorkspace.sharedWorkspace URLForApplicationWithBundleIdentifier:path];
+        if (!url) {
+            NSString *name = [path hasSuffix:@".app"] ? path : [path stringByAppendingString:@".app"];
+            NSMutableSet *candidates = [NSMutableSet set];
+            for (NSString *directory in
+                 @[ @"/Applications", @"/System/Applications", @"/System/Applications/Utilities" ]) {
+                NSString *candidate = [[directory stringByAppendingPathComponent:name] stringByResolvingSymlinksInPath];
+                if ([NSFileManager.defaultManager fileExistsAtPath:candidate])
+                    [candidates addObject:candidate];
+            }
+            if (candidates.count > 1)
+                return RuyiAutomationFailure(@"application_ambiguous",
+                                             @"Multiple installed applications match. Use an absolute .app path");
+            if (candidates.count == 1)
+                url = [NSURL fileURLWithPath:candidates.anyObject];
+        }
+    }
+    url = url.URLByResolvingSymlinksInPath;
+    NSBundle *bundle = url ? [NSBundle bundleWithURL:url] : nil;
+    if (![url.pathExtension.lowercaseString isEqual:@"app"] || !bundle.executableURL ||
+        ![NSFileManager.defaultManager isExecutableFileAtPath:bundle.executableURL.path])
+        return RuyiAutomationFailure(@"application_not_found", @"Cannot resolve an executable Mac application bundle");
+    BOOL reused = NO;
+    NSMutableSet *priorIdentities = [NSMutableSet set];
+    for (NSRunningApplication *running in NSWorkspace.sharedWorkspace.runningApplications) {
+        NSString *start = RuyiAutomationProcessIdentity(running.processIdentifier);
+        if (start)
+            [priorIdentities addObject:[NSString stringWithFormat:@"%d/%@", running.processIdentifier, start]];
+        if (SameApplicationURL(running.bundleURL, url) && !running.terminated)
+            reused = YES;
+    }
+    if (reused && arguments.count)
+        return RuyiAutomationFailure(@"application_already_running",
+                                     @"Arguments require an application that is not already running");
+    NSWorkspaceOpenConfiguration *configuration = [NSWorkspaceOpenConfiguration configuration];
+    configuration.arguments = arguments;
+    configuration.activates = YES;
+    configuration.addsToRecentItems = NO;
+    configuration.createsNewApplicationInstance = arguments.count > 0;
+    __block NSRunningApplication *application = nil;
+    __block BOOL completed = NO;
+    __block BOOL failed = NO;
+    __block NSInteger errorCode = 0;
+    [NSWorkspace.sharedWorkspace openApplicationAtURL:url
+                                        configuration:configuration
+                                    completionHandler:^(NSRunningApplication *app, NSError *error) {
+                                      dispatch_async(dispatch_get_main_queue(), ^{
+                                        application = app;
+                                        failed = error != nil;
+                                        errorCode = error.code;
+                                        completed = YES;
+                                      });
+                                    }];
+    NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 5;
+    while (!completed && NSProcessInfo.processInfo.systemUptime < deadline)
+        RuyiAutomationRunBriefly();
+    if (!completed || failed || !application || application.terminated)
+        return @{
+            @"ok" : @NO,
+            @"code" : @"application_launch_unconfirmed",
+            @"error" :
+                [NSString stringWithFormat:@"Application launch identity is unconfirmed (completed %d, error %ld)",
+                                           completed,
+                                           (long)errorCode],
+            @"action_sent" : @YES,
+            @"outcome" : @"unconfirmed"
+        };
+    NSString *identity = RuyiAutomationProcessIdentity(application.processIdentifier);
+    if (!identity)
+        return @{
+            @"ok" : @NO,
+            @"code" : @"application_launch_unconfirmed",
+            @"error" : @"Cannot confirm the launched process start identity",
+            @"action_sent" : @YES,
+            @"outcome" : @"unconfirmed"
+        };
+    NSURL *actualURL = application.bundleURL.URLByResolvingSymlinksInPath;
+    NSString *actualProcess = [NSString stringWithFormat:@"%d/%@", application.processIdentifier, identity];
+    if (!SameApplicationURL(actualURL, url) || (arguments.count && [priorIdentities containsObject:actualProcess]))
+        return @{
+            @"ok" : @NO,
+            @"code" : @"application_identity_changed",
+            @"error" :
+                @"LaunchServices returned a different application or an existing process for new-instance arguments",
+            @"action_sent" : @YES,
+            @"outcome" : @"unconfirmed"
+        };
+    NSDictionary *window = nil;
+    deadline = NSProcessInfo.processInfo.systemUptime + [request[@"ready_timeout"] doubleValue];
+    do {
+        if (RuyiAutomationLocked() || application.terminated)
+            break;
+        for (NSDictionary *row in ListWindows()[@"windows"]) {
+            if ([row[@"pid"] intValue] == application.processIdentifier && [row[@"process_start"] isEqual:identity]) {
+                window = row;
+                break;
+            }
+        }
+        if (window || NSProcessInfo.processInfo.systemUptime >= deadline)
+            break;
+        RuyiAutomationRunBriefly();
+    } while (YES);
+    if (application.terminated || ![identity isEqual:RuyiAutomationProcessIdentity(application.processIdentifier)])
+        return @{
+            @"ok" : @NO,
+            @"code" : @"application_exited",
+            @"error" : @"Application exited while checking readiness",
+            @"action_sent" : @YES,
+            @"outcome" : @"unconfirmed"
+        };
+    return @{@"ok":@YES,@"success":@YES,@"protocolVersion":@1,@"action_sent":@YES,
+        @"pid":@(application.processIdentifier),@"process_start":identity,@"path":actualURL.path,@"name":application.localizedName ?: bundle.bundleIdentifier ?: @"",
+        @"launched_via":@"LaunchServices",@"reused":@(reused),@"ready":@(window != nil),@"window":window ?: @{}};
+}
+
 NSDictionary *RuyiAutomationInputStatus(void) {
     BOOL trusted = AXIsProcessTrusted();
     BOOL locked = RuyiAutomationLocked();
     return @{@"windowAuthorization":trusted ? @"granted" : @"denied", @"windowReady":@(trusted && !locked),
-        @"windowListReady":@(!locked), @"clipboardReady":@(!locked)};
+        @"windowListReady":@(!locked), @"clipboardReady":@(!locked),
+        @"inputReady":@(trusted && CGPreflightPostEventAccess() && !locked),
+        @"eventAuthorization":CGPreflightPostEventAccess() ? @"granted" : @"denied",
+        @"pointerQueryReady":@(!locked), @"applicationReady":@(!locked)};
 }
 
-NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
+static NSDictionary *HandleInputRequest(NSDictionary *request) {
+    NSString *op = request[@"op"];
+#ifdef RUYI_AUTOMATION_TESTING
+    if ([op isEqual:@"test_stall_clipboard"]) return RuyiAutomationTestBlockedClipboard(request);
+#endif
+    if ([op hasPrefix:@"keyboard."] || [op hasPrefix:@"mouse."]) return RuyiAutomationEventsRequest(request);
+    if ([op isEqual:@"application.launch"]) {
+        if (RuyiAutomationLocked()) return RuyiAutomationFailure(@"session_locked", @"Unlock the desktop before launching an application");
+        return OpenBoundApplication(request);
+    }
     NSSet *keys = [NSSet setWithArray:@[@"version", @"op", @"target", @"text", @"path", @"x", @"y", @"width", @"height"]];
     for (NSString *key in request) {
         if (![keys containsObject:key]) return RuyiAutomationFailure(@"invalid_args", @"Unexpected desktop operation field");
@@ -526,7 +792,6 @@ NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
         RuyiAutomationResetInputBindings();
         return RuyiAutomationFailure(@"session_locked", @"Unlock the desktop before interacting with windows or the clipboard");
     }
-    NSString *op = request[@"op"];
     if ([op hasPrefix:@"clipboard."]) return Clipboard(request);
     if ([op isEqual:@"window.list"]) return ListWindows();
     if (!AXIsProcessTrusted()) {
@@ -537,4 +802,24 @@ NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
     if ([@[@"window.focus", @"window.minimize", @"window.close", @"window.move", @"window.resize", @"window.maximize"] containsObject:op])
         return WindowAction(request);
     return RuyiAutomationFailure(@"invalid_args", @"Unsupported desktop operation");
+}
+
+NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
+    NSDictionary *result = HandleInputRequest(request);
+    NSString *op = request[@"op"];
+    BOOL events = [op hasPrefix:@"keyboard."] || ([op hasPrefix:@"mouse."] && ![op isEqual:@"mouse.position"]);
+    BOOL accessibility = events || ([op hasPrefix:@"window."] && ![op isEqual:@"window.list"]);
+    BOOL locked = RuyiAutomationLocked();
+    BOOL denied = (accessibility && !AXIsProcessTrusted()) || (events && !CGPreflightPostEventAccess());
+    if ([result[@"ok"] boolValue] && (locked || denied)) {
+        RuyiAutomationReleaseEvents(); RuyiAutomationResetInputBindings();
+        NSMutableDictionary *failure = [RuyiAutomationFailure(locked ? @"session_locked" : @"permission_denied",
+            @"Desktop readiness changed before the operation result was returned") mutableCopy];
+        if ([result[@"acted"] boolValue] || [result[@"action_sent"] boolValue]) {
+            failure[@"acted"] = @YES; failure[@"action_sent"] = @YES; failure[@"outcome"] = @"unconfirmed";
+            if (result[@"restore"]) failure[@"restore"] = result[@"restore"];
+        }
+        return failure;
+    }
+    return result;
 }

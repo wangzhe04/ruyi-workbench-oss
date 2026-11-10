@@ -11,7 +11,7 @@
 | P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
 | P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
 | P4 | P2、P3 | done（用户批准的当前Mac范围，后续待验项独立保留） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
-| P5 | P4 | in_progress | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) |
+| P5 | P4 | in_progress | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) / [键鼠与App启动](evidence/P5/input/events/README.md) |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
 
 29 个工作包的详细状态维护在 [TASKS.json](TASKS.json)。状态值使用 `planned / in_progress / blocked / in_review / done`。`done` 必须有验收、独立复核和处理结果；`blocked` 写具体依赖与可继续的独立任务，不能只写“平台问题”。未开始不记为“0 人日完成”。
@@ -147,3 +147,7 @@
 2026-11-10 P5-02 窗口与剪贴板首批当前主机独立验收完成。六件120条Node与29项Python通过、零跳过，真实302秒TTL通过，37项源码指纹全程匹配，自有进程无残留。完整单元2491通过/18既有跳过、静态80、语法1140及构建新鲜度通过。P5-02键鼠、Cmd粘贴、中文输入与应用启动继续开发，各环境待验项保持独立登记。[独立报告](evidence/P5/input/independent/review.json)
 
 P5-02首批窗口与剪贴板实现提交 `fc74153d145acba7519fb5c133691017ab00964e`，37项已验源码与提交逐项一致。P5与P5-02继续进行中。
+
+2026-11-10 P5-02 继续键鼠、中文 Unicode/Cmd+V 与 LaunchServices 应用启动。当前主机主执行键鼠42项、窗口剪贴板37项、TextEdit/Chromium16项、如意App直接输入13项与粘贴16项通过。独立代码复核闭合，50项源码已冻结，独立执行与最终工程检查进行中。测试前剪贴板丢失事故及修复后的负向清理证据分别保留。Finder场景随P5-03推进，原环境待验项继续登记。[当前切片](evidence/P5/input/events/README.md)
+
+2026-11-10 P5-02 键鼠/中文输入/应用启动切片完成当前主机独立验收。最终51项源指纹匹配，功能套件212条Node与44项Python通过，夹具静态33项另列；完整单元2491通过/18既有跳过、静态80/80、语法1143与构建新鲜度通过，默认helper按冻结源重建并确认授权就绪。保留增量首跑TextEdit焦点变化拒绝（未发送输入、原因未定、同源原样复跑19项通过）、原静态79/80失败与剪贴板历史事故。P5及P5-02继续in_progress，Finder/AX、OCR和录制组合按原计划推进。[独立验收](evidence/P5/input/events/independent/review.json) [最终工程](evidence/P5/input/events/engineering.json)

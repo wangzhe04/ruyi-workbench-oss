@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-08T09:33:06.759Z",
+  "generatedAt": "2026-11-10T05:55:56.700Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2800,6 +2800,7 @@
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\git.e2e.js",
         "dev-harness\\macos-capture-host.e2e.js",
+        "dev-harness\\macos-input-host.e2e.js",
         "dev-harness\\memory-active-scope.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",

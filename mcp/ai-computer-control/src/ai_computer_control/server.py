@@ -86,16 +86,20 @@ class PlatformMCP(FastMCP):
                 and (info.name not in macos.DISPLAY_TOOLS or state.get("queryReady"))
                 and (info.name not in macos.WINDOW_TOOLS or state.get("windowReady"))
                 and (info.name not in macos.WINDOW_QUERY_TOOLS or state.get("windowQueryReady"))
-                and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))]
+                and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))
+                and (info.name not in macos.INPUT_TOOLS or state.get("inputReady"))
+                and (info.name not in macos.POINTER_QUERY_TOOLS or state.get("pointerQueryReady"))
+                and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))]
 
 
 mcp = PlatformMCP(
     "AI Computer Control",
-    instructions="A comprehensive toolkit for AI agents to control Windows computers. "
+    instructions="A comprehensive toolkit for AI agents to control Windows and macOS computers. "
     "Provides screen capture, mouse/keyboard control, window management, "
     "file operations, browser automation, document editing, and more. "
     "Every tool returns a dict with a boolean 'ok' field. "
-    "On macOS only implemented shared tools are registered; diagnostics reports unsupported backends.",
+    "On macOS implemented shared and native desktop tools are registered according to current readiness. "
+    "Mac input requires a complete current window target. Diagnostics reports unsupported backends.",
     lifespan=_tool_lifespan,
 )
 
@@ -340,13 +344,17 @@ if sys.platform == "darwin":
     _UNSUPPORTED_MODULES.pop("capture", None)
     _UNSUPPORTED_MODULES.pop("window", None)
     _UNSUPPORTED_MODULES.pop("clipboard", None)
+    _UNSUPPORTED_MODULES.pop("keyboard", None)
+    _UNSUPPORTED_MODULES.pop("mouse", None)
+    _UNSUPPORTED_MODULES.pop("application", None)
 
 
 def _platform_modules(modules: list[str]) -> list[str]:
     active = [module for module in modules if module not in _UNSUPPORTED_MODULES]
     if sys.platform == "darwin":
         replacements = {"screen": "macos_capture", "capture": "macos_capture",
-                        "window": "macos_input", "clipboard": "macos_input"}
+                        "window": "macos_input", "clipboard": "macos_input",
+                        "keyboard": "macos_events", "mouse": "macos_events", "application": "macos_application"}
         active = [replacements.get(module, module) for module in active]
     return list(dict.fromkeys(active))
 

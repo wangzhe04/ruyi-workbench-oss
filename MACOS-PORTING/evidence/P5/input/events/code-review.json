@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-02",
+  "slice": "Keyboard, pointer events, Chinese Cmd+V and LaunchServices application entry",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T07:50:01.126Z",
+  "baselineCommit": "af7485ce9d6e09f47a0adf95c1f11c5f912c0e1b",
+  "status": "code_review_passed_frozen_independent_execution_recorded",
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedByReviewer": false,
+  "sourceHashesAtCodeReview": {
+    "ruyi-workbench/resources/macos-automation-events.m": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+    "ruyi-workbench/resources/macos-automation-input.m": "3e65c17035d0f30db6907982330ac5245333deada4a4c659ec64c938a103293b",
+    "ruyi-workbench/resources/macos-automation-session.m": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+    "ruyi-workbench/resources/macos-automation-helper.m": "45d85a2e900484b69fe46f21280f33c3ed8cef68f55c1fa308d31331f583eeb5",
+    "ruyi-workbench/resources/macos-automation.h": "7c726cdf672d44350398b5d379f20a04b0f0e3518d9041d7f755962643a883ca",
+    "ruyi-workbench/tools/build-macos-automation-helper.js": "df9f546da9fba6b5f2c80b471bf9a359fc501cf577332787021699f2b17e53da",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+    "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py": "062b0e2e8c30ab4f277d78c9e3762326c3a601e13a0ce4562c5448d932ca88fc",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": "a0ce39f76a04720f6db28d3a1bbeae2b6e877552bb913daac2ebf4828ec87050",
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": "994e67cbdbb2fef4fb66e40be5bd477062b29de3ce8b8f388de11e7c0058b5bc",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "8b423c7c3479d13ee60b36d5e99e25caf382565f320cd7b1938e3df83cb6a6e0",
+    "dev-harness/macos-input-events.e2e.js": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+    "dev-harness/fixtures/macos-input-window.m": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+    "dev-harness/fixtures/macos-clipboard-fixture.h": "2d1dc0d04a94e9cd86c613862d2ec10c07fb8fd0cc6bbec0feff862895125d56",
+    "mcp/ai-computer-control/tests/smoke_macos_events.py": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+    "dev-harness/macos-input-host.e2e.js": "41347fbc969ca80b218a00e943326718892c72b19bcb79618b4f350bee5e3d2d",
+    "dev-harness/macos-capture.e2e.js": "7e09408982ed36945f814b4ee799d1bbf037284b460cbac02ab05d6b85e265e3",
+    "dev-harness/macos-acc-shared.e2e.js": "e84ecbec40babebe5aa883c6a3c09ffb608a1b80d0b7afbdd3a239634a4c60c2",
+    "dev-harness/process-safety.static.e2e.js": "195d39dea33b65479660ad9b1db9c06ca7c695d79becbb4a98acdc0acb966a7c",
+    "facts.json": "aeb13a729933093f928761e149c3adf033dcd0b24732528870c20f9b70a948d1",
+    "dev-harness/macos-input-apps.e2e.js": "bd6928080c7fb8a3e9f0f9380a336f6dfceecbe56457c95788228a16a687c975",
+    "dev-harness/macos-window-clipboard.e2e.js": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+    "docs/architecture/route-inventory.json": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+    "dev-harness/fixture-home.static.e2e.js": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49"
+  },
+  "scope": [
+    "Target identity, exact foreground, mouseDown hit destination, keyboard process routing and held-event cleanup",
+    "Temporary all-format clipboard snapshot ownership, stop admission, write/restore concurrency and bounded watchdog cleanup",
+    "Persistent run-loop frame dispatch, LaunchServices completion and application path/process identity",
+    "Python routing/shared Windows helpers, per-family capability gates and uncertainty metadata",
+    "Controlled real receiver and clipboard-sensitive test cleanup"
+  ],
+  "closedFindings": [
+    {
+      "id": "E1",
+      "finding": "Immediate signal/watchdog exit bypassed normal temporary clipboard restoration",
+      "resolution": "Tracked native pending transaction, cooperative signal unwind, bounded watchdog restoration and explicit unconfirmed metadata",
+      "evidence": [
+        "cancellation-command.txt",
+        "guard-state.txt"
+      ]
+    },
+    {
+      "id": "E2",
+      "finding": "LaunchServices completion did not validate actual bundle path or new-instance argument identity",
+      "resolution": "Compares resolved bundle identity, forces new instances for arguments, rejects prior process identities and returns actualURL",
+      "verification": "Reviewed current native OpenBoundApplication source"
+    },
+    {
+      "id": "E3",
+      "finding": "Blanket high-layer CG exclusion could admit input intercepted by an AX-hidden floating panel",
+      "resolution": "Uses public NSWindow windowNumberAtPoint:belowWindowWithWindowNumber:0 for actual mouseDown receiver, followed by exact AX window hit confirmation",
+      "apiContract": "AppKit NSWindow.h documents the frontmost window that would be hit by a mouseDown, across applications; available since macOS10.6",
+      "evidence": [
+        "windowserver-hit.txt",
+        "guard-state.txt"
+      ]
+    },
+    {
+      "id": "E4",
+      "finding": "A delayed main thread could admit a temporary clipboard write after watchdog stop",
+      "resolution": "BOOL TrackClipboard checks stopping atomically under the same eventLock before transaction admission; active transaction remains retained until the write finishes",
+      "evidence": [
+        "guard-state.txt"
+      ]
+    },
+    {
+      "id": "E5",
+      "finding": "GCD main-queue frame execution prevented nested run-loop waits from servicing LaunchServices callbacks",
+      "resolution": "CFRunLoopPerformBlock plus wakeup dispatches a single frame while the reader waits on its semaphore, with the existing per-frame deadline",
+      "evidence": [
+        "cancellation-command.txt",
+        "guard-state.txt"
+      ]
+    },
+    {
+      "id": "E6",
+      "severity": "P2",
+      "file": "dev-harness/macos-input-host.e2e.js",
+      "section": "finally",
+      "finding": "When the App exits but an observed service/ACC/helper identity remains, the normal absence assertion times out, yet finally only terminates the App, launcher and receiver. The recorded ownedTree remnants are not reclaimed.",
+      "requiredResolution": "Recheck recorded PID/creation identities, terminate only those owned survivors, and await their exits before deleting the isolated data root.",
+      "resolution": "Collects App/service/ACC/helper creation identities from the native report PID, independently reaps all remaining recorded identities on the final path, and retains isolation evidence on failure.",
+      "evidence": [
+        "app/forced-exit/run.txt",
+        "app/paste/run.txt"
+      ],
+      "negativeEvidenceNote": "The forced failure is intentional and retained as a failure. Its cleanup/restoration assertions are the relevant proof; it is not counted as a successful functional run."
+    },
+    {
+      "id": "E7",
+      "severity": "P1",
+      "file": "dev-harness/macos-input-events.e2e.js",
+      "section": "finally watchdogWorker cleanup",
+      "finding": "An early watchdog-test failure invokes killOwnTree(watchdogWorker) then immediately allows the fixture to restore/exit, without awaiting worker exit and refreshing the controlled clipboard version. Worker recovery can race fixture restoration or leave its final owned version unobserved.",
+      "requiredResolution": "Boundedly stop and await the watchdog worker, observe/track the current controlled clipboard after termination, then terminate the restoring fixture. Preserve this ordering on failure.",
+      "resolution": "Stops the watchdog writer and awaits actual exit, preserving the original fixture snapshot through a failed initial cleanup wait, then refreshes clipboard ownership before fixture termination.",
+      "evidence": [
+        "watchdog-injected-failure.txt"
+      ],
+      "negativeEvidenceNote": "The forced failure is intentional and retained as a failure. Its cleanup/restoration assertions are the relevant proof; it is not counted as a successful functional run."
+    },
+    {
+      "id": "E8",
+      "severity": "P2",
+      "file": "dev-harness/macos-input-apps.e2e.js",
+      "section": "TextEdit launch, observation and finally",
+      "finding": "textIdentity is only set after a title-matched CG window is observed. If a new TextEdit launches but window observation fails, final cleanup kills the open waiter while stopTextEdit returns without a recorded identity, leaving the launched instance unowned.",
+      "requiredResolution": "Record new TextEdit process creation identity and actual executable association as soon as it starts, independently of successful window/title observation, then clean only those verified identities on every final path.",
+      "resolution": "Registers exact TextEdit executable invocation with a unique fixture-root argument and process birth identity before observing its CG window. The final path reaps every early-registered identity.",
+      "evidence": [
+        "apps/early-registration-failure.txt",
+        "apps/final.txt"
+      ],
+      "negativeEvidenceNote": "Pre-observation injected failure remains exactly one expected FAIL. Cleanup passes; this is not counted as a successful functional run."
+    },
+    {
+      "id": "E9",
+      "severity": "P2",
+      "finding": "Final readiness barrier could return an unmarked failure after an explicit clipboard write had already changed system state",
+      "resolution": "RuyiAutomationWriteClipboard successful writes uniformly mark acted/action_sent. The final lock/authorization barrier can return outcome unconfirmed for both text and image writes.",
+      "evidence": [
+        "dev-harness/macos-window-clipboard.e2e.js added assertions"
+      ],
+      "verification": "Reviewed latest source and added assertions. Frozen-candidate execution remains pending."
+    },
+    {
+      "id": "E10",
+      "finding": "New Mac selected-app CDP-only browser fixture did not satisfy the existing Windows-oriented browser cleanup static predicates",
+      "resolution": "Registers browser and descendant birth identities, verifies all recorded identities have exited before deleting its profile, retains isolation on cleanup failure. Adds a narrow Mac static contract and refuses the CDP-only exception if startBrowserFixture is called. Existing Windows predicates remain.",
+      "evidence": [
+        "independent/final-incremental/apps-repeat/run.txt",
+        "independent/final-incremental/fixture-home/run.txt"
+      ],
+      "independentResults": {
+        "apps": 19,
+        "fixtureHome": 33,
+        "negativeTextEditExpectedExit1": true
+      }
+    }
+  ],
+  "additionalReviewedDecisions": [
+    "Keyboard events and corresponding cleanup are posted to the retained target PID after process/start/window/focus checks",
+    "WindowServer hit guard replaces CG layer heuristics and system-window whitelists",
+    "Stop-test lookup verifies the exact helper invocation inside its owned descendant tree and rechecks process creation identity",
+    "Controlled-stop finally awaits the pending call and refreshes fixture clipboard observation before outer process cleanup"
+  ],
+  "openActionableFindings": [],
+  "mainAgentEvidenceRead": [
+    {
+      "log": "cancellation-command.txt",
+      "passLines": 35,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by reviewer"
+    },
+    {
+      "log": "targeted-keyboard.txt",
+      "passLines": 35,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by reviewer"
+    },
+    {
+      "log": "windowserver-hit.txt",
+      "passLines": 36,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by reviewer"
+    },
+    {
+      "log": "guard-state.txt",
+      "passLines": 38,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by reviewer"
+    }
+  ],
+  "testIncident": {
+    "record": "clipboard-test-incident.json",
+    "userNotified": true,
+    "preRunClipboardRecoveredFromIncident": false,
+    "impact": "The initial failed controlled-stop test cleaned the MCP subtree before its pending paste completed. The exited fixture memory could not restore the original clipboard. No original clipboard content was logged.",
+    "followup": "The test now awaits pending input completion and observes restoration before cleanup. Subsequent main-agent runs report original-snapshot restoration. The historical loss is retained as an incident, not marked recovered."
+  },
+  "remainingAcceptance": [
+    "Frozen-candidate independent execution and per-command source/hash/process binding",
+    "Physical multi-display/non-Retina, actual permission revocation/lock during input and supported real input-method configurations",
+    "Same-candidate Windows runtime, minimum macOS14 runtime and formal signing identity",
+    "Frozen independent App-origin Unicode and Cmd+V success; main-agent authorized runs now pass, with earlier denied evidence retained",
+    "Frozen independent re-execution of real TextEdit and Chromium scenarios; current main-agent scenario passed, but final clipboard metadata change is newer",
+    "Current first-selected-application scope does not independently certify other application versions, input methods or all GUI applications"
+  ],
+  "phaseCompletion": "This record closes code-review findings for the current event/application slice. It is not final acceptance of the slice, P5-02 or P5 overall.",
+  "latestReadOnlyRound": {
+    "date": "2026-11-10T05:55:44.204Z",
+    "scope": [
+      "New LaunchServices App -> HTTP tool_invoke_exec -> ACC -> native Unicode/mouse entry",
+      "Test-only stalled-main-thread native protocol and nonactivating clipboard fixture",
+      "Known controlled temporary-text/version tracking and failure teardown",
+      "Affected capture/shared discovery assertions and generated counts"
+    ],
+    "productSourceEdited": false,
+    "guiOrTestsRun": false,
+    "watchdogEvidence": {
+      "log": "watchdog-first.txt",
+      "passLines": 8,
+      "failLines": 0,
+      "executor": "main agent; read by reviewer",
+      "proves": "A real main-thread sleep is ended by the existing reader watchdog and its cleanup thread restores the all-format temporary clipboard snapshot."
+    },
+    "appAuthorizationEvidence": {
+      "log": "app/input-host.json",
+      "screen": "granted",
+      "accessibility": "denied",
+      "eventPosting": "denied",
+      "inputReady": false,
+      "status": "Actual App-origin denied evidence retained. Authorized success remains pending user settings and independent execution."
+    },
+    "testProtocolReview": "test_stall_clipboard implementation and routing are wrapped in RUYI_AUTOMATION_TESTING; production source has no admitted stalled-clipboard operation.",
+    "clipboardTrackingReview": "Pre-run clipboard remains in native fixture memory. Tracking commands contain only known controlled test strings and change counts; original clipboard content is not included in MCP/evidence output."
+  },
+  "additionalMainAgentEvidenceRead": [
+    {
+      "log": "app/after-authorization-observation/run.txt",
+      "passLines": 12,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by reviewer",
+      "classification": "authorized App functional run"
+    },
+    {
+      "log": "app/paste/run.txt",
+      "passLines": 15,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by reviewer",
+      "classification": "authorized App functional run"
+    },
+    {
+      "log": "app/forced-exit/run.txt",
+      "passLines": 12,
+      "failLines": 1,
+      "allPass": false,
+      "executor": "main agent; read by reviewer",
+      "classification": "intentional negative cleanup run"
+    },
+    {
+      "log": "watchdog-injected-failure.txt",
+      "passLines": 6,
+      "failLines": 1,
+      "allPass": false,
+      "executor": "main agent; read by reviewer",
+      "classification": "intentional negative cleanup run"
+    },
+    {
+      "log": "apps/stable-window.txt",
+      "passLines": 7,
+      "failLines": 1,
+      "allPass": false,
+      "executor": "main agent; read by reviewer",
+      "classification": "partial selected-application run; Chromium binding remains unresolved"
+    },
+    {
+      "log": "apps/ax-binding-diagnostic.txt",
+      "passLines": 7,
+      "failLines": 1,
+      "allPass": false,
+      "executor": "main agent; read by reviewer",
+      "classification": "partial selected-application run; Chromium binding remains unresolved"
+    }
+  ],
+  "selectedApplicationsReview": {
+    "textEdit": "Main evidence confirms new owned UTF-8 file, exact Chinese Unicode save, close/reap, and early-registration failure cleanup.",
+    "chromium": "Main-agent final run verifies CFT148 Chinese Cmd+V/all-format preservation, trusted native click, vertical/horizontal scroll, decorated-title active query and ambiguous equal-geometry refusal.",
+    "acceptance": "Both remain pending frozen independent execution in this slice."
+  },
+  "latestSafetyReview": {
+    "reviewedAt": "2026-11-10T07:26:52.667Z",
+    "windowBinding": "For missing/decorated titles, preserves unique same-process observed geometry and confirms a shared point hits the original CG window number and the exact AX window. Duplicate equal-geometry CG windows are refused, and a final enumeration deadline check prevents late success.",
+    "pointer": "AtPoint requires finite observed coordinates. A nonfinite initial move pointer is refused; initial/final position checks cannot silently pass NaN.",
+    "readiness": "The public input result wrapper rechecks actual lock state and relevant Accessibility/event-post permissions before returning success, resets bindings and releases owned events on a late readiness failure, preserves restore state and side-effect uncertainty.",
+    "clipboardMetadata": "Explicit text/image writes now carry acted and action_sent even before entering the final barrier.",
+    "testCleanup": "E6/E7/E8 fixes retain creation-identity ownership and order writer/MCP teardown before final clipboard observation and fixture termination.",
+    "mainAgentLogsRead": [
+      {
+        "log": "apps/early-registration-failure.txt",
+        "passLines": 2,
+        "failLines": 1,
+        "allPass": false,
+        "executor": "main agent; read by reviewer",
+        "note": "Intentional cleanup failure probe"
+      },
+      {
+        "log": "apps/final.txt",
+        "passLines": 16,
+        "failLines": 0,
+        "allPass": true,
+        "executor": "main agent; read by reviewer",
+        "note": "Main run predates the final explicit-clipboard side-effect metadata change; frozen execution will bind the latest source"
+      },
+      {
+        "log": "events-final.txt",
+        "passLines": 42,
+        "failLines": 0,
+        "allPass": true,
+        "executor": "main agent; read by reviewer",
+        "note": "Main run predates the final explicit-clipboard side-effect metadata change; frozen execution will bind the latest source"
+      }
+    ],
+    "finalSourceReadyForFreeze": true,
+    "openActionableFindings": 0,
+    "sourceCountsChecked": {
+      "e2e": 581,
+      "live": 7,
+      "default": 574,
+      "killOwnTreeOwnerFiles": 357,
+      "factsE2e": 581
+    },
+    "finalFrozenSourceFiles": 51,
+    "finalIncrementalExecution": "independent/final-incremental/runs.json",
+    "historicalFocusFailure": "Original incremental apps run refused type_text before input with focus_changed, cause undetermined. Same command and frozen source rerun passed19. Both retained; no assertion or product guard was weakened."
+  },
+  "candidateBinding": "source-fingerprint-final.json",
+  "finalAcceptanceEvidence": "independent/review.json",
+  "finalEngineeringBound": true,
+  "finalDefaultRuntimeSha256": "0d37469404e1ef948430089064e474abf2755e8cd96a9aa736012eefb3fafec9"
+}

@@ -295,12 +295,14 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
     }
     NSString *op = request[@"op"];
 #ifdef RUYI_AUTOMATION_TESTING
+    if ([op isEqual:@"test_input_state"]) { done(RuyiAutomationTestInputState()); return; }
     // This operation exists only in a separately named test binary. It exercises the production planner.
     if ([op isEqual:@"test_plan"] && [request[@"displays"] isKindOfClass:NSArray.class]) {
         done(PlanDisplays(request, request[@"displays"])); return;
     }
 #endif
-    if ([op hasPrefix:@"window."] || [op hasPrefix:@"clipboard."]) {
+    if ([op hasPrefix:@"window."] || [op hasPrefix:@"clipboard."] || [op hasPrefix:@"keyboard."] || [op hasPrefix:@"mouse."]
+        || [op hasPrefix:@"application."]) {
         done(RuyiAutomationInputRequest(request)); return;
     }
     NSSet *keys = [NSSet setWithArray:@[@"version", @"op", @"region", @"monitor", @"window_title"]];

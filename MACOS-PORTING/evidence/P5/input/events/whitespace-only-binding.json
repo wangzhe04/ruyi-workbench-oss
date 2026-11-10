@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-10T07:57:51.726Z",
+  "priorFingerprint": "source-fingerprint-final.json",
+  "commitFingerprint": "source-fingerprint-commit.json",
+  "sourceFiles": 51,
+  "changes": [
+    {
+      "file": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "beforeSha256": "2d1dc0d04a94e9cd86c613862d2ec10c07fb8fd0cc6bbec0feff862895125d56",
+      "afterSha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "removedBytes": 1,
+      "removedByteHex": "0a",
+      "reconstructedOriginalSha256": "2d1dc0d04a94e9cd86c613862d2ec10c07fb8fd0cc6bbec0feff862895125d56",
+      "reconstructionMatches": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "beforeSha256": "062b0e2e8c30ab4f277d78c9e3762326c3a601e13a0ce4562c5448d932ca88fc",
+      "afterSha256": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "removedBytes": 2,
+      "removedByteHex": "0a",
+      "reconstructedOriginalSha256": "062b0e2e8c30ab4f277d78c9e3762326c3a601e13a0ce4562c5448d932ca88fc",
+      "reconstructionMatches": true
+    }
+  ],
+  "other49HashesMatch": true,
+  "reason": "git diff --cached --check included new files and found extra blank lines at EOF. Exact reconstruction preserves the original executed candidate."
+}

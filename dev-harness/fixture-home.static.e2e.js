@@ -312,6 +312,16 @@ try {
         'Mac browser fixture verifies actual owned processes/profiles and cleans its own external tree');
       continue;
     }
+    if (name === 'macos-input-apps.e2e.js') {
+      ok(text.includes("process.platform !== 'darwin'") &&
+        /const browserProfile = path\.join\(root, 'profile'\)/.test(text) &&
+        /trackBrowser\(\)/.test(text) && /ownDescendants\(rows, prior\.pid\)/.test(text) &&
+        /row\.created === prior\.created/.test(text) &&
+        /killOwnTree\(browser\)/.test(text) && /await until\(\(\) => remainingBrowser\(\)\.length === 0\)/.test(text) &&
+        /if \(browserClean\)/.test(text) && /!fs\.existsSync\(browserProfile\)/.test(text),
+        'Mac input-app fixture verifies browser birth identities and removes its profile only after owned cleanup');
+      continue;
+    }
     // 判【调用】而不是「这几个字出现过」:第一版写成 includes(名字),把它改名成 XXX 之后锁照样绿
     // —— 反向当场逮到这把松锁(本会话第三次同一族:锁要钉行为,不钉字符串出现过)。
     if (!/\bstopRuyiTestBrowsers\s*\(/.test(text)) missing.push(name);
@@ -324,7 +334,14 @@ try {
   ok(/\bstopRuyiTestBrowsers\s*\(\s*profile\s*\)/.test(fixtureSrc) && /\bkillTree\(fx\.browser\)/.test(fixtureSrc),
     '公共夹具 lib/browser-fixture 的 close() 收浏览器（killTree ＋ 按本件 profile 收尸）');
   const fixtureUsers = files.filter(name => /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
-  const unclosed = fixtureUsers.filter(name => !/\bawait\s+\w+\.close\(/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
+  const unclosed = fixtureUsers.filter(name => {
+    const text = fs.readFileSync(path.join(harnessDir, name), 'utf8');
+    // The Mac input fixture imports only the CDP observer and owns its browser
+    // directly. Its native process/profile cleanup is checked above.
+    if (name === 'macos-input-apps.e2e.js')
+      return /\bstartBrowserFixture\s*\(/.test(text) || !/if \(cdp\) cdp\.close\(\)/.test(text);
+    return !/\bawait\s+\w+\.close\(/.test(text);
+  });
   ok(fixtureUsers.length >= 4, `用公共夹具的件扫得到（实得 ${fixtureUsers.length} 件）`);
   ok(unclosed.length === 0, `每一件用公共夹具的都 await 过 .close()${unclosed.length ? '；实得漏了：' + unclosed.join('、') : ''}`);
 }

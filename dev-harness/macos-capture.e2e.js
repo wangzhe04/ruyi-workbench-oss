@@ -90,7 +90,10 @@ function checkPattern(result, content, label) {
     const names = client.listTools().map(tool => tool.name);
     t.ok(['screenshot','screenshot_region','window_screenshot','get_screen_info','list_monitors'].every(name => names.includes(name)),
       'real ACC tools/list advertises the ready Mac capture backend');
-    t.ok(!names.includes('mouse_click') && !names.includes('ui_inspect'), 'later P5 backends stay absent');
+    const diagnostics = await client.callTool('diagnostics', {});
+    t.ok(names.includes('mouse_click') === diagnostics.capabilities['desktop.capture'].inputReady,
+      'Mac input discovery follows the implemented backend readiness');
+    t.ok(!names.includes('ui_inspect'), 'later AX backend stays absent');
     t.ok(S.auditBridgedWriteCoverage(names).uncovered.length === 0, 'live capture writers retain checkpoint coverage');
     const info = await client.callTool('get_screen_info',{});
     t.ok(info.ok && info.authorization === 'granted' && info.coordinate_space === 'macos_global_points',

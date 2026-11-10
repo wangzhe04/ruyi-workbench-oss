@@ -172,6 +172,7 @@ async function clipboardVersion(value) {
       const sample = '第一行 中文😀\nsecond line';
       const written = await client.callTool('set_clipboard', { text: sample });
       t.ok(written.ok && written.length === [...sample].length, 'Unicode clipboard write reports character count');
+      t.ok(written.acted && written.action_sent, 'text clipboard write marks its completed side effect for late readiness failure');
       await clipboardVersion(written.change_count);
       const read = await client.callTool('get_clipboard', {});
       t.ok(read.ok && read.text === sample && !read.has_image, 'system clipboard text round-trips through the production tool');
@@ -179,6 +180,7 @@ async function clipboardVersion(value) {
       fs.writeFileSync(imagePath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP8//8/AwMDEwMYAAAkBgMBXaJOiAAAAABJRU5ErkJggg==', 'base64'));
       const imageWrite = await client.callTool('set_clipboard_image', { path: imagePath });
       t.ok(imageWrite.ok && imageWrite.width === 2 && imageWrite.height === 2, 'native image clipboard write reports decoded dimensions');
+      t.ok(imageWrite.acted && imageWrite.action_sent, 'image clipboard write marks its completed side effect for late readiness failure');
       await clipboardVersion(imageWrite.change_count);
       const imageRead = await client.callTool('get_clipboard_image', { max_width: 1 });
       t.ok(imageRead.ok && imageRead.has_image && imageRead.width === 1 && imageRead.original_width === 2 && imageRead.image_base64,
