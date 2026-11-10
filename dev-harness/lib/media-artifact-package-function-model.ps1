@@ -32,12 +32,17 @@ $workbench = Join-Path $fixture ('workbench with spaces ' + [char]0x4e2d); $tool
 New-Item -ItemType Directory -Force -Path $tools | Out-Null
 foreach ($name in @('media-runtime-lock.cjs', 'verify-media-artifacts.cjs')) { Copy-Item -LiteralPath (Join-Path $RepositoryRoot ('ruyi-workbench/tools/' + $name)) -Destination $tools -Force }
 $acc = Join-Path $fixture 'existing-runtime'; $sources = Join-Path $fixture 'existing-sources'
-$good = '{"schema":1,"verificationKind":"offline-artifact-inventory","dependencyFilesVerified":true,"sourceArchiveVerified":true,"installsPerformed":false,"mediaProcessingEnabled":false,"mediaEgressEnabled":false}'
+$good = '{"schema":1,"verificationKind":"offline-artifact-inventory","dependencyFilesVerified":true,"sourceArchiveVerified":true,"sourceProfile":"legacy","installsPerformed":false,"mediaProcessingEnabled":false,"mediaEgressEnabled":false}'
 $script:receipt = $good
 Assert-MediaArtifactInventory $workbench $acc $sources
 Assert-Model ($script:calls -eq 1) 'the successful gate uses one exact inventory call'
 Assert-Model ($script:lastCall[0] -ceq (Join-Path $workbench 'tools\verify-media-artifacts.cjs')) 'verifier follows selected workbench and staged resources'
 Assert-Model ($script:lastCall[1] -ceq $acc -and $script:lastCall[2] -ceq $sources) 'absolute space and Unicode paths remain exact separate arguments'
+$script:receipt = $good.Replace('"sourceProfile":"legacy"', '"sourceProfile":"local-full-v2"')
+Expect-Refusal { Assert-MediaArtifactInventory $workbench $acc $sources } 'replacement receipt cannot qualify ordinary Full'
+Assert-MediaArtifactInventory $workbench $acc $sources -LocalSources
+$script:receipt = $good
+Expect-Refusal { Assert-MediaArtifactInventory $workbench $acc $sources -LocalSources } 'legacy receipt cannot qualify Full-local'
 foreach ($bad in @('', 'not-json', 'null', '{}', ($good.Replace('"schema":1','"schema":2')), ($good.Replace('offline-artifact-inventory','media-launch')), ($good.Replace('"dependencyFilesVerified":true','"dependencyFilesVerified":"true"')), ($good.Replace('"sourceArchiveVerified":true','"sourceArchiveVerified":false')), ($good.Replace('"installsPerformed":false','"installsPerformed":true')), ($good.Replace('"mediaProcessingEnabled":false','"mediaProcessingEnabled":true')), ($good.Replace('"mediaEgressEnabled":false','"mediaEgressEnabled":true')))) {
   $script:receipt = $bad; Expect-Refusal { Assert-MediaArtifactInventory $workbench $acc $sources } 'missing, malformed, falsy or capability-bearing receipt must refuse'
 }

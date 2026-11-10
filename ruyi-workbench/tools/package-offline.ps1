@@ -5,6 +5,7 @@ param(
   [switch]$BuildAccOffline,
   [string]$AccOfflineSource = "",
   [string]$MediaSourcesRoot = "",
+  [switch]$LocalMediaSources,
   [string]$Variant = "offline"
 )
 
@@ -17,6 +18,7 @@ param(
 #   -BuildAccOffline  : build that ACC payload now (requires internet on the packaging machine).
 #   -AccOfflineSource : existing ACC build_offline folder; defaults to mcp/ai-computer-control/build_offline.
 #   -MediaSourcesRoot : existing corresponding-source sidecar directory; defaults to media-sources beside this package.
+#   -LocalMediaSources : use the pinned replacement source set for Full-local developer qualification.
 #   -Variant       : label for the stage dir and zip name.
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +37,12 @@ function Get-Sha256Hex {
 }
 
 $variantLooksFull = $Variant -match '(^|[-_])full($|[-_])'
+if ($LocalMediaSources -and (-not $IncludeAcc -or $Variant -cne 'full-local' -or -not $MediaSourcesRoot)) {
+  throw "Replacement media sources require -IncludeAcc -Variant full-local and an explicit -MediaSourcesRoot."
+}
+if ($Variant -ieq 'full-local' -and -not $LocalMediaSources) {
+  throw "The full-local variant requires explicit -LocalMediaSources."
+}
 if ($variantLooksFull -and -not $IncludeAcc) {
   throw "A package named Full must use -IncludeAcc; refusing to emit a Full ZIP without ACC/winsdk."
 }
@@ -307,12 +315,12 @@ Copy-Item (Join-Path $root "package.json") (Join-Path $stage "package.json")
 Copy-Item (Join-Path $root "README-START-HERE.txt") (Join-Path $stage "README-START-HERE.txt")
 
 # M4 inventory is a packaging prerequisite, not media processing or egress authority.
-function Assert-MediaArtifactInventory([string]$WorkbenchRoot, [string]$AccRoot, [string]$SourceRoot) {
+function Assert-MediaArtifactInventory([string]$WorkbenchRoot, [string]$AccRoot, [string]$SourceRoot, [switch]$LocalSources) {
   $mediaNode = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
   if (-not $mediaNode) { throw "Node.js is required to verify the frozen media artifact inventory." }
   $mediaTools = @{
     "media-runtime-lock.cjs" = "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0"
-    "verify-media-artifacts.cjs" = "98104d387bf7a61ad685a4a7c4533ac5d794833cf05ff28fe14af27842be4e59"
+    "verify-media-artifacts.cjs" = "34f290e561af2931309f8f62b489ae726568e001576f4242a318ef021e520871"
   }
   foreach ($entry in $mediaTools.GetEnumerator()) {
     $tool = Join-Path $WorkbenchRoot ("tools\" + $entry.Key)
@@ -325,6 +333,8 @@ function Assert-MediaArtifactInventory([string]$WorkbenchRoot, [string]$AccRoot,
   if ($LASTEXITCODE -ne 0) { throw "Media dependency or corresponding-source artifact verification failed; refusing this Full payload." }
   $inventory = ConvertFrom-Json -InputObject ([string]::Join([Environment]::NewLine, @($mediaOutput)))
   if ($inventory.schema -ne 1 -or $inventory.verificationKind -cne "offline-artifact-inventory") { throw "Invalid media inventory receipt." }
+  $expectedProfile = if ($LocalSources) { 'local-full-v2' } else { 'legacy' }
+  if ($inventory.sourceProfile -cne $expectedProfile) { throw "Media source profile does not match the requested package variant." }
   foreach ($field in @("dependencyFilesVerified", "sourceArchiveVerified")) {
     if ($inventory.$field -isnot [bool] -or $inventory.$field -ne $true) { throw "Unconfirmed media inventory receipt." }
   }
@@ -355,7 +365,19 @@ if ($IncludeAcc) {
       throw "ACC offline payload is invalid: it must be wheel-only and include python_embed\python.exe."
     }
     $mediaSources = if ($MediaSourcesRoot) { (Resolve-Path -LiteralPath $MediaSourcesRoot).Path } else { Join-Path $root "media-sources" }
-    Assert-MediaArtifactInventory $root $offlineSrc $mediaSources
+    foreach ($mediaTool in @("media-runtime-lock.cjs", "verify-media-artifacts.cjs")) {
+      Copy-Item -LiteralPath (Join-Path $root ("tools\" + $mediaTool)) -Destination (Join-Path $stage ("tools\" + $mediaTool)) -Force
+    }
+    if ($LocalMediaSources) {
+      Copy-Item -LiteralPath (Join-Path $root 'tools\media-runtime-sources-local-full.json') -Destination (Join-Path $stage 'resources\media-runtime-sources.json') -Force
+      Assert-MediaArtifactInventory $stage $offlineSrc $mediaSources -LocalSources
+      Set-Content -LiteralPath (Join-Path $stage 'LOCAL-MEDIA-QUALIFICATION.txt') -Encoding ASCII -Value @(
+        'Full-local developer qualification. The exact alternative source inventory passed the package gate.',
+        'Public distribution review and exact upstream build-environment attestation remain pending.'
+      )
+    } else {
+      Assert-MediaArtifactInventory $root $offlineSrc $mediaSources
+    }
     Assert-FullAccOcrPayload $offlineSrc (Join-Path $offlineSrc "python_embed\python.exe")
     $accDst = Join-Path $stage "mcp\ai-computer-control"
     New-Item -ItemType Directory -Force -Path $accDst | Out-Null
@@ -378,11 +400,14 @@ if ($IncludeAcc) {
     $accPython = Join-Path $accDst "python_embed\python.exe"
     $mediaDestination = Join-Path $stage "resources\media-runtime-sources"
     New-Item -ItemType Directory -Force -Path $mediaDestination | Out-Null
-    Copy-Item -LiteralPath (Join-Path $mediaSources "opencv-windows-ffmpeg-source-sidecar.zip") -Destination $mediaDestination -Force
-    foreach ($mediaTool in @("media-runtime-lock.cjs", "verify-media-artifacts.cjs")) {
-      Copy-Item -LiteralPath (Join-Path $root ("tools\" + $mediaTool)) -Destination (Join-Path $stage ("tools\" + $mediaTool)) -Force
+    if ($LocalMediaSources) {
+      foreach ($file in @('opencv-windows-ffmpeg-sources-v2-local.zip', 'opencv_python_headless-5.0.0.93.tar.gz')) {
+        Copy-Item -LiteralPath (Join-Path $mediaSources $file) -Destination $mediaDestination -Force
+      }
+    } else {
+      Copy-Item -LiteralPath (Join-Path $mediaSources "opencv-windows-ffmpeg-source-sidecar.zip") -Destination $mediaDestination -Force
     }
-    Assert-MediaArtifactInventory $stage $accDst $mediaDestination
+    Assert-MediaArtifactInventory $stage $accDst $mediaDestination -LocalSources:$LocalMediaSources
     Assert-FullAccOcrPayload $accDst $accPython -RequireReleaseManifest
     $oldPythonPath = $env:PYTHONPATH
     try {

@@ -26,6 +26,28 @@ const proof=rows=>({ok:true,artifacts:rows.length,verifiedBytes:rows.reduce((sum
 const runtime=p.resolve('synthetic-media-runtime'),sources=p.resolve('synthetic-media-sources');
 test('bundled private locks are captured before await and both exact artifact groups gate inventory-only success',async()=>{const calls=[],reads=[];const api=model(async(root,rows)=>{a.equal(reads.length,2);a.equal(Object.isFrozen(rows),true);a.equal(rows.every(Object.isFrozen),true);a.throws(()=>{rows[0].sha256='f'.repeat(64);},TypeError);calls.push({root,count:rows.length,first:rows[0].path});return proof(rows);},(...args)=>{reads.push(args[0]);return fs.readFileSync(...args);});const result=await api.verifyMediaArtifacts(runtime,sources);a.equal(calls.length,11);a.equal(calls[0].root,sources);a.equal(calls[0].count,1);a.equal(calls[0].first,'opencv-windows-ffmpeg-source-sidecar.zip');a.equal(calls[1].root,runtime);a.equal(calls.slice(1).reduce((n,row)=>n+row.count,0),4987);a.equal(result.dependencyFilesVerified,true);a.equal(result.sourceArchiveVerified,true);a.equal(result.pythonVersion,'3.12.10');a.equal(result.verifiedSourceBytes,19922194);a.equal(result.installsPerformed,false);a.equal(result.mediaProcessingEnabled,false);a.equal(result.mediaEgressEnabled,false);a.equal(Object.isFrozen(result),true);});
 test('missing source archive refuses before any runtime verification or alternative provider',async()=>{let calls=0;const fault=Object.assign(Error('missing-synthetic'),{code:'media.component_missing'}),api=model(async()=>{calls++;throw fault;});await a.rejects(()=>api.verifyMediaArtifacts(runtime,sources),error=>error===fault);a.equal(calls,1);});
+test('the staged Full-local lock requires both replacement artifacts and identifies its scope', async () => {
+  const local = fs.readFileSync(p.join(tools, 'media-runtime-sources-local-full.json'));
+  const sourceRows = JSON.parse(local).artifacts;
+  const read = file => p.basename(file) === 'media-runtime-sources.json' ? local : fs.readFileSync(file);
+  let sourceCalls = 0;
+  const api = model(async (root, rows) => {
+    if (root === sources) {
+      sourceCalls++;
+      a.deepEqual(JSON.parse(JSON.stringify(rows)), sourceRows);
+    }
+    return proof(rows);
+  }, read);
+  const result = await api.verifyMediaArtifacts(runtime, sources);
+  a.equal(sourceCalls, 1);
+  a.equal(result.sourceProfile, 'local-full-v2');
+  a.equal(result.verifiedSourceBytes, 189682945);
+  a.equal(result.mediaEgressEnabled, false);
+
+  const fault = Object.assign(Error('changed replacement source'), { code: 'media.artifact_changed' });
+  const refuses = model(async root => { a.equal(root, sources); throw fault; }, read);
+  await a.rejects(refuses.verifyMediaArtifacts(runtime, sources), error => error === fault);
+});
 test('missing Slim runtime or changed Full payload never returns an admission receipt',async()=>{for(const code of ['media.component_missing','media.artifact_changed']){let calls=0;const fault=Object.assign(Error(code),{code}),api=model(async(_root,rows)=>{if(++calls===2)throw fault;return proof(rows);});await a.rejects(()=>api.verifyMediaArtifacts(runtime,sources),error=>error===fault);a.equal(calls,2);}});
 test('a lock byte change refuses before asynchronous verifier even if JSON still parses',async()=>{let calls=0;const api=model(async()=>{calls++;},file=>Buffer.concat([fs.readFileSync(file),Buffer.from('\n')]));await a.rejects(()=>api.verifyMediaArtifacts(runtime,sources),{code:'media.lock_changed'});a.equal(calls,0);});
 test('both roots require explicit absolute primitive paths before reading locks or invoking a gate',async()=>{let reads=0,calls=0;const api=model(async()=>{calls++;},()=>{reads++;});for(const args of [[undefined,sources],[runtime,null],['relative',sources],[runtime,'relative']])await a.rejects(()=>api.verifyMediaArtifacts(...args),{code:'media.artifact_shape'});a.equal(calls,0);a.equal(reads,0);});
@@ -89,6 +111,15 @@ for(const failure of [null,undefined,false,0,'',Object.assign(Error('last-group'
 test('a false receipt only in the final group cannot be hidden by earlier valid receipts',async()=>{let calls=0;const {api}=model(async(_root,rows)=>++calls===11?{...proof(rows),verifiedBytes:0}:proof(rows));await a.rejects(()=>api.verifyMediaArtifacts(root,sources),{code:'media.artifact_receipt'});a.equal(calls,11);});
 test('pre-cancel performs no gate, between-group cancel and final-group cancel never grant success',async()=>{for(const at of[0,2,11]){const controller=new AbortController();let calls=0;if(at===0)controller.abort();const {api}=model(async(_root,rows)=>{calls++;if(calls===at)controller.abort();return proof(rows);});await a.rejects(()=>api.verifyMediaArtifacts(root,sources,{signal:controller.signal}),{code:'media.artifact_cancelled'});a.equal(calls,at);}});
 test('locked bytes or source identity changes reject before any asynchronous gate',async()=>{for(const name of['media-runtime-dependencies.json','media-runtime-sources.json']){let calls=0;const {api}=model(async()=>{calls++;},file=>p.basename(file)===name?Buffer.concat([fs.readFileSync(file),Buffer.from('\n')]):fs.readFileSync(file));await a.rejects(()=>api.verifyMediaArtifacts(root,sources),{code:'media.lock_changed'});a.equal(calls,0);}});
-test('package only updates verifier digest while first Application and all ordinary branch source remain exact',()=>{const now=fs.readFileSync(p.join(tools,'package-offline.ps1'),'utf8'),currentHash=hash(fs.readFileSync(p.join(tools,'verify-media-artifacts.cjs')));a.equal(hash(Buffer.from(now.replace(currentHash,()=> '7eed396fb315e0c40378fa6f994015483614ce2412a99afae5d7a52449c71613'))),'c2b4949033728f3e12c7adb2abdd0d4ed2874981259641b48cf8c2ae6d762402');a.match(now,/\$mediaNode = Get-Command node\.exe -CommandType Application -ErrorAction SilentlyContinue \| Select-Object -First 1/);a.equal(hash(fs.readFileSync(p.join(tools,'../resources/media-runtime-sources.json'))),'96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29');});
+test('Full-local requires explicit selection and keeps the ordinary Full lock and first Application gate', () => {
+  const now = fs.readFileSync(p.join(tools, 'package-offline.ps1'), 'utf8');
+  const verifierDigest = hash(fs.readFileSync(p.join(tools, 'verify-media-artifacts.cjs')));
+  a.ok(now.includes('"verify-media-artifacts.cjs" = "' + verifierDigest + '"'));
+  a.match(now, /\$mediaNode = Get-Command node\.exe -CommandType Application -ErrorAction SilentlyContinue \| Select-Object -First 1/);
+  a.match(now, /\$LocalMediaSources -and \(-not \$IncludeAcc -or \$Variant -cne 'full-local' -or -not \$MediaSourcesRoot\)/);
+  a.match(now, /if \(\$LocalSources\) \{ 'local-full-v2' \} else \{ 'legacy' \}/);
+  a.match(now, /else \{\s*Assert-MediaArtifactInventory \$root \$offlineSrc \$mediaSources/);
+  a.equal(hash(fs.readFileSync(p.join(tools, '../resources/media-runtime-sources.json'))), '96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29');
+});
 
 }

@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { parseArgs } = require('node:util');
 const { inflateSync } = require('node:zlib');
 const { createRunner } = require('./lib/harness');
 const { startFakeProvider, toolCallFrames, textFrames } = require('./lib/fake-openai-provider');
@@ -15,7 +16,6 @@ const { makeVideoFixture, audioCanary, metadataCanary } = require('./lib/media-v
 const { protectedPdf, protectedDocx, protectedPptx } = require('./lib/protected-document-fixtures');
 
 const runner = createRunner('PROTECTED DOCUMENT VIDEO');
-const full = process.argv.slice(2).includes('--full-components');
 
 function images(body) {
   return body.messages.filter(message => message.role === 'user' && Array.isArray(message.content))
@@ -38,15 +38,20 @@ function hasOpaqueMask(url, region) {
   const pixel = (x, y) => y * stride + 1 + x * 3;
   const isRgb = (offset, value) => raw[offset] === value && raw[offset + 1] === value && raw[offset + 2] === value;
   if (region) {
-    // The fixture is 320 × 220 PDF points, rendered at 2×. The bottom-right
-    // background must survive unmasked. The text starts at (32, 180) points.
+    // The 2× PDF fixture must retain its white background and cover the entire
+    // independently observed word rectangle, including its rightmost letters.
     if (width !== 640 || height !== 440 || !isRgb(pixel(600, 400), 255) || !isRgb(pixel(400, 200), 255)) return false;
+    for (let y = region.top; y < region.bottom; y++) {
+      for (let x = region.left; x < region.right; x++) {
+        if (!isRgb(pixel(x, y), 0)) return false;
+      }
+    }
+    return true;
   }
-  const { left, right, top, bottom } = region || { left: 0, right: width, top: 0, bottom: height };
   let rows = 0;
-  for (let y = top; y < bottom; y++) {
+  for (let y = 0; y < height; y++) {
     let run = 0, longest = 0;
-    for (let x = left; x < right; x++) {
+    for (let x = 0; x < width; x++) {
       run = isRgb(pixel(x, y), 0) ? run + 1 : 0;
       longest = Math.max(longest, run);
     }
@@ -95,7 +100,7 @@ async function checkAnthropicPage(app, workspace, pdf, keyword) {
     assert.equal(receipt.type, 'tool_result');
     assert.equal(receipt.tool_use_id, callId);
     const page = JSON.parse(receipt.content);
-    assert.equal(page.ok, true);
+    assert.equal(page.ok, true, 'Anthropic PDF tool result: ' + JSON.stringify(page));
     assert.equal(page.projection, 'pdf-pages');
     const sent = anthropicImageBlocks(captured[1].body);
     assert.equal(sent.length, 1);
@@ -104,7 +109,7 @@ async function checkAnthropicPage(app, workspace, pdf, keyword) {
     assert.equal(source.type, 'base64');
     assert.equal(source.media_type, 'image/png');
     assert.match(source.data, /^iVBORw0KGgo/);
-    assert.ok(hasOpaqueMask('data:image/png;base64,' + source.data, { left: 48, top: 40, right: 350, bottom: 100 }),
+    assert.ok(hasOpaqueMask('data:image/png;base64,' + source.data, { left: 65, top: 56, right: 298, bottom: 81 }),
       'wire PNG masks the synthetic text region while preserving white background');
     const followUpReceipt = captured[2].messages.at(-1).content[0];
     assert.equal(followUpReceipt.type, 'tool_result');
@@ -127,19 +132,45 @@ async function checkAnthropicPage(app, workspace, pdf, keyword) {
   }
 }
 
+async function packagedEntry(root) {
+  assert.ok(path.isAbsolute(root), 'package root must be absolute');
+  const packageRoot = await fs.realpath(root);
+  const node = await fs.realpath(path.join(packageRoot, 'runtime', 'node', 'node.exe'));
+  assert.equal(await fs.realpath(process.execPath), node, 'run this fixture with the packaged Node runtime');
+  for (const key of ['RUYI_MEDIA_RUNTIME_ROOT', 'RUYI_MEDIA_SOURCES_ROOT', 'RUYI_MEDIA_RESOURCE_PROFILE']) {
+    assert.equal(process.env[key], undefined, key + ' would override the packaged defaults');
+  }
+  for (const relative of [
+    'app/server.js', 'mcp/ai-computer-control/python_embed/python.exe', 'resources/native-file-read.py',
+    'resources/media-runtime-dependencies.json', 'resources/media-runtime-sources.json', 'tools/verify-media-artifacts.cjs',
+  ]) {
+    assert.ok((await fs.lstat(path.join(packageRoot, relative))).isFile(), 'missing packaged file ' + relative);
+  }
+  console.log('Testing packaged Full at ' + packageRoot);
+  return path.join(packageRoot, 'app', 'server.js');
+}
+
 async function main() {
-  assert.ok(process.argv.slice(2).every(arg => arg === '--full-components'), 'unexpected flag');
+  const { values } = parseArgs({ options: {
+    'full-components': { type: 'boolean' }, 'package-root': { type: 'string' }, 'anthropic-only': { type: 'boolean' },
+  } });
+  const full = values['full-components'], anthropicOnly = values['anthropic-only'], packageRoot = values['package-root'];
+  assert.ok(full || (!anthropicOnly && packageRoot === undefined), 'package and Anthropic modes require --full-components');
+  const packageServer = packageRoot === undefined ? null : await packagedEntry(packageRoot);
   if (full) {
     assert.equal(process.platform, 'win32');
-    for (const key of ['RUYI_MEDIA_RUNTIME_ROOT', 'RUYI_MEDIA_SOURCES_ROOT']) assert.ok(path.isAbsolute(process.env[key] || ''), key);
+    if (!packageServer) {
+      for (const key of ['RUYI_MEDIA_RUNTIME_ROOT', 'RUYI_MEDIA_SOURCES_ROOT']) assert.ok(path.isAbsolute(process.env[key] || ''), key);
+    }
   }
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ruyi-protected-doc-video-'));
+  const temp = await fs.realpath(os.tmpdir());
+  const root = await fs.mkdtemp(path.join(temp, 'ruyi-protected-doc-video-'));
   let fake, app, failure;
   try {
     const data = path.join(root, 'data'), workspace = path.join(root, 'workspace');
     await Promise.all([fs.mkdir(data), fs.mkdir(workspace)]);
     Object.assign(process.env, releaseEnvironment(path.join(root, 'home'), data));
-    process.env.RUYI_MEDIA_RESOURCE_PROFILE = 'legacy-full-4987-v1';
+    if (!packageServer) process.env.RUYI_MEDIA_RESOURCE_PROFILE = 'legacy-full-4987-v1';
     if (!full) {
       process.env.RUYI_MEDIA_RUNTIME_ROOT = path.join(root, 'missing-runtime');
       process.env.RUYI_MEDIA_SOURCES_ROOT = path.join(root, 'missing-sources');
@@ -176,7 +207,12 @@ async function main() {
       privacyRulesV1: [{ id: 'fixture-mask', kind: 'literal', value: keyword, category: 'INTERNAL' }],
       includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false, autodetect: false } };
     await fs.writeFile(path.join(data, 'config.json'), JSON.stringify(config));
-    app = require('./lib/server-internals').loadServerInternals(['createSession', 'runSessionTurn', 'runSubAgentCore', 'readConfig', 'mutateConfig', 'loadSession', 'MediaImageHooks']);
+    app = packageServer ? require(packageServer)
+      : require('./lib/server-internals').loadServerInternals(['createSession', 'runSessionTurn', 'runSubAgentCore', 'readConfig', 'mutateConfig', 'loadSession', 'MediaImageHooks']);
+    if (anthropicOnly) {
+      await checkAnthropicPage(app, workspace, pdf, keyword);
+      return;
+    }
     const activeConfig = await app.readConfig();
     const activeProvider = activeConfig.providers.find(item => item.id === provider.id);
 
@@ -266,8 +302,14 @@ async function main() {
   } finally {
     try { await fake?.close(); }
     finally {
-      if (failure || app?.MediaImageHooks.helperMayStillRun()) console.log('Retained synthetic fixture at ' + root);
-      else await fs.rm(root, { recursive: true });
+      // Keep packaged evidence without extending the product's public API to
+      // expose its process-private cleanup witness.
+      if (packageServer || failure || app?.MediaImageHooks.helperMayStillRun()) console.log('Retained synthetic fixture at ' + root);
+      else {
+        assert.equal(path.dirname(await fs.realpath(root)), temp);
+        assert.ok(path.basename(root).startsWith('ruyi-protected-doc-video-'));
+        await fs.rm(root, { recursive: true });
+      }
     }
   }
 }

@@ -221,6 +221,8 @@ function killTree(child) {
 //   opts.prepare    浏览器起来之前调一次:async ({ request, token, work, home, appPort }) => {}(建线程、跑回合)
 //   opts.ok         断言函数(夹具自己的前置步骤也记成 PASS/FAIL 行)
 //   opts.serverEnv  叠在工作台子进程环境上的键(128f-③:测试口 WCW_TEST_* 与 TMP 之类;家目录那几个键不许覆盖)
+//   opts.workbenchRoot optional packaged Windows workbench root; requires its bundled Node and server.
+//   opts.beforeServe optional isolated data seeding before the provider/server start.
 //   opts.evidenceObserver optional test-only observations; post-ownership callbacks must not throw.
 async function startBrowserFixture(opts = {}) {
   const ok = typeof opts.ok === 'function' ? opts.ok : () => {};
@@ -228,10 +230,20 @@ async function startBrowserFixture(opts = {}) {
   if (!prefix.startsWith('ruyi-')) throw new Error('fixture prefix must start with ruyi- (run-all reaps test browsers by it)');
   const width = opts.width || 1280;
   const height = opts.height || 900;
+  let workbench = WB;
+  let node = process.execPath;
+  if (opts.workbenchRoot !== undefined) {
+    if (!path.isAbsolute(opts.workbenchRoot)) throw new Error('packaged workbench root must be absolute');
+    workbench = fs.realpathSync(opts.workbenchRoot);
+    node = path.join(workbench, 'runtime', 'node', 'node.exe');
+    for (const file of [node, path.join(workbench, 'app', 'server.js')]) {
+      if (!fs.statSync(file).isFile()) throw new Error('missing packaged fixture input: ' + file);
+    }
+  }
   const appPort = await getFreePort();
   const providerPort = await getFreePort();
   const debugPort = await getFreePort();
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const root = fs.mkdtempSync(path.join(opts.beforeServe ? fs.realpathSync(os.tmpdir()) : os.tmpdir(), prefix));
   const home = path.join(root, 'home');
   const work = path.join(root, 'work');
   const profile = path.join(root, 'profile');
@@ -280,10 +292,11 @@ async function startBrowserFixture(opts = {}) {
   };
 
   opts.evidenceObserver?.beforeStart(fx);
+  if (typeof opts.beforeServe === 'function') await opts.beforeServe(fx);
   fx.provider = await startProvider(providerPort, opts.provider);
   opts.evidenceObserver?.provider(fx);
-  fx.server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
-    cwd: WB,
+  fx.server = cp.spawn(node, ['app/server.js', 'serve', '--port', String(appPort)], {
+    cwd: workbench,
     env: { ...process.env, ...(opts.serverEnv || {}), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
     windowsHide: true, stdio: 'ignore',
   });

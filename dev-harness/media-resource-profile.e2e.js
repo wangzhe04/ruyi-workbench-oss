@@ -2,6 +2,8 @@
 // Default: real HTTP with absent media resources, ordinary OFF delivery and ON
 // typed refusal. --full-components: strict real-component image qualification;
 // missing resources/fixtures FAIL. Never substitutes a processor or skips full.
+// --browser-full: packaged browser Send/Steer with real DPAPI and native media.
+// --browser-missing: encrypted browser check of the missing-resource refusal.
 require('./lib/self-isolate-home');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto'),vm=require('node:vm'),zlib=require('node:zlib');
 const {createRunner}=require('./lib/harness'),{startFakeProvider,textFrames}=require('./lib/fake-openai-provider'),{releaseEnvironment}=require('./lib/release-checks'),{killOwnTree}=require('./lib/kill-own-tree'),{getFreePort}=require('./free-port');
@@ -119,7 +121,7 @@ async function scenario(root,fake,{profile,fixtures}) {
     if(child&&!closed){if(!exited){const cleanup=killOwnTree(child);if(cleanup.skipped)throw Error('qualification.cleanup_unknown:'+cleanup.skipped);}await awaitClosed();}
   }
 }
-(async()=>{
+async function main(){
   let fake,root;
   try{
     if(process.argv.slice(2).some(arg=>arg!=='--full-components'))throw Error('qualification.unknown_argument');
@@ -136,4 +138,7 @@ async function scenario(root,fake,{profile,fixtures}) {
     for(const profile of full?[process.env.RUYI_MEDIA_RESOURCE_PROFILE||'legacy-full-4987-v1']:['legacy-full-4987-v1',ID])await scenario(root,fake,{profile,fixtures});
   }catch(error){t.fail(error.stack||String(error));}
   finally{if(fake)await fake.close();if(root)console.log('Media HTTP evidence retained at '+root);t.done({exit:true});}
-})();
+}
+if (process.argv.length === 3 && ['--browser-full','--browser-missing'].includes(process.argv[2])) {
+  void require('./lib/media-browser-delivery').run({ full: process.argv[2] === '--browser-full' });
+} else void main();

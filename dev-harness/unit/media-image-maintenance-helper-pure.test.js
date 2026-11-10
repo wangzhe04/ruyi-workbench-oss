@@ -22,7 +22,7 @@ function fixture({verification}={}){
   let nextTimer=0,verifications=0,kills=0,opens=0,closes=0,stopResult,stopError;
   const timeout=(fn,ms)=>{const id=++nextTimer;if(ms===25)queueMicrotask(fn);else timers.set(id,{fn,ms});return id;};
   const clear=id=>timers.delete(id),interval=(fn,ms)=>{const row={fn,ms,ref(){}};keepers.push(row);return row;};
-  const proof={schema:1,verificationKind:'offline-artifact-inventory',dependencyFilesVerified:true,pythonVersion:'3.12.10',runtimeArtifacts:4987,verifiedRuntimeBytes:413946142,sourceArchiveVerified:true,verifiedSourceBytes:19922194,installsPerformed:false,mediaProcessingEnabled:false,mediaEgressEnabled:false};
+  const proof={schema:1,verificationKind:'offline-artifact-inventory',dependencyFilesVerified:true,pythonVersion:'3.12.10',runtimeArtifacts:4987,verifiedRuntimeBytes:413946142,sourceArchiveVerified:true,verifiedSourceBytes:19922194,sourceProfile:"legacy",installsPerformed:false,mediaProcessingEnabled:false,mediaEgressEnabled:false};
   const stat={dev:1n,ino:2n,size:32n,mtimeNs:3n,ctimeNs:4n,nlink:1n,isFile:()=>true,isDirectory:()=>false,isSymbolicLink:()=>false};
   const directory={isDirectory:()=>true,isSymbolicLink:()=>false},io={lstat:async()=>stat,realpath:async value=>value};
   const childProcess={spawn(){const child=new EventEmitter();child.pid=456+children.length;child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.stdin=new EventEmitter();child.stdin.end=(_wire,callback)=>queueMicrotask(()=>{child.emit('spawn');callback?.();});child.kill=()=>{kills++;return true;};children.push(child);return child;}};

@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "scope": "Pinned replacement FFmpeg plugin and OpenCV wheel sources for local developer qualification",
+  "sourceContentLockSha256": "b4015d1eecc59c4aeefd0e28fc444941833882247a855adfafeb6d6fed8de531",
+  "runtimeLockSha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+  "toolchainBuildAttestation": false,
+  "redistributionAdmitted": false,
+  "artifacts": [
+    {
+      "path": "opencv-windows-ffmpeg-sources-v2-local.zip",
+      "bytes": 107865207,
+      "sha256": "57a854ff5a73fed60f12903bdbdd189b7660f024b6724e5a4b804b81ef810a23"
+    },
+    {
+      "path": "opencv_python_headless-5.0.0.93.tar.gz",
+      "bytes": 81817738,
+      "sha256": "b82f9831daab90b725c7c1ee1b36cb5732c367096ac76d119e64e14eb70d5f3c"
+    }
+  ]
+}

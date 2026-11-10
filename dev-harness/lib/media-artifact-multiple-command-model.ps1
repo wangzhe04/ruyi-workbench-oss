@@ -20,7 +20,7 @@ foreach($name in @('Get-Sha256Hex','Assert-MediaArtifactInventory')) {
 }
 $script:firstCalls=0; $script:secondCalls=0
 function Get-Command { param($Name,$CommandType,$ErrorAction) if($Name -cne 'node.exe' -or $CommandType -cne 'Application'){throw 'Unexpected command discovery'}; @([pscustomobject]@{Source='Invoke-FirstInventoryFixture'},[pscustomobject]@{Source='Invoke-SecondInventoryFixture'}) }
-function Invoke-FirstInventoryFixture { param($Verifier,$Acc,$Sources) $script:firstCalls++; $global:LASTEXITCODE=0; '{"schema":1,"verificationKind":"offline-artifact-inventory","dependencyFilesVerified":true,"sourceArchiveVerified":true,"installsPerformed":false,"mediaProcessingEnabled":false,"mediaEgressEnabled":false}' }
+function Invoke-FirstInventoryFixture { param($Verifier,$Acc,$Sources) $script:firstCalls++; $global:LASTEXITCODE=0; '{"schema":1,"verificationKind":"offline-artifact-inventory","dependencyFilesVerified":true,"sourceArchiveVerified":true,"sourceProfile":"legacy","installsPerformed":false,"mediaProcessingEnabled":false,"mediaEgressEnabled":false}' }
 function Invoke-SecondInventoryFixture { $script:secondCalls++; throw 'Second discovered command must never be selected or tried as fallback' }
 function Start-Process { throw 'external execution forbidden' }
 function node { throw 'external execution forbidden' }

@@ -5,10 +5,11 @@ require('../lib/media-artifact-test-guard');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto'),{EventEmitter}=require('node:events');
 const source=fs.readFileSync(process.env.MEDIA_IMAGE_PROCESSOR_SOURCE||path.resolve(__dirname,'../../ruyi-workbench/app/src/13bc-media-image-processor.js'),'utf8');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
-function fixture(){
+function fixture(receiptOverrides = {}){
   let child,spawns=0;
   const receipt={schema:1,verificationKind:'offline-artifact-inventory',dependencyFilesVerified:true,pythonVersion:'3.12.10',runtimeArtifacts:4987,verifiedRuntimeBytes:413946142,
-    sourceArchiveVerified:true,verifiedSourceBytes:19922194,installsPerformed:false,mediaProcessingEnabled:false,mediaEgressEnabled:false};
+    sourceArchiveVerified:true,verifiedSourceBytes:19922194,sourceProfile:'legacy',installsPerformed:false,mediaProcessingEnabled:false,mediaEgressEnabled:false,
+    ...receiptOverrides};
   const stat={dev:1n,ino:2n,size:100n,mtimeNs:3n,ctimeNs:4n,nlink:1n,isFile:()=>true,isSymbolicLink:()=>false};
   const io={lstat:async()=>stat,realpath:async value=>value};
   const childProcess={spawn(){spawns++;child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.stdin=new EventEmitter();child.kill=()=>true;
@@ -24,6 +25,20 @@ function fixture(){
   const api=vm.runInNewContext(source+';MediaImageProcessor;', {require:load,process:{platform:'win32',env:{}},Buffer,setTimeout,clearTimeout,setInterval,clearInterval});
   return {api,child:()=>child,spawns:()=>spawns,create:()=>api.create({runtimeRoot:path.resolve('C:/synthetic-runtime'),sourceRoot:path.resolve('C:/synthetic-source'),language:'en-US'})};
 }
+test('the processor accepts only the exact source totals for the pinned receipt profiles', async () => {
+  const local = fixture({ sourceProfile:'local-full-v2', verifiedSourceBytes:189682945 });
+  assert.equal(local.api.isOwner(await local.create()), true);
+  assert.equal(local.spawns(), 0);
+  for (const mismatch of [
+    { sourceProfile:'local-full-v2' },
+    { sourceProfile:'legacy', verifiedSourceBytes:189682945 },
+    { sourceProfile:'unreviewed', verifiedSourceBytes:189682945 },
+  ]) {
+    const denied = fixture(mismatch);
+    await assert.rejects(denied.create(), { code:'privacy.image_processor_dependency_receipt' });
+    assert.equal(denied.spawns(), 0);
+  }
+});
 test('actual JS owner cannot attest caller-constructed empty reports or cloned frames',async()=>{
   const f=fixture(),owner=await f.create();assert.equal(f.spawns(),0);assert.equal(f.api.isOwner(owner),true);
   assert.throws(()=>owner.assertCoverage({words:[],codes:[],ocrComplete:true,codesComplete:true,rgba:Buffer.alloc(16)}),error=>error.code==='privacy.image_processor_coverage_unverified');

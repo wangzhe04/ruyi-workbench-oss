@@ -113990,7 +113990,9 @@ const MediaImageProcessor = ((io, nodePath, cryptoApi, childProcess, proc) => {
   const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(k => a[k] === b[k]);
   const frozenProof = value => value?.schema === 1 && value.verificationKind === 'offline-artifact-inventory'
     && value.dependencyFilesVerified === true && value.pythonVersion === '3.12.10' && value.runtimeArtifacts === 4987
-    && value.verifiedRuntimeBytes === 413946142 && value.sourceArchiveVerified === true && value.verifiedSourceBytes === 19922194
+    && value.verifiedRuntimeBytes === 413946142 && value.sourceArchiveVerified === true
+    && ((value.sourceProfile === 'legacy' && value.verifiedSourceBytes === 19922194)
+      || (value.sourceProfile === 'local-full-v2' && value.verifiedSourceBytes === 189682945))
     && value.installsPerformed === false && value.mediaProcessingEnabled === false && value.mediaEgressEnabled === false;
   function refineLinearBox(rgba, width, height, code, budget, check) {
     // A decoded native polygon seeds source ink support; it is never itself a
