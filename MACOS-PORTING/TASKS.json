@@ -1438,7 +1438,7 @@
             "implementationCommit": "fc74153d145acba7519fb5c133691017ab00964e"
           },
           "currentInputSlice": {
-            "status": "accepted_current_host_pending_commit",
+            "status": "committed_current_host",
             "baselineCommit": "af7485ce",
             "date": "2026-11-10",
             "evidence": "evidence/P5/input/events/README.md",
@@ -1446,7 +1446,6 @@
             "mainRealEventEvidence": "evidence/P5/input/events/events-final.txt",
             "mainPythonContracts": "evidence/P5/input/events/smoke_macos_events-latest.txt",
             "pending": [
-              "Implementation commit binding",
               "Finder selected scenario with P5-03 AX backend",
               "Existing Windows, physical/display, live revocation/lock, input method, macOS14 and formal signing carryovers"
             ],
@@ -1466,7 +1465,9 @@
             "independentPythonTests": 44,
             "independentFixtureContractAssertions": 33,
             "executedSourceFingerprint": "evidence/P5/input/events/source-fingerprint-final.json",
-            "whitespaceOnlyBinding": "evidence/P5/input/events/whitespace-only-binding.json"
+            "whitespaceOnlyBinding": "evidence/P5/input/events/whitespace-only-binding.json",
+            "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+            "commitBinding": "evidence/P5/input/events/commit-binding.json"
           }
         },
         {

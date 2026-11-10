@@ -38,6 +38,11 @@
   "semanticEquivalenceApproved": true,
   "testsRerun": false,
   "reason": "The new files differ from the executed final51 candidate only by removing one and two LF bytes beyond their final code lines. Their exact original bytes remain in the index and are reconstructed without changing any prefix byte. The functional/engineering acceptance therefore applies to this commit candidate.",
-  "stagedFinalDiffCheck": "Pending restaging by main agent after this review",
+  "stagedFinalDiffCheck": {
+    "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+    "postCommitCheckExit": 0,
+    "cachedCheckExit": 0,
+    "indexEmpty": true
+  },
   "originalExecutionAndFingerprintRecordsPreserved": true
 }

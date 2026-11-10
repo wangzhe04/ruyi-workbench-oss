@@ -8,7 +8,7 @@
   "candidateBinding": "../source-fingerprint-final.json",
   "sourceFilesBound": 51,
   "productSourceEditedByReviewer": false,
-  "status": "accepted_for_commit_current_host_scope",
+  "status": "committed_current_host_scope",
   "normalExecution": {
     "commands": [
       {
@@ -536,7 +536,9 @@
     "scope": "Current macOS27.0.1 arm64 host, this keyboard/pointer/Chinese input/clipboard/application slice and listed application scenarios",
     "phaseStatus": "P5 and P5-02 remain in_progress",
     "openActionableFindings": [],
-    "externalAcceptanceItemsRemainOpen": true
+    "externalAcceptanceItemsRemainOpen": true,
+    "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+    "committed": true
   },
   "commitCandidateBinding": "../source-fingerprint-commit.json",
   "commitCandidateSourceFiles": 51,
@@ -545,5 +547,16 @@
     "evidence": "../whitespace-only-independent-review.json",
     "sourceChanges": "Only one EOF LF removed from fixture header and two EOF LFs removed from shared text-input helper. Other49 hashes unchanged.",
     "acceptanceRemainsApplicable": true
+  },
+  "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+  "implementationBinding": {
+    "reviewed": true,
+    "evidence": "../commit-binding-independent-review.json",
+    "committedSourceFiles": 51,
+    "allCommittedHashesMatch": true,
+    "gitCommitWhitespaceCheckExit": 0,
+    "postCommitCachedDiffCheckExit": 0,
+    "postCommitIndexEmpty": true,
+    "documentOnlyCloseoutApproved": true
   }
 }
