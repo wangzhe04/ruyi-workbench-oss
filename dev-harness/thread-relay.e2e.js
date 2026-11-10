@@ -169,6 +169,37 @@ async function idle(sid, runId) {
     await post('/api/thread-relays', { action: 'start', sessionId: a, relayId: failure.id, edgeId: failure.threadRelay.edges[0].id });
     await poll(a, failure.id, value => value.threadRelay.edges[0].state === 'failed');
     ok(true, 'real target provider failure has a durable failure receipt');
+    const rewoundTarget = await createSession();
+    await chat(rewoundTarget, 'TARGET_BEFORE_REWIND');
+    await idle(rewoundTarget);
+    const oldTarget = (await get('/api/sessions/' + rewoundTarget)).json.session;
+    const rewindCommand = { action: 'create', sessionId: a, requestId: 'target_rewind_stale',
+      source: await approved(a, 2), targets: [{ sessionId: rewoundTarget, task: 'MUST_NOT_CONTINUE_REWOUND_TARGET' }] };
+    const staleRelay = (await post('/api/thread-relays', rewindCommand)).json.relay;
+    const rewind = await post('/api/session/rewind', { sessionId: rewoundTarget, targetTurnSeq: 1, rollbackFiles: false });
+    const newTarget = (await get('/api/sessions/' + rewoundTarget)).json.session;
+    ok(rewind.status === 200 && rewind.json.ok && newTarget.turnSeq === oldTarget.turnSeq
+      && newTarget.cwd === oldTarget.cwd && newTarget.rewindGen === (oldTarget.rewindGen || 0) + 1
+      && !newTarget.messages.some(row => row.content === 'TARGET_BEFORE_REWIND'),
+    'actual rewind changes the target generation while preserving its turn number and workspace');
+    const staleEdge = staleRelay.threadRelay.edges[0];
+    const beforeStale = fake.requests.length;
+    const staleStart = await post('/api/thread-relays', { action: 'start', sessionId: a, relayId: staleRelay.id, edgeId: staleEdge.id });
+    diagnostic('start against rewound target', staleStart, { targetTurnSeq: newTarget.turnSeq, targetRewindGen: newTarget.rewindGen });
+    if (staleStart.status === 200) await poll(a, staleRelay.id, value => value.threadRelay.edges[0].state === 'review');
+    const staleReadback = (await get('/api/thread-relays?sessionId=' + a + '&relayId=' + staleRelay.id)).json.relays[0];
+    const staleRefused = ok(staleStart.status === 409 && staleStart.json.error.code === 'thread_relay.target_changed'
+      && staleReadback.threadRelay.edges[0].state === 'ready' && !staleReadback.threadRelay.edges[0].submittedAt
+      && fake.requests.length === beforeStale,
+    'old relay refuses the rewound target before durable intent or provider dispatch');
+    if (staleRefused) {
+      const refreshed = (await post('/api/thread-relays', { ...rewindCommand, requestId: 'target_rewind_explicit_new',
+        targets: [{ sessionId: rewoundTarget, task: 'CONTINUE_CONFIRMED_REWOUND_TARGET' }] })).json.relay;
+      await post('/api/thread-relays', { action: 'start', sessionId: a, relayId: refreshed.id, edgeId: refreshed.threadRelay.edges[0].id });
+      await poll(a, refreshed.id, value => value.threadRelay.edges[0].state === 'review');
+      ok(refreshed.id !== staleRelay.id && fake.requests.length === beforeStale + 1,
+        'a fresh explicitly created relay can continue the current rewound target exactly once');
+    }
   } catch (error) { t.fail(error.stack || String(error)); }
   finally { releaseHold(); if (proc) await killOwnTree(proc); if (fake) await fake.close(); }
   t.done();

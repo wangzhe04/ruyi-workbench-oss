@@ -272,7 +272,8 @@ async function createActualFixture(options = {}) {
           beforeStart(fx) { browser = fx; home = fx.home; work = fx.work; port = fx.appPort; evidence.observer.beforeStart(fx); },
           child: observeChild,
         },
-        serverEnv: { ...env(), NODE_OPTIONS: '--require "' + preload + '" --require "' + faultPreload + '"' },
+        // NODE_OPTIONS parses backslashes inside quotes as escapes on Windows.
+        serverEnv: { ...env(), NODE_OPTIONS: '--require ' + JSON.stringify(preload) + ' --require ' + JSON.stringify(faultPreload) },
         provider: async ctx => { const frames = await model.handler({ body: ctx.body, messages: ctx.messages }); for (const frame of frames || []) ctx.sse(frame); },
         prepare: async fx => { assertThat(!lifetime.aborted && Date.now() < deadline, 'cancelled original browser startup'); home = fx.home; work = fx.work; port = fx.appPort; token = fx.token; },
       });

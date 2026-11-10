@@ -60373,9 +60373,6 @@ const ThreadRelay = (() => {
     try { return await readAgentRunSnapshot(sessionId, runId, { strict: true }); }
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   }
-  async function idle(value) {
-    return threadGate(value.id);
-  }
   function completionId(sessionId) {
     // Same M3 task/snapshot owner, deliberately outside the runnable run_ list.
     return 'delivery_' + hash(sessionId).slice(0, 32); // One bounded latest fact per thread.
@@ -60411,7 +60408,7 @@ const ThreadRelay = (() => {
     });
     return committed ? { ...receipt, identity: receiptId } : { status: 'unknown' };
   }
-  async function threadGate(sid, { run = null, owner = null, ownRequests = new Map(), expectedCwd, expectedTurnSeq, changed = 'target_changed' } = {}) {
+  async function threadGate(sid, { run = null, owner = null, ownRequests = new Map(), expectedCwd, expectedTurnSeq, expectedRewindGen, changed = 'target_changed' } = {}) {
     const ownPending = (kind, requestId) => {
       const proof = ownRequests.get(kind + ':' + requestId);
       const pendingOwner = (kind === 'permission' ? pendingPermissions : kind === 'question' ? pendingQuestions : pendingPlans).get(requestId);
@@ -60439,17 +60436,22 @@ const ThreadRelay = (() => {
       const pending = await readInterventionsWithMeta(sid, { strict: true });
       if (revision !== sessionDiskWriteSeqOf(sid)) continue;
       if (expectedCwd !== undefined && current.cwd !== expectedCwd
-          || expectedTurnSeq !== undefined && !owner && (Number(current.turnSeq) || 0) !== expectedTurnSeq) failure(changed);
+          || expectedTurnSeq !== undefined && !owner && (Number(current.turnSeq) || 0) !== expectedTurnSeq
+          || expectedRewindGen !== undefined && (Number(current.rewindGen) || 0) !== expectedRewindGen) failure(changed);
       if (pending.degraded || pending.interventions.some(row => row.status === 'pending' && !ownPending(row.type, row.id))) failure('decision_pending');
       if (stewardThreadStateFromHead(current, owner ? { queued: false } : undefined).state === 'stopped') failure('thread_blocked');
       const assert = () => { assertLive(); if (revision !== sessionDiskWriteSeqOf(sid)) failure(changed); };
-      assert(); return { assert };
+      assert(); return { assert, current };
     }
     failure(changed);
   }
+  function targetVersion(spec) {
+    // Rewind truncates history without reusing a turn number. Older pending
+    // records without a generation can prove only an unrewound target.
+    return { expectedCwd: spec.targetCwd, expectedTurnSeq: spec.targetTurnSeq, expectedRewindGen: spec.targetRewindGen ?? 0 };
+  }
   async function targetGate(run, owner = null, ownRequests = new Map()) {
-    const spec = run.threadRelayExecution;
-    return threadGate(run.sessionId, { run, owner, ownRequests, expectedCwd: spec.targetCwd, expectedTurnSeq: spec.targetTurnSeq });
+    return threadGate(run.sessionId, { run, owner, ownRequests, ...targetVersion(run.threadRelayExecution) });
   }
   function reference(value) {
     if (!value || !Number.isSafeInteger(value.turnSeq) || value.turnSeq < 1
@@ -60540,7 +60542,7 @@ const ThreadRelay = (() => {
     return executionRun?.kind === 'existing_thread_relay' && executionRun.id === edge.runId && executionRun.sessionId === edge.targetSessionId
       && spec?.relayId === master.id && spec.rootId === master.sessionId && spec.edgeId === edge.id
       && hash(spec.source) === hash(edge.source) && spec.policyStamp === edge.policyStamp
-      && spec.targetCwd === edge.targetCwd && spec.targetTurnSeq === edge.targetTurnSeq
+      && spec.targetCwd === edge.targetCwd && spec.targetTurnSeq === edge.targetTurnSeq && spec.targetRewindGen === edge.targetRewindGen
       && /^[a-f0-9]{64}$/.test(taskStamp(spec) || '') && taskStamp(spec) === taskStamp(edge)
       && spec.receipt?.identity === edge.runId;
   }
@@ -60561,13 +60563,13 @@ const ThreadRelay = (() => {
         run.status = 'cancelled';
         run.threadRelay = { schema: 1, requestHash: current.threadRelay.requestHash, cancelled: true, retiredAt: run.historyDeletedAt,
           edges: current.threadRelay.edges.map(edge => ({ id: edge.id, dependsOn: edge.dependsOn, targetSessionId: edge.targetSessionId,
-            targetCwd: edge.targetCwd, targetTurnSeq: edge.targetTurnSeq, attempt: edge.attempt, runId: edge.runId,
+            targetCwd: edge.targetCwd, targetTurnSeq: edge.targetTurnSeq, targetRewindGen: edge.targetRewindGen, attempt: edge.attempt, runId: edge.runId,
             state: edge.state, source: edge.source, policyStamp: edge.policyStamp, taskHash: taskStamp(edge),
             submittedAt: edge.submittedAt, receipt: edge.receipt, resultTurnSeq: edge.resultTurnSeq, reason: edge.reason })) };
       } else {
         const spec = current.threadRelayExecution;
         run.threadRelayExecution = { relayId: spec.relayId, rootId: spec.rootId, edgeId: spec.edgeId, source: spec.source,
-          policyStamp: spec.policyStamp, targetCwd: spec.targetCwd, targetTurnSeq: spec.targetTurnSeq,
+          policyStamp: spec.policyStamp, targetCwd: spec.targetCwd, targetTurnSeq: spec.targetTurnSeq, targetRewindGen: spec.targetRewindGen,
           taskHash: taskStamp(spec), entryPhase: spec.entryPhase, receipt: spec.receipt };
         run.nodes = (current.nodes || []).map(node => ({ id: node.id, status: node.status, attempts: node.attempts,
           startedAt: node.startedAt, modelStartedAt: node.modelStartedAt, error: node.error, errorClass: node.errorClass }));
@@ -60597,6 +60599,7 @@ const ThreadRelay = (() => {
         const edgeId = 'edge_' + hash([relayId, index]).slice(0, 24);
         const edge = { id: edgeId, dependsOn: index ? edges[index - 1].id : null, targetSessionId: targetId,
           targetTitle: sessionDisplayTitle(thread), targetCwd: thread.cwd, targetTurnSeq: Number(thread.turnSeq) || 0,
+          targetRewindGen: Number(thread.rewindGen) || 0,
           task, attempt: 1, runId: identity(relayId, edgeId, index ? null : approved.binding.reference, targetId, 1), state: index ? 'waiting' : 'ready',
           ...(index ? {} : { source: approved.binding, policyStamp: policy(config, approved.source, thread) }) };
         const previous = index ? null : await snapshot(targetId, edge.runId);
@@ -60608,9 +60611,10 @@ const ThreadRelay = (() => {
               || spec.source.hash !== approved.binding.hash || hash(spec.source.reference) !== hash(approved.binding.reference)
               || hash(spec.source.materials) !== hash(approved.binding.materials)) failure('identity_conflict');
           Object.assign(edge, { source: spec.source, policyStamp: spec.policyStamp, targetCwd: spec.targetCwd,
-            targetTurnSeq: spec.targetTurnSeq, submittedAt: spec.receipt.at || previous.createdAt, state: 'unknown' });
+            targetTurnSeq: spec.targetTurnSeq, targetRewindGen: spec.targetRewindGen,
+            submittedAt: spec.receipt.at || previous.createdAt, state: 'unknown' });
           if (!edge.submittedAt) failure('result_unverified');
-        } else await idle(thread);
+        } else await threadGate(thread.id, targetVersion(edge));
         edges.push(edge);
       }
       const run = { schemaVersion: 4, id: relayId, sessionId: rootId, title: 'Existing thread relay',
@@ -60636,13 +60640,14 @@ const ThreadRelay = (() => {
         edge.state = 'unknown'; await saveAgentRun(run); return reconcile(run);
       }
       if (edge.state !== 'ready' || edge.dependsOn && !chain.edges.some(row => row.id === edge.dependsOn && row.state === 'accepted')) failure('dependency_unaccepted');
-      const config = await readConfig(), target = await session(edge.targetSessionId);
-      await idle(target);
-      if (target.cwd !== edge.targetCwd || (Number(target.turnSeq) || 0) !== edge.targetTurnSeq) failure('target_changed');
+      const config = await readConfig();
+      const targetAdmission = await threadGate(edge.targetSessionId, targetVersion(edge));
+      const target = targetAdmission.current;
       const approved = await material(edge.source.sessionId, { reference: edge.source.reference, accepted: true,
         materials: { text: edge.source.materials.text, files: edge.source.materials.files.map(file => file.path) } }, config);
       if (approved.binding.hash !== edge.source.hash) failure('material_changed');
       if (policy(config, approved.source, target) !== edge.policyStamp) failure('permission_changed');
+      targetAdmission.assert();
       // Durable intent precedes both the execution record and the launch call.
       edge.submittedAt = nowIso(); edge.state = 'unknown';
       await saveAgentRun(run);
@@ -60650,7 +60655,8 @@ const ThreadRelay = (() => {
         turnSeq: target.turnSeq, kind: 'existing_thread_relay', background: true, launchedByModel: false,
         status: 'queued', createdAt: nowIso(), concurrency: 1, poolPolicy: 'off', taskPool: [], messages: [],
         threadRelayExecution: { relayId, rootId, edgeId, source: edge.source, policyStamp: edge.policyStamp,
-          targetCwd: edge.targetCwd, targetTurnSeq: edge.targetTurnSeq, task: edge.task, entryPhase: 'not_entered',
+          targetCwd: edge.targetCwd, targetTurnSeq: edge.targetTurnSeq, targetRewindGen: edge.targetRewindGen,
+          task: edge.task, entryPhase: 'not_entered',
           receipt: { identity: edge.runId, status: 'intent', at: nowIso() } },
         nodes: [{ id: 'continue', task: edge.task, dependsOn: [], resources: [], toolTier: 'exec', engine: 'openai',
           status: 'queued', attempts: 0, maxRetries: 0, failurePolicy: 'block', dependencyPolicy: 'all_success',
@@ -60673,9 +60679,9 @@ const ThreadRelay = (() => {
       edge.state = 'accepted'; edge.acceptedDelivery = approved.binding;
       const next = chain.edges.find(row => row.dependsOn === edge.id);
       if (next) {
-        const target = await session(next.targetSessionId); await idle(target);
-        if (target.cwd !== next.targetCwd || (Number(target.turnSeq) || 0) !== next.targetTurnSeq) failure('target_changed');
-        next.source = approved.binding; next.policyStamp = policy(await readConfig(), approved.source, target); next.state = 'ready';
+        const admission = await threadGate(next.targetSessionId, targetVersion(next));
+        next.source = approved.binding; next.policyStamp = policy(await readConfig(), approved.source, admission.current); next.state = 'ready';
+        admission.assert();
         next.runId = identity(run.id, next.id, approved.binding.reference, next.targetSessionId, next.attempt);
       }
       run.status = chain.edges.every(row => row.state === 'accepted') ? 'succeeded' : 'relay_ready';
@@ -97347,7 +97353,7 @@ function schedulerTurnOutcome(result, options = {}) {
   } };
 }
 
-async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
+async function schedulerFireOnce(schedTask, schedMode, schedDueMs, fromRecoveryQueue = false) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-fire')) return WorkDataMaintenanceHooks.run('scheduler-fire', () => schedulerFireOnce(...arguments));
   const task = schedTask;
   const startedMs = schedulerClockNow();
@@ -97366,11 +97372,14 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   try {
     const skipped = await schedulerTaskAdmission(async operation => {
       if (!schedulerRuntime.tasks.includes(task)) throw schedulerStorageFailure('task_changed');
-      // Automatic selections can wait behind a committed pause or reschedule.
-      // Recovery already advances a late task's nextFireAt; only ontime binds that due.
-      if (schedMode !== 'manual' && (!task.state.enabled
-        || (schedMode === 'ontime' && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      // Tick selections can wait behind a pause or calendar edit. Recovery has
+      // already advanced nextFireAt, so only its queued occurrence can use an old due.
       const queued = task.state.queuedOccurrence;
+      const recoveredDue = schedMode === 'late' && (queued?.dueMs === schedDueMs
+        || (fromRecoveryQueue && task.payload.kind !== 'playbook'));
+      if (schedMode !== 'manual' && (!task.state.enabled
+        || (!recoveredDue && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      if (schedMode === 'late' && !recoveredDue && !missedOccurrence(task, schedulerClockNow())?.runLate) return 'skipped';
       executionTask = queued && queued.dueMs === schedDueMs ? JSON.parse(JSON.stringify(queued.snapshot)) : schedulerOccurrenceSnapshot(task);
       if (executionTask.payload.kind === 'playbook' && schedulerRuntime.attempts.has(occKey)) return 'skipped';
       executionTask.occurrence = { key: occKey, dueAt, mode: schedMode };
@@ -97699,10 +97708,10 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
 // 同一拍里排在它后面的其它到点任务【连派单都派不出去】—— 不是「跟着变慢」,是「压根没被尝试」。
 // 现在 for/while 循环体只管调用 schedulerDispatchFire(不 await 它),真正的登记 / 派单 / 收尾仍在
 // schedulerFireOnce 内部完成,只是不再拿一条任务的完成来做另一条任务能不能开始的闸门。
-function schedulerDispatchFire(task, mode, dueMs) {
+function schedulerDispatchFire(task, mode, dueMs, fromRecoveryQueue = false) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   schedulerRuntime.inFlightTaskIds.add(task.id);
-  schedulerFireOnce(task, mode, dueMs)
+  schedulerFireOnce(task, mode, dueMs, fromRecoveryQueue)
     .catch(e => {
       schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
       try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError, taskId: task.id }); } catch { /* ignore */ }
@@ -97767,37 +97776,43 @@ async function schedulerTick() {
         schedulerRuntime.lateQueue.push(queued);
         continue;
       }
-      schedulerDispatchFire(task, 'late', queued.dueMs);
+      schedulerDispatchFire(task, 'late', queued.dueMs, true);
     }
     // ② 到点的任务。按 nextFireAt 升序派单 —— 同一拍里两条都到点时,先到的先派单,但谁先【收尾】
     // 不再由派单顺序决定(哪条的回合先跑完,哪条先 reconciled)。
     const now = schedulerClockNow();
     const due = schedulerRuntime.tasks
-      .filter(task => task.state.enabled && !task.state.inFlightRunId && !schedulerRuntime.inFlightTaskIds.has(task.id)
-        && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
-      .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
-    for (const task of due) {
+      .map(task => ({ task, dueMs: Date.parse(task.state.nextFireAt) }))
+      .filter(({ task, dueMs }) => task.state.enabled && !schedulerTaskBusy(task) && dueMs <= now)
+      .sort((a, b) => a.dueMs - b.dueMs);
+    for (const { task, dueMs } of due) {
       if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
-      // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
-      if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      // A previous missed-skip can await task ownership. Keep its peers'
+      // selected due times, and let the next tick see any calendar edits.
+      if (!task.state.enabled || schedulerTaskBusy(task) || Date.parse(task.state.nextFireAt) !== dueMs) continue;
       // hunt2-P5:进程一直活着、但机器睡过去/时钟跳过去的那一类「错过」,修前 tick 一律当准点跑
       // (onMissed:'skip' 与 graceMinutes 只在启动恢复里生效;实测晚 11 小时仍记 ontime)。
       // 迟到在 SCHEDULER_ONTIME_SLACK_MS 之内是 tick 粒度的正常抖动,照旧准点;超过它才按与启动恢复
       // 同一套判据(missedOccurrence):宽限内且 run-once-late → 以 late 补跑一次;否则记 skipped、推进。
       const missed = missedOccurrence(task, now);
       if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
-        if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
+        if (missed.runLate) { schedulerDispatchFire(task, 'late', dueMs); continue; }
         await schedulerTaskAdmission(async operation => {
           await schedulerFirePreflight();
-          const nextMs = nextFireAt(task.schedule, now);
+          if (generation !== schedulerRuntime.generation || !schedulerRuntime.tasks.includes(task)
+            || !task.state.enabled || schedulerTaskBusy(task)) return;
+          const skippedAt = schedulerClockNow(), currentMiss = missedOccurrence(task, skippedAt);
+          if (!currentMiss || currentMiss.dueMs !== dueMs || currentMiss.runLate
+            || currentMiss.lateByMs <= SCHEDULER_ONTIME_SLACK_MS) return;
+          const nextMs = nextFireAt(task.schedule, skippedAt);
           task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
-          await schedulerRecordMissedSkip(task, missed, now);
+          await schedulerRecordMissedSkip(task, currentMiss, skippedAt);
           await schedulerSaveTasks(operation);
         }, 4096);
         continue;
       }
-      schedulerDispatchFire(task, 'ontime', Date.parse(task.state.nextFireAt));
+      schedulerDispatchFire(task, 'ontime', dueMs);
     }
   } catch (e) {
     schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);

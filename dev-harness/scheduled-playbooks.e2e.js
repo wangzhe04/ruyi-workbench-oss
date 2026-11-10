@@ -36,7 +36,12 @@ async function start() {
       WCW_SCHEDULER_CLOCK_FILE: clock, WCW_SCHEDULER_TICK_MS: '100', WCW_TEST_NO_NET_ANCHORS: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
   for (const stream of [server.stdout, server.stderr]) stream.on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-12000); });
   await wait('health', async () => (await request('GET', '/health')).status === 200);
-  token = await wait('token', async () => { try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token; } catch { return ''; } });
+  token = await wait('current server token', async () => {
+    try {
+      const runtime = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+      return runtime.pid === server.pid && runtime.port === port ? runtime.token : '';
+    } catch { return ''; }
+  });
 }
 async function stop() {
   if (!server) return;
@@ -94,7 +99,9 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     const task = (await request('POST', '/api/scheduler/tasks', body)).body?.task;
     if (!task) throw new Error('scheduled task not created');
     const revision = pb.revision;
-    await request('POST', '/api/playbooks', { ...pb, title: '未来做法', promptTemplate: pb.promptTemplate + '\nLIBRARY_EDIT' });
+    const newer = (await request('POST', '/api/playbooks', { ...pb, title: '未来做法',
+      promptTemplate: pb.promptTemplate + '\nLIBRARY_EDIT' })).body?.playbook;
+    if (!newer || newer.revision === revision) throw new Error('future Playbook revision unavailable');
     tickAt('2026-10-30T09:00:01Z');
     const first = await wait('scheduled file execution', async () => (await runs(task.id)).find(row => row.outcome === 'succeeded'));
     t.ok(fs.readFileSync(path.join(work, 'old-report.md'), 'utf8').includes('33.75'), 'clock trigger uses actual file_read/file_write tools and creates this run’s result');
@@ -143,23 +150,58 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     const globalRevoked = await globalRun;
     t.ok([404, 409].includes(staleGlobalApproval.status) && globalRevoked.body?.outcome !== 'succeeded' && !fs.existsSync(path.join(work, 'global-revoked.md')), 'R1: global revocation also rejects a late approval before the actual file tool');
     await request('POST', '/api/config', { permissionMode: 'acceptEdits' });
-    await request('PATCH', '/api/scheduler/tasks/' + task.id, { payload: payload('restart-future.md') });
-    const interruptedRun = request('POST', '/api/scheduler/tasks/' + task.id + '/run-now', {});
-    await wait('restart permission pending', () => pending(session.id, [ask.id, nextAsk.id, globalAsk.id]));
-    const countBeforeRestart = fake.requests.filter(row => row.messages.some(message => message.role === 'user' && String(message.content).includes('SCHEDULE_HTTP'))).length;
-    await stop(); await interruptedRun;
+    const taskRoute = '/api/scheduler/tasks/' + task.id;
+    const lateTask = await request('PATCH', taskRoute, { payload: payload('late-original.md'),
+      policy: { onMissed: 'run-once-late', graceMinutes: 30 } });
+    const lateDue = '2026-10-31T09:00:00.000Z';
+    if (lateTask.body?.task?.nextRunAt !== lateDue) throw new Error('late fixture has an unexpected next due');
+    const lateKey = task.id + '@' + lateDue;
+    await stop();
+    tickAt('2026-10-31T09:03:00Z');
     await start();
+    const lateAsk = await wait('cold catch-up permission pending', () => pending(session.id, [ask.id, nextAsk.id, globalAsk.id]));
+    const lateRun = (await runs(task.id)).find(row => row.occurrenceKey === lateKey);
+    t.ok(lateRun?.mode === 'late' && lateRun.dueAt === lateDue && lateRun.snapshot?.payload?.revision === revision
+      && lateRun.snapshot.target.sessionId === session.id && JSON.stringify(lateAsk).includes('late-original.md'),
+    'cold catch-up binds the missed wall-clock occurrence and original template before requesting permission');
+    const futureTarget = (await request('POST', '/api/sessions', { title: '定时目标更新', cwd: work })).body?.session;
+    if (!futureTarget) throw new Error('future target session unavailable');
+    const futurePayload = { ...payload('future-after-restart.md'), revision: newer.revision };
+    const patched = await request('PATCH', taskRoute, { payload: futurePayload,
+      target: { mode: 'existing-session', sessionId: futureTarget.id } });
+    t.ok(patched.status === 200 && patched.body.task.payload.revision === newer.revision
+      && patched.body.task.state.inFlightSnapshot?.payload?.revision === revision
+      && patched.body.task.state.inFlightSnapshot.target.sessionId === session.id,
+    'changing template and target preserves the already generated late snapshot');
+    const modelCalls = () => fake.requests.filter(row => row.messages.some(message => message.role === 'user' && String(message.content).includes('SCHEDULE_HTTP'))).length;
+    const countBeforeRestart = modelCalls();
+    await stop(); await start();
     const unknownRun = await wait('unknown recovery', async () => (await runs(task.id)).find(row => row.outcome === 'unknown'));
     const unknownHead = (await request('GET', '/api/sessions/' + session.id)).body?.session;
     t.ok(unknownHead?.stewardLastTurn?.scheduler?.state === 'unknown' && unknownHead.stewardLastTurn.scheduler.runId === unknownRun.runId && unknownHead.stewardLastTurn.seq === unknownRun.turnSeq, 'R4: cold unknown receipt and exact session turn retain the same uncertainty authority');
-    t.ok(!fs.existsSync(path.join(work, 'restart-future.md')), 'restart leaves interrupted operation unknown and does not write output');
-    const countAfterRestart = fake.requests.filter(row => row.messages.some(message => message.role === 'user' && String(message.content).includes('SCHEDULE_HTTP'))).length;
-    t.ok(countAfterRestart === countBeforeRestart, 'unknown occurrence is not automatically replayed through the model');
-    await request('PATCH', '/api/scheduler/tasks/' + task.id, { enabled: false });
+    t.ok(unknownRun.runId === lateRun?.runId && unknownRun.occurrenceKey === lateKey
+      && unknownRun.snapshot?.payload?.revision === revision && unknownRun.snapshot.target.sessionId === session.id
+      && (await runs(task.id)).filter(row => row.occurrenceKey === lateKey).length === 1,
+    'cold unknown keeps the original late occurrence and never manufactures a replacement');
+    const staleLateApproval = await request('POST', '/api/permission/decision', { requestId: lateAsk.id, behavior: 'allow' });
+    t.ok([404, 409].includes(staleLateApproval.status) && !fs.existsSync(path.join(work, 'late-original.md')),
+      'restart leaves the interrupted operation unknown and rejects its stale approval');
+    t.ok(modelCalls() === countBeforeRestart, 'unknown occurrence is not automatically replayed through the model');
+    await request('PATCH', taskRoute, { enabled: false });
     tickAt('2026-11-01T12:00:00Z');
-    await request('PATCH', '/api/scheduler/tasks/' + task.id, { enabled: true });
+    await request('PATCH', taskRoute, { enabled: true });
     const resumed = (await request('GET', '/api/scheduler/tasks')).body.tasks.find(row => row.id === task.id);
-    t.ok(resumed.nextRunAt === '2026-11-02T09:00:00.000Z', 'resume skips paused dates and computes next wall-clock occurrence');
+    t.ok(resumed.nextRunAt === '2026-11-02T09:00:00.000Z' && modelCalls() === countBeforeRestart, 'resume skips paused dates and computes next wall-clock occurrence');
+    tickAt('2026-11-02T09:00:01Z');
+    const futureAsk = await wait('resumed schedule uses its fresh target', () => pending(futureTarget.id));
+    t.ok(futureAsk.id !== lateAsk.id && JSON.stringify(futureAsk).includes('future-after-restart.md'),
+      'only the next generated occurrence requests permission for the edited template and target');
+    await request('POST', '/api/permission/decision', { requestId: futureAsk.id, behavior: 'allow' });
+    const futureRun = await wait('future occurrence completes', async () => (await runs(task.id))
+      .find(row => row.occurrenceKey === task.id + '@' + resumed.nextRunAt && row.outcome === 'succeeded'));
+    t.ok(futureRun.snapshot?.payload?.revision === newer.revision && futureRun.snapshot.target.sessionId === futureTarget.id
+      && fs.existsSync(path.join(work, 'future-after-restart.md')) && !fs.existsSync(path.join(work, 'late-original.md')),
+    'the resumed occurrence writes only its approved edited output');
   } catch (error) { t.fail(error.stack || String(error)); }
   finally {
     await stop(); if (fake) await fake.close();

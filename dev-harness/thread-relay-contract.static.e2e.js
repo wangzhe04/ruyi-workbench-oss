@@ -125,7 +125,15 @@ async function complete(sid) {
     const reviewed = await relay.reconcile(await relay.read('source_a', one.id));
     ok(result.ok && message.includes('approved source_a') && sessions.get('target_b').turnSeq === 2, 'execution continues B with authorized material in its original identity');
     ok(reviewed.threadRelay.edges[0].state === 'review' && reviewed.threadRelay.edges[1].state === 'waiting', 'real success receipt still waits for delivery acceptance');
-    const accepted = await relay.accept({ sessionId: 'source_a', relayId: one.id, edgeId: first.id, source: source('target_b') });
+    const acceptBody = { sessionId: 'source_a', relayId: one.id, edgeId: first.id, source: source('target_b') };
+    const beforeRewind = await relay.read('source_a', one.id);
+    sessions.get('target_c').rewindGen = 1;
+    await rejects(() => relay.accept(acceptBody), 'target_changed', 'downstream rewind invalidates acceptance without reusing the turn number');
+    const afterRewind = await relay.read('source_a', one.id);
+    ok(JSON.stringify(afterRewind.threadRelay) === JSON.stringify(beforeRewind.threadRelay),
+      'rejected downstream acceptance leaves the stored relay unchanged');
+    delete sessions.get('target_c').rewindGen;
+    const accepted = await relay.accept(acceptBody);
     ok(accepted.threadRelay.edges[1].state === 'ready' && accepted.threadRelay.edges[1].source.sessionId === 'target_b'
       && accepted.threadRelay.edges[1].source.reference.turnSeq === 2, 'next edge binds the explicitly accepted B delivery');
     await relay.submit('source_a', one.id, second.id); activeAgentRuns.clear();

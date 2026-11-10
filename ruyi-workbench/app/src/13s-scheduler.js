@@ -793,7 +793,7 @@ function schedulerTurnOutcome(result, options = {}) {
   } };
 }
 
-async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
+async function schedulerFireOnce(schedTask, schedMode, schedDueMs, fromRecoveryQueue = false) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-fire')) return WorkDataMaintenanceHooks.run('scheduler-fire', () => schedulerFireOnce(...arguments));
   const task = schedTask;
   const startedMs = schedulerClockNow();
@@ -812,11 +812,14 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   try {
     const skipped = await schedulerTaskAdmission(async operation => {
       if (!schedulerRuntime.tasks.includes(task)) throw schedulerStorageFailure('task_changed');
-      // Automatic selections can wait behind a committed pause or reschedule.
-      // Recovery already advances a late task's nextFireAt; only ontime binds that due.
-      if (schedMode !== 'manual' && (!task.state.enabled
-        || (schedMode === 'ontime' && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      // Tick selections can wait behind a pause or calendar edit. Recovery has
+      // already advanced nextFireAt, so only its queued occurrence can use an old due.
       const queued = task.state.queuedOccurrence;
+      const recoveredDue = schedMode === 'late' && (queued?.dueMs === schedDueMs
+        || (fromRecoveryQueue && task.payload.kind !== 'playbook'));
+      if (schedMode !== 'manual' && (!task.state.enabled
+        || (!recoveredDue && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      if (schedMode === 'late' && !recoveredDue && !missedOccurrence(task, schedulerClockNow())?.runLate) return 'skipped';
       executionTask = queued && queued.dueMs === schedDueMs ? JSON.parse(JSON.stringify(queued.snapshot)) : schedulerOccurrenceSnapshot(task);
       if (executionTask.payload.kind === 'playbook' && schedulerRuntime.attempts.has(occKey)) return 'skipped';
       executionTask.occurrence = { key: occKey, dueAt, mode: schedMode };
@@ -1145,10 +1148,10 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
 // 同一拍里排在它后面的其它到点任务【连派单都派不出去】—— 不是「跟着变慢」,是「压根没被尝试」。
 // 现在 for/while 循环体只管调用 schedulerDispatchFire(不 await 它),真正的登记 / 派单 / 收尾仍在
 // schedulerFireOnce 内部完成,只是不再拿一条任务的完成来做另一条任务能不能开始的闸门。
-function schedulerDispatchFire(task, mode, dueMs) {
+function schedulerDispatchFire(task, mode, dueMs, fromRecoveryQueue = false) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   schedulerRuntime.inFlightTaskIds.add(task.id);
-  schedulerFireOnce(task, mode, dueMs)
+  schedulerFireOnce(task, mode, dueMs, fromRecoveryQueue)
     .catch(e => {
       schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
       try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError, taskId: task.id }); } catch { /* ignore */ }
@@ -1213,37 +1216,43 @@ async function schedulerTick() {
         schedulerRuntime.lateQueue.push(queued);
         continue;
       }
-      schedulerDispatchFire(task, 'late', queued.dueMs);
+      schedulerDispatchFire(task, 'late', queued.dueMs, true);
     }
     // ② 到点的任务。按 nextFireAt 升序派单 —— 同一拍里两条都到点时,先到的先派单,但谁先【收尾】
     // 不再由派单顺序决定(哪条的回合先跑完,哪条先 reconciled)。
     const now = schedulerClockNow();
     const due = schedulerRuntime.tasks
-      .filter(task => task.state.enabled && !task.state.inFlightRunId && !schedulerRuntime.inFlightTaskIds.has(task.id)
-        && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
-      .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
-    for (const task of due) {
+      .map(task => ({ task, dueMs: Date.parse(task.state.nextFireAt) }))
+      .filter(({ task, dueMs }) => task.state.enabled && !schedulerTaskBusy(task) && dueMs <= now)
+      .sort((a, b) => a.dueMs - b.dueMs);
+    for (const { task, dueMs } of due) {
       if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
-      // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
-      if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      // A previous missed-skip can await task ownership. Keep its peers'
+      // selected due times, and let the next tick see any calendar edits.
+      if (!task.state.enabled || schedulerTaskBusy(task) || Date.parse(task.state.nextFireAt) !== dueMs) continue;
       // hunt2-P5:进程一直活着、但机器睡过去/时钟跳过去的那一类「错过」,修前 tick 一律当准点跑
       // (onMissed:'skip' 与 graceMinutes 只在启动恢复里生效;实测晚 11 小时仍记 ontime)。
       // 迟到在 SCHEDULER_ONTIME_SLACK_MS 之内是 tick 粒度的正常抖动,照旧准点;超过它才按与启动恢复
       // 同一套判据(missedOccurrence):宽限内且 run-once-late → 以 late 补跑一次;否则记 skipped、推进。
       const missed = missedOccurrence(task, now);
       if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
-        if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
+        if (missed.runLate) { schedulerDispatchFire(task, 'late', dueMs); continue; }
         await schedulerTaskAdmission(async operation => {
           await schedulerFirePreflight();
-          const nextMs = nextFireAt(task.schedule, now);
+          if (generation !== schedulerRuntime.generation || !schedulerRuntime.tasks.includes(task)
+            || !task.state.enabled || schedulerTaskBusy(task)) return;
+          const skippedAt = schedulerClockNow(), currentMiss = missedOccurrence(task, skippedAt);
+          if (!currentMiss || currentMiss.dueMs !== dueMs || currentMiss.runLate
+            || currentMiss.lateByMs <= SCHEDULER_ONTIME_SLACK_MS) return;
+          const nextMs = nextFireAt(task.schedule, skippedAt);
           task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
-          await schedulerRecordMissedSkip(task, missed, now);
+          await schedulerRecordMissedSkip(task, currentMiss, skippedAt);
           await schedulerSaveTasks(operation);
         }, 4096);
         continue;
       }
-      schedulerDispatchFire(task, 'ontime', Date.parse(task.state.nextFireAt));
+      schedulerDispatchFire(task, 'ontime', dueMs);
     }
   } catch (e) {
     schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);

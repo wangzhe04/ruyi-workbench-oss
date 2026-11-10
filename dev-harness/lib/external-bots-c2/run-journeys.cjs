@@ -1,4 +1,5 @@
 'use strict';
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createExpectation, observeReceived, hash } = require('./forge-observation.cjs');
@@ -188,11 +189,76 @@ async function oneJourney(fx, type, action, sequence, t, output) {
   t.ok(true, type + '/' + action + ': actual HTTP/callback/original consumer/terminal once' + (fx.browser ? '/browser receipt' : ''));
   return evidence;
 }
+async function staleBrowserOfferJourney(fx, sequence, t, output) {
+  const { iv, sid, title, ...pending } = await nativePending(fx, 'permission', 'deny', sequence);
+  const platform = 'qq', browser = fx.browser;
+  assert.ok(browser, 'a real browser is required for the local decision');
+  await browserPending(fx, iv, 'permission', output);
+  const offer = await fx.offer(iv, 'permission', title, platform);
+  const selector = '.steward-decision[data-intervention-id="' + iv.id + '"]';
+  const box = await fx.bounded(browser.waitForEval(`(() => {
+    const row = document.querySelector(${JSON.stringify(selector)});
+    const deny = row?.querySelector('[data-action="deny"]');
+    if (row?.dataset.phase !== 'pending' || row.dataset.sessionId !== ${JSON.stringify(sid)} || !deny || deny.disabled) return null;
+    deny.scrollIntoView({ block: 'nearest' });
+    const rect = deny.getBoundingClientRect(), x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+    return rect.width && rect.height && deny.contains(document.elementFromPoint(x, y)) ? { x, y } : null;
+  })()`), 'original browser deny button');
+  assert.ok(box);
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await fx.bounded(browser.cdp.send('Input.dispatchMouseEvent', { type, button: 'left', clickCount: 1, ...box }), 'browser deny click');
+  }
+  assert.ok(await fx.bounded(browser.waitForEval(`document.querySelector(${JSON.stringify(selector)})?.dataset.phase === 'success'`),
+    'browser receives the original local decision response'));
+  const rows = fx.journal(sid).filter(row => row.id === iv.id);
+  assert.equal(rows.filter(row => row.status === 'applying').length, 1);
+  const terminal = rows.at(-1);
+  assert.equal(terminal.status, 'denied');
+  assert.equal(terminal.source, 'contract');
+  assert.equal(terminal.interventionVersion, (iv.interventionVersion || 0) + 2);
+  assert.equal(terminal.decisionResponse?.action, 'deny');
+  await assertEffect(fx, { iv, sid, title, ...pending }, terminal);
+  t.ok(true, 'the browser denies the original permission while its remote Allow offer is outstanding');
+
+  const ledger = fx.ledger();
+  const row = ledger.remoteActions.find(row => row.offerId === offer.handle);
+  assert.equal(row?.status, 'offered');
+  assert.equal(row?.claim, null);
+  const journal = fs.readFileSync(fx.journalFile(sid));
+  const before = { outbound: fx.outbound.length, model: fx.model.requests.length };
+  const command = actionCommand('permission', offer.code, 'allow'), id = fx.nextId('stale');
+  const callbacks = [];
+  for (const [messageId, eventId] of [[id, id], [id, fx.nextId('stale_replay_event')], [fx.nextId('stale_reuse'), fx.nextId('stale_reuse_event')]]) {
+    const response = await fx.callback(messageId, command, platform, { eventId });
+    const settled = await fx.settledCallback(messageId, response);
+    assert.deepEqual(settled, { kind: 'synchronous-rejection', status: 409,
+      code: 'external_channel.delivery_changed', originalInboxItemAbsent: true });
+    callbacks.push({ messageId, eventId, status: settled.status, code: settled.code });
+  }
+  assert.deepEqual(fx.ledger(), ledger, 'the stale offer creates no callback item or decision claim');
+  assert.deepEqual(fs.readFileSync(fx.journalFile(sid)), journal, 'the authoritative local terminal stays byte-identical');
+  assert.equal(fs.existsSync(pending.target), false);
+  assert.deepEqual({ outbound: fx.outbound.length, model: fx.model.requests.length }, before);
+  t.ok(true, 'signed stale code and both replay shapes have no claim, new journal phase, filesystem effect or dispatch');
+
+  const previousPage = await fx.bounded(browser.evaluate('performance.timeOrigin'), 'old browser document identity');
+  await fx.bounded(browser.cdp.send('Page.reload'), 'reload browser receipt');
+  assert.ok(await fx.bounded(browser.waitForEval(`performance.timeOrigin !== ${previousPage} && !!window.state?.config?.configSchema`),
+    'fresh browser document'));
+  assert.ok(await fx.bounded(browser.setLens('steward'), 'reopen browser lens'));
+  await fx.bounded(browser.evaluate("document.getElementById('stewardDecisionsBtn').click(), true"), 'reopen browser decisions');
+  await browserTerminal(fx, iv, 'permission', 'denied', output);
+  assert.deepEqual(fs.readFileSync(fx.journalFile(sid)), journal);
+  t.ok(true, 'reloaded browser reconciles the original denied receipt and disables the decision controls');
+  return { type: 'permission', action: 'deny', platform, sessionId: sid, interventionId: iv.id,
+    status: terminal.status, source: terminal.source, callbacks };
+}
 async function runJourneys(options = {}) {
   const t = createRunner(options.browser ? 'EXTERNAL BOTS C2 ACTUAL BROWSER' : 'EXTERNAL BOTS C2 ACTUAL HTTP');
   const output = path.resolve(options.output || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'ruyi-c2-actual-')));
   assertThat(!fs.existsSync(output) || !fs.readdirSync(output).length, 'evidence directory must be new or empty'); fs.mkdirSync(output, { recursive: true });
-  const selected = options.types || Object.keys(ACTIONS), count = selected.reduce((n, type) => n + (options.positiveOnly ? 1 : ACTIONS[type].length), 0);
+  const actions = options.staleBrowserOffer ? { permission: ['deny'] } : ACTIONS;
+  const selected = options.types || Object.keys(actions), count = selected.reduce((n, type) => n + (options.positiveOnly ? 1 : actions[type].length), 0);
   const executionDeadline = Date.now() + BUDGET.startup + count * BUDGET.journey, cleanupDeadline = executionDeadline + BUDGET.cleanup;
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(Error('C2 cumulative execution deadline')), executionDeadline - Date.now());
   // Independent scenarios get independent original fixtures. The one batch
@@ -217,7 +283,7 @@ async function runJourneys(options = {}) {
   }, cleanupDeadline - Date.now());
   try {
     let sequence = 0;
-    casesLoop: for (const type of selected) for (const action of options.positiveOnly ? [ACTIONS[type][0]] : ACTIONS[type]) {
+    casesLoop: for (const type of selected) for (const action of options.positiveOnly ? [actions[type][0]] : actions[type]) {
       assertThat(!controller.signal.aborted && Date.now() < executionDeadline, 'C2 cumulative execution deadline before next case');
       const id = 'case-' + String(++sequence).padStart(2, '0') + '-' + type + '-' + action;
       const caseOutput = path.join(output, id);
@@ -230,7 +296,8 @@ async function runJourneys(options = {}) {
         fx = await createActualFixture({ browser: options.browser, ok: t.ok, output: caseOutput, deadline: executionDeadline, cleanupDeadline, signal: controller.signal });
         owners.push(fx); // Hold the exact original owner even after close.
         await fx.configure('qq'); await fx.configure('feishu');
-        const result = await oneJourney(fx, type, action, sequence, t, caseOutput);
+        const result = options.staleBrowserOffer ? await staleBrowserOfferJourney(fx, sequence, t, caseOutput)
+          : await oneJourney(fx, type, action, sequence, t, caseOutput);
         assertThat(!fx.model.errors.length, 'scripted model has no hidden errors');
         if (fx.browser) assertThat(!fx.browser.exceptions.length && !fx.browser.consoleErrors.length, 'actual UI has no exception/console errors');
         current.business = 'completed'; current.result = result; completed.push(result);

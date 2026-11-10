@@ -394,9 +394,20 @@ test('queued pause observes the actual fire trip and cannot publish a stale undo
   assert.equal(task.state.enabled, false); assert.equal(task.state.consecutiveFailures, 3); assert.equal(task.revision, 0);
   assert.equal(f.state.decisions.length, 0, 'no stale undo may reverse the completed safety trip');
 });
-test('queued automatic registration rechecks a committed pause or changed ontime due before any fire effects', async () => {
-  for (const [mode, patchBody] of [['ontime', { enabled: false }], ['ontime', { schedule: { kind: 'daily', at: '11:00' } }], ['late', { enabled: false }]]) {
-    const f = fixture(); const task = await f.prepare(true), due = Date.parse(task.state.nextFireAt);
+test('queued automatic registration rechecks a committed pause, due or missed policy before any fire effects', async () => {
+  const calendarEdit = { schedule: { kind: 'daily', at: '11:00', tz: 'UTC' } };
+  const cases = [['ontime', { enabled: false }], ['ontime', calendarEdit], ['late', { enabled: false }], ['late', calendarEdit],
+    ['late', { policy: { onMissed: 'skip' } }]];
+  for (const [mode, patchBody] of cases) {
+    const f = fixture();
+    const task = mode === 'late' && patchBody.enabled !== false ? await createScheduledPlaybook(f) : await f.prepare(true);
+    const due = Date.parse(task.state.nextFireAt);
+    if (mode === 'late') {
+      f.context.__clockNow = due + 6 * 60000;
+      assert.equal(task.policy.onMissed, 'run-once-late');
+      assert.ok(task.policy.graceMinutes >= 6);
+      assert.equal(task.state.queuedOccurrence, undefined, 'only a warm late selection may be invalidated by the edit');
+    }
     let bodyReached, bodyRelease, blockerReached, blockerRelease, patchQueued;
     const atBody = new Promise(resolve => { bodyReached = resolve; }), bodyGate = new Promise(resolve => { bodyRelease = resolve; });
     const atBlocker = new Promise(resolve => { blockerReached = resolve; }), blockerGate = new Promise(resolve => { blockerRelease = resolve; });
@@ -407,15 +418,72 @@ test('queued automatic registration rechecks a committed pause or changed ontime
     f.context.schedulerTaskAdmission = (...args) => { const result = admission(...args); patchQueued(); return result; };
     bodyRelease(); await atPatch;
     const automatic = f.schedulerFireOnce(task, mode, due); blockerRelease(); await blocker; assert.equal((await patch).ok, true);
-    assert.equal(await automatic, 'skipped'); assert.equal(f.state.reminders, 0); assert.equal(fs.existsSync(f.fires), false);
+    assert.equal(await automatic, 'skipped', mode + ' selection after ' + JSON.stringify(patchBody));
+    assert.equal(f.state.reminders, 0); assert.equal(f.state.turns, 0); assert.equal(fs.existsSync(f.fires), false);
     assert.equal(task.state.inFlightRunId, ''); assert.equal(f.runtime.globalRuns.count, 0); assert.equal(f.runtime.attempts.size, 0);
   }
 });
+for (const edited of ['missed', 'later']) {
+  test('tick cannot consume a calendar-edited ' + edited + ' due across a missed-skip admission', async () => {
+    const f = fixture(), missed = await f.prepare(true), later = await createScheduledPlaybook(f);
+    const now = f.context.__clockNow, missedDue = new Date(now - 10 * 60000).toISOString();
+    missed.state.nextFireAt = missedDue;
+    missed.policy.onMissed = 'skip';
+    later.state.nextFireAt = new Date(now - 1000).toISOString();
+    await f.schedulerSaveTasks();
+    const task = edited === 'missed' ? missed : later;
+    let bodyReached, releaseBody, preflightReached, releasePreflight, patchQueued;
+    const atBody = new Promise(resolve => { bodyReached = resolve; });
+    const bodyGate = new Promise(resolve => { releaseBody = resolve; });
+    const atPreflight = new Promise(resolve => { preflightReached = resolve; });
+    const preflightGate = new Promise(resolve => { releasePreflight = resolve; });
+    const atPatch = new Promise(resolve => { patchQueued = resolve; });
+    const patch = f.call('PATCH', '/api/scheduler/tasks/' + task.id,
+      { schedule: { kind: 'daily', at: '14:00', tz: 'UTC' } }, async () => { bodyReached(); await bodyGate; });
+    await atBody;
+    const admission = f.context.schedulerTaskAdmission, fire = f.context.schedulerFireOnce;
+    const fired = [];
+    let calls = 0;
+    f.context.schedulerTaskAdmission = (work, growth) => {
+      const call = ++calls;
+      const result = admission(call === 1 ? async operation => {
+        const value = await work(operation);
+        preflightReached();
+        await preflightGate;
+        return value;
+      } : work, growth);
+      if (call === 2) patchQueued();
+      return result;
+    };
+    f.context.schedulerFireOnce = (...args) => {
+      const result = fire(...args);
+      fired.push(result);
+      return result;
+    };
+    const ticking = f.schedulerTick();
+    await atPreflight;
+    releaseBody();
+    await atPatch;
+    releasePreflight();
+    assert.equal((await patch).ok, true);
+    await ticking;
+    await Promise.all(fired);
+    const rows = await f.schedulerReadFireRows();
+    assert.equal(task.state.nextFireAt, '2026-10-23T14:00:00.000Z');
+    assert.equal(rows.filter(row => row.taskId === task.id).length, 0, edited + ' calendar edit produced no stale fire');
+    if (edited === 'later') {
+      assert.ok(rows.some(row => row.taskId === missed.id && row.dueAt === missedDue && row.outcome === 'skipped'));
+      assert.equal(f.state.turns, 0);
+    } else {
+      assert.equal(f.state.turns, 1);
+    }
+  });
+}
 test('manual execution keeps explicit paused-task semantics and late recovery may use its consumed due', async () => {
   const manual = fixture(); const task = await manual.prepare(true); task.state.enabled = false; await manual.schedulerSaveTasks();
   assert.equal((await manual.schedulerRunNow(task)).outcome, 'succeeded'); assert.equal(manual.state.reminders, 1);
   const late = fixture(); const lateTask = await late.prepare(true), due = Date.parse(lateTask.state.nextFireAt) - 60000;
-  assert.equal(await late.schedulerFireOnce(lateTask, 'late', due), 'succeeded'); assert.equal(late.state.reminders, 1);
+  assert.equal(await late.schedulerFireOnce(lateTask, 'late', due, true), 'succeeded'); assert.equal(late.state.reminders, 1);
 });
 test('scheduler storage failures retain stable codes and existing statuses through the actual sendError transport', async () => {
   const { functionBlock } = require(path.join(repo, 'dev-harness/lib/source-slice'));
