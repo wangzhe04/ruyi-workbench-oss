@@ -8,6 +8,58 @@ test('actual RGB pixels are black for all OCR words, decoded code and explicit s
   const f=fixture(),before=Buffer.from(f.original),token=await f.pipeline.prepare({regions:{space:'source-pixels-v1',sourceHash:f.sourceHash,sourceRevision:'s1',width:32,height:16,orientation:1,boxes:[[24,12,28,16]]}});
   const preview=f.pipeline.borrow(token),image=png(preview.bytes);a.deepEqual(image.names,['IHDR','IDAT','IEND']);a.equal(image.header[9],2);for(const [x,y]of[[0,0],[7,7],[11,11],[21,1],[25,14]])a.deepEqual(pixel(image,x,y),[0,0,0]);a.deepEqual(pixel(image,16,14),[200,200,200]);a.deepEqual(pixel(image,31,15),[255,255,255]);a.deepEqual(f.original,before);a.equal(f.calls[0].source.every(n=>n===0),true);a.equal(f.calls.length,2);preview.release();f.pipeline.release(token);
 });
+test('tall mask rows and decoded codes do not multiply full owner assertions', async () => {
+  const width = 64, height = 512;
+  const prepare = async (boxes, codeCount) => {
+    let fullChecks = 0;
+    const f = fixture({
+      onAssert: () => { fullChecks++; },
+      changeFrame: frame => Object.assign(frame, { width, height, rgba: Buffer.alloc(width * height * 4, 255),
+        transform: { width, height, orientation: 1 },
+        codes: Array.from({ length: codeCount }, () => frame.codes[0]) }),
+    });
+    const token = await f.pipeline.prepare({ regions: { space: 'source-pixels-v1', sourceHash: f.sourceHash,
+      sourceRevision: 's1', width, height, orientation: 1, boxes } });
+    const checksDuringPrepare = fullChecks;
+    const preview = f.pipeline.borrow(token);
+    try {
+      const image = png(preview.bytes);
+      a.deepEqual(pixel(image, 44, height - 1), [0, 0, 0]);
+      a.deepEqual(pixel(image, 60, height - 1), [255, 255, 255]);
+    } finally {
+      preview.release();
+      f.pipeline.release(token);
+    }
+    return checksDuringPrepare;
+  };
+  const one = await prepare([[12, 0, 45, height]], 1);
+  const many = await prepare(Array.from({ length: 24 }, (_, index) => [12 + index, 0, 45, height]), 64);
+  a.equal(many, one);
+  a.ok(many <= 12, 'full owner checks belong at phase boundaries');
+});
+
+test('all owner changes during synchronous compression refuse before publication', async () => {
+  for (const kind of ['Source', 'Policy', 'Processor']) {
+    const f = fixture();
+    let compressed = false;
+    const instrumented = vm.runInNewContext(source + ';MediaImageContract;', {
+      Buffer, PrivacyCore: core, setTimeout, clearTimeout,
+      require: name => name === 'node:zlib' ? { deflateSync(rows) {
+        const result = z.deflateSync(rows);
+        compressed = true;
+        f['set' + kind]();
+        return result;
+      } } : require(name),
+    });
+    const pipeline = instrumented.create({
+      sourceOwner: f.sourceOwner, policyOwner: f.policyOwner, processorOwner: f.processorOwner,
+    });
+    await a.rejects(pipeline.prepare(), { code: 'privacy.image_owner_changed' });
+    a.equal(compressed, true);
+    a.equal(f.calls[1].finish.failed, true);
+    a.ok(f.calls[0].source.every(byte => byte === 0));
+  }
+});
 test('opaque host tickets cannot be cloned or consumed by another pipeline',async()=>{const f=fixture(),g=fixture(),t=await f.pipeline.prepare();a.throws(()=>f.pipeline.describe({}),{code:'privacy.image_unknown_artifact'});a.throws(()=>g.pipeline.borrow(t),{code:'privacy.image_unknown_artifact'});a.throws(()=>f.pipeline.describe({...t}),{code:'privacy.image_unknown_artifact'});f.pipeline.release(t);});
 test('preview and delivery borrow exact same payload hash, fixed name and no send authorization',async()=>{const f=fixture(),t=await f.pipeline.prepare(),v=f.pipeline.borrow(t),d=f.pipeline.borrow(t,{purpose:'delivery'});a.equal(h(v.bytes),h(d.bytes));a.equal(d.manifest.payloadHash,h(d.bytes));a.equal(d.manifest.name,'protected.png');a.equal(d.manifest.authorization,'none');a.throws(()=>f.pipeline.borrow(t,{purpose:'delivery'}),{code:'privacy.image_delivery_already_borrowed'});v.release();d.release();f.pipeline.release(t);});
 for(const kind of['Source','Policy','Processor'])test(kind+' replacement refuses old preview and zeros all outstanding copies',async()=>{const f=fixture(),t=await f.pipeline.prepare(),v=f.pipeline.borrow(t),d=f.pipeline.borrow(t,{purpose:'delivery'});f['set'+kind]();a.throws(()=>v.assert(),{code:'privacy.image_owner_changed'});a.equal(v.bytes.every(n=>n===0),true);a.equal(d.bytes.every(n=>n===0),true);a.throws(()=>f.pipeline.borrow(t),{code:'privacy.image_unknown_artifact'});});
@@ -69,7 +121,10 @@ test('listener cleanup falsy error cannot skip copies, other artifacts or active
 test('primary source refusal is preserved alongside typed cleanup failure',async()=>{const f=fixture(),controller=new AbortController(),t=await f.pipeline.prepare({signal:controller.signal}),b=f.pipeline.borrow(t),original=controller.signal.removeEventListener;controller.signal.removeEventListener=()=>{throw null;};f.setSource();let error;try{b.assert();}catch(e){error=e;}finally{controller.signal.removeEventListener=original;}a.equal(error.code,'privacy.image_cleanup_failed');a.equal(error.errors[0].code,'privacy.image_owner_changed');a.equal(error.errors[1].errors[0],null);a.equal(b.bytes.every(n=>n===0),true);});
 test('abort cleanup uncertainty stays typed on the retired ticket without an unhandled event throw',async()=>{const f=fixture(),controller=new AbortController(),t=await f.pipeline.prepare({signal:controller.signal}),b=f.pipeline.borrow(t),original=controller.signal.removeEventListener;controller.signal.removeEventListener=()=>{throw undefined;};controller.abort();controller.signal.removeEventListener=original;a.equal(b.bytes.every(n=>n===0),true);a.throws(()=>f.pipeline.describe(t),e=>e.code==='privacy.image_cleanup_failed'&&e.errors.length===1&&e.errors[0]===undefined&&e.ownershipRetained===true);});
 test('decoded QR and barcode text share OCR aggregate budget instead of allowing4096 separateMiB',async()=>{const f=fixture({changeFrame:frame=>frame.codes=[{kind:'qr',text:'x'.repeat(524289),box:[0,0,1,1]},{kind:'barcode',text:'y'.repeat(524289),box:[0,0,1,1]}]});await a.rejects(f.pipeline.prepare(),{code:'privacy.image_recognition_limit'});});
-test('each decoded-code policy check rechecks cancellation and deadline in the actual product loop',()=>{const fs=require('node:fs'),p=require('node:path'),source=fs.readFileSync(process.env.MEDIA_IMAGE_SOURCE||p.join(ROOT,'ruyi-workbench/app/src/13ba-media-image-contract.js'),'utf8');a.match(source,/for \(const code of frame.codes\) \{\s+check\(\);/);});
+test('each decoded-code policy check rechecks cancellation and deadline in the actual product loop', () => {
+  a.match(source, /for \(const code of frame.codes\) \{\s+checkProgress\(\);/);
+  a.match(source, /const checkProgress = \(\) => \{\s+if \(epoch !== initialEpoch\) fail\('invalidated'\);\s+checkTime\(signal, deadline\);/);
+});
 
 // Preserved tests from independent-boundaries.test.cjs
 test('independent asymmetric source rectangle distinguishes every EXIF orientation and full-edge binding',()=>{const ctx={LIMITS:contract.LIMITS,fail:code=>{throw Error(code);}},project=vm.runInNewContext(functionBlock(source,'box')+'\n'+functionBlock(source,'explicitBoxes')+';explicitBoxes;',ctx),expected=[[0,1,2,3],[9,1,11,3],[9,4,11,6],[0,4,2,6],[1,0,3,2],[4,0,6,2],[4,9,6,11],[1,9,3,11]];for(let orientation=1;orientation<=8;orientation++){const captured={hash:'h',revision:'r'},frame={width:orientation>4?7:11,height:orientation>4?11:7,transform:{width:11,height:7,orientation}},request={space:'source-pixels-v1',sourceHash:'h',sourceRevision:'r',width:11,height:7,orientation,boxes:[[0,1,2,3]]};a.equal(JSON.stringify(project(request,captured,frame)),JSON.stringify([expected[orientation-1]]));request.boxes=[[0,0,11,7]];a.equal(JSON.stringify(project(request,captured,frame)),JSON.stringify([[0,0,frame.width,frame.height]]));}});

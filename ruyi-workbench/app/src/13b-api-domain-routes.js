@@ -346,10 +346,14 @@ const STEER_REFUSAL = Object.freeze({
 });
 const steerRefusal = which => ({ kind: 'json', body: { ok: false, error: { ...STEER_REFUSAL[which], params: {} } } });
 // 附件只按上传 id/name 重定位,绝不把请求里的 path 当可读文件。与普通消息使用同一上传目录。
-async function steerAttachments(raw) {
+async function steerAttachments(raw, sessionId, live) {
   if (raw == null) return [];
   if (!Array.isArray(raw) || raw.length > 12) throw new Error('最多递送 12 个上传附件');
   if (!raw.length) return [];
+  const checkSealed = (!live || (live.kind === 'openai' && live.vision === true)) &&
+    typeof MediaImageHooks !== 'undefined' && typeof MediaImageHooks.assertSealedSteerReference === 'function' &&
+    raw.some(item => typeof item?.protectedImage?.reference === 'string');
+  const config = checkSealed ? await readConfig() : null;
   const root = await fsp.realpath(paths.uploads);
   // 81-P0 baseline repair: realpath upload containment stays local, avoiding a new bridge-guard cycle.
   const insideUploads = file => {
@@ -360,10 +364,16 @@ async function steerAttachments(raw) {
   for (const item of raw) {
     const { id, name } = item || {};
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string' || !name || name.length > 200 || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) throw new Error('附件记录无效,请重新上传');
+    const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
+    if (image && config?.workDataEncryptionV1 === true && config.privacyModeV1 !== 'off') {
+      const file = { id, name, kind: 'image', sealed: true, protectedImage: { reference: item.protectedImage?.reference } };
+      await MediaImageHooks.assertSealedSteerReference(file, sessionId, config);
+      out.push(file);
+      continue;
+    }
     const file = await fsp.realpath(path.join(root, id, name));
     const stat = await fsp.stat(file);
     if (!insideUploads(file) || !stat.isFile()) throw new Error('附件已不可用,请重新上传');
-    const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
     const sendPath = image ? await fsp.realpath(path.join(root, id, 'send.jpg')).catch(() => '') : '';
     out.push({ id, name, path: file, size: stat.size, ...(image ? { kind: 'image' } : {}),
       ...(typeof item.protectedImage?.reference === 'string' ? { protectedImage: { reference: item.protectedImage.reference } } : {}),
@@ -379,15 +389,16 @@ async function steerSessionCore(input) {
   const sessionId = safeSessionId(o.sessionId); // F4
   let text = String(o.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim(); // 与 steer_node 上限对齐 + 前缀中和
   if (!sessionId) return { kind: 'failure', code: 'session.id_invalid', detail: {}, message: 'invalid sessionId', status: 400 };
+  const live = activeChildren.get(sessionId);
   let attachments;
-  try { attachments = await steerAttachments(o.attachments); }
+  try { attachments = await steerAttachments(o.attachments, sessionId, live); }
   catch { return { kind: 'failure', code: 'request.invalid', detail: {}, message: '附件无效或已不可用,请重新上传', status: 400 }; }
   if (!text && !attachments.length) return { kind: 'failure', code: 'request.field_required', detail: { field: 'text' }, message: 'text or attachments is required', status: 400 };
-  if (!text) text = ('[附件] ' + attachments.map(a => a.name).join(', ')).slice(0, 2000);
+  if (!text) text = ('[附件] ' + attachments.map(a => a.protectedImage ? 'protected.png' : a.name).join(', ')).slice(0, 2000);
   const mode = o.mode == null ? 'queue' : o.mode;
   if (!['queue', 'interrupt'].includes(mode)) return { kind: 'failure', code: 'request.invalid', detail: {}, message: 'mode must be queue or interrupt', status: 400 };
   const reg = activeChildren.get(sessionId);
-  if (!reg) return steerRefusal('noLiveTurn');
+  if (!reg || (reg !== live && attachments.some(file => file.sealed === true))) return steerRefusal('noLiveTurn');
   if (reg.kind === 'kimi-acp') {
     // Kimi ACP 0.37.x has no native mid-prompt steering method. Keep the ACP process/session alive and
     // enqueue a follow-up session/prompt immediately after the active prompt settles. This preserves native

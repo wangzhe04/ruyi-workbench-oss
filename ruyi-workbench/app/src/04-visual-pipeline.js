@@ -50,8 +50,10 @@ const VisualPipeline = (() => {
     return parts;
   }
   // Does a user turn carry at least one image attachment worth sending as a part? (Gate for parts-vs-string.)
-  function hasImageAttachment(attachments) {
-    return Array.isArray(attachments) && attachments.some(a => a && a.path && IMAGE_EXT_RE.test(String(a.name || a.path)));
+  function hasImageAttachment(attachments, { protectedNative = false } = {}) {
+    return Array.isArray(attachments) && attachments.some(a => a && (
+      (a.path && IMAGE_EXT_RE.test(String(a.name || a.path))) ||
+      (protectedNative && VisualMediaHooks.hasPreparedAttachment?.(a) === true)));
   }
   // ── 工具结果里的图像字段(ACC 方言 + MCP 标准 ImageContent 映射后的形状)────────────────────────────────────────
   // 三处顶层/嵌套位置:`image` / `image_base64`(ACC screenshot、window_screenshot、get_clipboard_image)、

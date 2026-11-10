@@ -9,12 +9,16 @@ const {startBrowserFixture}=require('./lib/browser-fixture');
 const {getFreePort}=require('./free-port');
 const t=createRunner('PRIVACY FAILURE UX');
 async function probes(fx){await fx.evaluate(`(()=>{
-  window.p0Writes=[];window.p0Warmups=[];window.p0Mic=0;window.p0RecorderStarts=0;window.p0Graphs=0;
+  window.p0Writes=[];window.p0Warmups=[];window.p0ImagePrepare=[];window.p0Mic=0;window.p0RecorderStarts=0;window.p0Graphs=0;
   const realFetch=window.fetch;window.fetch=async(...args)=>{
     const method=String(args[1]?.method||'GET').toUpperCase(),url=new URL(String(args[0]),location.href);
     if(method!=='GET')window.p0Writes.push({method,path:url.pathname});
     const response=await realFetch(...args);
     if(method==='POST'&&url.pathname==='/api/audio/warmup'){const body=await response.clone().json();window.p0Warmups.push({status:response.status,ready:body.ready,skipped:body.skipped});}
+    if(method==='POST'&&url.pathname==='/api/media/images/prepare'){
+      const body=await response.clone().json();
+      window.p0ImagePrepare.push({status:response.status,code:body.error?.code});
+    }
     if(method==='POST'&&url.pathname==='/api/audio/stream/sessions'&&window.p0HoldStream){
       const hold=value=>new Promise(resolve=>{window.p0StreamHeld=true;window.p0StreamHeldStatus=response.status;window.p0ReleaseStream=()=>resolve(value);});
       if(window.p0HoldStream==='response')return hold(response);
@@ -44,6 +48,36 @@ async function ready(fx,sid){
 }
 async function reload(fx,sid){await fx.evaluate(`localStorage.setItem('wcw.lastSession',${JSON.stringify(sid)}),true`);const old=await fx.evaluate('performance.timeOrigin');await fx.cdp.send('Page.reload');if(!await fx.waitForEval(`performance.timeOrigin!==${old}&&!!window.state?.config?.configSchema`))throw Error('reload failed');await ready(fx,sid);if(!await fx.waitForEval(`document.documentElement.lang===window.state.config.locale`))throw Error('configured locale did not finish loading after reload');await setLens(fx,'classic');}
 async function send(fx,text){await fx.evaluate(`(()=>{const box=document.getElementById('promptInput');box.value=${JSON.stringify(text)};box.dispatchEvent(new Event('input',{bubbles:true}));return true;})()`);await click(fx,'#sendBtn');}
+async function checkMissingProtectedImage(fx, strings, label, countRequests) {
+  const name = 'public-pixel.png';
+  const file = path.join(fx.work, name);
+  fs.writeFileSync(file, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+  const before = countRequests();
+  const {root} = await fx.cdp.send('DOM.getDocument', {depth:0});
+  const {nodeId} = await fx.cdp.send('DOM.querySelector', {nodeId:root.nodeId, selector:'#fileInput'});
+  await fx.cdp.send('DOM.setFileInputFiles', {nodeId, files:[file]});
+  const draft = `(() => {
+    const [attachment] = window.state.attachments;
+    return !window.state.uploading && attachment?.name === ${JSON.stringify(name)} &&
+      attachment.imageReviewRequired === true && !attachment.protectedImage && !attachment.previewUrl &&
+      !document.querySelector('#attachmentTray .attach-pill-thumb');
+  })()`;
+  const retained = await fx.waitForEval(draft);
+  const preparations = await fx.evaluate('window.p0ImagePrepare');
+  const missing = preparations.length === 1 && preparations[0].status === 409 && preparations[0].code === 'privacy.image_processor_dependency_failed';
+  if (!retained || !missing) console.log('P0-IMAGE-DIAG', JSON.stringify({ label, retained, preparations }));
+  t.ok(retained && missing,
+    label + ': actual browser upload preserves a reviewable image without a raw preview when Full resources are missing');
+  const message = 'P0_SYNTHETIC_MISSING_IMAGE';
+  const writes = await fx.evaluate('window.p0Writes.length');
+  await send(fx, message);
+  t.ok(await fx.waitForEval(`document.getElementById('toastTray').textContent.includes(${JSON.stringify(strings['mediaImage.reviewRequired'])})`) &&
+    await fx.evaluate(`${draft} && document.getElementById('promptInput').value === ${JSON.stringify(message)} &&
+      !window.p0Writes.slice(${writes}).some(row=>row.path.startsWith('/api/chat/'))`) &&
+    countRequests() === before, label + ': browser Send preserves the text and attachment draft with zero model requests');
+  await click(fx, '#attachmentTray .attach-x');
+  await fx.evaluate("(() => { const box = document.getElementById('promptInput'); box.value = ''; box.dispatchEvent(new Event('input',{bubbles:true})); return true; })()");
+}
 async function engine(fx,key){await click(fx,'#threadChips [data-chip="engine"]');await click(fx,`.steward-chip-menu[data-kind="engine"] [data-engine-key="${key}"]`);if(!await fx.waitForEval(`document.querySelector('#threadChips [data-chip="engine"]').getAttribute('aria-expanded')==='false'`))throw Error('engine selection failed');}
 async function selectCardAction(fx,label,keyboard=false){
   const focused=await fx.evaluate(`(()=>{for(const old of document.querySelectorAll('#privacy-error-action'))old.removeAttribute('id');const n=[...document.querySelectorAll('.error-card-btn')].findLast(n=>n.textContent===${JSON.stringify(label)});if(!n)throw Error('missing action');n.id='privacy-error-action';n.focus();return document.activeElement===n&&n.type==='button';})()`);
@@ -52,18 +86,21 @@ async function selectCardAction(fx,label,keyboard=false){
 (async()=>{
   if(process.platform!=='win32'){console.log('SKIP actual encrypted policy recovery requires Windows');return;}
   for(const locale of ['zh-CN','en-US']){
-    let fx,providerRequests=0,sid;
+    let fx,providerRequests=0,allProviderRequests=0,sid;
     const wires=[], secret='p0-synthetic-private@example.test';
     const extra=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-p0-voice-')),toolboxHome=path.join(extra,'toolbox'),streamPort=await getFreePort();
     fs.mkdirSync(path.join(toolboxHome,'components'),{recursive:true});
     fs.writeFileSync(path.join(toolboxHome,'components','p0-stream.json'),JSON.stringify({schema:1,id:'p0-stream',kind:'service',name:'Synthetic P0 stream',version:'0.0.1',run:{command:process.execPath,args:[path.resolve(__dirname,'lib/fake-stream-component.js')],cwd:path.resolve(__dirname,'lib'),env:{}},service:{port:streamPort,portEnv:'FAKE_STREAM_PORT',health:'/health',component:'fake-stream-component'},provides:[{type:'asr-stream',basePath:'/v1',model:'fake-stream-model'}],registeredAt:new Date().toISOString()}));
     const strings=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../ruyi-workbench/app/public/locales',locale+'.json'),'utf8'));
     try{
-      fx=await startBrowserFixture({ok:t.ok,prefix:'ruyi-privacy-failure-',serverEnv:{RUYI_TOOLBOX_HOME:toolboxHome},browserArgs:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream'],config:{locale,privacyModeV1:'enhanced',credentialEncryptionV1:true,privacyRulesV1:[],
+      fx=await startBrowserFixture({ok:t.ok,prefix:'ruyi-privacy-failure-',serverEnv:{RUYI_TOOLBOX_HOME:toolboxHome,
+        RUYI_MEDIA_RESOURCE_PROFILE:'legacy-full-4987-v1',RUYI_MEDIA_RUNTIME_ROOT:path.join(extra,'missing-runtime'),
+        RUYI_MEDIA_SOURCES_ROOT:path.join(extra,'missing-sources')},browserArgs:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream'],config:{locale,privacyModeV1:'enhanced',credentialEncryptionV1:true,privacyRulesV1:[],
         schedulerEnabledV1:false,stewardEnabledV1:true,stewardVisitIdleMinutes:1440,stewardThreadBriefV1:false,importAgentInstructions:false,permissionMode:'bypass',toolLoadingMode:'full',
         bridgeExternalToolsToProvider:false,runtimeOptimizationShadowV1:false,contextAutoCompactEnabled:false,memoryAutoProposeEnabled:false,missionAutoContinue:false,
         asrProviderId:'fake',asrModel:'fake-model',asrFixMode:'off',allowCommandTools:true,allowDesktopTools:false,desktopMcp:{enabled:false,autodetect:false}},
         provider:ctx=>{
+          allProviderRequests++;
           if(ctx.body.stream){providerRequests++;wires.push(structuredClone(ctx.body));}
           const last=ctx.messages.findLast(row=>row.role==='user'), tool=ctx.messages.findLast(row=>row.role==='tool'&&row.tool_call_id==='p0-one-write');
           if(String(last?.content||'').includes('P0_SYNTHETIC_PROVIDER_ERROR')){
@@ -80,7 +117,9 @@ async function selectCardAction(fx,label,keyboard=false){
         prepare:async f=>{
           const marker=path.join(f.work,'unexpected-cli-business.txt'),fakeCli=path.join(f.work,'synthetic-cli.cmd');
           fs.writeFileSync(fakeCli,'@echo off\r\nif "%~1"=="--version" (echo synthetic-cli & exit /b 0)\r\necho business>>"'+marker+'"\r\nexit /b 1\r\n');
-          await f.request('POST','/api/config',{claudePath:fakeCli,asrStreamProviderId:'toolbox-p0-stream',asrStreamModel:'fake-stream-model'});
+          await f.request('POST','/api/config',{claudePath:fakeCli,asrStreamProviderId:'toolbox-p0-stream',asrStreamModel:'fake-stream-model',
+            providers:[{id:'fake',label:'Fake',type:'openai-compat',baseUrl:'http://127.0.0.1:'+f.providerPort,
+              apiKey:'browser-fixture-auth-only',model:'fake-model',models:[{id:'fake-model',label:'Fake'}],vision:true}]});
           fs.writeFileSync(path.join(f.work,'p0-source.json'),JSON.stringify({password:null,email:secret}));
           const created=await f.request('POST','/api/sessions',{title:'Synthetic privacy UX '+locale,cwd:f.work});sid=created.json?.session?.id||created.json?.id;if(!sid)throw Error('session creation failed');
         }});
@@ -99,6 +138,8 @@ async function selectCardAction(fx,label,keyboard=false){
       t.ok(providerRequests===0,locale+': explicit engine selection itself never resends the refused message');
       await send(fx,'P0_SYNTHETIC_EXPLICIT_RETRY');
       t.ok(await fx.waitForEval(`document.getElementById('messages').textContent.includes('P0_SYNTHETIC_NATIVE_DONE')`)&&providerRequests===1,locale+': one explicit user retry reaches the synthetic native provider once');
+      if (!await fx.waitForEval('!window.state.streaming')) throw Error('native turn did not settle');
+      await checkMissingProtectedImage(fx, strings, locale, () => allProviderRequests);
       // Fresh forged references are strict model-preparation errors. Typed user
       // content instead has an existing safe-withheld recovery contract, so it
       // must not be used as an oracle for a top-level failure. Keep this refused

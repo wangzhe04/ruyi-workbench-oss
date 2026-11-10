@@ -46,6 +46,10 @@ test('provider 插话将上传图片真正放进模型消息,正文、事件和�
   assert.equal(h.events[0].attachments[0].id, 'image1');
   const builder = h.c.createTurnSegmentBuilder(); builder.consume(h.events[0]);
   assert.equal(builder.snapshot()[0].attachments[0].id, 'image1');
+  const ref = 'https://ruyi.invalid/protected-image/' + 'e'.repeat(32);
+  const rawWithReference = { ...h.attachment, protectedImage: { reference: ref } };
+  assert.equal((await h.c.steerSessionCore({ sessionId: h.session.id, attachments: [rawWithReference] })).body.ok, true);
+  assert.equal(h.reg.steerQueue[0].text, '[附件] protected.png');
 });
 
 test('Claude 即时插话收到原生 image 块;Kimi 同会话后续队列保留图片记录', async t => {
@@ -72,6 +76,34 @@ test('插话附件拒绝路径伪造/缺失记录,失败不排队;文字模型�
   await h.c.drainSteerQueue(h.reg, h.session, h.reg.onEvent);
   assert.equal(typeof h.session.providerHistory[0].content, 'string');
   assert.match(h.session.providerHistory[0].content, /picture.png/);
+});
+test('native protected steer validates a pathless receipt and hides the source name in attachment-only text', async t => {
+  const h = backend(t);
+  const reference = 'https://ruyi.invalid/protected-image/' + 'e'.repeat(32);
+  const file = { id: 'sealed_img', name: 'private.png', protectedImage: { reference } };
+  let checks = 0;
+  h.c.readConfig = async () => ({ workDataEncryptionV1: true, privacyModeV1: 'enhanced' });
+  h.c.MediaImageHooks = { async assertSealedSteerReference(record, sessionId) {
+    checks++;
+    assert.equal(sessionId, h.session.id);
+    assert.equal(record.id, file.id);
+    assert.equal(record.name, file.name);
+    assert.equal(record.protectedImage.reference, reference);
+  } };
+  const body = { sessionId: h.session.id, attachments: [file] };
+  assert.equal((await h.c.steerSessionCore(body)).body.ok, true);
+  const queued = h.reg.steerQueue[0];
+  assert.equal(queued.text, '[附件] protected.png');
+  assert.equal(queued.attachments[0].path, undefined);
+  assert.equal(queued.attachments[0].protectedImage.reference, reference);
+  h.regs.delete(h.session.id);
+  assert.equal((await h.c.steerSessionCore(body)).body.error.code, 'steer.no_live_turn');
+  assert.equal(checks, 2);
+  h.reg.kind = 'claude';
+  h.regs.set(h.session.id, h.reg);
+  assert.equal((await h.c.steerSessionCore(body)).kind, 'failure');
+  assert.equal(checks, 2);
+  assert.equal(h.writes.length, 0);
 });
 
 test('composer 图片插话发送附件,只清理发出的快照;失败或仍在上传时保留草稿', async () => {

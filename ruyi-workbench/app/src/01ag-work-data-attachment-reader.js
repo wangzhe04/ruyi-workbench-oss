@@ -1,6 +1,6 @@
 // Isolated sealed-reader draft. The composition must supply the authenticated
 // catalog authority. These leases grant plaintext access only, never deletion.
-const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
+const WorkDataAttachmentReader = ((io, syncIo, nodePath, cryptoApi) => {
   const fill = Function.prototype.call.bind(Buffer.prototype.fill);
   const sha = value => cryptoApi.createHash('sha256').update(value).digest('hex');
   const proxy = value => require('node:util').types.isProxy(value);
@@ -61,8 +61,8 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
         if (!st.isDirectory() || st.isSymbolicLink() || !sameObject(row.stat,st) || fold(await io.realpath(row.path)) !== fold(row.path)) fail('path');check();
       }
     }
-    async function physical(file,expected,check,parents) {
-      let handle,bytes,failed=false,primary;const errors=[];
+    async function physical(file,expected,check,parents,witnesses) {
+      let handle,bytes,visible,failed=false,primary;const errors=[];
       try {
         check();await verifyDirectories(parents,check);
         const before=await io.lstat(file,{bigint:true});check();
@@ -79,7 +79,7 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
         }
         const after=await handle.stat({bigint:true});check();
         if (!sameFile(held,after) || after.nlink !== 1n || sha(bytes) !== expected.sha256) fail('physical');
-        const visible=await io.lstat(file,{bigint:true});check();
+        visible=await io.lstat(file,{bigint:true});check();
         if (!visible.isFile() || visible.isSymbolicLink() || visible.nlink !== 1n || !sameFile(after,visible)) fail('physical');
         await verifyDirectories(parents,check);
       } catch (error) { failed=true;primary=error; }
@@ -91,7 +91,23 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
         if (bytes) try { fill(bytes,0); } catch (error) { errors.push(error); }
         if (errors.length) throw cleanupFailure(primary,failed,errors,openUncertain);throw primary;
       }
+      witnesses?.push({path:file,stat:visible});
       return bytes;
+    }
+    function assertPhysical(parents,witnesses) {
+      try {
+        for (const {path,stat} of parents) {
+          const current=syncIo.lstatSync(path,{bigint:true});
+          if (!current.isDirectory() || current.isSymbolicLink() || !sameObject(stat,current)) fail('physical_changed');
+        }
+        for (const {path,stat} of witnesses) {
+          const current=syncIo.lstatSync(path,{bigint:true});
+          if (!current.isFile() || current.isSymbolicLink() || current.nlink!==1n || !sameFile(stat,current)) fail('physical_changed');
+        }
+      } catch (error) {
+        if (error?.code==='work_data_blob.physical_changed') throw error;
+        fail('physical_changed');
+      }
     }
     async function census(dir,names,check) {
       let handle,failed=false,primary;const errors=[],actual=[];
@@ -108,22 +124,24 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
       if (errors.length) throw cleanupFailure(primary,failed,errors,true);
       if (failed) throw primary;check();
     }
-    async function operation(id,signal,work) {
+    async function operation(id,signal,work,trackPhysical=false) {
       if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(id)) fail('id');cancellation(signal);
       const ticket=await authority.capture(id);cancellation(signal);
       const check=() => { cancellation(signal);if (authority.assert(ticket,id) !== true) fail('revoked'); };
       check();const selected=descriptor(authority.describe(ticket,id));check();
-      let lease,manifest,result,failed=false,primary;const errors=[];
+      let lease,manifest,result,failed=false,primary,assertCurrent=check;const errors=[];
       try {
         lease=await WorkDataStore.acquireSnapshot(keys);check();
         const binding={purpose:selected.purpose,instanceId:lease.instanceId,schema:1,scopeId:selected.scopeId,recordId:selected.recordId,seq:0,generation:selected.generation};
         const dir=nodePath.join(root,selected.opaque,selected.revision),parents=await directories(dir,check);
-        const data=await physical(nodePath.join(dir,'manifest.json'),{bytes:selected.manifestBytes,sha256:selected.manifestSha256},check,parents);
+        const witnesses=trackPhysical ? [] : null;
+        if (witnesses) assertCurrent=()=>{check();assertPhysical(parents,witnesses);};
+        const data=await physical(nodePath.join(dir,'manifest.json'),{bytes:selected.manifestBytes,sha256:selected.manifestSha256},check,parents,witnesses);
         cleared(data,() => { manifest=WorkDataAttachmentChunks.openManifest({data,key:lease.key,binding,revision:selected.revision,maxBytes:WorkDataAttachmentChunks.MAX_BYTES}); });
         const names=['manifest.json',...Array.from({length:manifest.count},(_,index)=>WorkDataAttachmentChunks.partName(index))];
         await census(dir,names,check);
         const read=async ordinal => {
-          const row=manifest.chunks[ordinal];let encrypted=await physical(nodePath.join(dir,WorkDataAttachmentChunks.partName(ordinal)),{bytes:row.physicalBytes,sha256:row.physicalSha256},check,parents);
+          const row=manifest.chunks[ordinal];let encrypted=await physical(nodePath.join(dir,WorkDataAttachmentChunks.partName(ordinal)),{bytes:row.physicalBytes,sha256:row.physicalSha256},check,parents,witnesses);
           let bytes,failed=false,primary;const errors=[];
           try { bytes=WorkDataAttachmentChunks.openChunk({manifest,ordinal,data:encrypted,key:lease.key});check(); }
           catch (error) { failed=true;primary=error; }
@@ -134,31 +152,39 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
           }
           return bytes;
         };
-        result=await work({manifest,read,check,selected});check();
+        const sourceRevision=witnesses && (()=>sha(JSON.stringify([selected.opaque,selected.revision,selected.manifestSha256,
+          witnesses.map(({stat})=>['dev','ino','size','mtimeNs','ctimeNs'].map(key=>String(stat[key])))])));
+        result=await work({manifest,read,check,assertCurrent,sourceRevision});check();
         await census(dir,names,check);await verifyDirectories(parents,check);check();
       } catch (error) { failed=true;primary=error; }
       if (manifest) try { WorkDataAttachmentChunks.release(manifest); } catch (error) { errors.push(error); }
       if (lease) try { await lease.release(); } catch (error) { errors.push(error); }
-      if (!failed && !errors.length) try { check(); } catch (error) { failed=true;primary=error; }
+      if (!failed && !errors.length) try { assertCurrent(); } catch (error) { failed=true;primary=error; }
       if (failed || errors.length) {
         if (result) try { result.release(); } catch (error) { errors.push(error); }
         if (errors.length) throw cleanupFailure(primary,failed,errors);throw primary;
       }
       return result;
     }
-    function memoryLease(bytes,manifest,check,complete) {
+    function memoryLease(bytes,manifest,check,complete,sourceRevision) {
       const expected=sha(bytes);let released=false,cleanupCarrier;
       const release=() => {
         if (!released) { released=true;try { fill(bytes,0); } catch (error) { cleanupCarrier=cleanupFailure(undefined,false,[error]); } }
         if (cleanupCarrier) throw cleanupCarrier;
       };
       return Object.freeze({bytes,metadata:manifest.metadata,totalBytes:manifest.totalBytes,sha256:manifest.sha256,revision:manifest.revision,complete,
+        ...(sourceRevision ? {sourceRevision} : {}),
         assert() { if (cleanupCarrier) throw cleanupCarrier;if (released) fail('released');try { check();if (sha(bytes) !== expected) fail('lease_changed');return true; } catch (primary) { try { release(); } catch (error) { throw cleanupFailure(primary,true,[error]); } throw primary; } },release});
     }
-    async function readRange(id,start=0,end,{signal}={}) {
-      return operation(id,signal,async({manifest,read,check}) => {
+    async function readRange(id,start=0,end,{signal,originalName,sourceLimit}={}) {
+      const guarded=originalName!==undefined;
+      if (guarded && (!Number.isSafeInteger(sourceLimit) || sourceLimit<1)) fail('read_limit');
+      const limit=guarded ? Math.min(sourceLimit,maxReadBytes) : maxReadBytes;
+      return operation(id,signal,async({manifest,read,check,assertCurrent,sourceRevision}) => {
         if (end === undefined) end=manifest.totalBytes;
-        const indices=WorkDataAttachmentChunks.selectChunks(manifest,start,end);if (end-start > maxReadBytes) fail('read_limit');
+        if (guarded && (manifest.metadata.kind!=='original' || manifest.metadata.logicalName!==originalName
+          || start!==0 || end!==manifest.totalBytes)) fail('source_mismatch');
+        const indices=WorkDataAttachmentChunks.selectChunks(manifest,start,end);if (end-start > limit) fail('read_limit');
         let result=Buffer.alloc(end-start),written=0;const full=start===0&&end===manifest.totalBytes,digest=full?cryptoApi.createHash('sha256'):null;
         try {
           for (const ordinal of indices) {
@@ -166,9 +192,9 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
             cleared(bytes,() => { if (digest) digest.update(bytes);const offset=ordinal*WorkDataAttachmentChunks.CHUNK_BYTES,from=Math.max(0,start-offset),to=Math.min(bytes.length,end-offset);written+=bytes.copy(result,written,from,to);check(); });
           }
           if (written !== result.length || full&&digest.digest('hex') !== manifest.sha256) fail('whole_changed');
-          check();const lease=memoryLease(result,manifest,check,full);result=null;return lease;
+          assertCurrent();const lease=memoryLease(result,manifest,assertCurrent,full,sourceRevision?.());result=null;return lease;
         } catch (primary) { const errors=[];if (result) try { fill(result,0); } catch (error) { errors.push(error); }if (errors.length) throw cleanupFailure(primary,true,errors);throw primary; }
-      });
+      },guarded);
     }
     async function verifyWhole(id,{signal}={}) {
       return operation(id,signal,async({manifest,read,check}) => {
@@ -182,4 +208,4 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
     return Object.freeze({readRange,verifyWhole});
   }
   return Object.freeze({create});
-})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+})(require('node:fs/promises'),require('node:fs'),require('node:path'),require('node:crypto'));

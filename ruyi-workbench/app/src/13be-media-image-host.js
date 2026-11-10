@@ -18,7 +18,7 @@ const MediaImageHost = (() => {
     'Lib/site-packages/win32/lib/pywin32_bootstrap.py': 'fd31f27bc85a6b9c974670838b6eefafb32991be4a9f840f96a4f5524df3b3c3',
   });
   let processorPromise = null, processorOwner = null, preparedAny = false;
-  let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0;
+  let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0, sealedSourceCleanupUnknown = false;
   function processor() {
     // Paths are supplied by the application installation/environment, never by
     // browser JSON. There is no PATH lookup or cloud/installation fallback.
@@ -36,7 +36,11 @@ const MediaImageHost = (() => {
   // This cache is never replaced, including after configuration changes or a
   // failed request. Observe that same resolved owner without creating resources.
   function helperMayStillRun() {
-    return localHelperActive || localHelperUnknown || (processorOwner !== null && processorOwner.helperMayStillRun() !== false);
+    return localHelperActive || localHelperUnknown || sealedSourceCleanupUnknown || (processorOwner !== null && processorOwner.helperMayStillRun() !== false);
+  }
+  function sealedSourceCleanupFailure(cause) {
+    sealedSourceCleanupUnknown = true;
+    return Object.assign(Error('privacy.image_source_cleanup_unknown', { cause }), { helperMayStillRun: true });
   }
   function assertAncestors(target) {
     const absolute = path.resolve(target), parsed = path.parse(absolute); let current = parsed.root;
@@ -224,10 +228,46 @@ const MediaImageHost = (() => {
       });
     } finally { localHelperActive = false; }
   }
-  async function sourceFor({ id, name }, sessionId, scopeOwner) {
+  async function sourceFor({ id, name }, sessionId, scopeOwner, encrypted, signal) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string'
       || !name || name.length > 200 || name !== path.win32.basename(name) || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) fail('source_invalid');
-    const root = path.resolve(paths.uploads), file = path.join(root, id, name), directory = path.dirname(file);
+    const root = path.resolve(paths.uploads);
+    if (encrypted) {
+      if (sealedSourceCleanupUnknown) fail('source_cleanup_unknown');
+      if (typeof WorkDataAttachmentUploadHooks.captureImageSource !== 'function') fail('source_invalid');
+      const sourceLimit = MediaImageContract.LIMITS.sourceBytes;
+      let lease;
+      try { lease = await WorkDataAttachmentUploadHooks.captureImageSource({ id, name, signal, sourceLimit }); }
+      catch (error) {
+        if (error?.ownershipRetained === true) throw scopeOwner.retainCleanup(error, undefined, false, sealedSourceCleanupFailure(error));
+        throw error;
+      }
+      let released = false;
+      const assert = () => {
+        scopeOwner.assert();
+        if (sealedSourceCleanupUnknown) fail('source_cleanup_unknown');
+        if (released || path.resolve(paths.uploads) !== root) fail('source_changed');
+        try { return lease.assert(); }
+        catch (error) { throw error?.ownershipRetained === true ? sealedSourceCleanupFailure(error) : error; }
+      };
+      const release = () => {
+        if (released) return;
+        released = true;
+        try { lease.release(); }
+        catch (cleanup) { throw sealedSourceCleanupFailure(cleanup); }
+      };
+      try {
+        assert();
+        if (!lease.complete || lease.bytes.length < 1 || lease.bytes.length > sourceLimit) fail('source_invalid');
+        const snapshot = Object.freeze({ bytes: lease.bytes, hash: lease.sha256, revision: lease.sourceRevision, scope: hash(sessionId).slice(0, 32) });
+        return Object.freeze({ id, name, snapshot, assert, release });
+      } catch (error) {
+        try { release(); }
+        catch (cleanup) { throw scopeOwner.retainCleanup(lease,error,true,cleanup); }
+        throw error;
+      }
+    }
+    const file = path.join(root, id, name), directory = path.dirname(file);
     assertAncestors(directory);
     const visible = fs.lstatSync(file, { bigint: true });
     if (!visible.isFile() || visible.isSymbolicLink() || visible.nlink !== 1n || visible.size < 1n || visible.size > BigInt(MediaImageContract.LIMITS.sourceBytes)) fail('source_invalid');
@@ -292,7 +332,7 @@ const MediaImageHost = (() => {
         scopeOwner.assert();
         const policy=PrivacyGateway.captureMediaPolicy(); if(!policy)fail('protection_disabled');
         const recipient=currentRecipient(config);
-        source=await sourceFor(input,sessionId,scopeOwner); scopeOwner.assert();
+        source=await sourceFor(input,sessionId,scopeOwner,config.workDataEncryptionV1===true,signal); scopeOwner.assert();
         policy.assert();source.assert();
         const owner=await processor(); scopeOwner.assert(); policy.assert();source.assert();
         if(!MediaImageProcessor.isOwner(owner))fail('processor_unavailable');
@@ -321,6 +361,17 @@ const MediaImageHost = (() => {
       parts.push({ type: 'image_url', image_url: { url: service.referenceFor(attachment) } });
     }
     return parts;
+  }
+  function hasPreparedAttachment(file) {
+    if (!PrivacyGateway.active() || !MediaImageService.referenceId(file.protectedImage?.reference)) return false;
+    service.referenceFor(file);
+    return true;
+  }
+  function assertSealedSteerReference(file, sessionId, config) {
+    return PrivacyGateway.run(sessionId, config, () => {
+      if (!PrivacyGateway.captureMediaPolicy()) fail('protection_disabled');
+      return service.referenceFor(file);
+    });
   }
   function projectPart(part, detail) { return service.projectPart(part, detail); }
   async function beforeModelPost({ body, url, headers, signal }) {
@@ -476,9 +527,9 @@ const MediaImageHost = (() => {
   }
   PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
   Object.assign(ProviderMediaHooks, { beforeModelPost });
-  Object.assign(VisualMediaHooks, { buildUserContentParts });
+  Object.assign(VisualMediaHooks, { buildUserContentParts, hasPreparedAttachment });
   Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, prepareToolVisual, readLocalMediaFile, runLocalMediaHelper,
-    availability, handleApiRoutes, helperMayStillRun,
+    availability, handleApiRoutes, helperMayStillRun, assertSealedSteerReference,
     revokeScope: sessionId => service.revokeScope(sessionId) });
   return Object.freeze({ prepare });
 })();

@@ -79,11 +79,11 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
     output.writeUInt32BE(data.length); output.write(name, 4, 4, 'ascii'); data.copy(output, 8);
     output.writeUInt32BE(crc32(output.subarray(4, data.length + 8)), data.length + 8); return output;
   }
-  function encodeRgb(rgb, width, height, check) {
+  function encodeRgb(rgb, width, height, checkProgress) {
     const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 2;
     const rows = Buffer.alloc(height * (width * 3 + 1)); let compressed;
     try {
-      for (let y = 0; y < height; y++) { if (!(y % 64)) check(); rgb.copy(rows, y * (width * 3 + 1) + 1, y * width * 3, (y + 1) * width * 3); }
+      for (let y = 0; y < height; y++) { if (!(y % 64)) checkProgress(); rgb.copy(rows, y * (width * 3 + 1) + 1, y * width * 3, (y + 1) * width * 3); }
       compressed = zlibApi.deflateSync(rows);
       const result = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', header), chunk('IDAT', compressed), chunk('IEND', Buffer.alloc(0))]);
       if (result.length > LIMITS.outputBytes) { fillBuffer(result, 0); fail('output_limit'); }
@@ -163,9 +163,12 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
       if (preparing || active.size >= LIMITS.artifacts) fail('busy'); preparing = true;
       const initialEpoch = epoch;
       let source, policy, processor, stamp, sourceBytes, rgba, rgb, output, job, issued, returned = false, failed = false, primary;
-      const check = () => {
+      const checkProgress = () => {
         if (epoch !== initialEpoch) fail('invalidated');
         checkTime(signal, deadline);
+      };
+      const check = () => {
+        checkProgress();
         if (source) sync(() => sourceOwner.assert(source));
         if (policy) sync(() => policyOwner.assert(policy));
         if (processor) sync(() => processorOwner.assert(processor));
@@ -252,26 +255,32 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
             || explicit.transformHash !== sha(JSON.stringify({width:transform.width,height:transform.height,orientation:transform.orientation}))) fail('region_binding');
           boxes.push(...explicit.boxes.map(value => box(value, width, height)));
         } else boxes.push(...explicitBoxes(explicit, source, frame));
+        check();
         for (const code of frame.codes) {
-          check();
+          checkProgress();
           if (!code || typeof code.text !== 'string' || code.text.length > LIMITS.text || !['qr', 'barcode'].includes(code.kind)) fail('code_invalid');
           const rectangle = box(code.box, width, height);
           if (detector.detect(code.text).length) boxes.push(rectangle);
         }
         if (boxes.length > LIMITS.regions) fail('region_limit');
+        // Poll interruption inside synchronous code and pixel loops. Revalidate
+        // source, policy and processor at each step boundary.
+        check();
         rgb = Buffer.alloc(width * height * 3);
         // Discard hidden RGB under alpha by compositing onto an opaque white
         // surface. Never copy ancillary metadata, EXIF, source chunks or name.
         for (let y = 0; y < height; y++) {
-          if (!(y % 64)) check();
+          if (!(y % 64)) checkProgress();
           for (let x = 0; x < width; x++) { const a = (y * width + x) * 4, b = (y * width + x) * 3, alpha = rgba[a + 3];
             for (let channel = 0; channel < 3; channel++) rgb[b + channel] = Math.round((rgba[a + channel] * alpha + 255 * (255 - alpha)) / 255);
           }
         }
+        check();
         for (const [left, top, right, bottom] of boxes) {
-          for (let y = top; y < bottom; y++) { if (!(y % 64)) check(); fillBuffer(rgb, 0, (y * width + left) * 3, (y * width + right) * 3); }
+          for (let y = top; y < bottom; y++) { if (!(y % 64)) checkProgress(); fillBuffer(rgb, 0, (y * width + left) * 3, (y * width + right) * 3); }
         }
-        output = encodeRgb(rgb, width, height, check); check();
+        check();
+        output = encodeRgb(rgb, width, height, checkProgress); check();
         const token = Object.freeze(Object.create(null));
         const manifest = Object.freeze({ schema: 1, type: 'protected-image', mime: 'image/png', name: 'protected.png',
           scope: source.scope, sourceHash: source.hash, sourceRevision: source.revision,

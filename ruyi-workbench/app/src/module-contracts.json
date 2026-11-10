@@ -1560,6 +1560,13 @@
       ],
       "requires": [
         {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01af-work-data-attachment-chunks.js",
           "symbol": "WorkDataAttachmentChunks",
           "kinds": [
@@ -17567,6 +17574,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "MigrationHooks",
           "kinds": [
             "read"
@@ -30720,6 +30734,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -31183,7 +31204,8 @@
       "layer": "unclassified",
       "provides": [
         "attachmentRuntimes",
-        "sealUpload"
+        "sealUpload",
+        "sealedOriginalUploadRuntime"
       ],
       "requires": [
         {

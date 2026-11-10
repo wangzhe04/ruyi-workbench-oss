@@ -18,6 +18,7 @@ export { prepareProtectedImages } from './protected-image-state.js';
 
 const IMAGE_NAME_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
 const UPLOAD_MAX_BYTES = 90 * 1048576;
+const needsProtectedPreview = record => isProtectedImage(record) && (state.config?.privacyModeV1 || 'off') !== 'off';
 
 export function createAttachmentTray({ apiErrText = error => String((error && error.message) || error || ''), onChange = () => {} } = {}) {
   const pendingUploads = [];   // 「上传中…」占位 { name, size, controller, cancelled },与 state.uploading 同步
@@ -34,7 +35,8 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
     tray.innerHTML = '';
     state.attachments.forEach((f, i) => {
       const pill = el('span', 'attachment-pill');
-      if (f.previewUrl) {
+      const protectedPreview = needsProtectedPreview(f);
+      if (f.previewUrl && (!protectedPreview || (f.protectedImage && !f.imageReviewRequired))) {
         const thumb = document.createElement('img');
         thumb.className = 'attach-pill-thumb';
         thumb.src = f.previewUrl;
@@ -42,7 +44,7 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
         pill.appendChild(thumb);
       }
       pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
-      if (isProtectedImage(f) && state.config?.privacyModeV1 !== 'off') {
+      if (protectedPreview) {
         const preview = el('button', 'attach-protected-preview', t(f.imageBasePreview ? 'mediaImage.editRegions' : 'mediaImage.reviewCurrent'));
         preview.type = 'button';
         preview.dataset.imageAttachmentId = String(f.id);
@@ -124,7 +126,9 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
         // 取消／清场之后才回来的结果不进托盘（服务端已落盘的那份文件不会被引用，无害）。
         if (slot.cancelled || generation !== stageGeneration) continue;
         const record = res.file;
-        if (record && IMAGE_NAME_RE.test(String(record.name || ''))) record.previewUrl = URL.createObjectURL(file);
+        if (record && IMAGE_NAME_RE.test(String(record.name || '')) && !needsProtectedPreview(record)) {
+          record.previewUrl = URL.createObjectURL(file);
+        }
         if (record) state.attachments.push(record);
         if (record && state.currentSession?.id) await prepareProtectedImages([record], state.currentSession.id, { signal:slot.controller.signal });
       } catch (e) {

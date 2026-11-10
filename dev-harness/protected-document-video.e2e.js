@@ -9,6 +9,7 @@ const path = require('node:path');
 const { inflateSync } = require('node:zlib');
 const { createRunner } = require('./lib/harness');
 const { startFakeProvider, toolCallFrames, textFrames } = require('./lib/fake-openai-provider');
+const { startFakeAnthropic, messageEvents } = require('./lib/fake-anthropic-provider');
 const { releaseEnvironment } = require('./lib/release-checks');
 const { makeVideoFixture, audioCanary, metadataCanary } = require('./lib/media-video-fixture');
 const { protectedPdf, protectedDocx, protectedPptx } = require('./lib/protected-document-fixtures');
@@ -21,7 +22,7 @@ function images(body) {
     .flatMap(message => message.content.filter(item => item.type === 'image_url').map(item => item.image_url.url));
 }
 
-function hasOpaqueMask(url) {
+function hasOpaqueMask(url, region) {
   // The production derivative uses RGB PNG, filter zero, and no source chunks.
   // The fixture draws one ordinary word. Eight successive horizontal runs of
   // 64 black pixels establish a filled redaction rectangle, beyond any glyph.
@@ -34,17 +35,96 @@ function hasOpaqueMask(url) {
     at += length + 12;
   }
   const raw = inflateSync(Buffer.concat(chunks), { maxOutputLength: stride * height });
+  const pixel = (x, y) => y * stride + 1 + x * 3;
+  const isRgb = (offset, value) => raw[offset] === value && raw[offset + 1] === value && raw[offset + 2] === value;
+  if (region) {
+    // The fixture is 320 × 220 PDF points, rendered at 2×. The bottom-right
+    // background must survive unmasked. The text starts at (32, 180) points.
+    if (width !== 640 || height !== 440 || !isRgb(pixel(600, 400), 255) || !isRgb(pixel(400, 200), 255)) return false;
+  }
+  const { left, right, top, bottom } = region || { left: 0, right: width, top: 0, bottom: height };
   let rows = 0;
-  for (let y = 0; y < height; y++) {
+  for (let y = top; y < bottom; y++) {
     let run = 0, longest = 0;
-    for (let x = y * stride + 1; x < (y + 1) * stride; x += 3) {
-      run = raw[x] === 0 && raw[x + 1] === 0 && raw[x + 2] === 0 ? run + 1 : 0;
+    for (let x = left; x < right; x++) {
+      run = isRgb(pixel(x, y), 0) ? run + 1 : 0;
       longest = Math.max(longest, run);
     }
     rows = longest >= 64 ? rows + 1 : 0;
     if (rows >= 8) return true;
   }
   return false;
+}
+
+function anthropicImageBlocks(value) {
+  if (Array.isArray(value)) return value.flatMap(anthropicImageBlocks);
+  if (value === null || typeof value !== 'object') return [];
+  if (value.type === 'image') return [value];
+  return Object.values(value).flatMap(anthropicImageBlocks);
+}
+
+async function checkAnthropicPage(app, workspace, pdf, keyword) {
+  const callId = 'toolu_local_media';
+  const followUpId = 'toolu_after_media';
+  const model = 'claude-fixture';
+  let iteration = 0;
+  const fake = await startFakeAnthropic({ handler(request) {
+    if (!request.stream || ++iteration > 2) return messageEvents({ model, text: 'Synthetic answer.' });
+    const toolUse = iteration === 1
+      ? { id: callId, name: 'file_read', input: { path: 'sample.pdf', as: 'image', pageLimit: 1 } }
+      : { id: followUpId, name: 'file_read', input: { path: 'follow-up.txt' } };
+    return messageEvents({ model, toolUses: [toolUse] });
+  } });
+  try {
+    const provider = { id: 'messages-fixture', label: 'Messages fixture', type: 'openai-compat',
+      apiStyle: 'anthropic', baseUrl: fake.url, apiKey: 'synthetic-messages-key', model, vision: true };
+    await app.mutateConfig(config => { config.providers.push(provider); });
+    const session = await app.createSession({ title: 'Protected PDF Messages fixture', cwd: workspace,
+      engineRoute: { engine: 'openai', providerId: provider.id, model } });
+    const events = [];
+    const { result } = await app.runSessionTurn({ sessionId: session.id, cwd: workspace, source: 'http',
+      message: 'Inspect the requested local visual material.', onEvent: event => events.push(event) });
+    assert.equal(result.ok, true);
+    assert.deepEqual(fake.errors, []);
+    const captured = fake.requests.filter(request => request.stream);
+    assert.equal(captured.length, 3);
+    assert.ok(captured.every(request => request.url === '/v1/messages'));
+    const pageResult = captured[1].messages.at(-1);
+    assert.equal(pageResult.role, 'user');
+    const [receipt] = pageResult.content;
+    assert.equal(receipt.type, 'tool_result');
+    assert.equal(receipt.tool_use_id, callId);
+    const page = JSON.parse(receipt.content);
+    assert.equal(page.ok, true);
+    assert.equal(page.projection, 'pdf-pages');
+    const sent = anthropicImageBlocks(captured[1].body);
+    assert.equal(sent.length, 1);
+    assert.ok(pageResult.content.includes(sent[0]), 'the PDF page follows its tool result in the same user message');
+    const source = sent[0].source;
+    assert.equal(source.type, 'base64');
+    assert.equal(source.media_type, 'image/png');
+    assert.match(source.data, /^iVBORw0KGgo/);
+    assert.ok(hasOpaqueMask('data:image/png;base64,' + source.data, { left: 48, top: 40, right: 350, bottom: 100 }),
+      'wire PNG masks the synthetic text region while preserving white background');
+    const followUpReceipt = captured[2].messages.at(-1).content[0];
+    assert.equal(followUpReceipt.type, 'tool_result');
+    assert.equal(followUpReceipt.tool_use_id, followUpId);
+    assert.equal(JSON.parse(followUpReceipt.content).ok, true);
+    const absent = [keyword, pdf.toString('base64'), 'UNEXPOSED', 'https://ruyi.invalid/protected-image/'];
+    for (const request of fake.requests) {
+      assert.ok(absent.every(marker => !request.raw.includes(marker)));
+      if (request !== captured[1]) {
+        assert.deepEqual(anthropicImageBlocks(request.body), []);
+        assert.ok(!request.raw.includes(source.data));
+      }
+    }
+    for (const value of [JSON.stringify(await app.loadSession(session.id)), JSON.stringify(events)]) {
+      assert.ok(absent.every(marker => !value.includes(marker)) && !value.includes(source.data));
+    }
+    runner.ok(true, 'Anthropic Messages receives the masked PDF page only on the matching tool-result request');
+  } finally {
+    await fake.close();
+  }
 }
 
 async function main() {
@@ -163,11 +243,13 @@ async function main() {
       runner.ok(true, plan.label + ': real file_read supplies the authorized projection without original media');
     }
     if (full) {
+      await checkAnthropicPage(app, workspace, pdf, keyword);
       await app.mutateConfig(config => { config.privacyModeV1 = 'off'; });
       plan = { args: { path: 'sample.avi', as: 'image', frameCount: 1 }, visual: false };
       iteration = 0;
       const first = fake.requests.length;
-      const session = await app.createSession({ title: 'Ordinary video fixture', cwd: workspace });
+      const session = await app.createSession({ title: 'Ordinary video fixture', cwd: workspace,
+        engineRoute: { engine: 'openai', providerId: provider.id, model: provider.model } });
       const { result } = await app.runSessionTurn({ sessionId: session.id, message: 'Read a local video still.', cwd: workspace, source: 'http', onEvent() {} });
       assert.equal(result.ok, true);
       const captured = fake.requests.slice(first).filter(request => request.stream).map(request => JSON.parse(request.raw));

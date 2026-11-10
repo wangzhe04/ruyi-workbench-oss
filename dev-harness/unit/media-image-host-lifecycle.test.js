@@ -4,17 +4,18 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const root=p.resolve(__dirname,'../../ruyi-workbench/app/src');
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 function deferred(){let resolve,entered;const wait=new Promise(r=>resolve=r),ready=new Promise(r=>entered=r);return{wait,ready,resolve,entered};}
-function fixture(boundary,{deleted=false,recreated=false,maintenanceRefuses=false,closeFails=false}={}){
+function fixture(boundary,{deleted=false,recreated=false,maintenanceRefuses=false,closeFails=false,captureImageSource}={}){
   const wait=deferred();let opens=0,closes=0,reads=0,starts=0,processorCreates=0,managedCalls=0,current='sess_A',capturedPolicy;
   const checkpoints=[];async function checkpoint(name){checkpoints.push(name);if(name===boundary){wait.entered();await wait.wait;}}
-  const config={privacyModeV1:'on',workDataEncryptionV1:false},policyConfig={personal:true,rules:[]};
+  const config={privacyModeV1:'on',workDataEncryptionV1:typeof captureImageSource==='function'},policyConfig={personal:true,rules:[]};
   const policy={config:policyConfig,hash:sha(JSON.stringify(policyConfig)),rulesHash:sha('rules'),revision:'p1',assert:()=>true};
   const sourceBytes=Buffer.alloc(32,7),stat={dev:1n,ino:2n,size:32n,mtimeNs:3n,ctimeNs:4n,nlink:1n,isFile:()=>true,isDirectory:()=>false,isSymbolicLink:()=>false};
   const directory={isDirectory:()=>true,isSymbolicLink:()=>false};
   const processorSnapshot={hash:sha('processor'),version:'v1'};
   const processor={capture:()=>processorSnapshot,assert:()=>true,start(request){starts++;return{promise:Promise.resolve({rgba:Buffer.alloc(12*12*4,255),width:12,height:12,sourceHash:request.sourceHash,processorHash:processorSnapshot.hash,
     frames:1,orientationApplied:true,ocrComplete:true,codesComplete:true,transform:{width:12,height:12,orientation:1},words:[{text:'person@example.test',line:0,box:[1,1,5,5]}],codes:[]}),finish:()=>({closed:true,helperMayStillRun:false,ownershipRetained:false})};}};
-  const hooks={},privacy={active:()=>({scopeId:current}),run:(id,conf,work)=>{current=id;return work();},captureMediaPolicy:()=>policy,setHost:value=>capturedPolicy=value};
+  const hooks={},privacy={active:()=>({scopeId:current}),run:(id,conf,work)=>{current=id;return work();},assertPolicyAvailable(){},
+    captureMediaPolicy:()=>policy,setHost:value=>capturedPolicy=value};
   const sandbox={require,Buffer,Headers,setTimeout,clearTimeout,crypto,path:p,process:{platform:process.platform,env:{}},
     paths:{uploads:p.resolve('fixture-uploads'),data:p.resolve('fixture-data')},externalRoot:()=>p.resolve('fixture-app'),
     fs:{lstatSync:file=>file.endsWith('.png')?stat:directory,fstatSync:()=>stat,realpathSync:{native:file=>file}},
@@ -23,15 +24,15 @@ function fixture(boundary,{deleted=false,recreated=false,maintenanceRefuses=fals
     async readConfig(){await checkpoint('config');return config;},async loadSession(id){await checkpoint('session');return{id,createdAt:recreated?'new':'old'};},
     sessionSaveIsTombstoned:session=>deleted&&session.createdAt==='old',
     PrivacyGateway:privacy,WorkDataMaintenanceHooks:{run(kind,work){managedCalls++;if(maintenanceRefuses)throw Error('maintenance refusing');return work();}},
-    WorkDataStore:{requireKeys:()=>({})},atomicWriteJson:()=>{throw Error('actual writes forbidden');},
+    WorkDataStore:{requireKeys:()=>({})},WorkDataAttachmentUploadHooks:{captureImageSource},atomicWriteJson:()=>{throw Error('actual writes forbidden');},
     MediaDerivedStore:{create:({authority})=>{let value;return{async put(input){const captured=await authority.capture(input.sourceId);authority.assert(captured);value={...input,bytes:Buffer.from(input.bytes),captured};return{id:'mimg_'+('0'.repeat(32))};},async read(){const bytes=Buffer.from(value.bytes);return{bytes,manifest:value.manifest,assert:()=>authority.assert(value.captured),release:()=>bytes.fill(0)};},async remove(){value?.bytes.fill(0);value=null;},async dispose(){value?.bytes.fill(0);value=null;}};}},
     MediaImageProcessor:{async create(){processorCreates++;await checkpoint('processorOwner');return processor;},isOwner:owner=>owner===processor},
     activeOpenAiProvider:()=>({vision:true,model:'synthetic',baseUrl:'https://model.invalid'}),providerWireProtocol:()=>({completionUrl:x=>x,requestHeaders:()=>({'X-Tenant':'synthetic'})}),
-    ProviderMediaHooks:{},VisualMediaHooks:{},MediaImageHooks:hooks};
+    ProviderMediaHooks:{},MediaImageHooks:hooks};
   const core=['01i-privacy-rules.js','01h-privacy-core.js','13ba-media-image-contract.js'].map(name=>fs.readFileSync(p.join(root,name),'utf8')).join('\n');
-  const sourceNames=['13bd-media-image-service.js','13be-media-image-host.js'];
+  const sourceNames=['04-visual-pipeline.js','13bd-media-image-service.js','13be-media-image-host.js'];
   const code=core+'\n'+sourceNames.map(name=>fs.readFileSync(p.join(root,name),'utf8')).join('\n');
-  const api=vm.runInNewContext(code+';({MediaImageHost});',sandbox);
+  const api=vm.runInNewContext(code+';({MediaImageHost,VisualPipeline});',sandbox);
   return{api,hooks,wait,stats:()=>({opens,closes,reads,starts,processorCreates,managedCalls}),
     prepare:()=>api.MediaImageHost.prepare({sessionId:'sess_A',id:'file_A',name:'image.png'}),
     async entered(){await wait.ready;},unblock:()=>wait.resolve(),invalidate:()=>capturedPolicy.invalidateMedia()};
@@ -60,4 +61,43 @@ for(const boundary of ['read','processorOwner'])test('host retains the failed so
   // may open, even though every revoked epoch has already lost send authority.
   for(let i=0;i<3;i++)await a.rejects(f.prepare(),e=>e.code==='privacy.image_cleanup_failed');
   const before=f.stats().opens;await a.rejects(f.prepare(),e=>e.code==='privacy.image_busy');a.equal(f.stats().opens,before);
+});
+test('an uncertain sealed-source close blocks fresh captures and remains visible to maintenance',async()=>{
+  let captures=0,releases=0;
+  const gate=deferred();
+  const f=fixture(undefined,{captureImageSource:async()=>{
+    captures++;
+    if (captures===1) {
+      gate.entered();await gate.wait;
+      const bytes=Buffer.from('sealed fixture');
+      return {bytes,sha256:sha(bytes),sourceRevision:sha('sealed physical'),complete:true,assert:()=>true,
+        release(){releases++;bytes.fill(0);}};
+    }
+    throw Object.assign(Error('work_data_blob.cleanup'),{code:'work_data_blob.cleanup',ownershipRetained:true,resourceMayStillBeOpen:true});
+  }});
+  const pending=f.prepare(),rejected=a.rejects(pending,{code:'privacy.image_source_cleanup_unknown'});
+  await gate.ready;
+  a.equal(f.hooks.helperMayStillRun(),false);
+  await a.rejects(f.prepare(),error=>error.code==='privacy.image_cleanup_failed'&&error.ownershipRetained===true&&error.helperMayStillRun===true);
+  a.equal(f.hooks.helperMayStillRun(),true);
+  gate.resolve();await rejected;
+  await a.rejects(f.prepare(),{code:'privacy.image_source_cleanup_unknown'});
+  a.equal(captures,2);a.equal(releases,1);a.equal(f.stats().opens,0);a.equal(f.stats().processorCreates,0);
+});
+test('prepared pathless image enters only the native visual gate and remains bound to the original session',async()=>{
+  const bytes=Buffer.from('sealed source fixture');
+  const f=fixture(undefined,{captureImageSource:async()=>({bytes,sha256:sha(bytes),sourceRevision:sha('sealed physical'),
+    complete:true,assert:()=>true,release:()=>bytes.fill(0)})});
+  const prepared=await f.prepare();
+  const file={id:'file_A',name:'image.png',kind:'image',protectedImage:{reference:prepared.reference}};
+  a.equal(f.api.VisualPipeline.hasImageAttachment([file]),false,'the default CLI classifier remains path-only');
+  a.equal(f.api.VisualPipeline.hasImageAttachment([file],{protectedNative:true}),true);
+  const parts=await f.api.VisualPipeline.buildUserContentParts('Describe the protected image.',[file]);
+  a.equal(parts[1].image_url.url,prepared.reference);
+  const config={privacyModeV1:'on',workDataEncryptionV1:true};
+  a.equal(await f.hooks.assertSealedSteerReference(file,'sess_A',config),prepared.reference);
+  await a.rejects(async()=>f.hooks.assertSealedSteerReference(file,'sess_B',config),{code:'privacy.image_scope_changed'});
+  await f.hooks.revokeScope('sess_A');
+  await a.rejects(async()=>f.hooks.assertSealedSteerReference(file,'sess_A',config),{code:'privacy.image_expired'});
+  a.ok(bytes.every(byte=>byte===0));
 });

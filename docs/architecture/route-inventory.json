@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-05T05:23:30.490Z",
+  "generatedAt": "2026-11-10T09:48:03.130Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1598,6 +1598,7 @@
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\scheduled-playbooks.browser.e2e.js",
         "dev-harness\\scheduled-playbooks.e2e.js",
+        "dev-harness\\session-search.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
@@ -2800,13 +2801,16 @@
         "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
+        "dev-harness\\session-search.e2e.js",
         "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
         "dev-harness\\upload-range.e2e.js",
-        "dev-harness\\vision-loop.e2e.js"
+        "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\work-data-production-restore-encrypted.browser.e2e.js",
+        "dev-harness\\work-data-root-authority.e2e.js"
       ]
     },
     {
@@ -2828,7 +2832,8 @@
         "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
         "dev-harness\\upload-range.e2e.js",
-        "dev-harness\\vision-loop.e2e.js"
+        "dev-harness\\vision-loop.e2e.js",
+        "dev-harness\\work-data-production-restore-encrypted.browser.e2e.js"
       ]
     },
     {
@@ -3047,6 +3052,7 @@
         "dev-harness\\vision-loop.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\websearch.e2e.js",
+        "dev-harness\\work-data-root-authority.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -3497,7 +3503,8 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\migration-center.e2e.js"
+        "dev-harness\\migration-center.e2e.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js"
       ]
     },
     {
@@ -3529,7 +3536,8 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\migration-center.e2e.js"
+        "dev-harness\\migration-center.e2e.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js"
       ]
     },
     {
@@ -3776,7 +3784,8 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
-        "dev-harness\\unit\\steer-attachments.test.js"
+        "dev-harness\\unit\\steer-attachments.test.js",
+        "dev-harness\\work-data-root-authority.e2e.js"
       ]
     },
     {
@@ -3804,7 +3813,8 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
-        "dev-harness\\unit\\steer-attachments.test.js"
+        "dev-harness\\unit\\steer-attachments.test.js",
+        "dev-harness\\work-data-root-authority.e2e.js"
       ]
     },
     {
@@ -3994,7 +4004,9 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\media-resource-profile.e2e.js",
-        "dev-harness\\unit\\media-resource-profile.test.js"
+        "dev-harness\\privacy-failure.browser.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
+        "dev-harness\\work-data-root-authority.e2e.js"
       ]
     },
     {
@@ -4011,7 +4023,9 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\media-resource-profile.e2e.js",
-        "dev-harness\\unit\\media-resource-profile.test.js"
+        "dev-harness\\privacy-failure.browser.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
+        "dev-harness\\work-data-root-authority.e2e.js"
       ]
     },
     {
@@ -4028,7 +4042,9 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\media-resource-profile.e2e.js",
-        "dev-harness\\unit\\media-resource-profile.test.js"
+        "dev-harness\\privacy-failure.browser.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
+        "dev-harness\\work-data-root-authority.e2e.js"
       ]
     },
     {
@@ -4146,6 +4162,7 @@
         "dev-harness\\anthropic-fake.e2e.js",
         "dev-harness\\anthropic-gateway-setup.e2e.js",
         "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\attachment-http-roundtrip.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\audit.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
@@ -4461,6 +4478,7 @@
         "dev-harness\\anthropic-fake.e2e.js",
         "dev-harness\\anthropic-gateway-setup.e2e.js",
         "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\attachment-http-roundtrip.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\audit.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
@@ -4768,6 +4786,7 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\artifacts.e2e.js",
+        "dev-harness\\attachment-http-roundtrip.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\autocompact.e2e.js",

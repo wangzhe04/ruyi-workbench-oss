@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4355 | 4303 | 947 | 67 | 0 | 1 |
+| 141 | 4356 | 4306 | 948 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -43,7 +43,7 @@
 | 25 | `01x-work-data-migration-codecs.js` | foundation | 1 | 3 | 3 |
 | 26 | `01z-work-data-root-authority.js` | foundation | 1 | 8 | 3 |
 | 27 | `01af-work-data-attachment-chunks.js` | unclassified | 1 | 1 | 1 |
-| 28 | `01ag-work-data-attachment-reader.js` | unclassified | 1 | 2 | 2 |
+| 28 | `01ag-work-data-attachment-reader.js` | unclassified | 1 | 3 | 3 |
 | 29 | `01ah-work-data-attachment-catalog.js` | unclassified | 1 | 1 | 1 |
 | 30 | `01ai-work-data-attachment-store.js` | unclassified | 1 | 1 | 1 |
 | 31 | `01aj-work-data-attachment-catalogs.js` | unclassified | 1 | 4 | 4 |
@@ -101,7 +101,7 @@
 | 83 | `12-tool-dispatch.js` | tools | 79 | 149 | 23 |
 | 84 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
 | 85 | `13-http-router.js` | transport | 75 | 267 | 34 |
-| 86 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
+| 86 | `13b-api-domain-routes.js` | transport | 41 | 69 | 11 |
 | 87 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 88 | `13d-core-domain-routes.js` | transport | 69 | 140 | 17 |
 | 89 | `13e-pretender-index.js` | transport | 61 | 44 | 9 |
@@ -148,12 +148,12 @@
 | 130 | `13bb-media-derived-store.js` | unclassified | 1 | 3 | 3 |
 | 131 | `13bc-media-image-processor.js` | unclassified | 1 | 2 | 1 |
 | 132 | `13bd-media-image-service.js` | unclassified | 1 | 1 | 1 |
-| 133 | `13be-media-image-host.js` | unclassified | 1 | 30 | 14 |
+| 133 | `13be-media-image-host.js` | unclassified | 1 | 31 | 14 |
 | 134 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 19 | 15 |
 | 135 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 136 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
 | 137 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 9 |
-| 138 | `13ax-work-data-attachment-upload.js` | unclassified | 2 | 9 | 5 |
+| 138 | `13ax-work-data-attachment-upload.js` | unclassified | 3 | 9 | 5 |
 | 139 | `13au-work-data-runtime-host.js` | unclassified | 2 | 19 | 14 |
 | 140 | `14-main.js` | entrypoint | 8 | 604 | 53 |
 
@@ -198,6 +198,7 @@
 | `01ad-work-data-migration-host.js` | `01x-work-data-migration-codecs.js` | backward | `WorkDataMigrationCodecs` |
 | `01ae-work-data-maintenance-result.js` | `00-boot.js` | backward | `path`, `text` |
 | `01af-work-data-attachment-chunks.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
+| `01ag-work-data-attachment-reader.js` | `00-boot.js` | backward | `path` |
 | `01ag-work-data-attachment-reader.js` | `01af-work-data-attachment-chunks.js` | backward | `WorkDataAttachmentChunks` |
 | `01ag-work-data-attachment-reader.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `01ah-work-data-attachment-catalog.js` | `00-boot.js` | backward | `text` |
@@ -777,7 +778,7 @@
 | `13ax-work-data-attachment-upload.js` | `01ak-work-data-attachment-runtime.js` | backward | `WorkDataAttachmentRuntime` |
 | `13ax-work-data-attachment-upload.js` | `02-session-store.js` | backward | `toolImageSessionTag`, `workDataKeys` |
 | `13ax-work-data-attachment-upload.js` | `04-permission-runtime.js` | backward | `sanitizeFsSegmentName` |
-| `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MediaImageHooks`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
 | `13b-api-domain-routes.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
@@ -795,7 +796,7 @@
 | `13bb-media-derived-store.js` | `01x-work-data-migration-codecs.js` | backward | `WorkDataMigrationCodecs` |
 | `13bc-media-image-processor.js` | `00-boot.js` | backward | `VERSION`, `text` |
 | `13bd-media-image-service.js` | `13ba-media-image-contract.js` | backward | `MediaImageContract` |
-| `13be-media-image-host.js` | `00-boot.js` | backward | `MediaImageHooks`, `URL`, `WorkDataMaintenanceHooks`, `apiFailure`, `crypto`, `externalRoot`, `fs`, `fsp`, `json`, `path`, `paths` |
+| `13be-media-image-host.js` | `00-boot.js` | backward | `MediaImageHooks`, `URL`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `apiFailure`, `crypto`, `externalRoot`, `fs`, `fsp`, `json`, `path`, `paths` |
 | `13be-media-image-host.js` | `01-config.js` | backward | `assertSessionIdForPath`, `atomicWriteJson`, `readConfig`, `readJsonBody`, `send`, `tokenOk` |
 | `13be-media-image-host.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13be-media-image-host.js` | `02-session-store.js` | backward | `loadSession`, `sessionSaveIsTombstoned` |

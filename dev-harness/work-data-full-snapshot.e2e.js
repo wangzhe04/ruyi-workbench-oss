@@ -5,14 +5,16 @@
 require('./lib/self-isolate-home');
 const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
 const assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {once}=require('node:events');
 const {releaseEnvironment}=require('./lib/release-checks'),{killOwnTree}=require('./lib/kill-own-tree');
 const {createRunner}=require('./lib/harness');
-const temporaryParent=path.resolve(os.tmpdir());
-const childMode=process.argv.includes('--verify')||process.argv.includes('--verify-capsule');
+const temporaryParent=fs.realpathSync(os.tmpdir());
+const childMode=['--verify','--verify-capsule','--seed-media'].includes(process.argv[2]);
 const root=childMode?null:fs.mkdtempSync(path.join(temporaryParent,'ruyi-full-snapshot-native-'));
 if(root){const isolated=releaseEnvironment(path.join(root,'home'),path.join(root,'source'));for(const key of Object.keys(process.env))if(!Object.hasOwn(isolated,key))delete process.env[key];Object.assign(process.env,isolated);}
 const {loadServerInternals}=require('./lib/server-internals');
-const api=loadServerInternals(['WorkDataKeys','WorkDataStore','WorkDataRecovery','WorkDataFullSnapshot','ServerOwnership','LocalSecretCrypto','ExternalBotCredentials','CredentialVault','PrivacyCore','atomicWriteJson','VERSION','WorkDataNativeAdapters','WorkDataColdOperations','WorkDataVerifierEntry','MigrationHooks','migrationCopySkills','migrationLogs','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','migrationUndoSkillCopy','readConfig','writeConfig','workDataKeys','flushWorkbenchLogs']);
+const api=loadServerInternals(['WorkDataKeys','WorkDataStore','WorkDataRecovery','WorkDataFullSnapshot','ServerOwnership','LocalSecretCrypto','ExternalBotCredentials','CredentialVault','PrivacyCore','atomicWriteJson','VERSION','WorkDataNativeAdapters','WorkDataColdOperations','WorkDataVerifierEntry','MigrationHooks','migrationCopySkills','migrationLogs','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','migrationUndoSkillCopy','readConfig','writeConfig','workDataKeys','flushWorkbenchLogs',
+  'MediaDerivedStore','MediaImageService','WorkDataMigrationCodecs']);
 const password='synthetic native fullsnapshot password only',leases=[],owners=new Set(),keys=[],vaults=[];
 const digest=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 async function acquire(base){const owner=await api.ServerOwnership.acquire([base]);owners.add(owner);return owner;}
@@ -32,8 +34,94 @@ function vaultAt(base){const file=path.join(base,'credential-vault-v1.json');con
   write:value=>api.atomicWriteJson(file,value),invalidate(){}}});vaults.push(v);return v;}
 const head=(base,k,id)=>api.WorkDataStore.createText({file:()=>path.join(base,'sessions',id+'.json'),purpose:'session',schema:2,
  scopeId:'sessions',recordId:id,keys:k,enabled:()=>true,writeJson:api.atomicWriteJson});
+const mediaSession='sess_native_media', mediaScope=digest(mediaSession).slice(0,32);
+const mediaDirectory=base=>path.join(base,'media-derived-v1',mediaScope);
+const mediaRelative=id=>'media-derived-v1/'+mediaScope+'/'+id+'.json';
+const mediaStore=(base,key,authority)=>api.MediaDerivedStore.create({root:mediaDirectory(base),scopeId:mediaScope,
+ keys:key,enabled:()=>true,writeJson:api.atomicWriteJson,authority});
+const mediaCodec=(sourceRoot,targetRoot,sourceKeys,targetKeys)=>api.WorkDataMigrationCodecs.create({
+ sourceRoot,targetRoot,sourceKeys,targetKeys,writeJson:api.atomicWriteJson,
+});
+const mediaRecipient='f'.repeat(64);
+const mediaBody=reference=>({messages:[{role:'user',content:[{type:'image_url',image_url:{url:reference}}]}]});
+async function seedProtectedMedia(){
+ const base=process.env.RUYI_HOME,fixtureRoot=path.dirname(base);
+ assert.equal(path.basename(base),'source');
+ assert.match(path.basename(fixtureRoot),/^ruyi-full-snapshot-native-[A-Za-z0-9]{6}$/);
+ assert.equal(process.env.HOME,path.join(fixtureRoot,'seed-media-home'));
+ assert.equal(await fsp.realpath(base),base);
+ assert.deepEqual(await fsp.readdir(base),[]);
+ await acquire(base);
+ // Only the source and decoder observations are synthetic. The actual service
+ // issues the capability and publishes the real DPAPI-backed record.
+ try{
+  const key=await keysAt(base,true);
+  const {sourceOwner,policyOwner,processorOwner}=require('./lib/media-image-contract-fixture').fixture();
+  const captured=sourceOwner.capture(),policy=policyOwner.capture();
+  const source={id:'file_media_lifecycle',name:'synthetic.png',snapshot:{...captured,scope:mediaScope},
+   assert:()=>sourceOwner.assert(captured),release:()=>captured.bytes.fill(0)};
+  await fsp.mkdir(mediaDirectory(base),{recursive:true});
+  const service=api.MediaImageService.create({context:()=>({scopeId:mediaSession}),
+   storeFor:async({scopeId,authority})=>{assert.equal(scopeId,mediaScope);return mediaStore(base,key,authority);}});
+  const issued=await service.prepare({sessionId:mediaSession,source,policy:{...policy,assert:()=>policyOwner.assert(policy)},
+   processor:processorOwner,recipient:mediaRecipient});
+  const [filename,...others]=await fsp.readdir(mediaDirectory(base));
+  assert.equal(others.length,0);
+  assert.match(filename,/^mimg_[a-f0-9]{32}\.json$/);
+  const relative=mediaRelative(filename.slice(0,-'.json'.length)),ciphertext=await fsp.readFile(path.join(mediaDirectory(base),filename));
+  const preview=await service.borrow(issued.id);
+  try{
+   preview.assert();
+   assert.equal(digest(preview.bytes),issued.manifest.payloadHash);
+   const pngBase64=preview.bytes.toString('base64');
+   assert.ok(!ciphertext.includes(pngBase64)&&!ciphertext.includes(source.id));
+   const delivery=await service.delivery(mediaBody(issued.reference),mediaRecipient);
+   try{
+    delivery.assert();
+    assert.deepEqual(delivery.body,mediaBody('data:image/png;base64,'+pngBase64));
+   }finally{delivery.release();}
+  }finally{preview.release();}
+  const proof=await mediaCodec(base,path.join(path.dirname(base),'unused-media-output'),key).verify({relative,targetMode:'encrypted'});
+  assert.equal(proof.family,'media-derived');
+  assert.equal(proof.physicalHash,digest(ciphertext));
+  // Leave the cache file as a restart remnant. The issuing process exits and
+  // the capability itself is never serialized as live state.
+  console.log(JSON.stringify({relative,referenceId:issued.id,physicalHash:proof.physicalHash,logicalHash:proof.logicalHash}));
+ }finally{await clear();}
+}
+async function verifyColdMedia(base,key,referenceId){
+ assert.match(referenceId,/^[a-f0-9]{32}$/);
+ const [filename,...others]=await fsp.readdir(mediaDirectory(base));
+ assert.equal(others.length,0);
+ assert.match(filename,/^mimg_[a-f0-9]{32}\.json$/);
+ const id=filename.slice(0,-'.json'.length),relative=mediaRelative(id);
+ const codec=mediaCodec(base,path.join(path.dirname(base),'unused-cold-media-output'),key);
+ const proof=await codec.verify({relative,targetMode:'encrypted'});
+ const store=mediaStore(base,key,{capture:async()=>{throw Error('no live source authority');},assert:()=>false});
+ await assert.rejects(store.read(id),{message:'no live source authority'});
+ await assert.rejects(store.remove(id),{code:'media_store.unowned_remove'});
+ const cold=api.MediaImageService.create({context:()=>({scopeId:mediaSession}),
+  storeFor:async()=>assert.fail('stale media reference must not open a store')});
+ await assert.rejects(cold.borrow(referenceId),{code:'privacy.image_expired'});
+ await assert.rejects(cold.delivery(mediaBody('https://ruyi.invalid/protected-image/'+referenceId),mediaRecipient),{code:'privacy.image_expired'});
+ assert.equal(digest(await fsp.readFile(path.join(mediaDirectory(base),filename))),proof.physicalHash);
+ return proof.logicalHash;
+}
 const connection={id:'bot_snapshot',platform:'qq',appId:'synthetic_app',tenantId:'synthetic_tenant',botUserId:'',enabled:false};
 async function clear(){for(const l of leases)l.release();for(const k of keys)k.clear();for(const v of vaults)v.clear();for(const owner of [...owners])await release(owner);}
+async function runMediaSnapshotProcess(base,mode,...args){
+ const env=releaseEnvironment(path.join(root,mode.slice(2)+'-home'),base);
+ const child=cp.spawn(process.execPath,[__filename,mode,...args],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
+ let output='',stderr='',timedOut=false;
+ child.stdout.on('data',part=>output+=part);child.stderr.on('data',part=>stderr+=part);
+ const timer=setTimeout(()=>{timedOut=true;killOwnTree(child);},45000);
+ try{
+  const [code,signal]=await once(child,'close');
+  assert.equal(timedOut,false,mode+' timed out');
+  assert.equal(signal,null);assert.equal(code,0,stderr);
+  return JSON.parse(output);
+ }finally{clearTimeout(timer);}
+}
 async function verifyCold(){
  const base=process.env.RUYI_HOME,owner=await acquire(base);
  try{
@@ -41,16 +129,23 @@ async function verifyCold(){
   const v=vaultAt(base),old=await v.hydrateConfig(JSON.parse((await fsp.readFile(path.join(base,'config.json.prev'),'utf8')).replace(/^\uFEFF/,'')));
   assert.equal(old.raw.providers[0].apiKey,'NATIVE_CREDENTIAL_OLD');
   assert.equal((await api.ExternalBotCredentials.create({root:base}).read(connection)).botSecret,'NATIVE_BOT_SECRET');
+  const mediaLogicalHash=await verifyColdMedia(base,primary,process.argv[3]);
   const shot=await snapshot(base,owner).seal({password,appVersion:api.VERSION,generation:0});
-  process.stdout.write(JSON.stringify({ok:true,keyIds:shot.keyIds.length,files:shot.files}));
+  process.stdout.write(JSON.stringify({ok:true,keyIds:shot.keyIds.length,files:shot.files,mediaLogicalHash}));
  }finally{await clear();}
 }
 async function main(){
  const t=createRunner('WORK DATA FULL SNAPSHOT');
  if(process.platform!=='win32'){console.log('SKIP Windows DPAPI fullsnapshot integration');return;}
- const base=process.env.RUYI_HOME;await fsp.mkdir(base);const owner=await acquire(base);
+ const base=process.env.RUYI_HOME;
  try{
-  const k=await keysAt(base,true);await fsp.mkdir(path.join(base,'sessions'));await head(base,k,'sess_native').write('{"id":"sess_native","private":"NATIVE_FULL_PRIVATE"}');
+  await fsp.mkdir(base);
+  const derived=await runMediaSnapshotProcess(base,'--seed-media');
+  const owner=await acquire(base),k=await keysAt(base,false);
+  const mediaFile=path.join(base,...derived.relative.split('/')),mediaCiphertext=await fsp.readFile(mediaFile);
+  assert.equal(digest(mediaCiphertext),derived.physicalHash);
+  t.ok(true,'producer issues live preview and delivery for exact protected PNG and seals the record under a real DPAPI-owned key');
+  await fsp.mkdir(path.join(base,'sessions'));await head(base,k,'sess_native').write('{"id":"sess_native","private":"NATIVE_FULL_PRIVATE"}');
   const v=vaultAt(base),cfg=secret=>JSON.stringify({credentialEncryptionV1:true,workDataEncryptionV1:true,providers:[{id:'synthetic',baseUrl:'https://fixture.invalid',apiKey:secret}]});
   await fsp.writeFile(path.join(base,'config.json.prev'),'\uFEFF'+await v.protectConfig(cfg('NATIVE_CREDENTIAL_OLD')));
   await fsp.writeFile(path.join(base,'config.json'),await v.protectConfig(cfg('NATIVE_CREDENTIAL_CURRENT')));
@@ -65,6 +160,8 @@ async function main(){
   const opened=await api.WorkDataRecovery.open(captured.serialized,password);
   try{assert.equal(opened.snapshot.auxiliaries.length,2);assert.deepEqual(opened.snapshot.files.find(f=>f.path==='uploads/media.bin').data,media);assert.ok(opened.snapshot.directories.includes('uploads/empty'));
    assert.equal(opened.snapshot.files.find(f=>f.path==='config.json.prev').keyRefs.length,1,'BOM historical config retains its actual credential reference closure');
+   const record=opened.snapshot.files.find(f=>f.path===derived.relative);
+   assert.equal(record.keyRefs.length,1);assert.deepEqual(record.data,mediaCiphertext);
   }finally{opened.release();}
   t.ok(true,'whole authenticated manifest includes raw non41 media, empty directories and mandatory direct-DPAPI history');
   const wrong=path.join(root,'wrong'),wrongOwner=await acquire(wrong);
@@ -73,13 +170,24 @@ async function main(){
   const target=path.join(root,'restored'),targetOwner=await acquire(target);let restored;
   try{restored=await snapshot(base,owner).restore({serialized:captured.serialized,password,target,targetOwnership:targetOwner});}finally{await release(targetOwner);}
   assert.deepEqual(await fsp.readFile(path.join(target,'uploads','media.bin')),media);assert.ok((await fsp.stat(path.join(target,'uploads','empty'))).isDirectory());
+  assert.deepEqual(await fsp.readFile(path.join(target,...derived.relative.split('/'))),mediaCiphertext);
   assert.equal(restored.stagedStates.length,5);for(const row of restored.stagedStates){assert.equal(digest(await fsp.readFile(path.join(target,...row.path.split('/')))),row.stagedSha256);assert.notEqual(row.stagedSha256,row.sourceSha256);}
   t.ok(true,'all independent master headers and direct-DPAPI sources are restaged and verified before publishing fresh ordinary target bytes');
-  const env=releaseEnvironment(path.join(root,'cold-home'),target),child=cp.spawn(process.execPath,[__filename,'--verify'],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
-  let output='',stderr='';child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>stderr+=b);
-  const timer=setTimeout(()=>killOwnTree(child),45000);
-  try{const code=await new Promise(resolve=>child.once('exit',resolve));assert.equal(code,0,stderr);const result=JSON.parse(output);assert.equal(result.ok,true);assert.equal(result.keyIds,3);}finally{clearTimeout(timer);killOwnTree(child);}
+  const result=await runMediaSnapshotProcess(target,'--verify',derived.referenceId);
+  assert.equal(result.ok,true);assert.equal(result.keyIds,3);assert.equal(result.mediaLogicalHash,derived.logicalHash);
   t.ok(true,'fresh Node obtains its own actual OS owner and authenticates restored work data, historical vault and direct-DPAPI secrets with cold caches');
+  t.ok(true,'fresh process validates restored media without reviving preview, delivery or unlink authority');
+  const plainMedia=path.join(root,'plain-media'),sealedMedia=path.join(root,'sealed-media');
+  await fsp.mkdir(plainMedia);
+  const migratedKeys=await keysAt(sealedMedia,true);
+  const forward=await mediaCodec(base,plainMedia,k).transform({relative:derived.relative,targetMode:'plain'});
+  const back=await mediaCodec(plainMedia,sealedMedia,null,migratedKeys).transform({relative:derived.relative,targetMode:'encrypted'});
+  assert.equal(forward.logicalHash,derived.logicalHash);assert.equal(back.logicalHash,derived.logicalHash);
+  assert.notEqual(await migratedKeys.instance(),await k.instance());
+  assert.notEqual(back.targetPhysicalHash,derived.physicalHash);
+  const verification=await mediaCodec(sealedMedia,plainMedia,migratedKeys).verify({relative:derived.relative,targetMode:'encrypted'});
+  assert.equal(verification.logicalHash,derived.logicalHash);
+  t.ok(true,'production media codec migrates to plaintext and reseals identical logical bytes under a different real DPAPI-owned key');
   const unchanged=await snapshot(base,owner).seal({password,appVersion:api.VERSION,generation:0});assert.deepEqual(unchanged.sourceFiles,captured.sourceFiles);assert.deepEqual(await fsp.readFile(path.join(base,'external-bot-credentials.json')),botBytes);
   t.ok(true,'full source identities and hashes remain unchanged through restore and independent cold verification');
  }finally{await clear();assert.equal(path.dirname(root),temporaryParent);assert.ok(path.basename(root).startsWith('ruyi-full-snapshot-native-'));await fsp.rm(root,{recursive:true,force:true});}
@@ -324,5 +432,7 @@ if (process.argv.includes('--verify-capsule')) {
     }).finally(() => t.done());
   }
 } else {
-  (childMode ? verifyCold() : main()).catch(async error => { console.error(error.stack || error); await clear().catch(() => {}); process.exitCode = 1; });
+  (process.argv[2]==='--seed-media' ? seedProtectedMedia() : childMode ? verifyCold() : main()).catch(async error => {
+    console.error(error.stack || error); await clear().catch(() => {}); process.exitCode = 1;
+  });
 }

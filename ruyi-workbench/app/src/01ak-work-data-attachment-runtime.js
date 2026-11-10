@@ -48,7 +48,7 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
           metadata: { kind, logicalName, mime }, data });
         return Object.freeze({ ...receipt, id });
       },
-      async read(id, start, end) { gate(); return open().reader.readRange(id, start, end); },
+      async read(id, start, end, options) { gate(); return open().reader.readRange(id, start, end, options); },
       async verify(id) { gate(); return open().reader.verifyWhole(id); },
       async has(id) {
         gate();

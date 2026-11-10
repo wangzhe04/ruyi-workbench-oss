@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 141,
-    "providedSymbols": 4355,
-    "requiredSymbols": 4303,
-    "edges": 947,
+    "providedSymbols": 4356,
+    "requiredSymbols": 4306,
+    "edges": 948,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1627,6 +1627,13 @@
         "WorkDataAttachmentReader"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "01af-work-data-attachment-chunks.js",
           "symbol": "WorkDataAttachmentChunks",
@@ -17751,6 +17758,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "MigrationHooks",
           "kinds": [
             "read"
@@ -30998,6 +31012,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -31471,7 +31492,8 @@
       "note": "M3 attachments: registers the sealed-upload hook through WorkDataAttachmentUploadHooks so 13-http-router keeps no static edge to the attachment runtime; derived media work is not wired",
       "provides": [
         "attachmentRuntimes",
-        "sealUpload"
+        "sealUpload",
+        "sealedOriginalUploadRuntime"
       ],
       "requires": [
         {
@@ -36284,6 +36306,14 @@
       "to": "01n-work-data-crypto.js",
       "symbols": [
         "WorkDataCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01ag-work-data-attachment-reader.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "path"
       ],
       "direction": "backward"
     },
@@ -42693,6 +42723,7 @@
       "to": "00-boot.js",
       "symbols": [
         "ASR_MAX_BODY_BYTES",
+        "MediaImageHooks",
         "MigrationHooks",
         "URL",
         "apiFailure",
@@ -42896,6 +42927,7 @@
       "symbols": [
         "MediaImageHooks",
         "URL",
+        "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "apiFailure",
         "crypto",

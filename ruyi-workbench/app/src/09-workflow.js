@@ -1703,7 +1703,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
   } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; revertNotice = ''; revertNoticeSeqs = []; }
   const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
-  if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
+  if (visionOn && VisualPipeline.hasImageAttachment(attachments, { protectedNative: true })) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
     const imageBatchStart = session.providerHistory.length;
     session.providerHistory.push({ role: 'user', content: parts, ...(messageMeta ? { meta: messageMeta } : {}) });

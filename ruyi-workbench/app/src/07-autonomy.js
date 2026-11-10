@@ -2112,7 +2112,7 @@ async function drainSteerQueue(reg, session, onEvent) {
     const t = String((typeof text === 'string' ? text : text.text) || '');
     const attachments = Array.isArray(text && text.attachments) ? text.attachments : [];
     const prompt = '[用户插话] ' + t + buildAttachmentPrompt(attachments);
-    const content = reg.vision === true && VisualPipeline.hasImageAttachment(attachments)
+    const content = reg.vision === true && VisualPipeline.hasImageAttachment(attachments, { protectedNative: true })
       ? await VisualPipeline.buildUserContentParts(prompt, attachments) : prompt;
     session.providerHistory.push({ role: 'user', content });
     session.messages.push({ role: 'user', content: t, ...(attachments.length ? { attachments } : {}), turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });

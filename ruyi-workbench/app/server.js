@@ -11857,7 +11857,7 @@ const WorkDataAttachmentChunks = ((cryptoApi) => {
 
 // Isolated sealed-reader draft. The composition must supply the authenticated
 // catalog authority. These leases grant plaintext access only, never deletion.
-const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
+const WorkDataAttachmentReader = ((io, syncIo, nodePath, cryptoApi) => {
   const fill = Function.prototype.call.bind(Buffer.prototype.fill);
   const sha = value => cryptoApi.createHash('sha256').update(value).digest('hex');
   const proxy = value => require('node:util').types.isProxy(value);
@@ -11918,8 +11918,8 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
         if (!st.isDirectory() || st.isSymbolicLink() || !sameObject(row.stat,st) || fold(await io.realpath(row.path)) !== fold(row.path)) fail('path');check();
       }
     }
-    async function physical(file,expected,check,parents) {
-      let handle,bytes,failed=false,primary;const errors=[];
+    async function physical(file,expected,check,parents,witnesses) {
+      let handle,bytes,visible,failed=false,primary;const errors=[];
       try {
         check();await verifyDirectories(parents,check);
         const before=await io.lstat(file,{bigint:true});check();
@@ -11936,7 +11936,7 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
         }
         const after=await handle.stat({bigint:true});check();
         if (!sameFile(held,after) || after.nlink !== 1n || sha(bytes) !== expected.sha256) fail('physical');
-        const visible=await io.lstat(file,{bigint:true});check();
+        visible=await io.lstat(file,{bigint:true});check();
         if (!visible.isFile() || visible.isSymbolicLink() || visible.nlink !== 1n || !sameFile(after,visible)) fail('physical');
         await verifyDirectories(parents,check);
       } catch (error) { failed=true;primary=error; }
@@ -11948,7 +11948,23 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
         if (bytes) try { fill(bytes,0); } catch (error) { errors.push(error); }
         if (errors.length) throw cleanupFailure(primary,failed,errors,openUncertain);throw primary;
       }
+      witnesses?.push({path:file,stat:visible});
       return bytes;
+    }
+    function assertPhysical(parents,witnesses) {
+      try {
+        for (const {path,stat} of parents) {
+          const current=syncIo.lstatSync(path,{bigint:true});
+          if (!current.isDirectory() || current.isSymbolicLink() || !sameObject(stat,current)) fail('physical_changed');
+        }
+        for (const {path,stat} of witnesses) {
+          const current=syncIo.lstatSync(path,{bigint:true});
+          if (!current.isFile() || current.isSymbolicLink() || current.nlink!==1n || !sameFile(stat,current)) fail('physical_changed');
+        }
+      } catch (error) {
+        if (error?.code==='work_data_blob.physical_changed') throw error;
+        fail('physical_changed');
+      }
     }
     async function census(dir,names,check) {
       let handle,failed=false,primary;const errors=[],actual=[];
@@ -11965,22 +11981,24 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
       if (errors.length) throw cleanupFailure(primary,failed,errors,true);
       if (failed) throw primary;check();
     }
-    async function operation(id,signal,work) {
+    async function operation(id,signal,work,trackPhysical=false) {
       if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(id)) fail('id');cancellation(signal);
       const ticket=await authority.capture(id);cancellation(signal);
       const check=() => { cancellation(signal);if (authority.assert(ticket,id) !== true) fail('revoked'); };
       check();const selected=descriptor(authority.describe(ticket,id));check();
-      let lease,manifest,result,failed=false,primary;const errors=[];
+      let lease,manifest,result,failed=false,primary,assertCurrent=check;const errors=[];
       try {
         lease=await WorkDataStore.acquireSnapshot(keys);check();
         const binding={purpose:selected.purpose,instanceId:lease.instanceId,schema:1,scopeId:selected.scopeId,recordId:selected.recordId,seq:0,generation:selected.generation};
         const dir=nodePath.join(root,selected.opaque,selected.revision),parents=await directories(dir,check);
-        const data=await physical(nodePath.join(dir,'manifest.json'),{bytes:selected.manifestBytes,sha256:selected.manifestSha256},check,parents);
+        const witnesses=trackPhysical ? [] : null;
+        if (witnesses) assertCurrent=()=>{check();assertPhysical(parents,witnesses);};
+        const data=await physical(nodePath.join(dir,'manifest.json'),{bytes:selected.manifestBytes,sha256:selected.manifestSha256},check,parents,witnesses);
         cleared(data,() => { manifest=WorkDataAttachmentChunks.openManifest({data,key:lease.key,binding,revision:selected.revision,maxBytes:WorkDataAttachmentChunks.MAX_BYTES}); });
         const names=['manifest.json',...Array.from({length:manifest.count},(_,index)=>WorkDataAttachmentChunks.partName(index))];
         await census(dir,names,check);
         const read=async ordinal => {
-          const row=manifest.chunks[ordinal];let encrypted=await physical(nodePath.join(dir,WorkDataAttachmentChunks.partName(ordinal)),{bytes:row.physicalBytes,sha256:row.physicalSha256},check,parents);
+          const row=manifest.chunks[ordinal];let encrypted=await physical(nodePath.join(dir,WorkDataAttachmentChunks.partName(ordinal)),{bytes:row.physicalBytes,sha256:row.physicalSha256},check,parents,witnesses);
           let bytes,failed=false,primary;const errors=[];
           try { bytes=WorkDataAttachmentChunks.openChunk({manifest,ordinal,data:encrypted,key:lease.key});check(); }
           catch (error) { failed=true;primary=error; }
@@ -11991,31 +12009,39 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
           }
           return bytes;
         };
-        result=await work({manifest,read,check,selected});check();
+        const sourceRevision=witnesses && (()=>sha(JSON.stringify([selected.opaque,selected.revision,selected.manifestSha256,
+          witnesses.map(({stat})=>['dev','ino','size','mtimeNs','ctimeNs'].map(key=>String(stat[key])))])));
+        result=await work({manifest,read,check,assertCurrent,sourceRevision});check();
         await census(dir,names,check);await verifyDirectories(parents,check);check();
       } catch (error) { failed=true;primary=error; }
       if (manifest) try { WorkDataAttachmentChunks.release(manifest); } catch (error) { errors.push(error); }
       if (lease) try { await lease.release(); } catch (error) { errors.push(error); }
-      if (!failed && !errors.length) try { check(); } catch (error) { failed=true;primary=error; }
+      if (!failed && !errors.length) try { assertCurrent(); } catch (error) { failed=true;primary=error; }
       if (failed || errors.length) {
         if (result) try { result.release(); } catch (error) { errors.push(error); }
         if (errors.length) throw cleanupFailure(primary,failed,errors);throw primary;
       }
       return result;
     }
-    function memoryLease(bytes,manifest,check,complete) {
+    function memoryLease(bytes,manifest,check,complete,sourceRevision) {
       const expected=sha(bytes);let released=false,cleanupCarrier;
       const release=() => {
         if (!released) { released=true;try { fill(bytes,0); } catch (error) { cleanupCarrier=cleanupFailure(undefined,false,[error]); } }
         if (cleanupCarrier) throw cleanupCarrier;
       };
       return Object.freeze({bytes,metadata:manifest.metadata,totalBytes:manifest.totalBytes,sha256:manifest.sha256,revision:manifest.revision,complete,
+        ...(sourceRevision ? {sourceRevision} : {}),
         assert() { if (cleanupCarrier) throw cleanupCarrier;if (released) fail('released');try { check();if (sha(bytes) !== expected) fail('lease_changed');return true; } catch (primary) { try { release(); } catch (error) { throw cleanupFailure(primary,true,[error]); } throw primary; } },release});
     }
-    async function readRange(id,start=0,end,{signal}={}) {
-      return operation(id,signal,async({manifest,read,check}) => {
+    async function readRange(id,start=0,end,{signal,originalName,sourceLimit}={}) {
+      const guarded=originalName!==undefined;
+      if (guarded && (!Number.isSafeInteger(sourceLimit) || sourceLimit<1)) fail('read_limit');
+      const limit=guarded ? Math.min(sourceLimit,maxReadBytes) : maxReadBytes;
+      return operation(id,signal,async({manifest,read,check,assertCurrent,sourceRevision}) => {
         if (end === undefined) end=manifest.totalBytes;
-        const indices=WorkDataAttachmentChunks.selectChunks(manifest,start,end);if (end-start > maxReadBytes) fail('read_limit');
+        if (guarded && (manifest.metadata.kind!=='original' || manifest.metadata.logicalName!==originalName
+          || start!==0 || end!==manifest.totalBytes)) fail('source_mismatch');
+        const indices=WorkDataAttachmentChunks.selectChunks(manifest,start,end);if (end-start > limit) fail('read_limit');
         let result=Buffer.alloc(end-start),written=0;const full=start===0&&end===manifest.totalBytes,digest=full?cryptoApi.createHash('sha256'):null;
         try {
           for (const ordinal of indices) {
@@ -12023,9 +12049,9 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
             cleared(bytes,() => { if (digest) digest.update(bytes);const offset=ordinal*WorkDataAttachmentChunks.CHUNK_BYTES,from=Math.max(0,start-offset),to=Math.min(bytes.length,end-offset);written+=bytes.copy(result,written,from,to);check(); });
           }
           if (written !== result.length || full&&digest.digest('hex') !== manifest.sha256) fail('whole_changed');
-          check();const lease=memoryLease(result,manifest,check,full);result=null;return lease;
+          assertCurrent();const lease=memoryLease(result,manifest,assertCurrent,full,sourceRevision?.());result=null;return lease;
         } catch (primary) { const errors=[];if (result) try { fill(result,0); } catch (error) { errors.push(error); }if (errors.length) throw cleanupFailure(primary,true,errors);throw primary; }
-      });
+      },guarded);
     }
     async function verifyWhole(id,{signal}={}) {
       return operation(id,signal,async({manifest,read,check}) => {
@@ -12039,7 +12065,7 @@ const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
     return Object.freeze({readRange,verifyWhole});
   }
   return Object.freeze({create});
-})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+})(require('node:fs/promises'),require('node:fs'),require('node:path'),require('node:crypto'));
 
 // Isolated attachment-catalog authority draft. No filesystem, key creation,
 // migration or consumer wiring: the caller supplies the sealed store and the
@@ -12339,7 +12365,7 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
           metadata: { kind, logicalName, mime }, data });
         return Object.freeze({ ...receipt, id });
       },
-      async read(id, start, end) { gate(); return open().reader.readRange(id, start, end); },
+      async read(id, start, end, options) { gate(); return open().reader.readRange(id, start, end, options); },
       async verify(id) { gate(); return open().reader.verifyWhole(id); },
       async has(id) {
         gate();
@@ -25228,8 +25254,10 @@ const VisualPipeline = (() => {
     return parts;
   }
   // Does a user turn carry at least one image attachment worth sending as a part? (Gate for parts-vs-string.)
-  function hasImageAttachment(attachments) {
-    return Array.isArray(attachments) && attachments.some(a => a && a.path && IMAGE_EXT_RE.test(String(a.name || a.path)));
+  function hasImageAttachment(attachments, { protectedNative = false } = {}) {
+    return Array.isArray(attachments) && attachments.some(a => a && (
+      (a.path && IMAGE_EXT_RE.test(String(a.name || a.path))) ||
+      (protectedNative && VisualMediaHooks.hasPreparedAttachment?.(a) === true)));
   }
   // ── 工具结果里的图像字段(ACC 方言 + MCP 标准 ImageContent 映射后的形状)────────────────────────────────────────
   // 三处顶层/嵌套位置:`image` / `image_base64`(ACC screenshot、window_screenshot、get_clipboard_image)、
@@ -52027,7 +52055,7 @@ async function drainSteerQueue(reg, session, onEvent) {
     const t = String((typeof text === 'string' ? text : text.text) || '');
     const attachments = Array.isArray(text && text.attachments) ? text.attachments : [];
     const prompt = '[用户插话] ' + t + buildAttachmentPrompt(attachments);
-    const content = reg.vision === true && VisualPipeline.hasImageAttachment(attachments)
+    const content = reg.vision === true && VisualPipeline.hasImageAttachment(attachments, { protectedNative: true })
       ? await VisualPipeline.buildUserContentParts(prompt, attachments) : prompt;
     session.providerHistory.push({ role: 'user', content });
     session.messages.push({ role: 'user', content: t, ...(attachments.length ? { attachments } : {}), turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
@@ -57980,7 +58008,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
   } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; revertNotice = ''; revertNoticeSeqs = []; }
   const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
-  if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
+  if (visionOn && VisualPipeline.hasImageAttachment(attachments, { protectedNative: true })) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
     const imageBatchStart = session.providerHistory.length;
     session.providerHistory.push({ role: 'user', content: parts, ...(messageMeta ? { meta: messageMeta } : {}) });
@@ -80842,10 +80870,14 @@ const STEER_REFUSAL = Object.freeze({
 });
 const steerRefusal = which => ({ kind: 'json', body: { ok: false, error: { ...STEER_REFUSAL[which], params: {} } } });
 // 附件只按上传 id/name 重定位,绝不把请求里的 path 当可读文件。与普通消息使用同一上传目录。
-async function steerAttachments(raw) {
+async function steerAttachments(raw, sessionId, live) {
   if (raw == null) return [];
   if (!Array.isArray(raw) || raw.length > 12) throw new Error('最多递送 12 个上传附件');
   if (!raw.length) return [];
+  const checkSealed = (!live || (live.kind === 'openai' && live.vision === true)) &&
+    typeof MediaImageHooks !== 'undefined' && typeof MediaImageHooks.assertSealedSteerReference === 'function' &&
+    raw.some(item => typeof item?.protectedImage?.reference === 'string');
+  const config = checkSealed ? await readConfig() : null;
   const root = await fsp.realpath(paths.uploads);
   // 81-P0 baseline repair: realpath upload containment stays local, avoiding a new bridge-guard cycle.
   const insideUploads = file => {
@@ -80856,10 +80888,16 @@ async function steerAttachments(raw) {
   for (const item of raw) {
     const { id, name } = item || {};
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string' || !name || name.length > 200 || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) throw new Error('附件记录无效,请重新上传');
+    const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
+    if (image && config?.workDataEncryptionV1 === true && config.privacyModeV1 !== 'off') {
+      const file = { id, name, kind: 'image', sealed: true, protectedImage: { reference: item.protectedImage?.reference } };
+      await MediaImageHooks.assertSealedSteerReference(file, sessionId, config);
+      out.push(file);
+      continue;
+    }
     const file = await fsp.realpath(path.join(root, id, name));
     const stat = await fsp.stat(file);
     if (!insideUploads(file) || !stat.isFile()) throw new Error('附件已不可用,请重新上传');
-    const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
     const sendPath = image ? await fsp.realpath(path.join(root, id, 'send.jpg')).catch(() => '') : '';
     out.push({ id, name, path: file, size: stat.size, ...(image ? { kind: 'image' } : {}),
       ...(typeof item.protectedImage?.reference === 'string' ? { protectedImage: { reference: item.protectedImage.reference } } : {}),
@@ -80875,15 +80913,16 @@ async function steerSessionCore(input) {
   const sessionId = safeSessionId(o.sessionId); // F4
   let text = String(o.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim(); // 与 steer_node 上限对齐 + 前缀中和
   if (!sessionId) return { kind: 'failure', code: 'session.id_invalid', detail: {}, message: 'invalid sessionId', status: 400 };
+  const live = activeChildren.get(sessionId);
   let attachments;
-  try { attachments = await steerAttachments(o.attachments); }
+  try { attachments = await steerAttachments(o.attachments, sessionId, live); }
   catch { return { kind: 'failure', code: 'request.invalid', detail: {}, message: '附件无效或已不可用,请重新上传', status: 400 }; }
   if (!text && !attachments.length) return { kind: 'failure', code: 'request.field_required', detail: { field: 'text' }, message: 'text or attachments is required', status: 400 };
-  if (!text) text = ('[附件] ' + attachments.map(a => a.name).join(', ')).slice(0, 2000);
+  if (!text) text = ('[附件] ' + attachments.map(a => a.protectedImage ? 'protected.png' : a.name).join(', ')).slice(0, 2000);
   const mode = o.mode == null ? 'queue' : o.mode;
   if (!['queue', 'interrupt'].includes(mode)) return { kind: 'failure', code: 'request.invalid', detail: {}, message: 'mode must be queue or interrupt', status: 400 };
   const reg = activeChildren.get(sessionId);
-  if (!reg) return steerRefusal('noLiveTurn');
+  if (!reg || (reg !== live && attachments.some(file => file.sealed === true))) return steerRefusal('noLiveTurn');
   if (reg.kind === 'kimi-acp') {
     // Kimi ACP 0.37.x has no native mid-prompt steering method. Keep the ACP process/session alive and
     // enqueue a follow-up session/prompt immediately after the active prompt settles. This preserves native
@@ -113446,11 +113485,11 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
     output.writeUInt32BE(data.length); output.write(name, 4, 4, 'ascii'); data.copy(output, 8);
     output.writeUInt32BE(crc32(output.subarray(4, data.length + 8)), data.length + 8); return output;
   }
-  function encodeRgb(rgb, width, height, check) {
+  function encodeRgb(rgb, width, height, checkProgress) {
     const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 2;
     const rows = Buffer.alloc(height * (width * 3 + 1)); let compressed;
     try {
-      for (let y = 0; y < height; y++) { if (!(y % 64)) check(); rgb.copy(rows, y * (width * 3 + 1) + 1, y * width * 3, (y + 1) * width * 3); }
+      for (let y = 0; y < height; y++) { if (!(y % 64)) checkProgress(); rgb.copy(rows, y * (width * 3 + 1) + 1, y * width * 3, (y + 1) * width * 3); }
       compressed = zlibApi.deflateSync(rows);
       const result = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', header), chunk('IDAT', compressed), chunk('IEND', Buffer.alloc(0))]);
       if (result.length > LIMITS.outputBytes) { fillBuffer(result, 0); fail('output_limit'); }
@@ -113530,9 +113569,12 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
       if (preparing || active.size >= LIMITS.artifacts) fail('busy'); preparing = true;
       const initialEpoch = epoch;
       let source, policy, processor, stamp, sourceBytes, rgba, rgb, output, job, issued, returned = false, failed = false, primary;
-      const check = () => {
+      const checkProgress = () => {
         if (epoch !== initialEpoch) fail('invalidated');
         checkTime(signal, deadline);
+      };
+      const check = () => {
+        checkProgress();
         if (source) sync(() => sourceOwner.assert(source));
         if (policy) sync(() => policyOwner.assert(policy));
         if (processor) sync(() => processorOwner.assert(processor));
@@ -113619,26 +113661,32 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
             || explicit.transformHash !== sha(JSON.stringify({width:transform.width,height:transform.height,orientation:transform.orientation}))) fail('region_binding');
           boxes.push(...explicit.boxes.map(value => box(value, width, height)));
         } else boxes.push(...explicitBoxes(explicit, source, frame));
+        check();
         for (const code of frame.codes) {
-          check();
+          checkProgress();
           if (!code || typeof code.text !== 'string' || code.text.length > LIMITS.text || !['qr', 'barcode'].includes(code.kind)) fail('code_invalid');
           const rectangle = box(code.box, width, height);
           if (detector.detect(code.text).length) boxes.push(rectangle);
         }
         if (boxes.length > LIMITS.regions) fail('region_limit');
+        // Poll interruption inside synchronous code and pixel loops. Revalidate
+        // source, policy and processor at each step boundary.
+        check();
         rgb = Buffer.alloc(width * height * 3);
         // Discard hidden RGB under alpha by compositing onto an opaque white
         // surface. Never copy ancillary metadata, EXIF, source chunks or name.
         for (let y = 0; y < height; y++) {
-          if (!(y % 64)) check();
+          if (!(y % 64)) checkProgress();
           for (let x = 0; x < width; x++) { const a = (y * width + x) * 4, b = (y * width + x) * 3, alpha = rgba[a + 3];
             for (let channel = 0; channel < 3; channel++) rgb[b + channel] = Math.round((rgba[a + channel] * alpha + 255 * (255 - alpha)) / 255);
           }
         }
+        check();
         for (const [left, top, right, bottom] of boxes) {
-          for (let y = top; y < bottom; y++) { if (!(y % 64)) check(); fillBuffer(rgb, 0, (y * width + left) * 3, (y * width + right) * 3); }
+          for (let y = top; y < bottom; y++) { if (!(y % 64)) checkProgress(); fillBuffer(rgb, 0, (y * width + left) * 3, (y * width + right) * 3); }
         }
-        output = encodeRgb(rgb, width, height, check); check();
+        check();
+        output = encodeRgb(rgb, width, height, checkProgress); check();
         const token = Object.freeze(Object.create(null));
         const manifest = Object.freeze({ schema: 1, type: 'protected-image', mime: 'image/png', name: 'protected.png',
           scope: source.scope, sourceHash: source.hash, sourceRevision: source.revision,
@@ -114512,7 +114560,7 @@ const MediaImageHost = (() => {
     'Lib/site-packages/win32/lib/pywin32_bootstrap.py': 'fd31f27bc85a6b9c974670838b6eefafb32991be4a9f840f96a4f5524df3b3c3',
   });
   let processorPromise = null, processorOwner = null, preparedAny = false;
-  let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0;
+  let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0, sealedSourceCleanupUnknown = false;
   function processor() {
     // Paths are supplied by the application installation/environment, never by
     // browser JSON. There is no PATH lookup or cloud/installation fallback.
@@ -114530,7 +114578,11 @@ const MediaImageHost = (() => {
   // This cache is never replaced, including after configuration changes or a
   // failed request. Observe that same resolved owner without creating resources.
   function helperMayStillRun() {
-    return localHelperActive || localHelperUnknown || (processorOwner !== null && processorOwner.helperMayStillRun() !== false);
+    return localHelperActive || localHelperUnknown || sealedSourceCleanupUnknown || (processorOwner !== null && processorOwner.helperMayStillRun() !== false);
+  }
+  function sealedSourceCleanupFailure(cause) {
+    sealedSourceCleanupUnknown = true;
+    return Object.assign(Error('privacy.image_source_cleanup_unknown', { cause }), { helperMayStillRun: true });
   }
   function assertAncestors(target) {
     const absolute = path.resolve(target), parsed = path.parse(absolute); let current = parsed.root;
@@ -114718,10 +114770,46 @@ const MediaImageHost = (() => {
       });
     } finally { localHelperActive = false; }
   }
-  async function sourceFor({ id, name }, sessionId, scopeOwner) {
+  async function sourceFor({ id, name }, sessionId, scopeOwner, encrypted, signal) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string'
       || !name || name.length > 200 || name !== path.win32.basename(name) || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) fail('source_invalid');
-    const root = path.resolve(paths.uploads), file = path.join(root, id, name), directory = path.dirname(file);
+    const root = path.resolve(paths.uploads);
+    if (encrypted) {
+      if (sealedSourceCleanupUnknown) fail('source_cleanup_unknown');
+      if (typeof WorkDataAttachmentUploadHooks.captureImageSource !== 'function') fail('source_invalid');
+      const sourceLimit = MediaImageContract.LIMITS.sourceBytes;
+      let lease;
+      try { lease = await WorkDataAttachmentUploadHooks.captureImageSource({ id, name, signal, sourceLimit }); }
+      catch (error) {
+        if (error?.ownershipRetained === true) throw scopeOwner.retainCleanup(error, undefined, false, sealedSourceCleanupFailure(error));
+        throw error;
+      }
+      let released = false;
+      const assert = () => {
+        scopeOwner.assert();
+        if (sealedSourceCleanupUnknown) fail('source_cleanup_unknown');
+        if (released || path.resolve(paths.uploads) !== root) fail('source_changed');
+        try { return lease.assert(); }
+        catch (error) { throw error?.ownershipRetained === true ? sealedSourceCleanupFailure(error) : error; }
+      };
+      const release = () => {
+        if (released) return;
+        released = true;
+        try { lease.release(); }
+        catch (cleanup) { throw sealedSourceCleanupFailure(cleanup); }
+      };
+      try {
+        assert();
+        if (!lease.complete || lease.bytes.length < 1 || lease.bytes.length > sourceLimit) fail('source_invalid');
+        const snapshot = Object.freeze({ bytes: lease.bytes, hash: lease.sha256, revision: lease.sourceRevision, scope: hash(sessionId).slice(0, 32) });
+        return Object.freeze({ id, name, snapshot, assert, release });
+      } catch (error) {
+        try { release(); }
+        catch (cleanup) { throw scopeOwner.retainCleanup(lease,error,true,cleanup); }
+        throw error;
+      }
+    }
+    const file = path.join(root, id, name), directory = path.dirname(file);
     assertAncestors(directory);
     const visible = fs.lstatSync(file, { bigint: true });
     if (!visible.isFile() || visible.isSymbolicLink() || visible.nlink !== 1n || visible.size < 1n || visible.size > BigInt(MediaImageContract.LIMITS.sourceBytes)) fail('source_invalid');
@@ -114786,7 +114874,7 @@ const MediaImageHost = (() => {
         scopeOwner.assert();
         const policy=PrivacyGateway.captureMediaPolicy(); if(!policy)fail('protection_disabled');
         const recipient=currentRecipient(config);
-        source=await sourceFor(input,sessionId,scopeOwner); scopeOwner.assert();
+        source=await sourceFor(input,sessionId,scopeOwner,config.workDataEncryptionV1===true,signal); scopeOwner.assert();
         policy.assert();source.assert();
         const owner=await processor(); scopeOwner.assert(); policy.assert();source.assert();
         if(!MediaImageProcessor.isOwner(owner))fail('processor_unavailable');
@@ -114815,6 +114903,17 @@ const MediaImageHost = (() => {
       parts.push({ type: 'image_url', image_url: { url: service.referenceFor(attachment) } });
     }
     return parts;
+  }
+  function hasPreparedAttachment(file) {
+    if (!PrivacyGateway.active() || !MediaImageService.referenceId(file.protectedImage?.reference)) return false;
+    service.referenceFor(file);
+    return true;
+  }
+  function assertSealedSteerReference(file, sessionId, config) {
+    return PrivacyGateway.run(sessionId, config, () => {
+      if (!PrivacyGateway.captureMediaPolicy()) fail('protection_disabled');
+      return service.referenceFor(file);
+    });
   }
   function projectPart(part, detail) { return service.projectPart(part, detail); }
   async function beforeModelPost({ body, url, headers, signal }) {
@@ -114970,9 +115069,9 @@ const MediaImageHost = (() => {
   }
   PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
   Object.assign(ProviderMediaHooks, { beforeModelPost });
-  Object.assign(VisualMediaHooks, { buildUserContentParts });
+  Object.assign(VisualMediaHooks, { buildUserContentParts, hasPreparedAttachment });
   Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, prepareToolVisual, readLocalMediaFile, runLocalMediaHelper,
-    availability, handleApiRoutes, helperMayStillRun,
+    availability, handleApiRoutes, helperMayStillRun, assertSealedSteerReference,
     revokeScope: sessionId => service.revokeScope(sessionId) });
   return Object.freeze({ prepare });
 })();
@@ -116142,6 +116241,8 @@ Object.assign(DesktopLifetimeHooks, {
 
 // Transport adapter: registers the sealed-upload hook so 13-http-router keeps no
 // static edge to the attachment runtime (SCC ceiling). Loaded after the router.
+const sealedOriginalUploadRuntime = () =>
+  WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
 WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
   const rawName = typeof body?.name === 'string' ? body.name : '';
   let safeName = sanitizeFsSegmentName(path.win32.basename(rawName)).replace(/[. ]+$/, '').slice(0, 200);
@@ -116151,17 +116252,18 @@ WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
   if (!bytes.length) return null;
   const mime = typeof body?.mime === 'string' && /^[-A-Za-z0-9.+]+[/][-A-Za-z0-9.+]+$/.test(body.mime) ? body.mime : 'application/octet-stream';
   const id = 'file_' + require('node:crypto').randomBytes(8).toString('hex');
-  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
+  const runtime = sealedOriginalUploadRuntime();
   await runtime.seal({ id, kind: 'original', logicalName: safeName, mime, data: bytes });
   const audioLike = /\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(safeName);
   const imageLike = /\.(png|jpe?g|gif|webp|bmp)$/i.test(safeName);
-  // Derived work (OCR/transcribe/compress) needs the sealed bytes and is not wired.
   return Object.freeze({ id, name: safeName, size: bytes.length, createdAt: nowIso(), sealed: true,
     ...(audioLike ? { kind: 'audio' } : {}), ...(imageLike ? { kind: 'image' } : {}) });
 };
+WorkDataAttachmentUploadHooks.captureImageSource = ({ id, name, signal, sourceLimit }) =>
+  sealedOriginalUploadRuntime().read(id, 0, undefined, { originalName: name, signal, sourceLimit });
 
 const attachmentRuntimes = () => ({
-  attachment: WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'attachment' }),
+  attachment: sealedOriginalUploadRuntime(),
   toolImage: WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage' }),
 });
 WorkDataAttachmentUploadHooks.sealToolImage = async ({ id, name, mime, data }) => {
@@ -116207,6 +116309,7 @@ WorkDataAttachmentUploadHooks.read = async ({ id, start, end }) => {
   }
   throw Object.assign(Error('work_data_attachment_runtime.id_missing'), { code: 'work_data_attachment_runtime.id_missing', statusCode: 404 });
 };
+
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process
 // startup); startServer calls acquireServe/configureServe explicitly.

@@ -1031,7 +1031,6 @@ export function createChatStreamRuntime(deps = {}) {
     const sentAttachments = (Array.isArray(options.attachments) ? options.attachments : state.attachments).slice();
     const rawText = (overrideText != null ? overrideText : composerDraft).trim();
     if (!rawText && !sentAttachments.length) return;
-    const text = rawText || t('chat.attachmentOnly', { names: sentAttachments.map(a => a.name).join(', ') }).slice(0, 2000);
     if (!state.currentSession?.id) return;
     const sessionId = state.currentSession.id;
     const selectionSeq = sessionSelectionSeq();
@@ -1042,6 +1041,9 @@ export function createChatStreamRuntime(deps = {}) {
       const mode = delivery && !delivery.hidden ? delivery.value : 'queue';
       await prepareProtectedImages(sentAttachments, sessionId);
       if (!sameSelection()) return;
+      const text = rawText || t('chat.attachmentOnly', {
+        names: sentAttachments.map(a => a.protectedImage ? 'protected.png' : a.name).join(', '),
+      }).slice(0, 2000);
       const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId, text, mode, attachments: sentAttachments }) });
       if (!sameSelection()) return; // 包括 A→B→A；旧现场的回包不更新输入框、队列或触发重发。
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：

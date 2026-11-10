@@ -56,6 +56,36 @@ test('download hooks expose sealed info and ranged bytes', async t => {
   assert.equal(Buffer.from(part.bytes).toString('utf8'), '234');
   assert.equal(await f.api.hooks.info('file_ffffffffffffffff'), null);
 });
+test('sealed image source binds authenticated name and physical revision, even for byte-identical replacement', async t => {
+  const f = await fixture(t), data = Buffer.from('SYNTHETIC IMAGE SOURCE');
+  const { hooks, runtime } = f.api;
+  const record = await hooks.sealUpload({ name: 'public.png', data: data.toString('base64') });
+  const params = { id: record.id, name: record.name, sourceLimit: data.length };
+  await assert.rejects(hooks.captureImageSource({ ...params, name: 'wrong.png' }), { code: 'work_data_blob.source_mismatch' });
+  await assert.rejects(hooks.captureImageSource({ ...params, sourceLimit: data.length - 1 }), { code: 'work_data_blob.read_limit' });
+  const lease = await hooks.captureImageSource(params);
+  try {
+    assert.deepEqual(lease.bytes, data);
+    assert.match(lease.sourceRevision, /^[a-f0-9]{64}$/);
+    await hooks.sealUpload({ name: 'unrelated.png', data: data.toString('base64') });
+    assert.equal(lease.assert(), true, 'unrelated catalog writes preserve this source lease');
+    const owner = runtime.create({ root: f.root, enabled: () => true, allowSealedRemoval: true,
+      keys: { async snapshot() { return { key: Buffer.from(key), instanceId: 'b'.repeat(32), release() {} }; } } });
+    const chunk = path.join(f.root, owner.opaqueFor(record.id), owner.revisionFor(data), 'part-000000.json');
+    await fsp.copyFile(chunk, chunk + '.replacement');
+    await fsp.rename(chunk + '.replacement', chunk);
+    assert.throws(() => lease.assert(), { code: 'work_data_blob.physical_changed' });
+    assert.ok(lease.bytes.every(byte => byte === 0));
+    const renewed = await hooks.captureImageSource(params);
+    try {
+      assert.deepEqual(renewed.bytes, data);
+      assert.notEqual(renewed.sourceRevision, lease.sourceRevision);
+      await owner.retireSealed(record.id);
+      assert.throws(() => renewed.assert(), { code: 'work_data_blob.physical_changed' });
+      assert.ok(renewed.bytes.every(byte => byte === 0));
+    } finally { renewed.release(); }
+  } finally { lease.release(); }
+});
 test('tool image hooks seal into their own face and retire by session tag', async t => {
   const f = await fixture(t);
   const id = 'toolimg_tag_0123456789abcdef01234567';
