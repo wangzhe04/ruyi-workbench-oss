@@ -42,3 +42,11 @@ def _paste_wait_s(text: str) -> float:
     """How long to let the target read the clipboard before restoring it (slow/remote/Electron targets
     read it late and would otherwise paste the OLD text): 0.4s, growing with size, capped at 2s."""
     return min(2.0, 0.4 + len(text) / 20000.0)
+
+
+def parse_macos_keys(parts):
+    if isinstance(parts, str):
+        parts = parts.split("+")
+    if not isinstance(parts, list) or not parts or any(not isinstance(key, str) or not key.strip() for key in parts):
+        return {"ok":False, "code":"invalid_args", "error":"Pass a nonempty Mac key list or a '+'-separated chord"}
+    return [key.strip().lower() for key in parts]

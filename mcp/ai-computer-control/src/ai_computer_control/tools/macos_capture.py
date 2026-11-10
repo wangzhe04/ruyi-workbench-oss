@@ -5,19 +5,7 @@ from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 from ai_computer_control.tools.office_io import atomic_save
 from ai_computer_control.utils import macos
-from ai_computer_control.utils.image import encode_with_budget, is_blank_frame
-
-
-def _fields(image, info, max_width, format, quality):
-    if is_blank_frame(image):
-        raise macos.DesktopError("capture_blank", "Native capture is completely black. Check screen permission and the desktop session")
-    encoded = encode_with_budget(image, max_width=max_width, fmt=format, quality=quality)
-    bounds = info["logical_bounds"]
-    # Use each actual output dimension after integer rounding. Mapping is exact on both axes.
-    encoded.update(scale=encoded["width"] / bounds["width"], scale_y=encoded["height"] / bounds["height"],
-                   origin={"x": bounds["x"], "y": bounds["y"]},
-                   source_pixel_scale={"x": image.width / bounds["width"], "y": image.height / bounds["height"]})
-    return {**info, **encoded}
+from ai_computer_control.utils.macos_visual import capture_fields as _fields
 
 
 @mcp.tool()

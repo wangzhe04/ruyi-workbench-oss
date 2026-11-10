@@ -26,9 +26,10 @@ class VisualContracts(unittest.TestCase):
         cls.env.start()
         import ai_computer_control.server as server
         from ai_computer_control.tools import macos_ocr, macos_vision as vision
-        from ai_computer_control.utils import macos, macos_visual, macos_vision, macos_vision_worker
+        from ai_computer_control.utils import macos, macos_visual, macos_vision, macos_vision_worker, macos_ocr as ocr_backend
         from PIL import Image
         cls.server, cls.ocr, cls.vision = server, macos_ocr, vision
+        cls.ocr_backend = ocr_backend
         cls.macos, cls.visual, cls.matcher, cls.worker, cls.Image = macos, macos_visual, macos_vision, macos_vision_worker, Image
         cls.target = {'ref': 'owned-window', 'pid': 12, 'birth': 42,
                       'bounds': {'x': -100, 'y': 20, 'width': 100, 'height': 60}}
@@ -144,7 +145,7 @@ class VisualContracts(unittest.TestCase):
     def test_internal_async_ocr_yields_while_worker_runs(self):
         async def run():
             def recognize(*args): time.sleep(0.08); return self.native_result()
-            with patch.object(self.ocr, '_frame_result', side_effect=recognize):
+            with patch.object(self.ocr_backend, '_frame_result', side_effect=recognize):
                 task = asyncio.create_task(self.ocr.ocr_frame(self.frame().image))
                 await asyncio.sleep(0.01)
                 self.assertFalse(task.done())
@@ -240,7 +241,7 @@ class VisualContracts(unittest.TestCase):
 
     def test_recognized_frame_dimensions_must_equal_actual_capture(self):
         result = self.native_result(); result['width'] += 1
-        with patch.object(self.ocr, '_recognize', return_value=result), self.assertRaises(self.macos.DesktopError):
+        with patch.object(self.ocr_backend, '_recognize', return_value=result), self.assertRaises(self.macos.DesktopError):
             self.ocr._frame_result(self.frame(), None)
 
     def test_vision_queries_use_bounded_worker_and_logical_mapping(self):

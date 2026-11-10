@@ -1578,6 +1578,8 @@
           ],
           "currentHostAcceptance": {
             "date": "2026-11-10",
+            "implementationCommit": "b09b1f4f51b7e3e3db35242ee61edb3e9e0b880f",
+            "commitBindingReview": "evidence/P5/ocr/commit-binding-review.json",
             "status": "passed_current_host_scope",
             "nodeE2EAssertions": 215,
             "pythonTests": 87,
@@ -1604,9 +1606,31 @@
             "high": 4
           },
           "deliverable": "受控输入录制/停止/重放与组合动作；串联 observe/act_and_verify；测试焦点变化、锁屏/权限撤销；同步工具目录和能力状态。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P5/composed/README.md",
+            "evidence/P5/composed/code-review.json",
+            "evidence/P5/composed/independent/report.json"
+          ],
+          "composedSliceAcceptance": {
+            "date": "2026-11-10",
+            "status": "passed_current_host_scope",
+            "nodeE2EAssertions": 244,
+            "pythonTests": 103,
+            "commands": 17,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 88,
+            "binaryArtifacts": 3,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1148,
+            "helperSha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
+            "recordingStatus": "following_slice"
+          }
         }
       ],
       "startedDate": "2026-11-08",

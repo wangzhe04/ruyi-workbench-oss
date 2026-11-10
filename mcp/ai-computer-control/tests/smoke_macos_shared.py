@@ -28,6 +28,7 @@ class MacShared(unittest.TestCase):
             "HOME": str(cls.home), "USERPROFILE": str(cls.home),
             "WCW_DATA_DIR": str(cls.home / "data"),
             "ACC_TOOLSETS": "", "ACC_HIDE_TOOLS": "", "ACC_HIDE_MEMORY": "",
+            "RUYI_MACOS_AUTOMATION_HELPER": str(cls.home / "absent-helper"),
         })
         cls.env.start()
         import ai_computer_control.server as server
@@ -44,8 +45,8 @@ class MacShared(unittest.TestCase):
         names = {t.name for t in asyncio.run(s.mcp.list_tools())}
         self.assertTrue({"read_file", "edit_file", "write_document", "excel_read", "write_pptx",
                          "chart_image", "browser_open", "diagnostics"} <= names)
-        self.assertFalse({"ocr_image", "macro_run",
-                          "wait_for_pixel", "beep", "observe"} & names)
+        self.assertFalse({"ocr_image", "wait_for_pixel", "beep", "observe"} & names)
+        self.assertTrue({"batch_actions", "macro_run"} <= names)
         d = s.mcp._tool_manager.get_tool("diagnostics").fn()
         self.assertEqual(d["load_errors"], {})
         self.assertNotIn("uia", d["unsupported_modules"])
@@ -71,6 +72,9 @@ class MacShared(unittest.TestCase):
         self.assertNotIn("uia", active)
         self.assertIn("macos_ax", active)
         self.assertNotIn("ocr", active)
+        self.assertIn("macos_ocr", active)
+        with patch.dict(os.environ, {"ACC_TOOLSETS": "observe,macro"}):
+            self.assertEqual(set(self.server._active_modules()), {"audit", "diagnostics", "macos_observe", "macos_act_and_verify", "batch"})
 
     def test_system_roots_aliases_and_temporary_workspaces(self):
         guard = self.safety.protected_path_reason

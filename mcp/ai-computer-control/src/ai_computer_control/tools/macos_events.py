@@ -1,7 +1,7 @@
 """Target-bound Mac keyboard and pointer tools."""
 from ai_computer_control.server import mcp
 from ai_computer_control.utils.macos_session import request
-from ai_computer_control.utils.text_input import _route_clipboard, _split_trailing_enter
+from ai_computer_control.utils.text_input import _route_clipboard, _split_trailing_enter, parse_macos_keys as _keys
 
 
 @mcp.tool(audit=True)
@@ -22,14 +22,6 @@ def type_text(text: str, target: dict, interval: float = 0.02, use_clipboard: bo
                       "interval":interval, "enters":enters})
     return {**result, "length":len(text), "method":"clipboard" if paste else "typewrite", "route":route,
             **({"trailing_enter":enters} if enters else {})}
-
-
-def _keys(parts):
-    if isinstance(parts, str):
-        parts = parts.split("+")
-    if not isinstance(parts, list) or not parts or any(not isinstance(key, str) or not key.strip() for key in parts):
-        return {"ok":False, "code":"invalid_args", "error":"Pass a nonempty Mac key list or a '+'-separated chord"}
-    return [key.strip().lower() for key in parts]
 
 
 @mcp.tool(audit=True)

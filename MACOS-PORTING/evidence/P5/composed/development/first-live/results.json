@@ -1,0 +1,2528 @@
+{
+  "results": [
+    {
+      "name": "ocr_image",
+      "result": {
+        "ok": true,
+        "backend": "Vision",
+        "confidence_scope": "line_candidate",
+        "coordinate_space": "image_pixels",
+        "height": 300,
+        "image_orientation": "decoded_pixels_up",
+        "lines": [
+          "INVOICE 42",
+          "中文测试",
+          "Total $42.50"
+        ],
+        "protocolVersion": 1,
+        "recognition_languages": [
+          "zh-Hans",
+          "en-US"
+        ],
+        "recognition_revision": 3,
+        "success": true,
+        "text": "INVOICE 42\n中文测试\nTotal $42.50",
+        "width": 1000,
+        "words": [
+          {
+            "center": [
+              136.5,
+              62
+            ],
+            "confidence": 1,
+            "height": 40,
+            "left": 36,
+            "line": 0,
+            "text": "INVOICE",
+            "top": 42,
+            "width": 201
+          },
+          {
+            "center": [
+              275,
+              62
+            ],
+            "confidence": 1,
+            "height": 40,
+            "left": 240,
+            "line": 0,
+            "text": "42",
+            "top": 42,
+            "width": 70
+          },
+          {
+            "center": [
+              68,
+              152.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 41,
+            "line": 1,
+            "text": "中",
+            "top": 127,
+            "width": 54
+          },
+          {
+            "center": [
+              116.5,
+              152.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 94,
+            "line": 1,
+            "text": "文",
+            "top": 127,
+            "width": 45
+          },
+          {
+            "center": [
+              163.5,
+              153
+            ],
+            "confidence": 1,
+            "height": 52,
+            "left": 138,
+            "line": 1,
+            "text": "测",
+            "top": 127,
+            "width": 51
+          },
+          {
+            "center": [
+              213.5,
+              153.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 188,
+            "line": 1,
+            "text": "试",
+            "top": 128,
+            "width": 51
+          },
+          {
+            "center": [
+              94,
+              243.5
+            ],
+            "confidence": 0.5,
+            "height": 51,
+            "left": 37,
+            "line": 2,
+            "text": "Total",
+            "top": 218,
+            "width": 114
+          },
+          {
+            "center": [
+              238,
+              242
+            ],
+            "confidence": 0.5,
+            "height": 52,
+            "left": 151,
+            "line": 2,
+            "text": "$42.50",
+            "top": 216,
+            "width": 174
+          }
+        ],
+        "words_total": 8,
+        "truncated": false
+      }
+    },
+    {
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "fixture",
+            "handle": 3449,
+            "height": 448,
+            "pid": 85859,
+            "process_start": "1794319612:319558",
+            "target": {
+              "bounds": {
+                "height": 448,
+                "width": 820,
+                "x": 160,
+                "y": 492
+              },
+              "handle": 3449,
+              "pid": 85859,
+              "process_start": "1794319612:319558",
+              "ref": "C3BE332E-91D6-4862-9643-9290C55598B9"
+            },
+            "title": "Ruyi P5 OCR 85859",
+            "visible": true,
+            "width": 820,
+            "x": 160,
+            "y": 492
+          },
+          {
+            "application": "QQ",
+            "handle": 3447,
+            "height": 460,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 460,
+                "width": 320,
+                "x": 695,
+                "y": 268
+              },
+              "handle": 3447,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "0AE074F0-8FB9-49AE-A0CA-70755CA151CB"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 320,
+            "x": 695,
+            "y": 268
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "EC723E3D-8C30-4099-B842-99D1E9D5B1E4"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "FC25A329-4518-4172-84C7-DCA37C5E6996"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "58D3133E-7984-46D4-A93A-D2FBE68A5F50"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "name": "focus_window",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "foreground_verified": true,
+        "matched": true,
+        "protocolVersion": 1,
+        "window": {
+          "application": "fixture",
+          "handle": 3449,
+          "height": 448,
+          "pid": 85859,
+          "process_start": "1794319612:319558",
+          "target": {
+            "bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "handle": 3449,
+            "pid": 85859,
+            "process_start": "1794319612:319558",
+            "ref": "C3BE332E-91D6-4862-9643-9290C55598B9"
+          },
+          "title": "Ruyi P5 OCR 85859",
+          "visible": true,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        }
+      }
+    },
+    {
+      "name": "observe",
+      "result": {
+        "ok": true,
+        "focused_window": {
+          "present": true,
+          "application": "fixture",
+          "handle": 3449,
+          "height": 448,
+          "pid": 85859,
+          "process_start": "1794319612:319558",
+          "target": {
+            "bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "handle": 3449,
+            "pid": 85859,
+            "process_start": "1794319612:319558",
+            "ref": "C3BE332E-91D6-4862-9643-9290C55598B9"
+          },
+          "title": "Ruyi P5 OCR 85859",
+          "visible": true,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        },
+        "coordinate_space": "macos_global_points",
+        "screenshot": {
+          "clipped": 0,
+          "coordinate_space": "macos_global_points",
+          "height": 219,
+          "logical_bounds": {
+            "height": 448,
+            "width": 820,
+            "x": 160,
+            "y": 492
+          },
+          "method": "ScreenCaptureKit",
+          "ok": true,
+          "protocolVersion": 1,
+          "width": 400,
+          "scale": 0.4878048780487805,
+          "format": "png",
+          "scale_y": 0.4888392857142857,
+          "origin": {
+            "x": 160,
+            "y": 492
+          },
+          "source_pixel_scale": {
+            "x": 2,
+            "y": 2
+          }
+        },
+        "uia_elements": [
+          {
+            "actions": [
+              "AXRaise"
+            ],
+            "center": [
+              570,
+              716
+            ],
+            "element_ref": "46E78A4A-BE75-4183-9332-3284593B3AE9",
+            "focused": true,
+            "name": "Ruyi P5 OCR 85859",
+            "offscreen": 0,
+            "subrole": "AXStandardWindow",
+            "type": "AXWindow",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "rect": {
+              "left": 160,
+              "top": 492,
+              "width": 820,
+              "height": 448
+            }
+          },
+          {
+            "actions": [],
+            "center": [
+              570,
+              587.5
+            ],
+            "element_ref": "E7D5FB63-7B30-4E24-8898-E4DF89AED929",
+            "enabled": true,
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXStaticText",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 57,
+              "width": 758,
+              "x": 191,
+              "y": 559
+            },
+            "rect": {
+              "left": 191,
+              "top": 559,
+              "width": 758,
+              "height": 57
+            }
+          },
+          {
+            "actions": [],
+            "center": [
+              570,
+              657.5
+            ],
+            "element_ref": "EFA549C8-04F8-4A82-8118-25BAA3707F96",
+            "enabled": true,
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXStaticText",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 57,
+              "width": 758,
+              "x": 191,
+              "y": 629
+            },
+            "rect": {
+              "left": 191,
+              "top": 629,
+              "width": 758,
+              "height": 57
+            }
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "center": [
+              350,
+              781.5
+            ],
+            "element_ref": "D708E195-C387-4BEC-9B89-A72C110D3CF6",
+            "enabled": true,
+            "focused": false,
+            "name": "Save Draft",
+            "offscreen": 0,
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 55,
+              "width": 308,
+              "x": 196,
+              "y": 754
+            },
+            "rect": {
+              "left": 196,
+              "top": 754,
+              "width": 308,
+              "height": 55
+            }
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "center": [
+              750,
+              781.5
+            ],
+            "element_ref": "8E88E6BA-E9DB-4CA2-9668-CEAF0A3F3218",
+            "enabled": true,
+            "focused": false,
+            "name": "Save Draft",
+            "offscreen": 0,
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 55,
+              "width": 308,
+              "x": 596,
+              "y": 754
+            },
+            "rect": {
+              "left": 596,
+              "top": 754,
+              "width": 308,
+              "height": 55
+            }
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "center": [
+              350,
+              876.5
+            ],
+            "element_ref": "CEAA4E63-94A0-4F33-985D-BAA28D2A763D",
+            "enabled": true,
+            "focused": false,
+            "name": "中文保存",
+            "offscreen": 0,
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 55,
+              "width": 308,
+              "x": 196,
+              "y": 849
+            },
+            "rect": {
+              "left": 196,
+              "top": 849,
+              "width": 308,
+              "height": 55
+            }
+          },
+          {
+            "actions": [],
+            "automation_id": "counter",
+            "center": [
+              750,
+              877.5
+            ],
+            "element_ref": "35047CAB-B5A2-47E3-87FD-29DCC592AF88",
+            "enabled": true,
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXStaticText",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 67,
+              "width": 318,
+              "x": 591,
+              "y": 844
+            },
+            "rect": {
+              "left": 591,
+              "top": 844,
+              "width": 318,
+              "height": 67
+            }
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "center": [
+              176,
+              506
+            ],
+            "element_ref": "CA5BEB96-684D-4F9E-9117-8A5264CE538D",
+            "enabled": true,
+            "focused": false,
+            "offscreen": 0,
+            "subrole": "AXCloseButton",
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 14,
+              "width": 12,
+              "x": 170,
+              "y": 499
+            },
+            "rect": {
+              "left": 170,
+              "top": 499,
+              "width": 12,
+              "height": 14
+            }
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "center": [
+              216,
+              506
+            ],
+            "element_ref": "05BFC765-25BF-498C-B96D-D0725E8DC290",
+            "enabled": false,
+            "focused": false,
+            "offscreen": 0,
+            "subrole": "AXZoomButton",
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 14,
+              "width": 12,
+              "x": 210,
+              "y": 499
+            },
+            "rect": {
+              "left": 210,
+              "top": 499,
+              "width": 12,
+              "height": 14
+            }
+          },
+          {
+            "actions": [],
+            "center": [
+              216,
+              506
+            ],
+            "element_ref": "3B915C0E-AAB4-4D0D-8648-460B87C1E567",
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXGroup",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 16,
+              "width": 14,
+              "x": 209,
+              "y": 498
+            },
+            "rect": {
+              "left": 209,
+              "top": 498,
+              "width": 14,
+              "height": 16
+            }
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "center": [
+              196,
+              506
+            ],
+            "element_ref": "90731440-245C-4EF5-8D72-42C2EB58275E",
+            "enabled": false,
+            "focused": false,
+            "offscreen": 0,
+            "subrole": "AXMinimizeButton",
+            "type": "AXButton",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 14,
+              "width": 12,
+              "x": 190,
+              "y": 499
+            },
+            "rect": {
+              "left": 190,
+              "top": 499,
+              "width": 12,
+              "height": 14
+            }
+          },
+          {
+            "actions": [],
+            "center": [
+              570,
+              505
+            ],
+            "element_ref": "BF9BC048-7403-423D-90FC-E805F3B20288",
+            "enabled": true,
+            "focused": false,
+            "offscreen": 0,
+            "type": "AXStaticText",
+            "visibility": "geometric",
+            "visible_bounds": {
+              "height": 16,
+              "width": 132,
+              "x": 504,
+              "y": 497
+            },
+            "rect": {
+              "left": 504,
+              "top": 497,
+              "width": 132,
+              "height": 16
+            }
+          }
+        ],
+        "uia_visited": 12,
+        "uia_truncated": false,
+        "uia_scope": {
+          "kind": "window",
+          "target": {
+            "bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "handle": 3449,
+            "pid": 85859,
+            "process_start": "1794319612:319558",
+            "ref": "C3BE332E-91D6-4862-9643-9290C55598B9"
+          }
+        },
+        "ocr_words": [
+          {
+            "text": "INVOICE",
+            "rect": {
+              "left": 188.5,
+              "top": 565.5,
+              "width": 127,
+              "height": 27
+            },
+            "center": [
+              252,
+              579
+            ]
+          },
+          {
+            "text": "42",
+            "rect": {
+              "left": 318,
+              "top": 565.5,
+              "width": 42.5,
+              "height": 27
+            },
+            "center": [
+              339.25,
+              579
+            ]
+          },
+          {
+            "text": "中",
+            "rect": {
+              "left": 193,
+              "top": 635,
+              "width": 32.5,
+              "height": 31.5
+            },
+            "center": [
+              209.25,
+              650.75
+            ]
+          },
+          {
+            "text": "文",
+            "rect": {
+              "left": 225,
+              "top": 634.5,
+              "width": 27.5,
+              "height": 31.5
+            },
+            "center": [
+              238.75,
+              650.25
+            ]
+          },
+          {
+            "text": "测",
+            "rect": {
+              "left": 252,
+              "top": 634.5,
+              "width": 31,
+              "height": 31
+            },
+            "center": [
+              267.5,
+              650
+            ]
+          },
+          {
+            "text": "试",
+            "rect": {
+              "left": 282.5,
+              "top": 634.5,
+              "width": 31.5,
+              "height": 31.5
+            },
+            "center": [
+              298.25,
+              650.25
+            ]
+          },
+          {
+            "text": "Save",
+            "rect": {
+              "left": 294.5,
+              "top": 765.5,
+              "width": 53,
+              "height": 22
+            },
+            "center": [
+              321,
+              776.5
+            ]
+          },
+          {
+            "text": "Draft",
+            "rect": {
+              "left": 349.5,
+              "top": 766,
+              "width": 56.5,
+              "height": 22
+            },
+            "center": [
+              377.75,
+              777
+            ]
+          },
+          {
+            "text": "中",
+            "rect": {
+              "left": 305,
+              "top": 860,
+              "width": 24.5,
+              "height": 23.5
+            },
+            "center": [
+              317.25,
+              871.75
+            ]
+          },
+          {
+            "text": "文",
+            "rect": {
+              "left": 328.5,
+              "top": 860,
+              "width": 23.5,
+              "height": 23
+            },
+            "center": [
+              340.25,
+              871.5
+            ]
+          },
+          {
+            "text": "保",
+            "rect": {
+              "left": 351,
+              "top": 860,
+              "width": 23.5,
+              "height": 23
+            },
+            "center": [
+              362.75,
+              871.5
+            ]
+          },
+          {
+            "text": "存",
+            "rect": {
+              "left": 373.5,
+              "top": 859.5,
+              "width": 21.5,
+              "height": 23.5
+            },
+            "center": [
+              384.25,
+              871.25
+            ]
+          },
+          {
+            "text": "Ruyi",
+            "rect": {
+              "left": 505,
+              "top": 495.5,
+              "width": 28.5,
+              "height": 20
+            },
+            "center": [
+              519.25,
+              505.5
+            ]
+          },
+          {
+            "text": "P5",
+            "rect": {
+              "left": 535,
+              "top": 495,
+              "width": 19.5,
+              "height": 19.5
+            },
+            "center": [
+              544.75,
+              504.75
+            ]
+          },
+          {
+            "text": "OCR",
+            "rect": {
+              "left": 556,
+              "top": 494,
+              "width": 31,
+              "height": 20
+            },
+            "center": [
+              571.5,
+              504
+            ]
+          },
+          {
+            "text": "85859",
+            "rect": {
+              "left": 588.5,
+              "top": 493,
+              "width": 47.5,
+              "height": 20.5
+            },
+            "center": [
+              612.25,
+              503.25
+            ]
+          },
+          {
+            "text": "Save",
+            "rect": {
+              "left": 690,
+              "top": 764.5,
+              "width": 56,
+              "height": 23
+            },
+            "center": [
+              718,
+              776
+            ]
+          },
+          {
+            "text": "Draft",
+            "rect": {
+              "left": 747.5,
+              "top": 766,
+              "width": 59,
+              "height": 23
+            },
+            "center": [
+              777,
+              777.5
+            ]
+          },
+          {
+            "text": "COUNTS",
+            "rect": {
+              "left": 591,
+              "top": 849,
+              "width": 98,
+              "height": 21
+            },
+            "center": [
+              640,
+              859.5
+            ]
+          },
+          {
+            "text": "O",
+            "rect": {
+              "left": 691.5,
+              "top": 849.5,
+              "width": 17.5,
+              "height": 20
+            },
+            "center": [
+              700.25,
+              859.5
+            ]
+          },
+          {
+            "text": "0",
+            "rect": {
+              "left": 711.5,
+              "top": 849.5,
+              "width": 17.5,
+              "height": 20
+            },
+            "center": [
+              720.25,
+              859.5
+            ]
+          },
+          {
+            "text": "0",
+            "rect": {
+              "left": 731.5,
+              "top": 849,
+              "width": 18.5,
+              "height": 21
+            },
+            "center": [
+              740.75,
+              859.5
+            ]
+          }
+        ],
+        "ocr_total": 22,
+        "ocr_truncated": false,
+        "ocr_scope": {
+          "kind": "target_region",
+          "origin": {
+            "x": 160,
+            "y": 492
+          },
+          "logical_bounds": {
+            "height": 448,
+            "width": 820,
+            "x": 160,
+            "y": 492
+          },
+          "coordinate_space": "macos_global_points"
+        },
+        "logical_bounds": {
+          "height": 448,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        },
+        "observation_age_ms": 371
+      }
+    },
+    {
+      "name": "observe",
+      "result": {
+        "ok": true,
+        "focused_window": {
+          "present": true,
+          "application": "fixture",
+          "handle": 3449,
+          "height": 448,
+          "pid": 85859,
+          "process_start": "1794319612:319558",
+          "target": {
+            "bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "handle": 3449,
+            "pid": 85859,
+            "process_start": "1794319612:319558",
+            "ref": "C3BE332E-91D6-4862-9643-9290C55598B9"
+          },
+          "title": "Ruyi P5 OCR 85859",
+          "visible": true,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        },
+        "coordinate_space": "macos_global_points",
+        "ocr_words": [
+          {
+            "text": "INVOICE",
+            "rect": {
+              "left": 188.5,
+              "top": 565.5,
+              "width": 127,
+              "height": 27
+            },
+            "center": [
+              252,
+              579
+            ]
+          },
+          {
+            "text": "42",
+            "rect": {
+              "left": 318,
+              "top": 565.5,
+              "width": 42.5,
+              "height": 27
+            },
+            "center": [
+              339.25,
+              579
+            ]
+          },
+          {
+            "text": "中",
+            "rect": {
+              "left": 193,
+              "top": 635,
+              "width": 32.5,
+              "height": 31.5
+            },
+            "center": [
+              209.25,
+              650.75
+            ]
+          },
+          {
+            "text": "文",
+            "rect": {
+              "left": 225,
+              "top": 634.5,
+              "width": 27.5,
+              "height": 31.5
+            },
+            "center": [
+              238.75,
+              650.25
+            ]
+          },
+          {
+            "text": "测",
+            "rect": {
+              "left": 252,
+              "top": 634.5,
+              "width": 31,
+              "height": 31
+            },
+            "center": [
+              267.5,
+              650
+            ]
+          },
+          {
+            "text": "试",
+            "rect": {
+              "left": 282.5,
+              "top": 634.5,
+              "width": 31.5,
+              "height": 31.5
+            },
+            "center": [
+              298.25,
+              650.25
+            ]
+          },
+          {
+            "text": "Save",
+            "rect": {
+              "left": 294.5,
+              "top": 765.5,
+              "width": 53,
+              "height": 22
+            },
+            "center": [
+              321,
+              776.5
+            ]
+          },
+          {
+            "text": "Draft",
+            "rect": {
+              "left": 349.5,
+              "top": 766,
+              "width": 56.5,
+              "height": 22
+            },
+            "center": [
+              377.75,
+              777
+            ]
+          },
+          {
+            "text": "中",
+            "rect": {
+              "left": 305,
+              "top": 860,
+              "width": 24.5,
+              "height": 23.5
+            },
+            "center": [
+              317.25,
+              871.75
+            ]
+          },
+          {
+            "text": "文",
+            "rect": {
+              "left": 328.5,
+              "top": 860,
+              "width": 23.5,
+              "height": 23
+            },
+            "center": [
+              340.25,
+              871.5
+            ]
+          },
+          {
+            "text": "保",
+            "rect": {
+              "left": 351,
+              "top": 860,
+              "width": 23.5,
+              "height": 23
+            },
+            "center": [
+              362.75,
+              871.5
+            ]
+          },
+          {
+            "text": "存",
+            "rect": {
+              "left": 373.5,
+              "top": 859.5,
+              "width": 21.5,
+              "height": 23.5
+            },
+            "center": [
+              384.25,
+              871.25
+            ]
+          },
+          {
+            "text": "Ruyi",
+            "rect": {
+              "left": 505,
+              "top": 495.5,
+              "width": 28.5,
+              "height": 20
+            },
+            "center": [
+              519.25,
+              505.5
+            ]
+          },
+          {
+            "text": "P5",
+            "rect": {
+              "left": 535,
+              "top": 495,
+              "width": 19.5,
+              "height": 19.5
+            },
+            "center": [
+              544.75,
+              504.75
+            ]
+          },
+          {
+            "text": "OCR",
+            "rect": {
+              "left": 556,
+              "top": 494,
+              "width": 31,
+              "height": 20
+            },
+            "center": [
+              571.5,
+              504
+            ]
+          },
+          {
+            "text": "85859",
+            "rect": {
+              "left": 588.5,
+              "top": 493,
+              "width": 47.5,
+              "height": 20.5
+            },
+            "center": [
+              612.25,
+              503.25
+            ]
+          },
+          {
+            "text": "Save",
+            "rect": {
+              "left": 690,
+              "top": 764.5,
+              "width": 56,
+              "height": 23
+            },
+            "center": [
+              718,
+              776
+            ]
+          },
+          {
+            "text": "Draft",
+            "rect": {
+              "left": 747.5,
+              "top": 766,
+              "width": 59,
+              "height": 23
+            },
+            "center": [
+              777,
+              777.5
+            ]
+          },
+          {
+            "text": "COUNTS",
+            "rect": {
+              "left": 591,
+              "top": 849,
+              "width": 98,
+              "height": 21
+            },
+            "center": [
+              640,
+              859.5
+            ]
+          },
+          {
+            "text": "O",
+            "rect": {
+              "left": 691.5,
+              "top": 849.5,
+              "width": 17.5,
+              "height": 20
+            },
+            "center": [
+              700.25,
+              859.5
+            ]
+          },
+          {
+            "text": "0",
+            "rect": {
+              "left": 711.5,
+              "top": 849.5,
+              "width": 17.5,
+              "height": 20
+            },
+            "center": [
+              720.25,
+              859.5
+            ]
+          },
+          {
+            "text": "0",
+            "rect": {
+              "left": 731.5,
+              "top": 849,
+              "width": 18.5,
+              "height": 21
+            },
+            "center": [
+              740.75,
+              859.5
+            ]
+          }
+        ],
+        "ocr_total": 22,
+        "ocr_truncated": false,
+        "ocr_scope": {
+          "kind": "target_region",
+          "origin": {
+            "x": 160,
+            "y": 492
+          },
+          "logical_bounds": {
+            "height": 448,
+            "width": 820,
+            "x": 160,
+            "y": 492
+          },
+          "coordinate_space": "macos_global_points"
+        },
+        "logical_bounds": {
+          "height": 448,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        },
+        "observation_age_ms": 358
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": true,
+        "action_result": {
+          "acted": true,
+          "action_sent": true,
+          "actual_x": 350,
+          "actual_y": 782.5,
+          "ok": true,
+          "protocolVersion": 1,
+          "reached": true,
+          "verification": "events_posted"
+        },
+        "confirmed": null,
+        "verification": "screen_change_observation",
+        "outcome": "unconfirmed",
+        "action_sent": true,
+        "effect_observed": true,
+        "changed_ratio": 0.026,
+        "changed_pixels": 2161,
+        "changed_ratio_full": 0.0015,
+        "full_scope": "captured_target_window",
+        "region": {
+          "x": 590,
+          "y": 845,
+          "width": 320,
+          "height": 65
+        },
+        "coordinate_space": "macos_global_points",
+        "waited_ms": 536,
+        "settled": true,
+        "before_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-observe-c6Zeoc/acc-data/shots/before-20261110-220655-634657000-1.jpg",
+        "after_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-observe-c6Zeoc/acc-data/shots/after-20261110-220655-634657000-1.jpg",
+        "clipped": 0,
+        "height": 60,
+        "logical_bounds": {
+          "x": 689.5,
+          "y": 844.5,
+          "width": 65,
+          "height": 30
+        },
+        "method": "ScreenCaptureKit",
+        "protocolVersion": 1,
+        "width": 130,
+        "scale": 2,
+        "format": "png",
+        "scale_y": 2,
+        "origin": {
+          "x": 689.5,
+          "y": 844.5
+        },
+        "source_pixel_scale": {
+          "x": 2,
+          "y": 2
+        }
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": true,
+        "action_result": {
+          "acted": true,
+          "action_sent": true,
+          "ok": true,
+          "protocolVersion": 1,
+          "verification": "events_posted"
+        },
+        "confirmed": null,
+        "verification": "screen_change_observation",
+        "outcome": "unconfirmed",
+        "action_sent": true,
+        "effect_observed": false,
+        "changed_ratio": 0,
+        "changed_pixels": 0,
+        "changed_ratio_full": 0,
+        "full_scope": "captured_target_window",
+        "region": {
+          "x": 590,
+          "y": 845,
+          "width": 320,
+          "height": 65
+        },
+        "coordinate_space": "macos_global_points",
+        "waited_ms": 268,
+        "settled": true,
+        "before_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-observe-c6Zeoc/acc-data/shots/before-20261110-220656-138692000-2.jpg",
+        "after_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-observe-c6Zeoc/acc-data/shots/after-20261110-220656-138692000-2.jpg",
+        "shots_reason": "no_change"
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 3,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "act_and_verify",
+            "ok": true,
+            "result": {
+              "ok": true,
+              "action_result": {
+                "acted": true,
+                "action_sent": true,
+                "actual_x": 750,
+                "actual_y": 782.5,
+                "ok": true,
+                "protocolVersion": 1,
+                "reached": true,
+                "verification": "events_posted"
+              },
+              "confirmed": null,
+              "verification": "screen_change_observation",
+              "outcome": "unconfirmed",
+              "action_sent": true,
+              "effect_observed": true,
+              "changed_ratio": 0.0162,
+              "changed_pixels": 1350,
+              "changed_ratio_full": 0.0009,
+              "full_scope": "captured_target_window",
+              "region": {
+                "x": 590,
+                "y": 845,
+                "width": 320,
+                "height": 65
+              },
+              "coordinate_space": "macos_global_points",
+              "waited_ms": 545,
+              "settled": true
+            }
+          },
+          {
+            "step": 1,
+            "tool": "observe",
+            "ok": true,
+            "result": {
+              "ok": true,
+              "focused_window": {
+                "present": true,
+                "application": "fixture",
+                "handle": 3449,
+                "height": 448,
+                "pid": 85859,
+                "process_start": "1794319612:319558",
+                "target": {
+                  "bounds": {
+                    "height": 448,
+                    "width": 820,
+                    "x": 160,
+                    "y": 492
+                  },
+                  "handle": 3449,
+                  "pid": 85859,
+                  "process_start": "1794319612:319558",
+                  "ref": "C3BE332E-91D6-4862-9643-9290C55598B9"
+                },
+                "title": "Ruyi P5 OCR 85859",
+                "visible": true,
+                "width": 820,
+                "x": 160,
+                "y": 492
+              },
+              "coordinate_space": "macos_global_points",
+              "screenshot": {
+                "clipped": 0,
+                "coordinate_space": "macos_global_points",
+                "height": 164,
+                "logical_bounds": {
+                  "height": 448,
+                  "width": 820,
+                  "x": 160,
+                  "y": 492
+                },
+                "method": "ScreenCaptureKit",
+                "ok": true,
+                "protocolVersion": 1,
+                "width": 300,
+                "scale": 0.36585365853658536,
+                "format": "png",
+                "scale_y": 0.36607142857142855,
+                "origin": {
+                  "x": 160,
+                  "y": 492
+                },
+                "source_pixel_scale": {
+                  "x": 2,
+                  "y": 2
+                }
+              },
+              "ocr_words": [
+                {
+                  "text": "INVOICE",
+                  "rect": {
+                    "left": 188.5,
+                    "top": 565.5,
+                    "width": 127,
+                    "height": 27
+                  },
+                  "center": [
+                    252,
+                    579
+                  ]
+                },
+                {
+                  "text": "42",
+                  "rect": {
+                    "left": 318,
+                    "top": 565.5,
+                    "width": 42.5,
+                    "height": 27
+                  },
+                  "center": [
+                    339.25,
+                    579
+                  ]
+                },
+                {
+                  "text": "中",
+                  "rect": {
+                    "left": 193,
+                    "top": 635,
+                    "width": 32.5,
+                    "height": 31.5
+                  },
+                  "center": [
+                    209.25,
+                    650.75
+                  ]
+                },
+                {
+                  "text": "文",
+                  "rect": {
+                    "left": 225,
+                    "top": 634.5,
+                    "width": 27.5,
+                    "height": 31.5
+                  },
+                  "center": [
+                    238.75,
+                    650.25
+                  ]
+                },
+                {
+                  "text": "测",
+                  "rect": {
+                    "left": 252,
+                    "top": 634.5,
+                    "width": 31,
+                    "height": 31
+                  },
+                  "center": [
+                    267.5,
+                    650
+                  ]
+                },
+                {
+                  "text": "试",
+                  "rect": {
+                    "left": 282.5,
+                    "top": 634.5,
+                    "width": 31.5,
+                    "height": 31.5
+                  },
+                  "center": [
+                    298.25,
+                    650.25
+                  ]
+                },
+                {
+                  "text": "Save",
+                  "rect": {
+                    "left": 294.5,
+                    "top": 765.5,
+                    "width": 53,
+                    "height": 22
+                  },
+                  "center": [
+                    321,
+                    776.5
+                  ]
+                },
+                {
+                  "text": "Draft",
+                  "rect": {
+                    "left": 349.5,
+                    "top": 766,
+                    "width": 56.5,
+                    "height": 22
+                  },
+                  "center": [
+                    377.75,
+                    777
+                  ]
+                },
+                {
+                  "text": "中",
+                  "rect": {
+                    "left": 305,
+                    "top": 860,
+                    "width": 24.5,
+                    "height": 23.5
+                  },
+                  "center": [
+                    317.25,
+                    871.75
+                  ]
+                },
+                {
+                  "text": "文",
+                  "rect": {
+                    "left": 328.5,
+                    "top": 860,
+                    "width": 23.5,
+                    "height": 23
+                  },
+                  "center": [
+                    340.25,
+                    871.5
+                  ]
+                },
+                {
+                  "text": "保",
+                  "rect": {
+                    "left": 351,
+                    "top": 860,
+                    "width": 23.5,
+                    "height": 23
+                  },
+                  "center": [
+                    362.75,
+                    871.5
+                  ]
+                },
+                {
+                  "text": "存",
+                  "rect": {
+                    "left": 373.5,
+                    "top": 859.5,
+                    "width": 21.5,
+                    "height": 23.5
+                  },
+                  "center": [
+                    384.25,
+                    871.25
+                  ]
+                },
+                {
+                  "text": "Ruyi",
+                  "rect": {
+                    "left": 505,
+                    "top": 495.5,
+                    "width": 28.5,
+                    "height": 20
+                  },
+                  "center": [
+                    519.25,
+                    505.5
+                  ]
+                },
+                {
+                  "text": "P5",
+                  "rect": {
+                    "left": 535,
+                    "top": 495,
+                    "width": 19.5,
+                    "height": 19.5
+                  },
+                  "center": [
+                    544.75,
+                    504.75
+                  ]
+                },
+                {
+                  "text": "OCR",
+                  "rect": {
+                    "left": 556,
+                    "top": 494,
+                    "width": 31,
+                    "height": 20
+                  },
+                  "center": [
+                    571.5,
+                    504
+                  ]
+                },
+                {
+                  "text": "85859",
+                  "rect": {
+                    "left": 588.5,
+                    "top": 493,
+                    "width": 47.5,
+                    "height": 20.5
+                  },
+                  "center": [
+                    612.25,
+                    503.25
+                  ]
+                },
+                {
+                  "text": "Save",
+                  "rect": {
+                    "left": 690,
+                    "top": 764.5,
+                    "width": 56,
+                    "height": 23
+                  },
+                  "center": [
+                    718,
+                    776
+                  ]
+                },
+                {
+                  "text": "Draft",
+                  "rect": {
+                    "left": 747.5,
+                    "top": 766,
+                    "width": 59,
+                    "height": 23
+                  },
+                  "center": [
+                    777,
+                    777.5
+                  ]
+                },
+                {
+                  "text": "COUNTS",
+                  "rect": {
+                    "left": 591,
+                    "top": 849,
+                    "width": 98,
+                    "height": 21
+                  },
+                  "center": [
+                    640,
+                    859.5
+                  ]
+                },
+                {
+                  "text": "110",
+                  "rect": {
+                    "left": 691.5,
+                    "top": 849,
+                    "width": 50.5,
+                    "height": 21
+                  },
+                  "center": [
+                    716.75,
+                    859.5
+                  ]
+                }
+              ],
+              "ocr_total": 20,
+              "ocr_truncated": false,
+              "ocr_scope": {
+                "kind": "target_region",
+                "origin": {
+                  "x": 160,
+                  "y": 492
+                },
+                "logical_bounds": {
+                  "height": 448,
+                  "width": 820,
+                  "x": 160,
+                  "y": 492
+                },
+                "coordinate_space": "macos_global_points"
+              },
+              "logical_bounds": {
+                "height": 448,
+                "width": 820,
+                "x": 160,
+                "y": 492
+              },
+              "observation_age_ms": 364,
+              "image_lifted": true
+            }
+          },
+          {
+            "step": 2,
+            "tool": "ocr_find_text",
+            "ok": true,
+            "result": {
+              "ok": true,
+              "found": false,
+              "text": "COUNTS 1 1 0",
+              "words_seen": 20,
+              "near_matches": [
+                {
+                  "text": "COUNTS 110",
+                  "center": [
+                    666,
+                    859
+                  ],
+                  "rect": {
+                    "left": 591,
+                    "top": 849,
+                    "width": 151,
+                    "height": 21
+                  },
+                  "score": 0.909
+                },
+                {
+                  "text": "COUNTS",
+                  "center": [
+                    640,
+                    859.5
+                  ],
+                  "rect": {
+                    "left": 591,
+                    "top": 849,
+                    "width": 98,
+                    "height": 21
+                  },
+                  "score": 0.667
+                }
+              ],
+              "hint": "Text not found. Try lang= for the screen's language, a smaller region, ocr_screen to read what OCR actually sees, or ui_find for UI Automation controls. 'near_matches' lists the closest candidates."
+            }
+          }
+        ],
+        "width": 300,
+        "height": 164,
+        "scale": 0.36585365853658536,
+        "scale_y": 0.36607142857142855,
+        "format": "png",
+        "origin": {
+          "x": 160,
+          "y": 492
+        },
+        "logical_bounds": {
+          "height": 448,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        },
+        "coordinate_space": "macos_global_points",
+        "source_pixel_scale": {
+          "x": 2,
+          "y": 2
+        },
+        "lifted_images": [
+          {
+            "step": 1,
+            "tool": "observe",
+            "key": "image",
+            "width": 300,
+            "height": 164,
+            "scale": 0.36585365853658536,
+            "scale_y": 0.36607142857142855,
+            "format": "png",
+            "origin": {
+              "x": 160,
+              "y": 492
+            },
+            "logical_bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "coordinate_space": "macos_global_points",
+            "source_pixel_scale": {
+              "x": 2,
+              "y": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "batch_actions",
+      "result": {
+        "ok": false,
+        "success": false,
+        "completed": 0,
+        "failed": 1,
+        "results": [
+          {
+            "step": 0,
+            "tool": "act_and_verify",
+            "ok": false,
+            "result": {
+              "ok": false,
+              "error": "TypeError: act_and_verify() missing 1 required positional argument: 'target'"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "act_and_verify",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Cannot identify the focused accessible window",
+        "code": "window_not_found"
+      }
+    },
+    {
+      "name": "diagnostics",
+      "result": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": true,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 44,
+        "load_errors": {},
+        "unsupported_modules": {
+          "record": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "audio": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      }
+    }
+  ],
+  "reports": [
+    {
+      "counts": [
+        0,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "ready",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 0 0 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 0 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "state",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 0 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 1 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "state",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 1 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "state",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 1 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "other",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 1 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    },
+    {
+      "counts": [
+        1,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3449,
+      "event": "state",
+      "title": "Ruyi P5 OCR 85859",
+      "counterText": "COUNTS 1 1 0",
+      "modifiers": 0,
+      "leftHeld": false,
+      "counterBounds": {
+        "y": 845,
+        "x": 590,
+        "width": 320,
+        "height": 65
+      },
+      "pid": 85859
+    }
+  ]
+}

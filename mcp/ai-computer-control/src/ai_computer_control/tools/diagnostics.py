@@ -64,9 +64,9 @@ def _optional(mac_capture=None) -> dict:
         return _has_module(mod_name)
 
     return {
-        "ocr": bool(mac_capture and mac_capture.get("ocrSupported") and sys.modules.get("ai_computer_control.tools.macos_ocr"))
+        "ocr": bool(mac_capture and mac_capture.get("installed") and mac_capture.get("ocrSupported"))
             if sys.platform == "darwin" else flag("ai_computer_control.tools.ocr", "winsdk"),
-        "uia": bool(mac_capture and mac_capture.get("axSupported") and sys.modules.get("ai_computer_control.tools.macos_ax"))
+        "uia": bool(mac_capture and mac_capture.get("installed") and mac_capture.get("axSupported"))
             if sys.platform == "darwin" else flag("ai_computer_control.tools.uia", "uiautomation"),
         "cv2": flag("ai_computer_control.tools.macos_vision" if sys.platform == "darwin" else "ai_computer_control.tools.vision", "cv2"),
         "playwright": flag("ai_computer_control.tools.browser", "playwright"),
@@ -135,6 +135,20 @@ def diagnostics() -> dict:
             "ready": bool(vision and state.get("ready")),
             "inputReady": bool(vision and state.get("ready") and state.get("inputReady")),
             "backend": "OpenCV", "coordinate_space": "macos_global_points"}
+        observe = bool(sys.modules.get(_TOOLS_PKG + "macos_observe"))
+        verify = bool(sys.modules.get(_TOOLS_PKG + "macos_act_and_verify"))
+        replay = bool(sys.modules.get(_TOOLS_PKG + "batch"))
+        desktop["desktop.observe"] = {"supported": True, "installed": bool(observe and state.get("installed")),
+            "authorization": state.get("authorization", "unknown"), "ready": bool(observe and state.get("ready")),
+            "axReady": bool(state.get("axReady")), "ocrReady": bool(state.get("ocrReady")),
+            "coordinate_space": "macos_global_points"}
+        desktop["desktop.action_verification"] = {"supported": True,
+            "installed": bool(verify and state.get("installed")),
+            "authorization": state.get("eventAuthorization", "unknown"),
+            "ready": bool(verify and state.get("ready") and state.get("inputReady")),
+            "verification": "screen_change_observation", "coordinate_space": "macos_global_points"}
+        desktop["desktop.macro_replay"] = {"supported": True, "installed": replay, "ready": replay,
+            "inputReady": bool(replay and state.get("inputReady")), "backend": "ACC tool registry"}
     return {
         "ok": True,
         "version": VERSION,

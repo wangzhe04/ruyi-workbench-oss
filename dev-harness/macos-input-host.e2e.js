@@ -1,6 +1,7 @@
 'use strict';
 require('./lib/self-isolate-home');
 // LaunchServices Ruyi.app -> owned workbench -> normal HTTP invoke -> real ACC -> native input worker.
+// RUYI_P5_APP_COMPOSED=1 verifies shared-frame observation, action verification and macro readback.
 // RUYI_P5_APP_VISUAL=1 verifies Vision OCR and OpenCV clicks against the owned bilingual receiver.
 // All injected events target a self-owned fixture. RUYI_P5_APP_PASTE=1 also verifies guarded Cmd+V.
 // RUYI_P5_APP_EXIT_FAILURE=1 forces an owned App crash after input and expects one injected failure.
@@ -21,7 +22,8 @@ let fixture, launcher, owned, ownedTree = [];
 const paste = process.env.RUYI_P5_APP_PASTE === '1';
 const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
 const ax = process.env.RUYI_P5_APP_AX === '1';
-const visual = process.env.RUYI_P5_APP_VISUAL === '1';
+const composed = process.env.RUYI_P5_APP_COMPOSED === '1';
+const visual = composed || process.env.RUYI_P5_APP_VISUAL === '1';
 const events = [];
 async function until(read, timeout = 45000) {
   const deadline = Date.now() + timeout;
@@ -96,7 +98,7 @@ async function cleanupOwned() {
       ...(process.env.DYLD_FRAMEWORK_PATH ? { DYLD_FRAMEWORK_PATH: process.env.DYLD_FRAMEWORK_PATH } : {}),
       ...(process.env.DYLD_LIBRARY_PATH ? { DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH } : {}),
       PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
-      ACC_TOOLSETS: visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
+      ACC_TOOLSETS: composed ? 'desktop,uia,ocr,observe,macro' : visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
     const schema = require('../ruyi-workbench/app/server').CONFIG_SCHEMA;
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: schema, permissionMode: 'bypass',
       defaultWorkspace: root, workspaces: [{ path: root }], allowDesktopTools: true, allowCommandTools: true,
@@ -125,6 +127,18 @@ const listed=await invoke('list_windows');
 const row=listed.windows?.find(window=>window.pid===${fixture.pid}&&window.handle===${ready.id});
 if(!row) return {capabilities,error:'owned_window_missing'};
 const focused=await invoke('focus_window',{target:row.target});
+if(${composed} && focused.ok){
+  const observed=await invoke('observe',{target:row.target,max_width:400});
+  const b=${JSON.stringify(ready.buttons?.[2]?.bounds || {})};
+  const region=${JSON.stringify(ready.counterBounds ? [ready.counterBounds.x, ready.counterBounds.y, ready.counterBounds.width, ready.counterBounds.height].map(Math.round).join(',') : '')};
+  const acted=await invoke('act_and_verify',{target:row.target,action:{type:'click',x:b.x+b.width/2,y:b.y+b.height/2},region,settle_ms:200,return_image:'diff'});
+  const replayed=await invoke('macro_run',{delay_ms:0,steps:[
+    {tool:'observe',args:{target:row.target,max_width:300,include_uia:false}},
+    {tool:'wait',args:{seconds:.02}},
+    {tool:'ocr_find_text',args:{target:row.target,text:'COUNTS 0 0 1'}}
+  ]});
+  return {capabilities,focused,composed:{warm,observed,acted,replayed}};
+}
 if(${visual} && focused.ok){
   const found=await invoke('ocr_find_text',{text:'中文保存',target:row.target});
   const chinese=await invoke('ocr_click',{text:'中文保存',target:row.target});
@@ -175,7 +189,7 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
     const state = await fixtureCommand();
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
-      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
+      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, composed ? 'composed-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
         servicePID: result.servicePID, launch: 'LaunchServices', ...extra,
         observedProcesses: ownedTree.map(row => ({ pid: row.pid, ppid: row.ppid, created: row.created.toString() })),
         receiver: { textMatches: state.text === sample, counts: state.counts, pad: state.pad,
@@ -204,13 +218,24 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
       t.ok(state.counts.left_down === 1 && state.counts.left_up === 1 && state.counts.vertical_scroll > 0,
         'real receiver confirms the App-originated balanced click and wheel events');
     }
-    if (visual) {
+    if (visual && !composed) {
       t.ok(extra.visual?.warm?.ok && extra.visual.warm.text.includes('中文测试'), 'normal App HTTP route recognizes the local bilingual image with Vision');
       t.ok(extra.capabilities?.ready && extra.visual?.found?.found, 'App-origin ScreenCaptureKit and Vision resolve the owned Chinese button');
       t.ok(extra.visual?.chinese?.ok && extra.visual.chinese.confirmed === null && state.counts[2] === 1,
         'App-origin OCR click changes the actual Chinese receiver counter');
       t.ok(extra.visual?.templates?.matches_total === 2 && extra.visual.templateClick?.ok
         && state.counts[0] === 0 && state.counts[1] === 1, 'App-origin OpenCV matching and explicit selection change only the intended duplicate counter');
+    }
+    if (composed) {
+      t.ok(extra.composed?.warm?.ok && extra.composed.observed?.screenshot?.image
+        && extra.composed.observed.uia_elements.some(element => element.element_ref),
+      'normal App route combines shared screenshot/OCR and native AX metadata');
+      t.ok(extra.composed?.acted?.ok && extra.composed.acted.effect_observed && state.counts[2] === 1
+        && extra.composed.acted.confirmed === null, 'App-origin guarded action changes the visible counter with measured pixel evidence');
+      t.ok(extra.composed?.replayed?.completed === 3 && extra.composed.replayed.results[2].result.found,
+        'normal App macro route observes the actual changed counter through OCR');
+      t.ok(extra.composed?.replayed?.image && extra.composed.replayed.scale_y > 0
+        && extra.composed.replayed.origin, 'App macro image lifting preserves both coordinate axes and origin');
     }
     t.ok(!state.leftHeld && (visual ? state.modifiers : state.modifierFlags) === 0,
       'App input leaves actual button and modifier state released');

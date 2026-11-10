@@ -5,6 +5,7 @@
 static NSWindow *primary, *other;
 static NSMutableArray<NSButton *> *buttons;
 static NSMutableArray<NSNumber *> *counts;
+static NSTextField *counter;
 
 static NSDictionary *Bounds(NSView *view) {
     NSRect frame = [view.window convertRectToScreen:[view convertRect:view.bounds toView:nil]];
@@ -18,7 +19,7 @@ static void Report(NSString *event) {
         [controls addObject:@{@"text":button.title, @"bounds":Bounds(button)}];
     NSDictionary *out = @{@"event":event, @"pid":@(NSProcessInfo.processInfo.processIdentifier),
         @"id":@(primary.windowNumber), @"title":primary.title, @"content":Bounds(primary.contentView),
-        @"buttons":controls, @"counts":counts,
+        @"buttons":controls, @"counts":counts, @"counterBounds":Bounds(counter), @"counterText":counter.stringValue,
         @"leftHeld":@(CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, kCGMouseButtonLeft)),
         @"modifiers":@(CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState) &
             (kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskShift | kCGEventFlagMaskAlternate))};
@@ -33,6 +34,7 @@ static void Report(NSString *event) {
 @implementation Receiver
 - (void)pressed:(NSButton *)sender {
     counts[sender.tag] = @([counts[sender.tag] integerValue] + 1);
+    counter.stringValue = [NSString stringWithFormat:@"COUNTS %@   %@   %@", counts[0], counts[1], counts[2]];
     Report(@"pressed");
 }
 @end
@@ -84,6 +86,12 @@ int main(int argc, const char *argv[]) {
             [primary.contentView addSubview:button];
             [buttons addObject:button]; [counts addObject:@0];
         }
+        counter = [NSTextField labelWithString:@"COUNTS 0   0   0"];
+        counter.frame = NSMakeRect(430, 30, 320, 65);
+        counter.font = [NSFont monospacedSystemFontOfSize:24 weight:NSFontWeightRegular];
+        counter.textColor = NSColor.blackColor;
+        counter.accessibilityIdentifier = @"counter";
+        [primary.contentView addSubview:counter];
         [primary makeKeyAndOrderFront:nil]; [NSApp activateIgnoringOtherApps:YES];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ Report(@"ready"); });
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0), ^{

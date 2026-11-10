@@ -6,6 +6,8 @@ the real tool set; steps are isolated with per-step try/except.
 """
 
 import asyncio
+import math
+import sys
 from ai_computer_control.server import mcp
 
 # Tools that must never be invoked from inside a batch (prevents recursion / round-trip storms).
@@ -24,7 +26,8 @@ def _tool_map() -> dict:
 _MAX_LIFTED_IMAGES = 2
 _MIN_IMAGE_B64 = 1000          # anything shorter is not a real image payload
 _LIFT_KEYS = ("image", "image_base64")   # top-level keys the workbench reads, in its order
-_META_KEYS = ("width", "height", "scale", "format")
+_META_KEYS = ("width", "height", "scale", "scale_y", "format", "origin", "logical_bounds",
+              "coordinate_space", "source_pixel_scale")
 
 
 def _find_step_image(res):
@@ -66,9 +69,9 @@ def lift_batch_images(out: dict, max_images: int = _MAX_LIFTED_IMAGES) -> dict:
     for slot, (i, cont, key, b64) in zip(_LIFT_KEYS, reversed(keep)):   # newest first
         res = results[i]["result"]
         entry = {"step": results[i].get("step", i), "tool": results[i].get("tool"), "key": slot}
-        entry.update({k: res[k] for k in _META_KEYS if k in res})
+        entry.update({k: cont[k] for k in _META_KEYS if k in cont})
         if slot == "image":
-            out.update({k: res[k] for k in _META_KEYS if k in res})
+            out.update({k: cont[k] for k in _META_KEYS if k in cont})
         out[slot] = b64
         lifted.append(entry)
     for i, cont, key, b64 in found:
@@ -173,3 +176,21 @@ async def macro_run(steps: list[dict], on_error: str = "stop", delay_ms: int = 1
     (focus -> type -> click sequences). See batch_actions for the step schema.
     """
     return await _run_batch(steps, on_error, delay_ms)
+
+
+# Mac macro pacing uses an asynchronous wait registered with the batch backend.
+if sys.platform == 'darwin':
+    @mcp.tool()
+    async def wait(seconds: float) -> dict:
+        """Wait asynchronously on Mac for 0–300 seconds. Longer finite requests are capped at 300.
+
+        Cancellation interrupts the wait. Used by recorded macro pacing and batch_actions.
+        """
+        if type(seconds) not in (int, float) or not math.isfinite(seconds) or seconds < 0:
+            return {'ok': False, 'code': 'invalid_args', 'error': 'seconds must be a finite nonnegative number'}
+        waited = min(seconds, 300.)
+        await asyncio.sleep(waited)
+        out = {'success': True, 'waited_seconds': waited}
+        if seconds > 300:
+            out.update(capped=True, requested_seconds=seconds)
+        return out

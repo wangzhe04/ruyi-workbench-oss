@@ -1,0 +1,227 @@
+{
+  "nativePID": 1894,
+  "servicePID": 1906,
+  "launch": "LaunchServices",
+  "ax": null,
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 3607,
+      "height": 528,
+      "pid": 1890,
+      "process_start": "1794322619:658199",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 3607,
+        "pid": 1890,
+        "process_start": "1794322619:658199",
+        "ref": "784F1940-5A6E-4CEE-BA83-834D3C2480EC"
+      },
+      "title": "Ruyi P5 Input 1890",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 477,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "observedProcesses": [
+    {
+      "pid": 1894,
+      "ppid": 1,
+      "created": "1794322620541002"
+    },
+    {
+      "pid": 1906,
+      "ppid": 1894,
+      "created": "1794322620736941"
+    },
+    {
+      "pid": 1919,
+      "ppid": 1906,
+      "created": "1794322620848371"
+    },
+    {
+      "pid": 1948,
+      "ppid": 1906,
+      "created": "1794322621185773"
+    },
+    {
+      "pid": 1953,
+      "ppid": 1906,
+      "created": "1794322621255825"
+    },
+    {
+      "pid": 1958,
+      "ppid": 1906,
+      "created": "1794322621323792"
+    },
+    {
+      "pid": 1959,
+      "ppid": 1958,
+      "created": "1794322621325424"
+    },
+    {
+      "pid": 1960,
+      "ppid": 1959,
+      "created": "1794322621325754"
+    },
+    {
+      "pid": 1976,
+      "ppid": 1960,
+      "created": "1794322621575561"
+    },
+    {
+      "pid": 1983,
+      "ppid": 1906,
+      "created": "1794322621621368"
+    },
+    {
+      "pid": 2004,
+      "ppid": 1960,
+      "created": "1794322621985930"
+    },
+    {
+      "pid": 2010,
+      "ppid": 1960,
+      "created": "1794322622025230"
+    },
+    {
+      "pid": 2015,
+      "ppid": 1960,
+      "created": "1794322622057984"
+    },
+    {
+      "pid": 2018,
+      "ppid": 1960,
+      "created": "1794322622089455"
+    },
+    {
+      "pid": 2021,
+      "ppid": 1960,
+      "created": "1794322622119093"
+    },
+    {
+      "pid": 2024,
+      "ppid": 1960,
+      "created": "1794322622146592"
+    },
+    {
+      "pid": 2033,
+      "ppid": 1906,
+      "created": "1794322622203615"
+    },
+    {
+      "pid": 2034,
+      "ppid": 2033,
+      "created": "1794322622204828"
+    },
+    {
+      "pid": 2035,
+      "ppid": 2034,
+      "created": "1794322622205150"
+    },
+    {
+      "pid": 2036,
+      "ppid": 1960,
+      "created": "1794322622207204"
+    },
+    {
+      "pid": 2039,
+      "ppid": 1906,
+      "created": "1794322622229785"
+    },
+    {
+      "pid": 2044,
+      "ppid": 1906,
+      "created": "1794322622312540"
+    },
+    {
+      "pid": 2058,
+      "ppid": 1906,
+      "created": "1794322622470624"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 14,
+      "key_up": 14,
+      "left_down": 1,
+      "left_up": 1,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

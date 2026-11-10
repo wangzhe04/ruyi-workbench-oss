@@ -91,6 +91,8 @@ class PlatformMCP(FastMCP):
                 and (info.name not in macos.POINTER_QUERY_TOOLS or state.get("pointerQueryReady"))
                 and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))
                 and (info.name not in macos.AX_TOOLS or state.get("axReady"))
+                and (info.name != "observe" or state.get("ready"))
+                and (info.name != "act_and_verify" or (state.get("ready") and state.get("inputReady")))
                 and (info.name not in macos.OCR_LOCAL_TOOLS or state.get("ocrReady"))
                 and (info.name not in macos.OCR_SCREEN_TOOLS or (state.get("ocrReady") and state.get("ready")))
                 and (info.name not in macos.VISION_TOOLS or (state.get("ready") and getattr(
@@ -356,6 +358,9 @@ if sys.platform == "darwin":
     _UNSUPPORTED_MODULES.pop("uia", None)
     _UNSUPPORTED_MODULES.pop("ocr", None)
     _UNSUPPORTED_MODULES.pop("vision", None)
+    _UNSUPPORTED_MODULES.pop("observe", None)
+    _UNSUPPORTED_MODULES.pop("act_and_verify", None)
+    _UNSUPPORTED_MODULES.pop("batch", None)
 
 
 def _platform_modules(modules: list[str]) -> list[str]:
@@ -364,7 +369,7 @@ def _platform_modules(modules: list[str]) -> list[str]:
         replacements = {"screen": "macos_capture", "capture": "macos_capture",
                         "window": "macos_input", "clipboard": "macos_input",
                         "keyboard": "macos_events", "mouse": "macos_events", "application": "macos_application",
-                        "uia": "macos_ax", "ocr": "macos_ocr", "vision": "macos_vision"}
+                        "uia": "macos_ax", "ocr": "macos_ocr", "vision": "macos_vision", "observe": "macos_observe", "act_and_verify": "macos_act_and_verify"}
         active = [replacements.get(module, module) for module in active]
     return list(dict.fromkeys(active))
 

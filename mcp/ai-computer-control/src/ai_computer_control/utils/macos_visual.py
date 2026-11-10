@@ -8,6 +8,7 @@ import time
 from PIL import Image
 
 from ai_computer_control.utils import macos
+from ai_computer_control.utils.image import encode_with_budget, is_blank_frame
 from ai_computer_control.utils.macos_session import request as input_request
 
 
@@ -99,11 +100,15 @@ class VisualFrame:
             raise macos.DesktopError("observation_changed", "The matched pixels changed before the click")
         return mapped
 
-    def dispatch_click(self, mapped):
+    def require_fresh(self):
         require_active(self.target)
         age = time.monotonic() - self.started
         if age > 10:
             raise macos.DesktopError("observation_stale", "Visual observation expired before input dispatch")
+        return age
+
+    def dispatch_click(self, mapped):
+        age = self.require_fresh()
         bounds = self.target["bounds"]
         x, y = mapped["center"]
         if not (bounds["x"] <= mapped["left"] and bounds["y"] <= mapped["top"]
@@ -141,3 +146,15 @@ def capture_frame(region=None, target=None):
     started = time.monotonic()
     image, info = macos.capture(region=parsed)
     return VisualFrame(image.convert("RGB"), info, parsed, started, bound)
+
+
+def capture_fields(image, info, max_width, format, quality):
+    if is_blank_frame(image):
+        raise macos.DesktopError("capture_blank", "Native capture is completely black. Check screen permission and the desktop session")
+    encoded = encode_with_budget(image, max_width=max_width, fmt=format, quality=quality)
+    bounds = info["logical_bounds"]
+    # Use each actual output dimension after integer rounding. Mapping is exact on both axes.
+    encoded.update(scale=encoded["width"] / bounds["width"], scale_y=encoded["height"] / bounds["height"],
+                   origin={"x": bounds["x"], "y": bounds["y"]},
+                   source_pixel_scale={"x": image.width / bounds["width"], "y": image.height / bounds["height"]})
+    return {**info, **encoded}
