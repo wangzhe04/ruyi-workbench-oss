@@ -1,6 +1,6 @@
 # P5-04 OCR 与模板匹配
 
-2026-11-10，当前主机 macOS 27.0.1 arm64、Python 3.12.10、Node 24.15.0、SDK 15.2，原生编译目标 macOS 14.0。工作包保持进行中，当前主机独立验收及最终工程门已通过。实现提交绑定进行中，P5-05 与原环境门继续推进。
+2026-11-10，当前主机 macOS 27.0.1 arm64、Python 3.12.10、Node 24.15.0、SDK 15.2，原生编译目标 macOS 14.0。工作包保持进行中，当前主机独立验收及最终工程门已通过。实现提交及独立绑定已完成，P5-05 与原环境门继续推进。
 
 ## 工具与坐标
 
@@ -45,3 +45,7 @@ OpenCV headless 4.14.0.94 的官方 wheel 实际字节与 PyPI SHA-256 一致，
 工程四门通过，语法检查 1147 文件，构建产物新鲜，完整单元 2499 通过与 18 项既有跳过，静态 80/80、零 flaky、测试浏览器残留零。测试后收口 TASKS、P5 阶段文档与跟踪记录，并删除两份提取纯函数文件的冗余末尾换行，分别为两字节和一字节。其余字节及 Python AST 一致，25 项相关测试再次通过。交付指纹逐项列出三份文档和两处空白差异。[工程记录](acceptance/engineering/results.json) [最终交付指纹](source-fingerprint-final-delivery.json) [空白修正](eof-formatting.json) [专项复测](acceptance/eof-smoke.txt)
 
 默认 helper SHA-256 为 `d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9`，它与如意 App 的 strict codesign 验证通过。首次默认位置识别耗时 33.186 秒，随后使用同一已验产物完成独立视觉链。[默认产物](acceptance/default-helper.json)
+
+## 提交绑定
+
+实现提交为 `b09b1f4f51b7e3e3db35242ee61edb3e9e0b880f`。实施者及独立复核分别通过 Python 读取该提交的完整原始 blob，八十份共 10,778,902 字节，逐项与最终交付指纹及当时工作树相等。三份运行产物及二十九份终审证据另行核对，`git show --check` 通过。[实施者绑定](commit-binding.json) [独立绑定](commit-binding-review.json)
