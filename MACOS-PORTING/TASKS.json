@@ -1568,9 +1568,33 @@
             "high": 5
           },
           "deliverable": "Vision 或验证通过的离线引擎；中英识别、文字定位、坐标回映射与点击；保留图像算法，改接 Mac 截图。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P5/ocr/README.md",
+            "evidence/P5/ocr/code-review.json",
+            "evidence/P5/ocr/independent/report.json",
+            "evidence/P5/ocr/acceptance/engineering/results.json"
+          ],
+          "currentHostAcceptance": {
+            "date": "2026-11-10",
+            "status": "passed_current_host_scope",
+            "nodeE2EAssertions": 215,
+            "pythonTests": 87,
+            "commands": 14,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 80,
+            "binaryArtifacts": 3,
+            "helperSha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1147,
+            "independent": "evidence/P5/ocr/independent/report.json",
+            "deliveryFingerprint": "evidence/P5/ocr/source-fingerprint-final-delivery.json"
+          }
         },
         {
           "id": "P5-05",

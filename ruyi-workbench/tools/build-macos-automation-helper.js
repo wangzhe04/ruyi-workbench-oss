@@ -16,11 +16,13 @@ function buildMacAutomationHelper({ output, testing = false } = {}) {
     const result = cp.spawnSync('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-fblocks', '-Wall', '-Wextra', '-Werror', '-O2',
       '-mmacosx-version-min=14.0', '-arch', architecture, '-framework', 'AppKit', '-framework', 'ApplicationServices',
       '-framework', 'ScreenCaptureKit', '-framework', 'ImageIO', '-framework', 'UniformTypeIdentifiers',
+      '-framework', 'Vision',
       ...(testing ? ['-DRUYI_AUTOMATION_TESTING=1'] : []),
       path.join(root, 'resources', 'macos-automation-helper.m'),
       path.join(root, 'resources', 'macos-automation-input.m'),
       path.join(root, 'resources', 'macos-automation-events.m'),
       path.join(root, 'resources', 'macos-automation-ax.m'),
+      path.join(root, 'resources', 'macos-automation-ocr.m'),
       path.join(root, 'resources', 'macos-automation-session.m'), '-o', temporary],
     { encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024 });
     if (result.error || result.status !== 0) throw new Error(result.error?.message || result.stderr);

@@ -1,0 +1,242 @@
+{
+  "nativePID": 83410,
+  "servicePID": 83420,
+  "launch": "LaunchServices",
+  "ax": null,
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 3412,
+      "height": 528,
+      "pid": 83404,
+      "process_start": "1794317477:676571",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 3412,
+        "pid": 83404,
+        "process_start": "1794317477:676571",
+        "ref": "9EF36B0A-B635-4C65-A17C-D07C60DBFD85"
+      },
+      "title": "Ruyi P5 Input 83404",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 461,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "observedProcesses": [
+    {
+      "pid": 83410,
+      "ppid": 1,
+      "created": "1794317478517157"
+    },
+    {
+      "pid": 83420,
+      "ppid": 83410,
+      "created": "1794317478725696"
+    },
+    {
+      "pid": 83430,
+      "ppid": 83420,
+      "created": "1794317478834549"
+    },
+    {
+      "pid": 83434,
+      "ppid": 83420,
+      "created": "1794317478851372"
+    },
+    {
+      "pid": 83433,
+      "ppid": 83420,
+      "created": "1794317478850292"
+    },
+    {
+      "pid": 83463,
+      "ppid": 83420,
+      "created": "1794317479180507"
+    },
+    {
+      "pid": 83468,
+      "ppid": 83420,
+      "created": "1794317479260176"
+    },
+    {
+      "pid": 83473,
+      "ppid": 83420,
+      "created": "1794317479334146"
+    },
+    {
+      "pid": 83474,
+      "ppid": 83473,
+      "created": "1794317479336239"
+    },
+    {
+      "pid": 83475,
+      "ppid": 83474,
+      "created": "1794317479336588"
+    },
+    {
+      "pid": 83490,
+      "ppid": 83475,
+      "created": "1794317479588605"
+    },
+    {
+      "pid": 83493,
+      "ppid": 83420,
+      "created": "1794317479615273"
+    },
+    {
+      "pid": 83516,
+      "ppid": 83475,
+      "created": "1794317479996104"
+    },
+    {
+      "pid": 83521,
+      "ppid": 83475,
+      "created": "1794317480038000"
+    },
+    {
+      "pid": 83524,
+      "ppid": 83475,
+      "created": "1794317480068573"
+    },
+    {
+      "pid": 83527,
+      "ppid": 83475,
+      "created": "1794317480099237"
+    },
+    {
+      "pid": 83530,
+      "ppid": 83475,
+      "created": "1794317480128139"
+    },
+    {
+      "pid": 83535,
+      "ppid": 83420,
+      "created": "1794317480183823"
+    },
+    {
+      "pid": 83541,
+      "ppid": 83420,
+      "created": "1794317480213493"
+    },
+    {
+      "pid": 83542,
+      "ppid": 83541,
+      "created": "1794317480214878"
+    },
+    {
+      "pid": 83543,
+      "ppid": 83542,
+      "created": "1794317480215193"
+    },
+    {
+      "pid": 83545,
+      "ppid": 83475,
+      "created": "1794317480217301"
+    },
+    {
+      "pid": 83547,
+      "ppid": 83420,
+      "created": "1794317480242183"
+    },
+    {
+      "pid": 83554,
+      "ppid": 83420,
+      "created": "1794317480325645"
+    },
+    {
+      "pid": 83559,
+      "ppid": 83420,
+      "created": "1794317480401699"
+    },
+    {
+      "pid": 83566,
+      "ppid": 83420,
+      "created": "1794317480491742"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 14,
+      "key_up": 14,
+      "left_down": 1,
+      "left_up": 1,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

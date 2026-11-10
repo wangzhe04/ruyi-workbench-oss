@@ -64,10 +64,11 @@ def _optional(mac_capture=None) -> dict:
         return _has_module(mod_name)
 
     return {
-        "ocr": flag("ai_computer_control.tools.ocr", "winsdk"),
+        "ocr": bool(mac_capture and mac_capture.get("ocrSupported") and sys.modules.get("ai_computer_control.tools.macos_ocr"))
+            if sys.platform == "darwin" else flag("ai_computer_control.tools.ocr", "winsdk"),
         "uia": bool(mac_capture and mac_capture.get("axSupported") and sys.modules.get("ai_computer_control.tools.macos_ax"))
             if sys.platform == "darwin" else flag("ai_computer_control.tools.uia", "uiautomation"),
-        "cv2": flag("ai_computer_control.tools.vision", "cv2"),
+        "cv2": flag("ai_computer_control.tools.macos_vision" if sys.platform == "darwin" else "ai_computer_control.tools.vision", "cv2"),
         "playwright": flag("ai_computer_control.tools.browser", "playwright"),
         "pynput": flag("ai_computer_control.tools.record", "pynput"),
         # v1.6 Office 模板驱动 optional backends.
@@ -121,6 +122,19 @@ def diagnostics() -> dict:
             "installed": bool(state.get("installed") and state.get("axSupported")),
             "authorization": state.get("windowAuthorization", "unknown"), "ready": state.get("axReady", False),
             "backend": "AXUIElement", "coordinate_space": "macos_global_points"}
+        desktop["desktop.ocr"] = {"supported": state.get("ocrSupported", False),
+            "installed": bool(state.get("installed") and state.get("ocrSupported")),
+            "authorization": "not_required_for_local_images", "ready": state.get("ocrReady", False),
+            "screenReady": bool(state.get("ocrReady") and state.get("ready")),
+            "inputReady": bool(state.get("ocrReady") and state.get("ready") and state.get("inputReady")),
+            "backend": "Vision", "recognition_revision": state.get("ocrRevision"),
+            "image_coordinate_space": "image_pixels", "screen_coordinate_space": "macos_global_points"}
+        vision = bool(getattr(sys.modules.get(_TOOLS_PKG + "macos_vision"), "_AVAILABLE", False))
+        desktop["desktop.template_matching"] = {"supported": True, "installed": vision,
+            "authorization": state.get("authorization", "unknown"),
+            "ready": bool(vision and state.get("ready")),
+            "inputReady": bool(vision and state.get("ready") and state.get("inputReady")),
+            "backend": "OpenCV", "coordinate_space": "macos_global_points"}
     return {
         "ok": True,
         "version": VERSION,

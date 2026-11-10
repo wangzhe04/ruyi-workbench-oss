@@ -24,6 +24,9 @@ INPUT_TOOLS = frozenset({"type_text", "press_key", "hotkey", "mouse_click", "mou
 POINTER_QUERY_TOOLS = frozenset({"get_mouse_position"})
 APPLICATION_TOOLS = frozenset({"launch_application"})
 AX_TOOLS = frozenset({"ui_inspect", "ui_find", "ui_invoke"})
+OCR_LOCAL_TOOLS = frozenset({"ocr_image", "ocr_available_languages"})
+OCR_SCREEN_TOOLS = frozenset({"ocr_screen", "ocr_find_text", "ocr_click"})
+VISION_TOOLS = frozenset({"find_template", "find_all_templates", "vision_click", "wait_for_image"})
 
 
 class DesktopError(RuntimeError):
@@ -62,6 +65,9 @@ def _failure_details(result):
     details = {}
     if isinstance(result.get("candidates"), list):
         details["candidates"] = result["candidates"][:20]
+    if isinstance(result.get("available_languages"), list):
+        details["available_languages"] = [tag for tag in result["available_languages"]
+            if isinstance(tag, str) and len(tag) <= 64][:128]
     for key in ("acted", "action_sent", "restored", "reached", "confirmed"):
         if type(result.get(key)) is bool:
             details[key] = result[key]
@@ -89,6 +95,7 @@ def request(payload, timeout=15):
     if not _SLOTS.acquire(blocking=False):
         raise DesktopError("capture_busy", "Two native desktop requests are already running")
     child = None
+    timeout_code = "ocr_timeout" if str(payload.get("op", "")).startswith("ocr.") else "capture_timeout"
     try:
         child = subprocess.Popen([str(path)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"})
@@ -104,7 +111,7 @@ def request(payload, timeout=15):
             while streams.get_map():
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise DesktopError("capture_timeout", "Native desktop request timed out")
+                    raise DesktopError(timeout_code, "Native desktop request timed out")
                 for key, _ in streams.select(min(remaining, 0.25)):
                     if key.fileobj is child.stdin:
                         written += os.write(child.stdin.fileno(), data[written:written + 4096])
@@ -175,6 +182,9 @@ def capability():
         out.update(axSupported=status.get("axSupported") is True,
                    axReady=bool(status.get("axSupported") is True and status.get("axReady")
                                 and status.get("windowAuthorization") == "granted" and status.get("locked") is False))
+        out.update(ocrSupported=status.get("ocrSupported") is True,
+                   ocrReady=bool(status.get("ocrSupported") is True and status.get("ocrReady")),
+                   ocrRevision=status.get("ocrRevision"))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))

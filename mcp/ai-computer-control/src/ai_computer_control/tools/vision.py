@@ -11,6 +11,7 @@ import time
 
 from ai_computer_control.server import mcp
 from ai_computer_control.utils.waits import clamp_wait_s
+from ai_computer_control.utils.template_match import match_templates, dedupe_hits as _dedupe, _miss, _MULTISCALE
 
 try:
     import cv2  # type: ignore
@@ -29,7 +30,6 @@ def _unavailable() -> dict:
 
 # Scale ladder for multi-scale matching, most likely first (early exit stops at the first strong hit):
 # 100/125/150/175/200% DPI ratios in both directions plus a few zoom steps.
-_MULTISCALE = [1.0, 1.25, 1.5, 0.8, 0.667, 1.75, 2.0, 0.5, 0.9, 1.1, 0.75]
 # A match this good ends the scale search early (a 1.0 exact hit costs 1 scale instead of all of them).
 _EARLY_EXIT = 0.97
 
@@ -80,48 +80,8 @@ def _load_template_gray(template_path: str | None, template_b64: str | None):
 
 
 def _match(screen, templ, confidence, scales, find_all, early_exit=_EARLY_EXIT):
-    """Template-match `templ` over `screen` at each scale. Returns (hits, best).
-
-    hits: [(score, x, y, w, h)] at/above `confidence`. best: (score, scale) of the strongest match seen
-    at ANY scale (None if no scale fit), so a miss can still report how close it was. In single-match
-    mode the scale loop stops as soon as one scale scores >= max(confidence, early_exit)."""
-    hits = []
-    best = None
-    sh, sw = screen.shape[:2]
-    for scale in scales:
-        th, tw = templ.shape[:2]
-        nw, nh = int(tw * scale), int(th * scale)
-        if nw < 8 or nh < 8 or nw > sw or nh > sh:
-            continue
-        resized = cv2.resize(templ, (nw, nh)) if scale != 1.0 else templ
-        res = cv2.matchTemplate(screen, resized, cv2.TM_CCOEFF_NORMED)
-        if find_all:
-            ys, xs = np.where(res >= confidence)
-            for (x, y) in zip(xs.tolist(), ys.tolist()):
-                hits.append((float(res[y, x]), x, y, nw, nh))
-            if res.size:
-                top = float(res.max())
-                if best is None or top > best[0]:
-                    best = (top, scale)
-        else:
-            _minv, maxv, _minl, maxl = cv2.minMaxLoc(res)
-            if best is None or float(maxv) > best[0]:
-                best = (float(maxv), scale)
-            if maxv >= confidence:
-                hits.append((float(maxv), maxl[0], maxl[1], nw, nh))
-                if maxv >= max(confidence, early_exit):
-                    break
-    return hits, best
-
-
-def _dedupe(hits, min_dist=12):
-    hits.sort(key=lambda h: h[0], reverse=True)
-    kept = []
-    for score, x, y, w, h in hits:
-        cx, cy = x + w // 2, y + h // 2
-        if all(abs(cx - (k[1] + k[3] // 2)) > min_dist or abs(cy - (k[2] + k[4] // 2)) > min_dist for k in kept):
-            kept.append((score, x, y, w, h))
-    return kept
+    return match_templates(screen, templ, confidence, scales, find_all, early_exit,
+                           cv_backend=cv2, np_backend=np)
 
 
 def _boxes(hits, origin=(0, 0)):
@@ -129,28 +89,6 @@ def _boxes(hits, origin=(0, 0)):
     ox, oy = origin
     return [{"confidence": round(s, 3), "left": x + ox, "top": y + oy, "width": w, "height": h,
              "center": [x + ox + w // 2, y + oy + h // 2]} for (s, x, y, w, h) in hits]
-
-
-def _miss(confidence, best, extra=None):
-    """The not-found payload: how close the best candidate was, so 'nearly' is distinguishable from 'absent'."""
-    out = {"found": False, "threshold": confidence}
-    if best is not None and best[0] != best[0]:  # NaN (flat template/region): no usable score
-        best = None
-    if best is None:
-        out["best_confidence"] = None
-        out["hint"] = "the template is larger than the searched area at every scale tried; widen the region"
-    else:
-        out["best_confidence"] = round(best[0], 3)
-        out["best_scale"] = best[1]
-        if best[0] >= confidence - 0.15:
-            out["hint"] = (f"a near match exists (score {best[0]:.2f} < threshold {confidence:.2f}); lower the "
-                           f"threshold slightly, re-capture the template at the current DPI, or narrow region")
-        else:
-            out["hint"] = ("no similar pixels found; the template is probably not visible (other monitor? "
-                           "pass region=; or use ocr_find_text / ui_find)")
-    if extra:
-        out.update(extra)
-    return out
 
 
 @mcp.tool()

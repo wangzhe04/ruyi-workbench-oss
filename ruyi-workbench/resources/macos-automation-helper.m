@@ -59,6 +59,7 @@ static NSDictionary *Status(void) {
         @"virtual":displays.count ? RuyiAutomationRectFields(DisplayUnion(displays)) : @{},
         @"permissionRequestsMade":@NO, @"backend":@"ScreenCaptureKit"} mutableCopy];
     [out addEntriesFromDictionary:RuyiAutomationInputStatus()];
+    [out addEntriesFromDictionary:RuyiAutomationOCRStatus()];
     return out;
 }
 
@@ -294,6 +295,10 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
         done(RuyiAutomationFailure(@"invalid_args", @"Expected protocol version 1 and an operation")); return;
     }
     NSString *op = request[@"op"];
+    if ([op hasPrefix:@"ocr."]) {
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{ done(RuyiAutomationOCRRequest(request)); });
+        return;
+    }
 #ifdef RUYI_AUTOMATION_TESTING
     if ([op isEqual:@"test_input_state"]) { done(RuyiAutomationTestInputState()); return; }
     if ([op isEqual:@"test_ax_state"]) { done(RuyiAutomationTestAXState(request)); return; }
@@ -360,8 +365,9 @@ int main(int argc, const char *argv[]) {
             }
         };
         if (![request isKindOfClass:NSDictionary.class]) done(RuyiAutomationFailure(@"invalid_args", @"Invalid or oversized JSON request"));
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 12 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            done(RuyiAutomationFailure(@"capture_timeout", @"Desktop request exceeded its deadline"));
+        BOOL ocr = [request[@"op"] isKindOfClass:NSString.class] && [request[@"op"] hasPrefix:@"ocr."];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (ocr ? 60 : 12) * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            done(RuyiAutomationFailure(ocr ? @"ocr_timeout" : @"capture_timeout", @"Desktop request exceeded its deadline"));
         });
         HandleRequest(request, done);
         [NSApplication sharedApplication];

@@ -1,6 +1,7 @@
 'use strict';
 require('./lib/self-isolate-home');
 // LaunchServices Ruyi.app -> owned workbench -> normal HTTP invoke -> real ACC -> native input worker.
+// RUYI_P5_APP_VISUAL=1 verifies Vision OCR and OpenCV clicks against the owned bilingual receiver.
 // All injected events target a self-owned fixture. RUYI_P5_APP_PASTE=1 also verifies guarded Cmd+V.
 // RUYI_P5_APP_EXIT_FAILURE=1 forces an owned App crash after input and expects one injected failure.
 // RUYI_P5_APP_AX=1 also exercises native AX queries and confirmed AXValue writes through the normal App route.
@@ -20,6 +21,7 @@ let fixture, launcher, owned, ownedTree = [];
 const paste = process.env.RUYI_P5_APP_PASTE === '1';
 const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
 const ax = process.env.RUYI_P5_APP_AX === '1';
+const visual = process.env.RUYI_P5_APP_VISUAL === '1';
 const events = [];
 async function until(read, timeout = 45000) {
   const deadline = Date.now() + timeout;
@@ -59,12 +61,17 @@ async function cleanupOwned() {
 (async () => {
   try {
     if (process.platform !== 'darwin') { console.log('SKIP Mac App input launch chain'); return; }
-    const helper = buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
+    const helper = (visual && process.env.RUYI_P5_OCR_HELPER) || buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
     const receiver = path.join(root, 'receiver');
     const compiled = cp.spawnSync('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-fblocks', '-Wall', '-Wextra', '-Werror',
       '-mmacosx-version-min=14.0', '-framework', 'AppKit', '-framework', 'ApplicationServices',
-      path.join(__dirname, 'fixtures/macos-input-window.m'), '-o', receiver], { encoding: 'utf8', timeout: 60000 });
+      path.join(__dirname, visual ? 'fixtures/macos-ocr-window.m' : 'fixtures/macos-input-window.m'), '-o', receiver], { encoding: 'utf8', timeout: 60000 });
     if (compiled.status !== 0) throw new Error(compiled.stderr);
+    const ocrImage = path.join(root, 'ocr-image.png');
+    if (visual) {
+      const image = cp.spawnSync(receiver, ['--image', ocrImage], { env: fixtureChildEnv(), timeout: 5000 });
+      if (image.status !== 0) throw new Error('Cannot generate owned App OCR image');
+    }
     fixture = cp.spawn(receiver, [], { env: { ...fixtureChildEnv(), ...(paste ? { RUYI_P5_CLIPBOARD_FIXTURE: '1' } : {}) }, stdio: ['pipe', 'pipe', 'pipe'] });
     let buffer = '';
     fixture.stdout.on('data', chunk => {
@@ -89,7 +96,7 @@ async function cleanupOwned() {
       ...(process.env.DYLD_FRAMEWORK_PATH ? { DYLD_FRAMEWORK_PATH: process.env.DYLD_FRAMEWORK_PATH } : {}),
       ...(process.env.DYLD_LIBRARY_PATH ? { DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH } : {}),
       PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
-      ACC_TOOLSETS: ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
+      ACC_TOOLSETS: visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
     const schema = require('../ruyi-workbench/app/server').CONFIG_SCHEMA;
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: schema, permissionMode: 'bypass',
       defaultWorkspace: root, workspaces: [{ path: root }], allowDesktopTools: true, allowCommandTools: true,
@@ -104,7 +111,7 @@ async function cleanupOwned() {
       if (!seed.clipboardSnapshot) throw new Error('Cannot preserve the pre-test clipboard');
       await fixtureCommand('clipboard-track ' + Buffer.from(sample, 'utf8').toString('base64'));
     }
-    const pad = { x: Math.round(ready.pad.x + ready.pad.width / 2), y: Math.round(ready.pad.y + ready.pad.height / 2) };
+    const pad = visual ? null : { x: Math.round(ready.pad.x + ready.pad.width / 2), y: Math.round(ready.pad.y + ready.pad.height / 2) };
     fs.writeFileSync(script, `const {api}=await import('/js/net.js');
 const invoke=async(name,args={})=>{
   const reply=await api('/api/tools/tool_invoke_exec',{method:'POST',body:JSON.stringify({name:'ai_computer_control__'+name,arguments:args})});
@@ -113,10 +120,20 @@ const invoke=async(name,args={})=>{
 const diag=await invoke('diagnostics');
 const capabilities=diag.capabilities?.['desktop.capture'];
 if(!capabilities || (${ax} ? !capabilities.axReady : !capabilities.inputReady)) return {capabilities,diagOK:diag.ok,unavailable:true};
+const warm=${visual}?await invoke('ocr_image',{path:${JSON.stringify(ocrImage)}}):null;
 const listed=await invoke('list_windows');
 const row=listed.windows?.find(window=>window.pid===${fixture.pid}&&window.handle===${ready.id});
 if(!row) return {capabilities,error:'owned_window_missing'};
 const focused=await invoke('focus_window',{target:row.target});
+if(${visual} && focused.ok){
+  const found=await invoke('ocr_find_text',{text:'中文保存',target:row.target});
+  const chinese=await invoke('ocr_click',{text:'中文保存',target:row.target});
+  const b=${JSON.stringify(ready.buttons?.[0]?.bounds || {})};
+  const shot=await invoke('screenshot_region',{x:Math.round(b.x+b.width/2-80),y:Math.round(b.y+b.height/2-16),width:160,height:32,max_width:0});
+  const templates=shot.ok?await invoke('find_all_templates',{template_b64:shot.image,confidence:.99,region:[row.x,row.y,row.width,row.height].join(',')}):null;
+  const templateClick=templates?.ok?await invoke('vision_click',{template_b64:shot.image,threshold:.99,multiscale:false,target:row.target,nth:1}):null;
+  return {capabilities,focused,visual:{warm,found,chinese,templates,templateClick}};
+}
 const typed=!${ax}&&focused.ok?await invoke('type_text',{text:${JSON.stringify(sample)},target:row.target,use_clipboard:${paste},interval:0}):null;
 let ax=null;
 if(${ax} && focused.ok){
@@ -153,16 +170,16 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
       if (!value) return null;
       if (value.state === 'failed') throw new Error(JSON.stringify(value));
       return value.state === 'ready' && value;
-    });
+    }, visual ? 100000 : 45000);
     const extra = result.page.additional;
     const state = await fixtureCommand();
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
-      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
+      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
         servicePID: result.servicePID, launch: 'LaunchServices', ...extra,
         observedProcesses: ownedTree.map(row => ({ pid: row.pid, ppid: row.ppid, created: row.created.toString() })),
         receiver: { textMatches: state.text === sample, counts: state.counts, pad: state.pad,
-          leftHeld: state.leftHeld, modifierFlags: state.modifierFlags, clipboardPreserved: state.clipboardPreserved } }, null, 2) + '\n');
+          leftHeld: state.leftHeld, modifierFlags: visual ? state.modifiers : state.modifierFlags, clipboardPreserved: state.clipboardPreserved } }, null, 2) + '\n');
     }
     t.ok(result.nativePID > 0 && result.servicePID > 0, 'LaunchServices Ruyi App owns the actual workbench service');
     t.ok(owned?.pid === result.nativePID && ownedTree.some(row => row.pid === result.servicePID),
@@ -172,7 +189,7 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
       extra.capabilities.inputReady && extra.capabilities.eventAuthorization === 'granted'),
     ax ? 'App-launched ACC has actual Accessibility authorization for native AX' : 'App-launched ACC has its own actual Accessibility and event authorization');
     t.ok(extra.focused?.ok && extra.focused.foreground_verified, 'normal App HTTP tool route focuses the exact owned receiver');
-    if (!ax) t.ok(extra.typed?.ok && extra.typed.method === (paste ? 'clipboard' : 'typewrite'),
+    if (!ax && !visual) t.ok(extra.typed?.ok && extra.typed.method === (paste ? 'clipboard' : 'typewrite'),
       paste ? 'normal App HTTP tool route sends Chinese through Cmd+V' : 'normal App HTTP tool route sends Chinese Unicode events');
     if (paste && !ax) t.ok(extra.typed?.restore === 'done' && state.clipboardPreserved, 'App Cmd+V restores the prior image and private clipboard formats');
     if (ax) {
@@ -181,13 +198,22 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
       t.ok(extra.ax?.written?.confirmed && extra.ax?.restored?.confirmed && state.text === sample,
         'App-origin AXValue writes change and restore the real receiver with confirmed readback');
     }
-    if (!ax) {
+    if (!ax && !visual) {
       t.ok(extra.clicked?.ok && extra.scrolled?.ok, 'App launch chain sends guarded pointer and wheel events');
       t.ok(state.text === sample && state.counts.key_down > 0, 'real receiver confirms the App-originated Chinese text');
       t.ok(state.counts.left_down === 1 && state.counts.left_up === 1 && state.counts.vertical_scroll > 0,
         'real receiver confirms the App-originated balanced click and wheel events');
     }
-    t.ok(!state.leftHeld && state.modifierFlags === 0, 'App input leaves actual button and modifier state released');
+    if (visual) {
+      t.ok(extra.visual?.warm?.ok && extra.visual.warm.text.includes('中文测试'), 'normal App HTTP route recognizes the local bilingual image with Vision');
+      t.ok(extra.capabilities?.ready && extra.visual?.found?.found, 'App-origin ScreenCaptureKit and Vision resolve the owned Chinese button');
+      t.ok(extra.visual?.chinese?.ok && extra.visual.chinese.confirmed === null && state.counts[2] === 1,
+        'App-origin OCR click changes the actual Chinese receiver counter');
+      t.ok(extra.visual?.templates?.matches_total === 2 && extra.visual.templateClick?.ok
+        && state.counts[0] === 0 && state.counts[1] === 1, 'App-origin OpenCV matching and explicit selection change only the intended duplicate counter');
+    }
+    t.ok(!state.leftHeld && (visual ? state.modifiers : state.modifierFlags) === 0,
+      'App input leaves actual button and modifier state released');
     if (forceAppExit) {
       if (!owned || !remainingOwned().some(row => row.pid === owned.pid)) throw new Error('Cannot verify the App before controlled crash');
       process.kill(owned.pid, 'SIGKILL');

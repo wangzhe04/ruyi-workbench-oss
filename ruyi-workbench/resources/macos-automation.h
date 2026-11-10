@@ -10,6 +10,8 @@ NSDictionary *RuyiAutomationEncodeImage(CGImageRef image, BOOL rejectBlank);
 NSDictionary *RuyiAutomationInputStatus(void);
 NSDictionary *RuyiAutomationInputRequest(NSDictionary *request);
 NSDictionary *RuyiAutomationAXRequest(NSDictionary *request);
+NSDictionary *RuyiAutomationOCRStatus(void);
+NSDictionary *RuyiAutomationOCRRequest(NSDictionary *request);
 void RuyiAutomationResetAXBindings(void);
 void RuyiAutomationRefreshAXBindings(void);
 void RuyiAutomationRefreshInputBindings(void);

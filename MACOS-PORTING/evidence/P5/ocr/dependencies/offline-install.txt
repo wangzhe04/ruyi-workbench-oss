@@ -1,0 +1,4 @@
+Looking in links: /Users/jiming/.cache/ruyi-macos-wheels/vision-p5
+Processing /Users/jiming/.cache/ruyi-macos-wheels/vision-p5/opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl
+Installing collected packages: opencv-python-headless
+Successfully installed opencv-python-headless-4.14.0.94
