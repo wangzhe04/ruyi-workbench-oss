@@ -331,7 +331,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           await release(rehearsalOwner);
           if (await host.verifyFresh({ target: rehearsal, password: context.password, generation: expected.generation }) !== true) throw fail('fresh_verification_failed');
           const cleanupOwner = await acquire(rehearsal);
-          if(await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
+          // The portable native census below already compares the exact
+          // restored receipt. Its final byte and identity readback still
+          // follows that census, immediately before disposal.
+          if(!rehearsalReceipt&&await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
           if (!owned.has(cleanupOwner) || p.dirname(rehearsal) !== backupDirectory || p.basename(rehearsal) !== '.ruyi-work-data-verify-' + id
             || inside(base, rehearsal) || inside(rehearsal, base)) throw fail('rehearsal_cleanup_invalid');
           // Default-stream verification cannot detect a newly added ADS. The
@@ -408,8 +411,8 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         await update('published', prepared.candidate);
         // verifyPublished must inspect the exact selected generation using cold,
         // independent owner factories; no global mode/cache change is accepted.
-        const verifyPublished = async () => {
-          const proof = await migration.verifyPublished(prepared), selected = await WorkDataManifest.create({ base }).readActive();
+        const verifyPublished = async recheck => {
+          const proof = await migration.verifyPublished(prepared,{recheck}), selected = await WorkDataManifest.create({ base }).readActive();
           const sameActive = value => value && value.id === prepared.candidate.id && value.mode === prepared.candidate.mode
             && value.root === prepared.candidate.root && value.generation === expected.generation + 1
             && value.proof?.sha256 === state.candidate.pointerSha256;
@@ -426,7 +429,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         const result = { id, operation: context.operation, state: 'published', backup, authority: published,
           restartRoot: base, publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: prepared.retainedPlainDisclosure };
         const resultReceipt = await persistResult(result);
-        await control.finish(intent, async()=>await verifyPublished() === true && await results.verify(resultReceipt) === true); intent = null;
+        await control.finish(intent, async()=>await verifyPublished(true) === true && await results.verify(resultReceipt) === true); intent = null;
         // The intent is gone and the result is verified: this is the only point at
         // which the handoff record may be retired for a generation change.
         await clearClaim();

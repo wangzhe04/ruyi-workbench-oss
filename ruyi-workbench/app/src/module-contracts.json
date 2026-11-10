@@ -1989,6 +1989,7 @@
         "JOURNAL_KEEP_HISTORY_SNAPSHOTS",
         "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "JOURNAL_RETIRED_PREFIX",
         "JOURNAL_REVERT_LOG_MAX",
         "JOURNAL_REVERT_PATHS_MAX",
         "JOURNAL_SWEEP_BACKOFF_MS",
@@ -2130,16 +2131,21 @@
         "journalReadIndex",
         "journalReadIndexForWrite",
         "journalReadRetentionIndex",
+        "journalReclaimRetired",
         "journalRecord",
         "journalRecordMany",
         "journalRecordManyContents",
         "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
+        "journalResumeRetirements",
         "journalRetentionAssert",
         "journalRetentionAuthenticate",
         "journalRetentionDeferred",
         "journalRetentionStat",
+        "journalRetireSealed",
+        "journalRetirementFiles",
+        "journalRetirementName",
         "journalRevertChains",
         "journalRevertLogPath",
         "journalRevertLogPrune",
@@ -16372,6 +16378,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalReadIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalResumeRetirements",
           "kinds": [
             "call"
           ]
@@ -30863,6 +30876,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -30964,6 +30984,13 @@
           "symbol": "migrationCapsuleCapturePreserved",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13u-migration-center.js",
+          "symbol": "migrationCapsuleShape",
+          "kinds": [
+            "call"
           ]
         },
         {

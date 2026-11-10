@@ -130,11 +130,13 @@ async function main() {
   // Detect the raw option before parseArgs can consume a following "doctor" as
   // its value or hide an =value spelling among ordinary doctor options.
   const raw = process.argv.slice(2);
-  if (raw.some(value => value === '--settle-work-data-transition' || value.startsWith('--settle-work-data-transition='))) {
-    if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--settle-work-data-transition'
-      || argv['settle-work-data-transition'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+  const transitionOptions=['--settle-work-data-transition','--retire-work-data-transition'];
+  if (raw.some(value => transitionOptions.some(option=>value===option||value.startsWith(option+'=')))) {
+    if (raw.length !== 2 || raw[0] !== 'doctor' || !transitionOptions.includes(raw[1])
+      || argv[raw[1].slice(2)] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
       throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
-    const result = await WorkDataRuntimeHost.create().recoverPreparedTransition({base:dataRoot(),settleForward:true});
+    const retireInverse=raw[1]==='--retire-work-data-transition';
+    const result = await WorkDataRuntimeHost.create().recoverPreparedTransition({base:dataRoot(),settleForward:!retireInverse,retireInverse});
     console.log(JSON.stringify(result));return result;
   }
   if (raw.some(value => value === '--recover-work-data-intent' || value.startsWith('--recover-work-data-intent='))) {

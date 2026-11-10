@@ -1774,6 +1774,7 @@ async function startServer(opts) {
     }
     const selected = await WorkDataRootHooks.bind(ownership);
     if (typeof WorkDataMaintenanceRuntimeHooks.configureServe === 'function') await WorkDataMaintenanceRuntimeHooks.configureServe({base:dataRoot(),ownership});
+    await journalResumeRetirements();
     if (selected.present && typeof MigrationHooks.activateBackupAuthority === 'function') {
       const base = selected.canonicalBase, manifest = WorkDataManifest.create({ base });
       await MigrationHooks.activateBackupAuthority({

@@ -140,6 +140,33 @@ test('the transition proof can be bound once while key-ready and has a separate 
  await assert.rejects(cold.recoverTransition(selected,async()=>true),{code:'work_data_setup.transition_recovery_receipt_invalid'});
  assert.deepEqual(await fsp.readFile(f.file),raw);
 });
+test('inverse retirement persists an exact plan before deletion and can resume after interruption',async t=>{
+ const f=await fixture(t),candidate={id:'c'.repeat(48),mode:'encrypted',headerSha256:'d'.repeat(64),pointerSha256:'e'.repeat(64)};
+ const ready={...f.s,phase:'key-ready',candidate};
+ const transition={schema:1,operationId:'f'.repeat(48),preparedSha256:'1'.repeat(64)};
+ const transitionReady={schema:1,targetSha256:'2'.repeat(64),targetNativeSha256:'3'.repeat(64)};
+ const plan={schema:1,retainedSha256:'4'.repeat(64),claim:{parentPid:12,childPid:13,dev:'1',ino:'2',sha256:'5'.repeat(64)},
+  rows:[{path:'.work-data/generations/'+candidate.id,dir:true,id:'6'.repeat(24),sha256:'7'.repeat(64)}]};
+ let receipt=await f.control.write(f.s);
+ for(const next of [{...ready,phase:'candidate'},ready,{...ready,transition,transitionSourceSha256:'8'.repeat(64)},
+  {...ready,transition,transitionSourceSha256:'8'.repeat(64),transitionReady}])receipt=await f.control.write(next,receipt);
+ const cold=Control.create(f.host),first=await cold.selectTransitionRecovery();
+ await assert.rejects(cold.write({...first.state,phase:'retiring',retirement:plan}),{code:'work_data_setup.intent_invalid'});
+ await assert.rejects(cold.recoverInverse(first,async({persist})=>{
+  await persist(plan,async stage=>{assert.match(stage,/^\.maintenance-v1\.stage-/);return true;});
+  throw Error('interrupted after durable retirement plan');
+ }),/interrupted after durable retirement plan/);
+ const resumed=Control.create(f.host),selected=await resumed.selectTransitionRecovery();
+ assert.equal(selected.state.phase,'retiring');
+ assert.deepEqual(JSON.parse(JSON.stringify(selected.state.retirement)),plan);
+ await assert.rejects(resumed.recoverTransition(selected,async()=>true),{code:'work_data_setup.transition_recovery_receipt_invalid'});
+ await resumed.recoverInverse(selected,async({check,finish})=>{
+  assert.equal(await check(),true);
+  await assert.rejects(finish(async()=>false),{code:'work_data_setup.transition_recovery_receipt_invalid'});
+  await finish(async()=>true);
+ });
+ assert.equal((await resumed.inspect()).pending,false);
+});
 test('the source digest excludes only exact owned control namespaces and binds ordinary identity, stamps and data',()=>{
  const candidateId='a'.repeat(48),selected={candidateId},file=(path,identity='1:2')=>({path,identity,sha256:'e'.repeat(64),mtimeNs:'3',ctimeNs:'4'});
  const original={sourceFiles:[file('config.json'),file('.work-data/skill-backups/item')],sourceDirectories:[{path:'',identity:'1:1'}]};

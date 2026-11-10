@@ -9,9 +9,9 @@ for(const generation of [0,1])test(generation?'generation-prefix source reads co
  const original=await fsp.readFile(path.join(root,'sessions/one.json')),expected=await f.manifest.readActive(),backup=await f.backupFirst();
  if(generation){await assert.rejects(f.host.prepare({...backup,expected,targetMode:'encrypted'}),{code:'work_data_backup.binding_missing',operationMayHaveExecuted:true});
    const bytes=await fsp.readFile(path.join(f.state.candidate.root,'sessions/one.json'));assert.equal(bytes.includes(Buffer.from('ORIGINAL')),false);
-   // This branch stops before the final base check. The codec still performs
-   // one paired capture and readback per codec scope, after base and active-root captures.
-   assert.deepEqual(f.state.nativeCaptures,[f.base,f.base,root,root,...Array(12).fill(f.base)]);
+   // The disjoint active root is captured and physically rechecked around the
+   // batch. The original whole-base checks still fence its preparation writes.
+   assert.deepEqual(f.state.nativeCaptures,[f.base,f.base,root,root,...Array(4).fill(f.base),root,root]);
    assert.deepEqual(await fsp.readFile(path.join(root,'sessions/one.json')),original);assert.equal((await f.manifest.readActive()).generation,1);return;
  }
  const token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});
@@ -154,6 +154,19 @@ test('published token supports repeated cold read-only proof but cannot replay p
  const events=f.special.state.events.length,publishCount=f.state.events.filter(e=>e==='publish').length;
  const first=await f.host.verifyPublished(token),second=await f.host.verifyPublished(token);assert.equal(first.readOnly,true);assert.equal(first.logicalFiles,3);assert.equal(first.targetSha256,second.targetSha256);assert.equal(first.specialSha256,second.specialSha256);assert.equal(f.special.state.events.length,events);assert.equal(f.state.events.filter(e=>e==='publish').length,publishCount);
  await assert.rejects(()=>f.host.publish(token),{code:'work_data_migration_host.prepared_invalid'});await assert.rejects(()=>f.host.cancel(token),{code:'work_data_migration_host.prepared_invalid'});assert.equal((await f.host.verifyPublished(token)).readOnly,true);
+});
+test('the final intent fence reuses decoded proof only with freshly verified target and special bytes',async t=>{
+ const f=await fixture(t,{preserved:true});await f.write('sessions/one.json','{"id":"one"}');
+ const expected=await f.manifest.readActive(),backup=await f.backupFirst();
+ const token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});
+ await f.host.publish(token);
+ const first=await f.host.verifyPublished(token),count=f.state.nativeCaptures.length;
+ const special=path.join(f.base,'.work-data','skill-backups');
+ assert.equal(await f.host.verifyPublished(token,{recheck:true}),first);
+ assert.deepEqual(f.state.nativeCaptures.slice(count),[token.candidate.root,token.candidate.root,special,special]);
+ const file=path.join(token.candidate.root,'sessions','one.json'),bytes=await fsp.readFile(file);
+ await fsp.rename(file,file+'.old');await fsp.writeFile(file,bytes);await fsp.unlink(file+'.old');
+ await assert.rejects(f.host.verifyPublished(token,{recheck:true}),{code:'work_data_migration_host.published_target_changed'});
 });
 test('published verification refuses changed target bytes or a new empty target directory',async t=>{
  for(const damage of[async token=>fsp.writeFile(path.join(token.candidate.root,'uploads/raw'),'CHANGE'),async token=>fsp.mkdir(path.join(token.candidate.root,'unexplained'))]){const f=await fixture(t);await f.write('uploads/raw','RAW');const expected=await f.manifest.readActive(),backup=await f.backupFirst(),token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});await f.host.publish(token);await damage(token);await assert.rejects(()=>f.host.verifyPublished(token),{code:'work_data_migration_host.published_target_changed'});assert.equal((await f.manifest.readActive()).generation,1);}

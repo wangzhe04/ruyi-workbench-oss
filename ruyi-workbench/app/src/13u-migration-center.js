@@ -4471,7 +4471,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       migrationCapsuleFail('representation_prepared_changed',true);
     return relocation;
   }
-  async function finishPreparedRepresentation(journal, selected, keep, assertUnchanged, verifyOnly=false) {
+  async function finishPreparedRepresentation(journal, selected, keep, assertUnchanged, verifyOnly=false, includePublishedProof=false) {
     const raw = keep ? journal.prepared.targetRaw : journal.prepared.sourceRaw, settled = keep ? 'kept' : 'canceled';
     const admitted = async () => {
       if (await assertUnchanged() !== true) migrationCapsuleFail('representation_prepared_changed', true);
@@ -4518,20 +4518,24 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         await conversionNative.flush([control],true);
       }
       await admitted();
-      const after = await representationStore().read();
-      if (JSON.stringify(after) !== JSON.stringify(journal)) migrationCapsuleFail('representation_prepared_changed', true);
-      const confirmed = await withCapturedReads(() => verifyPreparedRecords(journal,{storeRoot}));
-      if (confirmed.some(record => record.phase !== (keep ? 'forward' : 'canceled'))) migrationCapsuleFail('representation_prepared_changed', true);
-      await withCapturedReads(async()=>{
+      const publishedProof=await withCapturedReads(async()=>{
+        const after = await representationStore().read();
+        if (JSON.stringify(after) !== JSON.stringify(journal)) migrationCapsuleFail('representation_prepared_changed', true);
+        const confirmed = await verifyPreparedRecords(journal,{storeRoot});
+        if (confirmed.some(record => record.phase !== (keep ? 'forward' : 'canceled'))) migrationCapsuleFail('representation_prepared_changed', true);
         const binding=await bindingsStore(journal.targetId).read();
         await verifyOwnedTransitionRows(journal,confirmed,binding,keep,storeRoot);
+        if(includePublishedProof)return Object.freeze({generationId:selected.id,storeId:journal.storeId,rootId:journal.prepared.store.id,
+          volume:journal.prepared.store.volume,mode:journal.mode,entries:binding.entries.length,readOnly:true});
       });
       await admitted();
-      return Object.freeze({ phase: journal.phase, mode: journal.mode, entries: journal.entries.length });
+      return Object.freeze({ phase: journal.phase, mode: journal.mode, entries: journal.entries.length,
+        ...(includePublishedProof?{publishedProof}:{}) });
     } catch (cause) { throw representationUncertain(cause); }
   }
-  async function recoverPreparedTransition({ state, disposition, assertUnchanged, verifyOnly=false } = {}) {
+  async function recoverPreparedTransition({ state, disposition, assertUnchanged, verifyOnly=false, includePublishedProof=false } = {}) {
     if (!['forward', 'inverse'].includes(disposition) || typeof assertUnchanged !== 'function' || typeof verifyOnly!=='boolean'
+      || typeof includePublishedProof!=='boolean'||includePublishedProof&&disposition!=='forward'
       || !exact(state?.transition, 'schema,operationId,preparedSha256') || state.transition.schema !== 1) migrationCapsuleFail('representation_prepared');
     requireConversionNative();
     if (await assertUnchanged() !== true) migrationCapsuleFail('representation_prepared_changed', true);
@@ -4542,8 +4546,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       || journal.sourceId !== state.expectedAuthority?.id || journal.sourceProof !== state.expectedAuthority?.sha256
       || journal.targetId !== state.candidate?.id || journal.mode !== state.candidate?.mode
       || hash(journal.prepared.targetRaw) !== state.candidate?.pointerSha256) migrationCapsuleFail('representation_prepared_changed', true);
-    await finishPreparedRepresentation(journal, selected, disposition === 'forward', assertUnchanged, verifyOnly);
-    return Object.freeze({ operationId: journal.operationId, disposition });
+    const settled=await finishPreparedRepresentation(journal, selected, disposition === 'forward', assertUnchanged, verifyOnly, includePublishedProof);
+    return Object.freeze({ operationId: journal.operationId, disposition,
+      ...(includePublishedProof?{publishedProof:settled.publishedProof}:{}) });
   }
 
   // Both views are closed native enumerations. The caller may reconcile only the

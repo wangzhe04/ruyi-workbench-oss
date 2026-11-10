@@ -61,7 +61,8 @@ async function checkSealedRetention(ok) {
   try {
     const api = require('./lib/server-internals').loadServerInternals([
       'readConfig', 'writeConfig', 'workDataKeys', 'journalDir', 'journalWriteIndex',
-      'journalGzipStore', 'journalGc', 'journalGcProbe', 'flushWorkbenchLogs',
+      'journalGzipStore', 'journalGc', 'journalGcProbe', 'journalGlobalSweepOnce',
+      'journalResumeRetirements', 'WorkDataMaintenanceHooks', 'WorkDataVerifierEntry', 'flushWorkbenchLogs',
     ]);
     const config = await api.readConfig();
     await api.writeConfig({ ...config, workDataEncryptionV1: true });
@@ -82,9 +83,45 @@ async function checkSealedRetention(ok) {
     assert.deepEqual(fs.readFileSync(indexPath), indexBefore);
     assert.deepEqual(fs.readFileSync(first), firstBefore);
     assert.deepEqual(fs.readFileSync(second), secondBefore.subarray(0, secondBefore.length - 1));
+    ok(true, '⑥ real Windows DPAPI checkpoint retention refuses a damaged selected original before deleting another');
+
+    const oldId = 'sess_ckgc_sealed_old', old = api.journalDir(oldId);
+    const rootDir = path.dirname(old), name = '2-0.gz';
+    await api.journalWriteIndex(oldId, [1, 2].map(turnSeq => ({ turnSeq, entrySeq: 0, op: 'modify' })));
+    for (const turn of [1, 2]) await api.journalGzipStore(oldId, turn + '-0.gz').write(gzipSync(rnd(28 * 1024)));
+    const oldSecond = fs.readFileSync(path.join(old, name));
+    const native = api.WorkDataVerifierEntry.createVerifier();
+    api.WorkDataMaintenanceHooks.flushJournalRetirement = directory => native.flush([directory]);
+    fs.writeFileSync(path.join(old, name), oldSecond.subarray(0, oldSecond.length - 1));
+    assert.equal((await api.journalGlobalSweepOnce(sid)).ok, false);
+    assert.equal(fs.existsSync(path.join(old, '1-0.gz')), true);
+    assert.equal(fs.readdirSync(rootDir).some(value => value.startsWith('.retired-v1-')), false);
+    fs.writeFileSync(path.join(old, name), oldSecond);
+
+    const io = require('node:fs/promises'), unlink = io.unlink;
+    io.unlink = async function (file, ...args) {
+      if (path.basename(path.dirname(file)).startsWith('.retired-v1-') && path.basename(file) === name)
+        throw Object.assign(Error('synthetic interruption after the first unlink'), { code: 'EACCES' });
+      return unlink.call(this, file, ...args);
+    };
+    try {
+      assert.deepEqual(await api.journalGlobalSweepOnce(sid), { ok: false, reason: 'EACCES' });
+    } finally { io.unlink = unlink; }
+    const detached = fs.readdirSync(rootDir).filter(value => value.startsWith('.retired-v1-'));
+    assert.equal(detached.length, 1);
+    assert.equal(fs.existsSync(old), false);
+    assert.equal(fs.existsSync(path.join(rootDir, detached[0], '1-0.gz')), false);
+    assert.deepEqual(fs.readFileSync(path.join(rootDir, detached[0], name)), oldSecond);
+    const fresh = gzipSync('a new checkpoint in the same session');
+    await api.journalGzipStore(oldId, '3-0.gz').write(fresh);
+    await api.journalResumeRetirements();
+    assert.equal((await api.journalGlobalSweepOnce(sid)).ok, true);
+    assert.equal(fs.existsSync(path.join(rootDir, detached[0])), false);
+    assert.deepEqual(await api.journalGzipStore(oldId, '3-0.gz').read(), fresh);
+    assert.deepEqual(fs.readFileSync(indexPath), indexBefore);
+    ok(true, '⑦ Windows sealed eviction authenticates before detach and retries a partial unlink without touching the new session directory');
     await api.flushWorkbenchLogs({ allowFailure: true });
     api.workDataKeys.clear();
-    ok(true, '⑥ real Windows DPAPI checkpoint retention refuses a damaged selected original before deleting another');
   } finally {
     for (const [key, value] of previous) {
       if (value === undefined) delete process.env[key];

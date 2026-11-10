@@ -23,6 +23,22 @@ async function main() {
     process.stdout.write(JSON.stringify(result) + '\n');
     return;
   }
+  if (request.action === 'interruptRetirement') {
+    assert.match(request.candidate,/^[a-f0-9]{48}$/);
+    const shadow=path.join(base,'.work-data','generations',request.candidate).toLowerCase()+path.sep;
+    const unlink=fsp.unlink, failure=Object.assign(Error('synthetic interruption after exact unlink'),{code:'fixture.retirement_interrupted'});
+    let removed=0;
+    fsp.unlink=async function(file,...args){
+      if(String(file).toLowerCase().startsWith(shadow)&&++removed===2)throw failure;
+      return unlink.call(this,file,...args);
+    };
+    try {
+      await assert.rejects(api.WorkDataRuntimeHost.create().recoverPreparedTransition({base,retireInverse:true}),error=>error===failure);
+      assert.equal(removed,2);
+      process.stdout.write(JSON.stringify({interrupted:true})+'\n');
+    } finally { fsp.unlink=unlink; }
+    return;
+  }
 
   const {fault, parentPid, password} = request;
   assert.ok(['before-publish','after-publish'].includes(fault));

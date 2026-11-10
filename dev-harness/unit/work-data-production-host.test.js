@@ -243,13 +243,15 @@ test('bootstrap pins genuine source and empty custody before boot inspection, th
   } });
   assert.ok(f.events.indexOf('inspect') < f.events.indexOf('root-bind'));
   assert.ok(f.events.indexOf('root-bind') < f.events.indexOf('flush'));
-  assert.ok(f.events.indexOf('flush') < f.events.indexOf('inner'));
+  assert.ok(f.events.indexOf('flush') < f.events.indexOf('journal-resume'));
+  assert.ok(f.events.indexOf('journal-resume') < f.events.indexOf('inner'));
   assert.equal(typeof f.workerHooks.putUpload, 'function'); assert.equal(f.workerHooks.start, undefined);
 });
 
 test('pending boot refusal consumes the early pin and closes owner before any bind or custody write', async () => {
   const f = createFixture(); await assert.rejects(() => f.startRouter({ pending: true }), { code: 'work_data_setup.intent_pending' });
-  assert.equal(f.events.includes('root-bind'), false); assert.equal(f.events.includes('flush'), false); assert.equal(f.events.includes('error-writer'), false);
+  assert.equal(f.events.includes('root-bind'), false); assert.equal(f.events.includes('flush'), false);
+  assert.equal(f.events.includes('journal-resume'), false); assert.equal(f.events.includes('error-writer'), false);
   assert.ok(f.servers.every(server => server.closeCalls === 1 && !server.listening));
   const status = f.bootstrap.inspect(f.state.bootOwner); assert.equal(status.phase, 'closed'); assert.deepEqual(f.memory.entries(status.uploadRoot), []);
 });

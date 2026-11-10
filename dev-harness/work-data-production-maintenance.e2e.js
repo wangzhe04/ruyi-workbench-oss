@@ -31,6 +31,9 @@ const SESSION_BYTES=JSON.stringify({id:SESSION_ID,private:'完整合成维护源
 // 到结果落盘 08:06:53 用了 104 s —— 旧的 90 s 比它观测的动作还短,于是产品还在正常干活、
 // 测试已经判红(successor-enable,冷端 phase 停在 publish-generation)。改成冷操作预算 + 交接预算。
 const BUDGET=Object.freeze({...upload.BUDGET,handoff:45000,claim:30000,coldPort:30000,successor:180000+45000,jobRelease:60000});
+// M3 closeout: the populated third-generation rehearsal took 312 s through
+// durable publication on Windows. Give this one successor a 390 s window.
+const CAPSULE_REENABLE_SUCCESSOR_MS=390000;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const AUTHORITY0=Object.freeze({generation:0,id:null,mode:'plain',sha256:null});
 const TRANSPORT=new Set(['ECONNREFUSED','ECONNRESET','EPIPE','EHOSTUNREACH','ENOTFOUND','EAI_AGAIN']);
@@ -179,7 +182,8 @@ function createWorld({root,evidence,target}){
  }
  async function runCapsuleWorker(f,label,request,verify){
   healthy();openOutput(label);
-  const flag=request.action==='settle'?'--settle-work-data-transition':request.action==='retire'?'--recover-work-data-intent':null;
+  const flag={settle:'--settle-work-data-transition',retire:'--recover-work-data-intent',
+   retireInverse:'--retire-work-data-transition'}[request.action]||null;
   const input=flag===null?p.join(root,label+'-stdin.json'):null;
   if(input)fs.writeFileSync(input,JSON.stringify(request),{flag:'wx',mode:0o600});
   const fd=input?fs.openSync(input,'r'):null;
@@ -491,9 +495,9 @@ function createWorld({root,evidence,target}){
   })();
   return{samples,stop:async()=>{stopped=true;await done;}};
  }
- async function waitSuccessor(ref,f,jobId,{notPids,stopOnColdFailure=false}){
+ async function waitSuccessor(ref,f,jobId,{notPids,stopOnColdFailure=false,budget=BUDGET.successor}){
   const startedAt=Date.now();
-  const deadline=startedAt+BUDGET.successor;
+  const deadline=startedAt+budget;
   let nextFailurePoll=startedAt;
   for(;;){
    // The cold snapshot proves Basic/atime as well as DATA. An ordinary runtime
@@ -505,12 +509,13 @@ function createWorld({root,evidence,target}){
     if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
      let st=null;
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
-     if(st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId&&maintenanceIsQuiet(st.value)){
+     const readyAt=Date.now();
+     if(readyAt<deadline&&st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId&&maintenanceIsQuiet(st.value)){
       const identity=await cimIdentity(rt.pid);
       a.notEqual(rt.pid,ref.pid,'successor is a new process');
       a.notEqual(rt.token,ref.token,'successor publishes a new runtime token');
       a.equal(rt.host,'127.0.0.1');
-      return{pid:rt.pid,port:rt.port,token:rt.token,handle:null,identity,status:st.value,readinessDeadline:deadline};
+      return{pid:rt.pid,port:rt.port,token:rt.token,handle:null,identity,status:st.value,readinessDeadline:deadline,readinessWaitMs:readyAt-startedAt};
      }
     }
    }
@@ -613,6 +618,7 @@ function createWorld({root,evidence,target}){
   core.samePinned({...now,file:before.file},before);
  }
  async function runRound(f,ref,spec,state){
+  const successorBudgetMs=spec.successorBudgetMs??BUDGET.successor;
   const before=await statusOf(ref);
   assertCapabilities(before,{download:state.round!==0});
   a.equal(before.job,null);
@@ -624,13 +630,13 @@ function createWorld({root,evidence,target}){
    ctx.phase='submit-'+spec.operation;
    const request={operation:spec.operation,password:PASSWORD,expectedAuthority:source,backupDirectory:f.backups,...(spec.operation==='disable'?{confirmPlaintext:true}:{})};
    const jobId=await (spec.submit ? spec.submit(request) : submitJob(ref,request));
-   record({kind:'round-start',round:state.round,operation:spec.operation,jobId,sourceAuthority:source});
+   record({kind:'round-start',round:state.round,operation:spec.operation,jobId,sourceAuthority:source,successorBudgetMs});
    ctx.phase='busy-package-'+spec.operation;
    await assertBusyPackage(ref,'round '+state.round+' '+spec.operation);
    const armed=await waitClaim(observer,{id:jobId,phase:'armed'});
    record({kind:'claim-armed',jobId,sha256:armed.sha256,childPid:armed.childPid});
    const coldChild=watchPid(armed.childPid);
-   ctx.diagnostics={jobId,operation:spec.operation,claim:observer.samples,cold:coldChild.samples,armedAt:armed.at};
+   ctx.diagnostics={jobId,operation:spec.operation,claim:observer.samples,cold:coldChild.samples,armedAt:armed.at,successorBudgetMs};
    try{
    ctx.phase='old-serve-exit-'+spec.operation;
    await waitOldServeExit(ref,observer,{jobId});
@@ -639,11 +645,12 @@ function createWorld({root,evidence,target}){
    const observed=await coldWindow(ref.port,{base:f.base,jobId,source,staleToken:ref.token});
    record({kind:'cold-status',jobId,authority:observed.authority,jobState:observed.job.state});
    ctx.phase='successor-'+spec.operation;
-   const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid,armed.childPid].filter(Number.isSafeInteger),stopOnColdFailure:spec.stopOnColdFailure});
+   const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid,armed.childPid].filter(Number.isSafeInteger),stopOnColdFailure:spec.stopOnColdFailure,budget:successorBudgetMs});
    const owned=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='owned');
    a.ok(owned,'the cold worker records ownership before touching the base');
    const committed=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='committed');
-   record({kind:'claim-timeline',jobId,armedAt:armed.at,committedAt:committed?.at??null,ownedAt:owned.at,successorAt:Date.now()});
+   record({kind:'claim-timeline',jobId,armedAt:armed.at,committedAt:committed?.at??null,ownedAt:owned.at,successorAt:Date.now(),
+    successorBudgetMs,readinessWaitMs:next.readinessWaitMs});
    ctx.phase='verify-'+spec.operation;
    assertCapabilities(next.status,{download:true});
    a.equal(next.status.job,null,'a new process never inherits the previous job');
@@ -864,8 +871,8 @@ async function runNonemptyCapsule(w,f,initial,state,{fault,legacy}){
   for(const rows of Object.values(result))rows.sort((a,b)=>a.file.localeCompare(b.file));
   return result;
  };
- const round=async (ref,operation)=>{
-  const next=await w.runRound(f,ref,{operation,stopOnColdFailure:true,captureControl},state);state.round++;return next;
+ const round=async (ref,operation,successorBudgetMs)=>{
+  const next=await w.runRound(f,ref,{operation,stopOnColdFailure:true,captureControl,successorBudgetMs},state);state.round++;return next;
  };
  const active=ref=>ref.status.authority.id?p.join(f.base,'.work-data','generations',ref.status.authority.id):f.base;
  const live=ref=>p.join(active(ref),'skills',id);
@@ -939,7 +946,7 @@ async function runNonemptyCapsule(w,f,initial,state,{fault,legacy}){
  a.equal(fs.readFileSync(p.join(live(current),filename),'utf8'),skillText(2));
  w.checked('same-root disable materializes the original skill DATA and ADS with native identity and metadata preserved');
 
- current=await round(current,'enable');
+ current=await round(current,'enable',CAPSULE_REENABLE_SUCCESSOR_MS);
  w.ctx.phase='undo-resealed-capsule';
  a.equal(fs.existsSync(marker),true);
  a.equal(fs.existsSync(p.join(backup,filename)),false);
@@ -999,6 +1006,33 @@ async function checkInterruptedCapsule(w,f,{current,original,backup,marker,nativ
   a.equal(status.authority.sha256,injected.authoritySha256);a.equal(status.lastResult.id,injected.id);
   await w.manager.cleanupKnown(handle,async()=>w.healthy());
   w.checked('after a real manifest publish acknowledgement is lost, the doctor settles the result and ordinary serving restarts on that exact generation');
+ }else{
+  const shadow=p.join(control,'generations',candidate.candidate.id);
+  w.ctx.phase='capsule-retire-inverse';
+  await w.runCapsuleWorker(f,'capsule-interrupted-retirement',{action:'interruptRetirement',candidate:candidate.candidate.id},result=>{
+   a.equal(result.interrupted,true);
+  });
+  a.equal(core.json(intentFile).phase,'retiring');
+  a.equal(fs.existsSync(shadow),true);
+  a.deepEqual((await w.claimApi(f.temp).inspect({base:base.toLowerCase()})).receipt,claim.receipt);
+  await w.runCapsuleWorker(f,'capsule-inverse-retirement',{action:'retireInverse'},result=>{
+   a.equal(result.id,injected.id);a.equal(result.authority.sha256,injected.authoritySha256);
+   a.equal(result.candidateRetired,true);a.equal(result.intentRetired,true);a.equal(result.claimRetired,true);
+  });
+  a.equal(fs.existsSync(shadow),false);
+  a.equal(fs.existsSync(intentFile),false);
+  a.equal((await w.claimApi(f.temp).inspect({base:base.toLowerCase()})).present,false);
+  core.samePinned(core.read(resultFile).row,priorResult);
+  const handle=w.spawnServe(f,'capsule-inverse-serve',await getFreePort('127.0.0.1'));
+  await handle.spawned;
+  const ready=await w.readyWarm(handle,f);
+  await w.manager.captureNativeBirths(handle);
+  const status=await w.waitWorkerReady(ready);
+  a.equal(status.authority.sha256,injected.authoritySha256);
+  a.equal(status.authority.mode,'encrypted');
+  a.equal(fs.existsSync(marker),true);
+  await w.manager.cleanupKnown(handle,async()=>w.healthy());
+  w.checked('interrupted inverse retirement resumes on the exact original authority and removes only the shadow and pending records');
  }
 }
 

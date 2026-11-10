@@ -2,7 +2,7 @@
 // for every update/removal. A failed or interrupted write never authorizes the
 // next mutation; the next boot refuses before normal recovery/ensureDirs.
 const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
-  const NAME = 'maintenance-v1.json', STAGE = '.maintenance-v1.stage-', LIMIT = 32 * 1024;
+  const NAME = 'maintenance-v1.json', STAGE = '.maintenance-v1.stage-', LIMIT = 32 * 1024, RETIRE_LIMIT = 4 * 1024 * 1024;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const LEGACY_NATIVE = 'migrations/skill-backups', CONTROL_PARENTS = ['.work-data','.work-data/generations'];
   const hash = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
@@ -24,13 +24,13 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
   }
   async function read(file) {
     const before = await fsApi.lstat(file, { bigint: true });
-    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size > BigInt(LIMIT)) throw fail('intent_invalid');
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size > BigInt(RETIRE_LIMIT)) throw fail('intent_invalid');
     const handle = await fsApi.open(file, 'r');
     try {
-      const bytes = Buffer.alloc(LIMIT + 1); let used = 0;
+      const bytes = Buffer.alloc(Number(before.size) + 1); let used = 0;
       for (;;) {
         const result = await handle.read(bytes, used, bytes.length - used, null); used += result.bytesRead;
-        if (used > LIMIT) throw fail('intent_invalid');
+        if (used > Number(before.size)) throw fail('intent_changed');
         if (!result.bytesRead) break;
       }
       const after = await handle.stat({ bigint: true });
@@ -54,7 +54,7 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
       && Object.keys(value).sort().join(',') === 'operationId,preparedSha256,schema'
       && value.schema === 1 && typeof value.operationId === 'string' && ID.test(value.operationId)
       && typeof value.preparedSha256 === 'string' && SHA.test(value.preparedSha256)
-      && ['enable', 'disable'].includes(state.operation) && ['key-ready', 'published', 'complete'].includes(state.phase)
+      && ['enable', 'disable'].includes(state.operation) && ['key-ready', 'published', 'complete', 'retiring'].includes(state.phase)
       && candidate && typeof candidate.pointerSha256 === 'string' && SHA.test(candidate.pointerSha256)
       && typeof candidate.headerSha256 === 'string' && SHA.test(candidate.headerSha256);
   }
@@ -116,6 +116,20 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     const sourceScope=scope===undefined?{}:{scope:{nativePath:scope.nativePath,createdParents:scope.createdParents}};
     return hash(JSON.stringify({files,directories,...sourceScope}));
   }
+  function retirementValid(value) {
+    const claim = value?.claim, rows = value?.rows;
+    return value && Object.keys(value).sort().join(',') === 'claim,retainedSha256,rows,schema'
+      && value.schema === 1 && SHA.test(value.retainedSha256 || '')
+      && claim && Object.keys(claim).sort().join(',') === 'childPid,dev,ino,parentPid,sha256'
+      && SHA.test(claim.sha256 || '') && [claim.dev, claim.ino].every(field => typeof field === 'string' && /^\d{1,40}$/.test(field))
+      && [claim.parentPid, claim.childPid].every(pid => Number.isSafeInteger(pid) && pid > 0)
+      && Array.isArray(rows) && rows.length > 0 && rows.length <= 10000
+      && rows.every(row => row && Object.keys(row).sort().join(',') === 'dir,id,path,sha256'
+        && typeof row.dir === 'boolean' && /^[a-f0-9]{24}$/.test(row.id || '') && SHA.test(row.sha256 || '')
+        && typeof row.path === 'string' && row.path.length <= 8192 && row.path.split('/').every(part =>
+          part && part !== '.' && part !== '..' && !/[\\:\0\r\n]/.test(part)))
+      && new Set(rows.map(row => fold(row.path))).size === rows.length;
+  }
   function stateValid(state) {
     if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
     const fields = Object.keys(state).sort().join(',');
@@ -123,15 +137,18 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     const transitionFields=baseFields+',transition'+(state.transitionReady===undefined?'':',transitionReady')
       +(state.transitionSourceScope===undefined?'':',transitionSourceScope')
       +(state.transitionSourceSha256===undefined?'':',transitionSourceSha256');
-    return (fields === baseFields || fields===transitionFields&&transitionValid(state)
+    const retiring=state.phase==='retiring';
+    const expectedFields=retiring?transitionFields.split(',').concat('retirement').sort().join(','):transitionFields;
+    return (!retiring&&fields===baseFields || fields===expectedFields&&transitionValid(state)
       && (state.transitionReady===undefined||transitionReadyValid(state.transitionReady))
       && (state.transitionSourceScope===undefined||transitionSourceScopeValid(state.transitionSourceScope)
         &&state.transitionSourceSha256!==undefined&&state.operation==='enable'&&state.expectedAuthority?.generation===0
         &&state.expectedAuthority.id===null&&state.expectedAuthority.mode==='plain'&&state.expectedAuthority.sha256===null)
       && (state.transitionSourceSha256===undefined||typeof state.transitionSourceSha256==='string'&&SHA.test(state.transitionSourceSha256)))
+      && (!retiring || state.transitionReady && state.transitionSourceSha256 && retirementValid(state.retirement))
       && state.schema === 1 && ID.test(state.id || '')
       && ['enable', 'disable', 'restore'].includes(state.operation)
-      && ['prepared', 'candidate', 'key-ready', 'published', 'complete'].includes(state.phase)
+      && ['prepared', 'candidate', 'key-ready', 'published', 'complete', 'retiring'].includes(state.phase)
       && typeof state.createdAt === 'string' && new Date(state.createdAt).toISOString() === state.createdAt
       && state.backup && Object.keys(state.backup).sort().join(',') === 'path,sha256'
       && typeof state.backup.path === 'string' && pathApi.isAbsolute(state.backup.path)
@@ -178,7 +195,8 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
       const captured = await read(file); let state;
       try {
         const text = captured.bytes.toString('utf8'); if (!Buffer.from(text).equals(captured.bytes)) throw fail('intent_invalid');
-        state = JSON.parse(text); if (!stateValid(state)) throw fail('intent_invalid');
+        state = JSON.parse(text);
+        if (!stateValid(state) || state.phase !== 'retiring' && captured.bytes.length > LIMIT) throw fail('intent_invalid');
       } catch (cause) { throw fail('intent_invalid', cause); }
       return Object.freeze({ pending: true, id: state.id, operation: state.operation, phase: state.phase,
         backupPath: state.backup.path, sha256: hash(captured.bytes) });
@@ -217,7 +235,7 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     }
     async function write(state, previous = null) {
       let serialized, selected;
-      try { serialized = JSON.stringify(state); selected = JSON.parse(serialized); if (!stateValid(selected)) throw fail('intent_invalid'); }
+      try { serialized = JSON.stringify(state); selected = JSON.parse(serialized); if (selected?.phase === 'retiring' || !stateValid(selected)) throw fail('intent_invalid'); }
       catch (cause) { throw fail('intent_invalid', cause); }
       if (Buffer.byteLength(serialized) > LIMIT) throw fail('intent_invalid');
       if (writing) throw fail('intent_busy'); writing = true;
@@ -275,12 +293,12 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
       await admission();await directory(root);
       if((await fsApi.readdir(root)).some(name=>fold(name).startsWith(STAGE)&&name!==ownStage))throw fail('intent_stage_pending');
       const before=await fsApi.lstat(file,{bigint:true});
-      if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(LIMIT))throw fail('intent_invalid');
-      const handle=await fsApi.open(file,'r'),bytes=Buffer.alloc(LIMIT+1);let used=0;
+      if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(RETIRE_LIMIT))throw fail('intent_invalid');
+      const handle=await fsApi.open(file,'r'),bytes=Buffer.alloc(Number(before.size)+1);let used=0;
       try {
         const opened=await handle.stat({bigint:true});
         if(!opened.isFile()||opened.nlink!==1n||opened.dev!==before.dev||opened.ino!==before.ino||opened.size!==before.size)throw fail('intent_changed');
-        for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>LIMIT)throw fail('intent_invalid');if(!part.bytesRead)break;}
+        for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>Number(before.size))throw fail('intent_changed');if(!part.bytesRead)break;}
         const after=await handle.stat({bigint:true}),current=await fsApi.lstat(file,{bigint:true});
         if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
           ||after.dev!==before.dev||after.ino!==before.ino||current.dev!==before.dev||current.ino!==before.ino
@@ -297,7 +315,8 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         const text=original.bytes.toString('utf8');if(!Buffer.from(text).equals(original.bytes))throw fail('intent_invalid');
         state=JSON.parse(text);
         const a=state.expectedAuthority;
-        if(!stateValid(state)||(kind==='complete'?state.phase!=='complete':!state.transition)||!['enable','disable'].includes(state.operation)
+        if(!stateValid(state)||(kind==='complete'?state.phase!=='complete':!state.transition)
+          ||state.phase!=='retiring'&&original.bytes.length>LIMIT||!['enable','disable'].includes(state.operation)
           ||(a.generation===0?a.id!==null||a.sha256!==null:!/^[a-f0-9]{48}$/.test(a.id||'')||!/^[a-f0-9]{64}$/.test(a.sha256||''))
           ||a.mode!==(state.operation==='enable'?'plain':'encrypted')||!state.candidate
           ||state.candidate.mode!==(state.operation==='enable'?'encrypted':'plain')||!/^[a-f0-9]{64}$/.test(state.candidate.headerSha256||''))throw fail(ineligible);
@@ -316,9 +335,45 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     }
     const selectCompleteRecovery = () => selectRecovery('complete');
     const selectTransitionRecovery = () => selectRecovery('transition');
+    async function recoverInverse(selected, recover) {
+      const known=recoveryProofs.get(selected);
+      if(!known||known.kind!=='transition'||known.owner!==controlIdentity||known.retired||typeof recover!=='function'
+        ||!['key-ready','retiring'].includes(selected.state.phase)||!selected.state.transitionReady||!selected.state.transitionSourceSha256)
+        throw fail('transition_recovery_receipt_invalid');
+      if(writing)throw fail('intent_busy');writing=true;
+      let receipt=selected.receipt, committed=selected.state.phase==='retiring', finished=false, closed=false;
+      const check=async()=>{
+        if(finished||closed)throw fail('transition_recovery_receipt_invalid');
+        const current=await captureRecovery();
+        try{
+          if(current.receipt.sha256!==receipt.sha256||JSON.stringify(current.receipt.identity)!==JSON.stringify(receipt.identity))
+            throw fail('intent_changed');
+          return true;
+        }finally{current.bytes.fill(0);}
+      };
+      const persist=async(plan,verify)=>{
+        if(committed||closed||typeof verify!=='function')throw fail('transition_recovery_receipt_invalid');
+        const next={...selected.state,phase:'retiring',retirement:plan},serialized=JSON.stringify(next);
+        if(!stateValid(next)||Buffer.byteLength(serialized)>RETIRE_LIMIT)throw fail('intent_invalid');
+        receipt=await publishIntent(serialized,next,async ownStage=>{
+          await known.check(ownStage);
+          if(await verify(ownStage)!==true)throw fail('transition_recovery_receipt_invalid');
+          await known.check(ownStage);
+        });
+        committed=true;await check();return next;
+      };
+      const finish=async verify=>{
+        if(!committed||typeof verify!=='function')throw fail('transition_recovery_receipt_invalid');
+        await check();
+        if(await verify()!==true)throw fail('transition_recovery_receipt_invalid');
+        await check();await fsApi.unlink(file);finished=true;await flush([root,base]);
+      };
+      try{await check();const result=await recover({check,persist,finish});if(!finished)throw fail('transition_recovery_receipt_invalid');return result;}
+      finally{closed=true;known.retired=true;known.bytes.fill(0);writing=false;}
+    }
     async function recoverTransition(selected, recover) {
       const known = recoveryProofs.get(selected);
-      if (!known || known.kind !== 'transition' || known.owner !== controlIdentity || known.retired || typeof recover !== 'function')
+      if (!known || known.kind !== 'transition' || known.owner !== controlIdentity || known.retired || selected.state.phase==='retiring' || typeof recover !== 'function')
         throw fail('transition_recovery_receipt_invalid');
       if (writing) throw fail('intent_busy');
       writing = true;
@@ -400,7 +455,7 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         await verify(receipt); await fsApi.unlink(file); await flush([root, base]); issued.delete(receipt);
       } finally { writing = false; }
     }
-    return Object.freeze({ inspect, write, verify, finish, selectCompleteRecovery, recoverComplete, selectTransitionRecovery, recoverTransition });
+    return Object.freeze({ inspect, write, verify, finish, selectCompleteRecovery, recoverComplete, selectTransitionRecovery, recoverTransition, recoverInverse });
   }
   return Object.freeze({ create, acceptsRecoveryProfile, verifyRecoveryProfile, legacyTransitionSourceScope, sourceOrdinaryDigest });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

@@ -448,6 +448,76 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         await tree.verify(captured);
       },'source');
     }
+    async function transitionRetirementView(base,state,guard) {
+      const generations='.work-data/generations/', control='.work-data/skill-backups';
+      const candidate=state.candidate?.id;
+      if(!ID.test(candidate||'')||candidate===state.expectedAuthority?.id||!state.transitionReady||!state.transitionSourceSha256)
+        throw fail('transition_retirement_invalid');
+      const shadow=generations+candidate;
+      const targets=state.transitionSourceScope?[shadow,control]:[shadow,control+'/plain-v1/'+candidate,control+'/intents/'+candidate];
+      const under=(name,parent)=>name===parent||name.startsWith(parent+'/');
+      await guard();
+      const native=await guarded(()=>bindings.capturePreserved(base,c.randomBytes(32).toString('hex')));
+      if(!migrationCapsuleShape(native))throw fail('transition_retirement_invalid');
+      const rows=[],retained=[];
+      for(const {rel:path,id,dir,attrs,shortName,times,streams} of native.entries){
+        const name=fold(path), disposable=targets.some(root=>under(name,root));
+        if(name==='.work-data/maintenance-v1.json')continue;
+        const parent=dir&&(!name||name==='.work-data'||targets.some(root=>root.startsWith(name+'/')));
+        // Authority and key-header reads can advance these control files'
+        // access times. The original skill objects retain all four times.
+        const readControl=name==='.work-data/active-v1.json'||name.endsWith('/work-data-key-v1.json')
+          ||name==='config.json'&&state.expectedAuthority.generation===0;
+        const stableTimes=dir?[times[0],null,...(parent||disposable?[null,null]:times.slice(2))]
+          :readControl?[times[0],null,...times.slice(2)]:times;
+        const proof={path,id,dir,sha256:c.createHash('sha256').update(JSON.stringify([attrs,shortName,stableTimes,
+          streams.map(({name,size,hash})=>[name,size,hash]).sort(([a],[b])=>a<b?-1:a>b?1:0)])).digest('hex')};
+        (disposable?rows:retained).push(proof);
+      }
+      const ordered=items=>items.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
+      await guard();
+      return {rows:ordered(rows),shadow,targets,retainedSha256:c.createHash('sha256').update(JSON.stringify(ordered(retained))).digest('hex')};
+    }
+    async function retireTransitionCandidate({base,ownership,assertExclusive,state,assertUnchanged,prepare=false,verifyOnly=false}) {
+      const exclusive=synchronousOwner(base,ownership,assertExclusive);
+      return withSource(ownership,base,async keeper=>{
+        const guard=async()=>{
+          if(await assertUnchanged()!==true||exclusive(ownership)!==true||!keeper.assertExclusive(ownership))throw fail('transition_retirement_changed');
+          check();
+        };
+        const before=await transitionRetirementView(base,state,guard);
+        if(prepare){
+          if(!before.rows.some(row=>row.dir&&fold(row.path)===before.shadow))throw fail('transition_retirement_invalid');
+          return {schema:1,rows:before.rows,retainedSha256:before.retainedSha256};
+        }
+        const {rows,retainedSha256}=state.retirement||{};
+        if(!Array.isArray(rows)||!rows.some(row=>row.dir&&fold(row.path)===before.shadow)||retainedSha256!==before.retainedSha256)
+          throw fail('transition_retirement_changed');
+        if(rows.some(row=>!before.targets.some(root=>fold(row.path)===root||fold(row.path).startsWith(root+'/'))))
+          throw fail('transition_retirement_invalid');
+        const expected=new Map(rows.map(row=>[row.path,JSON.stringify(row)]));
+        if(before.rows.some(row=>JSON.stringify(row)!==expected.get(row.path)))throw fail('transition_retirement_changed');
+        if(verifyOnly)return before.rows.length===0;
+        const parents=new Set();
+        for(const row of rows){
+          const parent=p.posix.dirname(row.path);
+          if(!expected.has(parent))parents.add(p.join(base,...parent.split('/')));
+        }
+        for(const row of before.rows.sort((a,b)=>b.path.length-a.path.length)){
+          const file=p.join(base,...row.path.split('/'));
+          const stat=await io.lstat(file,{bigint:true});
+          if(fold(await io.realpath(file))!==fold(file)||stat.ino.toString(16).padStart(16,'0')!==row.id.slice(8)
+            ||(row.dir?!stat.isDirectory():!stat.isFile()||stat.nlink!==1n)||exclusive(ownership)!==true)
+            throw fail('transition_retirement_changed');
+          if(row.dir)await io.rmdir(file);
+          else await io.unlink(file);
+        }
+        await flush([...parents]);
+        const after=await transitionRetirementView(base,state,guard);
+        if(after.rows.length||after.retainedSha256!==retainedSha256)throw fail('transition_retirement_changed');
+        return true;
+      });
+    }
     async function recoverPreparedTransition({base,ownership,assertExclusive,state,disposition,header,sourceHeader,assertUnchanged,settleForward=false,sourceDigest}={}) {
       const exclusive=synchronousOwner(base,ownership,assertExclusive),types=require('node:util').types;
       const inverseProof=disposition==='inverse';
@@ -548,7 +618,9 @@ const WorkDataNativeAdapters = ((io, p, c) => {
             if(descriptor&&!Object.hasOwn(descriptor,'value')){unknown=true;throw fail('migration_host_uncertain',true);}
             if(typeof descriptor?.value!=='function')throw fail('migration_host_invalid');
             if(types.isProxy(descriptor.value)){unknown=true;throw fail('migration_host_uncertain',true);}
-            const method=descriptor.value;wrapped[name]=value=>withSource(ownership,base,()=>Reflect.apply(method,owner,[value]));
+            const method=descriptor.value;
+            wrapped[name]=(value,options)=>withSource(ownership,base,()=>Reflect.apply(method,owner,
+              name==='verifyPublished'?[value,options]:[value]));
           }
           return Object.freeze(wrapped);
           }catch(cause){
@@ -567,7 +639,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     const capabilities = Object.freeze({implemented:Object.freeze(['native-flush-adapter','full-snapshot-adapter','cold-verifier-protocol','genuine-source-keeper']),verifierCommandBound:command !== null,
       operations:Object.freeze({enable:false,disable:false,export:false,restore:false}),
       unsupported:Object.freeze(['runtime-configure','crash-claim','upload','download','fresh-root-activation'])});
-    return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,recoverPreparedTransition,readRecoveryControl,
+    return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,recoverPreparedTransition,retireTransitionCandidate,readRecoveryControl,
       coldOperationHost,helperMayStillRun:cause => latch(cause),ownsVerifierReceipt:value => receipts.has(value)});
   }
   return Object.freeze({create,input,result,INPUT_LIMIT,VERIFY_MS,CLOSE_MS});

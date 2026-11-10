@@ -17,7 +17,8 @@ const names = ['WorkDataStore', 'workDataKeys', 'readConfig', 'writeConfig', 'cr
   'journalReadBefore', 'journalGzipStore', 'journalJsonStore', 'journalRollback', 'journalRevertLogRead', 'journalRevertLogRecord', 'journalRevertNoticesPeek',
   'journalRevertNoticesAck', 'journalRevertLogPrune', 'writeHistorySnapshot', 'rehydrateObservation', 'materializeCheckpointEditorDiff', 'rewindSession',
   'journalWriteChains', 'journalRevertChains', 'sessionWriteChains', 'flushSessionIndex', 'journalTrimProtectedSnapshots',
-  'journalGlobalSweepOnce', 'buildMissionResult', 'journalByteEstimate: () => journalGlobalBytes'];
+  'journalGlobalSweepOnce', 'buildMissionResult', 'flushWorkbenchLogs',
+  'journalSweepIdle: () => journalSweepInFlight', 'journalByteEstimate: () => journalGlobalBytes'];
 const runtimes = [];
 function load() {
   const mod = new Module(path.join(app, 'server.js'), module); mod.filename = path.join(app, 'server.js'); mod.paths = Module._nodeModulePaths(app);
@@ -40,7 +41,9 @@ const revertFile = sid => path.join(api.journalDir(sid), 'reverts.json');
 async function settle() {
   for (const runtime of runtimes) {
     await Promise.all([...runtime.journalWriteChains.values(), ...runtime.journalRevertChains.values(), ...runtime.sessionWriteChains.values()].map(p => p.catch(() => {})));
+    await runtime.journalSweepIdle();
     await runtime.flushSessionIndex();
+    await runtime.flushWorkbenchLogs({ allowFailure: true });
   }
 }
 after(async () => {

@@ -2,9 +2,9 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 80,
+  "count": 81,
   "lifecycleCounts": {
-    "dedicated-exemption": 26,
+    "dedicated-exemption": 27,
     "external-exemption": 10,
     "regenerable-exemption": 12,
     "shared-lifecycle": 32
@@ -43,12 +43,12 @@
       "pattern": "<data>/.work-data/maintenance-v1.json and .maintenance-v1.stage-*",
       "owner": "13aj-work-data-control.js",
       "anchor": "'maintenance-v1.json'",
-      "schema": "schema 1: exact job, operation, source authority, durable backup and monotonically advanced candidate phase",
+      "schema": "schema 1: exact job, operation, source authority, durable backup and candidate phase; inverse retirement additionally binds the original claim, retained native digest and exact removable objects",
       "writePrimitive": "private issued receipt and serialized transition; wx stage, file sync, native directory flush, rename and identity/hash readback",
       "corruption": "unknown or interrupted stage blocks startup; no repair, quarantine or overwrite of an unexplained intent",
-      "capacity": "one pending intent; 32KiB bounded read; stages are retained on uncertainty",
+      "capacity": "one pending intent; 32KiB ordinary records, 4MiB for a retiring plan; stages are retained on uncertainty",
       "cache": "normal writers retain private issued receipts; explicit read-selected proof binds exact original bytes/hash/size/dev/ino and source owner without becoming an issued write receipt",
-      "recovery": "normal boot refuses pending state; doctor --recover-work-data-intent may retire an exact complete enable/disable intent only after a trusted cold host revalidates its existing published result/backup and two complete source profiles inside the matching owned claim mutation gate; absent-result C10 remains unknown",
+      "recovery": "normal boot refuses pending state; doctor --recover-work-data-intent verifies the published result and two complete source profiles; doctor --retire-work-data-transition proves the original authority and retries exact inverse retirement from its durable plan",
       "lifecycle": "dedicated-exemption",
       "exemptionReason": "multi-file generation/backup/native ownership protocol cannot use a single-file defaulting JSON lifecycle"
     },
@@ -527,6 +527,20 @@
       "recovery": "directory scan",
       "lifecycle": "dedicated-exemption",
       "exemptionReason": "coordinated checkpoint journal protocol"
+    },
+    {
+      "id": "journal-retired-directory",
+      "pattern": "<data>/checkpoints/.retired-v1-<id>.<tag>",
+      "owner": "02-session-store.js",
+      "anchor": "JOURNAL_RETIRED_PREFIX",
+      "schema": "atomic detached directory; tag binds key instance, session and native directory identity; member records keep their original authenticated identities",
+      "writePrimitive": "serving owner authenticates the complete idle directory before rename and flushes the parent before exact unlinks",
+      "corruption": "invalid tag, carrier, identity or flush defers reclamation and retains remaining data",
+      "capacity": "charged to journal cap until reclaimed",
+      "cache": "no process-only retry authority",
+      "recovery": "normal serve startup and subsequent sweeps reauthenticate the detached directory and reclaim surviving records",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "single detached name commits logical eviction ahead of recoverable physical deletion"
     },
     {
       "id": "journal-reverts",

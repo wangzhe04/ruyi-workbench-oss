@@ -4787,10 +4787,11 @@ async function withJournalArtifactOperation(work, supplied = null) {
     }
   }
 }
-function journalJsonStore(sessionId, kind, operation = null, metadata = {}) {
+function journalJsonStore(sessionId, kind, operation = null, metadata = {}, directory = null) {
   const sid = assertSessionIdForPath(sessionId);
-  const file = kind === 'index' ? journalIndexPath(sid)
+  const activeFile = kind === 'index' ? journalIndexPath(sid)
     : kind === 'reverts' ? journalRevertLogPath(sid) : (() => { throw journalArtifactFailure('kind'); })();
+  const file = directory === null ? activeFile : path.join(directory, path.basename(activeFile));
   return WorkDataStore.createText({
     file: () => file, purpose: 'session', schema: 1,
     scopeId: sid, recordId: kind === 'index' ? 'journal-index' : 'journal-reverts',
@@ -4811,10 +4812,10 @@ function journalGzipIdentity(sessionId, name) {
   if (!/^(?:\d+-\d+\.gz|history-\d+(?:-[a-f0-9]{16})?\.json\.gz)$/.test(base)) throw journalArtifactFailure('snapshot_name');
   return { sid, base, file: path.join(journalDir(sid), base), history: base.startsWith('history-') };
 }
-function journalGzipStore(sessionId, name, metadata = {}, operation = null) {
+function journalGzipStore(sessionId, name, metadata = {}, operation = null, directory = null) {
   const identity = journalGzipIdentity(sessionId, name);
   return WorkDataStore.createBinary({
-    file: () => identity.file, purpose: 'session', schema: 1,
+    file: () => directory === null ? identity.file : path.join(directory, identity.base), purpose: 'session', schema: 1,
     scopeId: identity.sid, recordId: identity.base,
     keys: operation ? operation.keys : WorkDataStore.requireKeys(), chunked: true,
     maxBinaryBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
@@ -5452,8 +5453,7 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entry
   }
 }
 
-// GC. Keep the newest JOURNAL_KEEP_TURNS turns per session. Whole-directory
-// eviction is only supported for ordinary checkpoints.
+// GC. Keep the newest JOURNAL_KEEP_TURNS turns per session.
 // knownIndex is the caller's just-published index under the session write lock.
 async function journalGc(sessionId, knownIndex, operation = null) {
   try { return await withJournalArtifactOperation(scope => journalGcContents(sessionId, knownIndex, scope), operation); }
@@ -5469,29 +5469,36 @@ function journalRetentionDeferred(scope, error, sessionId) {
 }
 async function journalRetentionStat(file, directory = false) {
   const stat = await fsp.lstat(file, { bigint: true });
-  if (directory ? !stat.isDirectory() : !stat.isFile()) throw journalArtifactFailure('retention_type');
+  if (directory ? !stat.isDirectory() : !stat.isFile() || stat.nlink !== 1n) throw journalArtifactFailure('retention_type');
   return {
     identity: `${stat.dev}:${stat.ino}`,
+    birth: String(stat.birthtimeNs),
     stamp: `${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`,
     size: Number(stat.size), mtime: Number(stat.mtimeMs),
   };
 }
-async function journalRetentionAssert(file, proof) {
-  const current = await journalRetentionStat(file);
-  if (current.identity !== proof.identity || current.stamp !== proof.stamp) {
+async function journalRetentionAssert(file, proof, directory = false) {
+  const current = await journalRetentionStat(file, directory);
+  if (current.identity !== proof.identity || current.birth !== proof.birth || current.stamp !== proof.stamp) {
     throw journalArtifactFailure('retention_changed');
   }
 }
-async function journalRetentionAuthenticate(sessionId, name, operation) {
-  const { file } = journalGzipIdentity(sessionId, name);
+async function journalRetentionAuthenticate(sessionId, name, operation, directory = journalDir(sessionId)) {
+  const file = path.join(directory, name);
   const proof = await journalRetentionStat(file);
   const metadata = {};
-  const bytes = await journalGzipStore(sessionId, name, metadata, operation).read();
-  bytes.fill(0);
-  metadata.decoded?.fill(0);
+  let index;
+  if (name === 'index.json' || name === 'reverts.json') {
+    const raw = await journalJsonStore(sessionId, name.slice(0, -5), operation, metadata, directory).read();
+    if (name === 'index.json') index = JSON.parse(raw);
+  } else {
+    const bytes = await journalGzipStore(sessionId, name, metadata, operation, directory).read();
+    bytes.fill(0);
+    metadata.decoded?.fill(0);
+  }
   if (metadata.sealed !== operation.enabled) throw journalArtifactFailure('retention_representation');
   await journalRetentionAssert(file, proof);
-  return { file, ...proof };
+  return { file, ...proof, index };
 }
 async function journalReadRetentionIndex(sessionId, operation) {
   const metadata = {};
@@ -5679,6 +5686,83 @@ async function journalGlobalSweep() {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('journal-retention')) return WorkDataMaintenanceHooks.run('journal-retention', () => journalGlobalSweep(...arguments));
   return withJournalArtifactOperation(journalGlobalSweepContents);
 }
+const JOURNAL_RETIRED_PREFIX = '.retired-v1-';
+async function journalRetirementName(sid, proof, operation) {
+  const { key, instanceId } = await operation.credential();
+  const tag = crypto.createHmac('sha256', key)
+    .update(JSON.stringify(['ruyi-journal-retirement-v1', instanceId, sid, proof.identity, proof.birth])).digest('hex');
+  return JOURNAL_RETIRED_PREFIX + sid + '.' + tag;
+}
+async function journalRetirementFiles(directory, sid, proof, operation, detached) {
+  if (path.relative(directory, await fsp.realpath(directory)) !== '') throw journalArtifactFailure('retention_changed');
+  await journalRetentionAssert(directory, proof, true);
+  const names = await fsp.readdir(directory);
+  const files = [];
+  for (const name of names) files.push(await journalRetentionAuthenticate(sid, name, operation, directory));
+  if (!detached) {
+    const index = files.find(row => path.basename(row.file) === 'index.json')?.index || [];
+    const present = new Set(names);
+    for (const row of index) {
+      if (!row || typeof row !== 'object') throw journalArtifactFailure('retention_index');
+      if (!row.skipped && row.op !== 'create' && !present.has(`${row.turnSeq}-${row.entrySeq}.gz`))
+        throw journalArtifactFailure('retention_missing_original');
+    }
+  }
+  for (const file of files) await journalRetentionAssert(file.file, file);
+  await journalRetentionAssert(directory, proof, true);
+  return files;
+}
+async function journalReclaimRetired(directory, operation, flush) {
+  const name = path.basename(directory), sid = safeSessionId(name.slice(JOURNAL_RETIRED_PREFIX.length, name.lastIndexOf('.')));
+  const proof = await journalRetentionStat(directory, true);
+  if (!sid || name !== await journalRetirementName(sid, proof, operation)) throw journalArtifactFailure('retirement_receipt');
+  // A prior process can exit just after the rename. Make the detached name
+  // durable before removing any original, including on the retry path.
+  await flush(path.dirname(directory));
+  const files = await journalRetirementFiles(directory, sid, proof, operation, true);
+  for (const file of files) {
+    const current = await journalRetentionStat(directory, true);
+    if (current.identity !== proof.identity || current.birth !== proof.birth) throw journalArtifactFailure('retention_changed');
+    await journalRetentionAssert(file.file, file);
+    await fsp.unlink(file.file);
+  }
+  const current = await journalRetentionStat(directory, true);
+  if (current.identity !== proof.identity || current.birth !== proof.birth) throw journalArtifactFailure('retention_changed');
+  await fsp.rmdir(directory);
+  return files.reduce((total, file) => total + file.size, 0);
+}
+async function journalResumeRetirements() {
+  const flush = WorkDataMaintenanceHooks.flushJournalRetirement;
+  if (!flush) return;
+  try {
+    const root = paths.checkpoints;
+    const names = await fsp.readdir(root).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
+    const retired = names.filter(name => name.startsWith(JOURNAL_RETIRED_PREFIX));
+    if (!retired.length) return;
+    await withJournalArtifactOperation(async operation => {
+      if (!operation.enabled) throw journalArtifactFailure('retention_representation');
+      for (const name of retired) await journalReclaimRetired(path.join(root, name), operation, flush);
+    });
+  } catch (error) {
+    if (error?.helperMayStillRun === true || error?.ownershipRetained === true) throw error;
+    journalRetentionDeferred('global', error);
+  }
+}
+async function journalRetireSealed(directory, operation, isProtected, flush) {
+  const sid = safeSessionId(path.basename(directory));
+  if (!sid) throw journalArtifactFailure('retention_type');
+  // A writer can be awaiting this very sweep. Skip its lock rather than
+  // enqueue behind it. Managed MCP writers are covered by activeChildren.
+  if (isProtected() || journalWriteChains.has(sid) || journalRevertChains.has(sid)) return 0;
+  return withJournalWriteLock(sid, () => runKeyedChain(journalRevertChains, sid, async () => {
+    const proof = await journalRetentionStat(directory, true);
+    const detached = path.join(path.dirname(directory), await journalRetirementName(sid, proof, operation));
+    await journalRetirementFiles(directory, sid, proof, operation, false);
+    if (isProtected()) return 0;
+    await fsp.rename(directory, detached);
+    return journalReclaimRetired(detached, operation, flush);
+  }));
+}
 async function journalGlobalSweepContents(operation) {
   journalGcProbe.fullScans++;
   journalGcSinceScan = 0;
@@ -5690,10 +5774,15 @@ async function journalGlobalSweepContents(operation) {
     // purge decision is always made against real bytes, never the estimate.
     const root = paths.checkpoints;
     const names = await journalScan(() => fsp.readdir(root), operation, []);
+    const flush = WorkDataMaintenanceHooks.flushJournalRetirement;
     const dirs = [];
     let total = 0;
     for (const name of names) {
       const p = path.join(root, name);
+      if (name.startsWith(JOURNAL_RETIRED_PREFIX) && operation.enabled && flush) {
+        await journalReclaimRetired(p, operation, flush);
+        continue;
+      }
       const st = await journalScan(() => fsp.lstat(p), operation, null);
       if (!st?.isDirectory()) continue;
       const size = await dirSize(p, operation);
@@ -5707,13 +5796,12 @@ async function journalGlobalSweepContents(operation) {
       // observation_recall 回 `observation recall failed: ENOENT`,连它的文件回滚点也一并消失。现在:触发清扫的写者与有活回合的会话
       // 不整目录清;其余照旧最旧优先。仍超限时只削受保护会话自己最旧的历史快照(见 journalTrimProtectedSnapshots)。
       const isProtected = d => { const name = path.basename(d.p); return journalSweepProtect.has(name) || activeChildren.has(name); };
-      // A recursive delete can fail after removing part of an authenticated
-      // checkpoint set. Keep the sealed directory until an atomic retirement
-      // protocol can prove the outcome. Exact history records can still trim.
-      if (!operation.enabled) {
-        for (const d of dirs) {
-          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-          if (isProtected(d)) continue;
+      for (const d of dirs) {
+        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        if (isProtected(d) || path.basename(d.p).startsWith(JOURNAL_RETIRED_PREFIX)) continue;
+        if (operation.enabled) {
+          if (flush) total -= await journalRetireSealed(d.p, operation, () => isProtected(d), flush);
+        } else {
           await fsp.rm(d.p, { recursive: true, force: true });
           total -= d.size;
         }

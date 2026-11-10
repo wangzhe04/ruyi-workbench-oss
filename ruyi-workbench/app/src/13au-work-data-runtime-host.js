@@ -636,12 +636,12 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         intentRetired:true,claimRetired:true,currentSourceReadable:true,authority:pinned.authority,sourceProof:profile,sourceProofPhase:'before-intent-retirement'});
     }
 
-    // This repairs the special owner's physical representation only. Even a
-    // successful replay keeps the pending intent and the original handoff claim.
-    async function recoverPreparedTransition({base,settleForward=false}={}) {
+    // Replay alone retains both records. The explicit inverse retirement also
+    // commits the exact deletion plan before reclaiming any shadow objects.
+    async function recoverPreparedTransition({base,settleForward=false,retireInverse=false}={}) {
       const profile='transition_recovery', refuse=(code,cause)=>fail(profile+'_'+code,cause);
       if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw refuse('requires_cold_process');
-      if(typeof settleForward!=='boolean')throw refuse('options_invalid');
+      if(typeof settleForward!=='boolean'||typeof retireInverse!=='boolean'||settleForward&&retireInverse)throw refuse('options_invalid');
       if(!methods(bindings.claim,['inspect'])||typeof N.recoverPreparedTransition!=='function')throw refuse('unavailable');
       base=fold(await canonical(base));
       const owner=await coldAcquire([base],base),ctx=cold;
@@ -657,10 +657,12 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         if(settleForward&&!methods(results,['inspect','read','write','verify']))throw refuse('unavailable');
         const selected=await control.selectTransitionRecovery(),claim=await bindings.claim.inspect({base});
         const {state}=selected, {candidate,expectedAuthority:expected}=state;
-        if(!claim?.present||claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation)throw refuse('claim_required');
+        if(claim?.present ? claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation
+          : !retireInverse||state.phase!=='retiring')throw refuse('claim_required');
+        const originalPids=state.retirement?.claim||claim.value;
         const stopped=()=>{
           const dead=pid=>{try{proc.kill(pid,0);return false;}catch(cause){return cause?.code==='ESRCH';}};
-          if(!dead(claim.value.parentPid)||!dead(claim.value.childPid))throw refuse('process_pending');
+          if(!dead(originalPids.parentPid)||!dead(originalPids.childPid))throw refuse('process_pending');
           ensure(ctx);
         };
         const currentClaim=async()=>{
@@ -708,7 +710,59 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           }finally{pointer?.data.fill(0);}
         };
         stopped();
-        outcome=await control.recoverTransition(selected,async(recovered,checkIntent,complete)=>{
+        if(retireInverse){
+          if(!methods(control,['recoverInverse'])||!methods(bindings.claim,['remove'])||typeof N.retireTransitionCandidate!=='function'
+            ||typeof bindings.controlApi.sourceOrdinaryDigest!=='function')throw refuse('unavailable');
+          outcome=await control.recoverInverse(selected,async({check:checkIntent,persist,finish})=>{
+            let retiring=state;
+            const backup=await results.captureTransitionBackup(state);
+            const pinClaim=found=>({sha256:found.receipt.sha256,dev:found.receipt.dev,ino:found.receipt.ino,
+              parentPid:found.value.parentPid,childPid:found.value.childPid});
+            const pinned=state.retirement?.claim||pinClaim(claim);
+            const inverseAuthority=async({allowAbsent=false}={})=>{
+              const found=await bindings.claim.inspect({base});
+              if(found?.present?found.value.id!==state.id||found.value.operation!==state.operation||found.value.phase!=='owned'||!same(pinClaim(found),pinned)
+                : !allowAbsent)throw refuse('claim_changed');
+              stopped();
+              const actual=await N.readAuthority(base);
+              if(!sameAuthority(authorityOf(actual),expected)||fold(actual.root)!==fold(oldRoot))throw refuse('authority_mismatch');
+              return found;
+            };
+            const verifyBackup=async()=>{
+              if(!same(await results.captureTransitionBackup(state),backup))throw refuse('backup_changed');
+            };
+            if(state.phase!=='retiring'){
+              const original=await evidence();
+              if(original.pin.disposition!=='inverse')throw refuse('settlement_ineligible');
+              const assertUnchanged=async()=>{
+                if(!same((await evidence()).pin,original.pin))throw refuse('evidence_changed');
+                await inverseAuthority();return checkIntent();
+              };
+              const replay=await N.recoverPreparedTransition({base,ownership:owner,assertExclusive:exclusive,state,disposition:'inverse',
+                header:original.header,sourceHeader:original.sourceHeader,assertUnchanged,sourceDigest:bindings.controlApi.sourceOrdinaryDigest});
+              if(replay?.disposition!=='inverse'||replay.operationId!==state.transition.operationId
+                ||replay.sourceProofVerified!==true||replay.candidateProofVerified!==true)throw refuse('unverified');
+              const plan=await N.retireTransitionCandidate({base,ownership:owner,assertExclusive:exclusive,state,assertUnchanged,prepare:true});
+              await verifyBackup();await assertUnchanged();
+              retiring=await persist({...plan,claim:pinned},async()=>{await inverseAuthority();return true;});
+            }
+            const assertUnchanged=async()=>{await inverseAuthority({allowAbsent:true});return checkIntent();};
+            const retirement={base,ownership:owner,assertExclusive:exclusive,state:retiring,assertUnchanged};
+            if(await N.retireTransitionCandidate(retirement)!==true)throw refuse('settlement_unverified');
+            await verifyBackup();await assertUnchanged();
+            const found=await inverseAuthority({allowAbsent:true});
+            // Retire the claim first. A crash leaves the durable plan with the
+            // original PID witnesses and sufficient evidence to retry alone.
+            if(found?.present&&await bindings.claim.remove(found.receipt)!==true)throw refuse('claim_changed');
+            await finish(async()=>{
+              if((await inverseAuthority({allowAbsent:true}))?.present)throw refuse('claim_changed');
+              await verifyBackup();
+              return N.retireTransitionCandidate({...retirement,verifyOnly:true});
+            });
+            return Object.freeze({schema:1,kind:'inverse-transition-retirement',id:state.id,disposition:'inverse',
+              authority:Object.freeze(expected),candidateRetired:true,intentRetired:true,claimRetired:true});
+          });
+        }else outcome=await control.recoverTransition(selected,async(recovered,checkIntent,complete)=>{
           if(recovered!==state)throw refuse('intent_changed');
           const original=await evidence(),backup=await results.captureTransitionBackup(state);
           const disposition=original.pin.disposition,candidateProof=state.transitionReady!==undefined;
@@ -815,6 +869,14 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         downloadPackage:{value:warm.api.downloadPackage,writable:true,configurable:true,enumerable:true},packageTransfer:{value:true,writable:false,configurable:true,enumerable:false}};
       for(const name of Object.keys(descriptors)){const old=Object.getOwnPropertyDescriptor(hooks,name);if(old&&!old.configurable||!old&&!Object.isExtensible(hooks))throw fail('worker_hooks_invalid');}
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&typeof N.flush==='function'){
+        // Only the serving owner may detach live checkpoint directories. The
+        // existing native adapter carries uncertain helper state into shutdown.
+        WorkDataMaintenanceHooks.flushJournalRetirement=root=>operation(warm,()=>{
+          if(!inside(warm.base,root)||p.basename(root)!=='checkpoints')throw fail('journal_retirement_root_invalid');
+          return N.flush([root]);
+        },{newAdmission:true});
+      }
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
     return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,recoverCompletedIntent,recoverPreparedTransition,helperMayStillRun:helperUnknown,

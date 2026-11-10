@@ -45,6 +45,11 @@ function memoryFs() {
     async mkdir(file) { mkdir(file); },
     async rename(from, to) { const row = get(from); if (!nodes.has(key(path.dirname(to)))) throw fail('ENOENT'); nodes.delete(key(from)); row.file = path.resolve(to); nodes.set(key(to), row); },
     async unlink(file) { get(file); nodes.delete(key(file)); },
+    async rmdir(file) {
+      if (!get(file).directory) throw fail('ENOTDIR');
+      if (entries(file).length) throw fail('ENOTEMPTY');
+      nodes.delete(key(file));
+    },
     async mkdtemp(prefix) { const file = prefix + String(++nextTemp).padStart(6, '0'); mkdir(file); return file; },
     async open(file, flags) {
       if (flags.includes('x')) { if (nodes.has(key(file))) throw fail('EEXIST'); put(file, Buffer.alloc(0)); }
@@ -97,7 +102,7 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     ['os', { tmpdir: () => paths.temp }], ['node:os', { tmpdir: () => paths.temp }],
     ['node:timers', timers], ['node:util', require('node:util')], ['node:buffer', require('node:buffer')]
   ]);
-  const context = vm.createContext({ Buffer, process: proc, URL, AbortController, queueMicrotask, VERSION: '3.0.1',
+  const context = vm.createContext({ Buffer, crypto, process: proc, URL, AbortController, queueMicrotask, VERSION: '3.0.1',
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     require(name) { if (!imports.has(name)) throw Error('Unexpected production-pure fixture import: ' + name); return imports.get(name); } });
   const modules = [
@@ -115,6 +120,7 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     if (file === '01t-work-data-recovery.js' && withoutRecoveryBudget) source = source.replace('LIMITS, seal, open', 'LIMITS: null, seal, open');
     vm.runInContext(source, context, { filename: file });
   }
+  vm.runInContext(functionBlock(fs.readFileSync(path.join(sourceRoot,'13u-migration-center.js'),'utf8'),'migrationCapsuleShape'),context);
   const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,claim:WorkDataHandoffClaim,control:WorkDataMaintenanceControl,keys:WorkDataKeys,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);
   const authority = { generation: 1, id: 'a'.repeat(48), mode: 'encrypted', proof: { sha256: 'b'.repeat(64) } };
   const fullAuthority = { generation: authority.generation, id: authority.id, mode: authority.mode, sha256: authority.proof.sha256 };
@@ -186,13 +192,19 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     async finishWarm({ ownership, session }) { await session.close(); await ownership.release(); },
     captureContext(session, ownership) { return { base: session.base, ownership, server: { listening: true, address: () => ({ address: '127.0.0.1', port: 34567 }) }, listener: { host: '127.0.0.1', port: 34567 } }; },
     async startRouter({ pending = false, inspect = () => {}, innerFailure = false } = {}) {
+      const workHooks = {};
       const hooks = { acquireServe: async options => { const owner = await bootstrap.acquireServe(options); state.bootOwner = owner; return owner; },
         configureServe: options => bootstrap.configureServe(options), abortUnconfiguredServe: options => bootstrap.abortUnconfigured(options), helperMayStillRun: bootstrap.helperMayStillRun,
         inspectBoot: async () => { events.push('inspect'); await inspect(); if (pending) throw Object.assign(Error('modeled pending intent'), { code: 'work_data_setup.intent_pending' }); } };
-      Object.assign(context, { WorkDataMaintenanceRuntimeHooks: hooks, resolveBindHost: () => '127.0.0.1', dataRoot: () => paths.base,
+      Object.assign(context, { WorkDataMaintenanceRuntimeHooks: hooks, WorkDataMaintenanceHooks: workHooks,
+        resolveBindHost: () => '127.0.0.1', dataRoot: () => paths.base,
         dataRootSource: () => state.dataRootSource,
         defaultDataRoots: () => ({ legacy: path.join(root, 'legacy'), next: paths.base }), lstatOrNull: () => null, isDirectServeInvocation: () => false,
         WorkDataRootHooks: { bind: async () => events.push('root-bind'), ready: () => true }, START_ERROR_KINDS: [],
+        journalResumeRetirements: async () => {
+          assert.equal(typeof workHooks.flushJournalRetirement,'function');
+          events.push('journal-resume');
+        },
         writeStartError: async () => events.push('error-writer'), finishBootCliPathProbes: () => events.push('finish-probes'),
         startServerInner: async () => { events.push('inner'); if (innerFailure) throw Error('modeled inner failure'); return { modeledListener: true }; } });
       const source = functionBlock(fs.readFileSync(path.join(sourceRoot, '13-http-router.js'), 'utf8'), 'startServer');

@@ -219,6 +219,53 @@ test('inverse replay verifies the original ordinary witness, keeps the ready sha
   assert.equal(f.memory.exists(m.resultFile),false);
  }
 });
+test('legacy inverse retires the new native control and can finish after the claim is already gone',async()=>{
+ const m=await transitionModel({legacy:true,legacyRelocated:true,ready:true}),{f}=m;
+ const control=path.dirname(m.stableRoot),original=path.join(m.legacyRoot,'prior.txt');
+ f.memory.put(path.join(control,'relocation-v1.sealed'),'SYNTHETIC CANCELED RELOCATION');
+ f.nativeBindings.skillOwner=()=>({async recoverPreparedTransition({state,disposition,assertUnchanged}){
+  assert.equal(disposition,'inverse');await assertUnchanged();
+  f.memory.mkdir(m.legacyRoot);
+  await f.memory.io.rename(path.join(m.stableRoot,'prior.txt'),original);
+  await f.memory.io.rmdir(m.stableRoot);
+  return {operationId:state.transition.operationId,disposition};
+ }});
+ const preserved=f.nativeBindings.tree.createPreserved;
+ f.nativeBindings.tree.createPreserved=options=>{
+  const tree=preserved(options);
+  return {...tree,async capture(root){return {...await tree.capture(root),root};},async verify(captured){
+   return captured.root===m.candidateRoot?{sha256:m.transitionReady.targetSha256,nativeSha256:m.transitionReady.targetNativeSha256}:{};
+  }};
+ };
+ f.nativeBindings.capturePreserved=async (base,revision)=>{
+  const entries=[];
+  const walk=async rel=>{
+   const file=path.join(base,...rel.split('/')),stat=f.memory.stat(file),dir=stat.isDirectory();
+   const bytes=dir?null:await f.memory.io.readFile(file);
+   entries.push({rel,dir,attrs:dir?16:32,id:'00000001'+stat.ino.toString(16).padStart(16,'0'),opaque:hash(rel),
+    shortName:'',times:['1','2',String(stat.mtimeNs),String(stat.ctimeNs)],
+    streams:dir?[]:[{name:'',size:bytes.length,hash:hash(bytes),data:bytes.toString('base64')}]});
+   if(dir)for(const name of f.memory.entries(file))await walk(rel?rel+'/'+name:name);
+  };
+  await walk('');return{schema:1,platform:'ntfs-objects-v1',revision,entries};
+ };
+ const unlink=f.memory.io.unlink,injected=Error('interrupted before retiring the intent');
+ f.memory.io.unlink=async file=>{if(file===m.intentFile)throw injected;return unlink(file);};
+ await assert.rejects(f.factory.recoverPreparedTransition({base:m.base,retireInverse:true}),error=>error===injected);
+ assert.equal(JSON.parse(await f.memory.io.readFile(m.intentFile,'utf8')).phase,'retiring');
+ assert.equal(f.memory.exists(m.claim.file),false);
+ assert.equal(f.memory.exists(m.candidateRoot),false);
+ assert.equal(f.memory.exists(control),false);
+ assert.equal(await f.memory.io.readFile(original,'utf8'),'LEGACY ORIGINAL');
+ f.memory.io.unlink=unlink;
+ const retry=f.api.host.create({proc:f.proc,bindings:f.bindings});
+ const result=await retry.recoverPreparedTransition({base:m.base,retireInverse:true});
+ assert.deepEqual(dto(result.authority),{generation:0,id:null,mode:'plain',sha256:null});
+ assert.equal(result.intentRetired,true);
+ assert.equal(f.memory.exists(m.intentFile),false);
+ assert.equal(f.memory.exists(m.resultFile),false);
+ assert.equal(await f.memory.io.readFile(original,'utf8'),'LEGACY ORIGINAL');
+});
 test('ready forward takeover recaptures the candidate before and after replay and refuses altered native metadata',async()=>{
  for(const changed of ['neither','before','after']){
   const m=await transitionModel({published:true,ready:true}),{f}=m;

@@ -13805,40 +13805,65 @@ const WorkDataMigrationHost = ((io,p,c) => {
             keys:plan.keys,enabled:()=>false,writeJson,validateSealedText:()=>{authenticated=true;return true;}}).read();
           return{text,authenticated};
         };
-        const portable=await plan.special.capturePortable({files,directories,source,readCaptured,expected:plan.expected});
-        await usingSource(portable,async()=>{
-          const value=JSON.parse(strict(portable.data));
-          const catalog=value.records.some(row=>row.kind==='catalog');
-          const legacyNative=plan.legacySpecial&&!catalog&&value.rawTrees?.length&&value.rawTrees.every(row=>key(row.path).startsWith('migrations/skill-backups/'))
-            &&!value.originals?.length&&!value.terminalCapsules?.length&&!value.settledRepresentations?.length;
-          if((plan.legacySpecial?!legacyNative:!catalog)||portable.profile.originalObjects!==plan.specialCoverage.originalObjects
-            ||(!plan.nonemptySpecial&&value.records.some(row=>row.kind==='history'||row.kind==='binding'&&row.value.entries.length)))fail('special_owner_change_proof_required');
-          if(plan.nonemptySpecial&&portable.nativeWitnessSha256!==plan.specialCoverage.portableSha256)fail('special_owner_changed');
-        });
-        await sourceTree.verify(complete);
+        const verifyPortable=async()=>{
+          const portable=await plan.special.capturePortable({files,directories,source,readCaptured,expected:plan.expected});
+          await usingSource(portable,async()=>{
+            const value=JSON.parse(strict(portable.data));
+            const catalog=value.records.some(row=>row.kind==='catalog');
+            const legacyNative=plan.legacySpecial&&!catalog&&value.rawTrees?.length&&value.rawTrees.every(row=>key(row.path).startsWith('migrations/skill-backups/'))
+              &&!value.originals?.length&&!value.terminalCapsules?.length&&!value.settledRepresentations?.length;
+            if((plan.legacySpecial?!legacyNative:!catalog)||portable.profile.originalObjects!==plan.specialCoverage.originalObjects
+              ||(!plan.nonemptySpecial&&value.records.some(row=>row.kind==='history'||row.kind==='binding'&&row.value.entries.length)))fail('special_owner_change_proof_required');
+            if(plan.nonemptySpecial&&portable.nativeWitnessSha256!==plan.specialCoverage.portableSha256)fail('special_owner_changed');
+          });
+        };
+        if(preservedRead===undefined){
+          await verifyPortable();await sourceTree.verify(complete);
+        }else{
+          // The capsule reader authenticates several files from this same
+          // immutable source. Close the whole-tree proof before conversion.
+          await WorkDataTree.readCapturedScope(complete,ownership,verifyPortable);
+        }
         await validateSource(plan,complete);
       });
     }
-    // Candidate and intent writes change a legacy base's complete census.
-    // Take a fresh read-only scope after those writes; each file must still
-    // match the ORIGINAL durable witness, never a redefined current baseline.
+    function codecGrant(plan,captured) {
+      return async file=>{
+        if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
+        const name=p.relative(base,file).split(p.sep).join('/'),relative=p.relative(captured.root,file).split(p.sep).join('/');
+        const prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name));
+        const row=captured.files.find(row=>key(row.path)===key(relative));
+        if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
+        const stat=await io.lstat(file,{bigint:true});
+        if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))
+          fail('source_changed',{file:name});
+        return WorkDataTree.borrowCapturedFile(captured,file,ownership,{maxBytes:256*1024*1024});
+      };
+    }
+    // A legacy source contains the shadow and the intent. Each read therefore
+    // retains its own whole-base scope around the source-only part of the codec.
     function codecSourceScope(plan){
       if(preservedRead===undefined)return {};
       return {withSourceReadScope:async work=>{
         await current(plan.expected);await assertPlanIntent(plan);
         return usingSource(await sourceTree.capture(base),async captured=>{
           await validateSource(plan,captured);
-          const result=await WorkDataTree.readCapturedScope(captured,ownership,()=>work(async file=>{
-            if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
-            const name=p.relative(base,file).split(p.sep).join('/'),prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name)),row=captured.files.find(row=>key(row.path)===key(name));
-            if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
-            const stat=await io.lstat(file,{bigint:true});
-            if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))fail('source_changed',{file:name});
-            return WorkDataTree.borrowCapturedFile(captured,file,ownership,{maxBytes:256*1024*1024});
-          }));
+          const result=await WorkDataTree.readCapturedScope(captured,ownership,()=>work(codecGrant(plan,captured)));
           await validateSource(plan,captured);return result;
         });
       }};
+    }
+    function transformSourceScope(plan,work){
+      if(preservedRead===undefined||plan.expected.id===null)return work(codecSourceScope(plan));
+      // A published generation is disjoint from all writes in this loop. Use
+      // its existing capture and close the full physical proof before advancing.
+      const grant=codecGrant(plan,plan.sourceCapture);
+      return WorkDataTree.readCapturedScope(plan.sourceCapture,ownership,()=>work({
+        withSourceReadScope:async read=>{
+          await current(plan.expected);await assertPlanIntent(plan);
+          return read(grant);
+        },
+      }));
     }
     async function writeNew(file,data){const handle=await io.open(file,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}}
     async function emptyStoreProof(plan){
@@ -13910,11 +13935,19 @@ const WorkDataMigrationHost = ((io,p,c) => {
           if(plan.existingSpecial&&!plan.nonemptySpecial)await verifySpecialSource(plan);
           plan.specialToken=await plan.special.prepare({expected:plan.expected,candidate:plan.candidate,requireEstablished:plan.nonemptySpecial,
             deferLegacyRelocation:plan.legacySpecial});await admission();if(!plan.existingSpecial)await emptyStoreProof(plan);
-          const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson,...codecSourceScope(plan)});
-          const transformed=[];for(const row of rows){if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;await admission();
-            if(row.kind==='codec'||row.kind==='retained'){const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});targetEntry(plan,row.path,result.targetPhysicalHash);transformed.push(Object.freeze({path:row.path,...result}));continue;}
-            await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
-          }
+          const transformed=[];
+          await transformSourceScope(plan,async readScope=>{
+            const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson,...readScope});
+            for(const row of rows){
+              if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;
+              await admission();
+              if(row.kind==='codec'||row.kind==='retained'){
+                const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});
+                targetEntry(plan,row.path,result.targetPhysicalHash);
+                transformed.push(Object.freeze({path:row.path,...result}));
+              }else await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
+            }
+          });
           if(!rows.some(row=>row.kind==='config'))await plannedWrite(plan,'config.json',Buffer.from(configMirror('{}',targetMode==='encrypted')));
           for(const name of source.directories){const kind=classify(name,legacy,true).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
           // Uploads owner (M3 attachments): the raw copy above is replaced by a
@@ -13974,24 +14007,59 @@ const WorkDataMigrationHost = ((io,p,c) => {
       if(!plan.transition||typeof plan.special.recoverPreparedTransition!=='function')fail('special_owner_change_proof_required');
       const state={transition:plan.transition,expectedAuthority:{id:plan.expected.id,sha256:plan.expected.proof.sha256},
         candidate:{id:plan.candidate.id,mode:plan.candidate.mode,pointerSha256:plan.candidate.pointerProof.sha256}};
-      const result=await plan.special.recoverPreparedTransition({state,disposition,assertUnchanged:()=>assertPlanIntent(plan)});
+      const includePublishedProof=disposition==='forward';
+      const result=await plan.special.recoverPreparedTransition({state,disposition,includePublishedProof,assertUnchanged:()=>assertPlanIntent(plan)});
       if(result?.operationId!==plan.transition.operationId||result.disposition!==disposition)fail('special_owner_changed');
+      if(includePublishedProof&&(result.publishedProof?.generationId!==plan.candidate.id||result.publishedProof?.mode!==plan.candidate.mode
+        ||result.publishedProof?.readOnly!==true))fail('special_owner_changed');
+      return result.publishedProof;
     }
-    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});let publishing=false;try{await checkSource(plan);const target=await (plan.nonemptySpecial?sourceTree:tree).verify(plan.target);if(plan.nonemptySpecial&&target.nativeSha256!==plan.targetProof.nativeSha256)fail('target_verification');}catch(cause){if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;closeSource(source,cause,true);}throw cause;}return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});if(plan.nonemptySpecial){await finishSpecialTransition(plan,'forward');await plan.special.activate({recoverPending:false});}else{await plan.special.recover();await plan.special.activate();}
-        const specialProof=await plan.special.verifyPublished({expected:result}),reader=plan.nonemptySpecial?sourceTree:tree;
-        const specialSha=await usingSource(await reader.capture(p.join(base,'.work-data','skill-backups')),async capture=>(await reader.verify(capture)).sha256);
+    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});let publishing=false;try{await checkSource(plan);const target=await (plan.nonemptySpecial?sourceTree:tree).verify(plan.target);if(plan.nonemptySpecial&&target.nativeSha256!==plan.targetProof.nativeSha256)fail('target_verification');}catch(cause){if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;closeSource(source,cause,true);}throw cause;}return usingPlanSource(plan,()=>publishing,async()=>{try{
+        await admission();publishing=true;plan.commitStarted=true;
+        const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});
+        let specialProof;
+        if(plan.nonemptySpecial){
+          // The cold process does not serve the new generation. Bind the
+          // conversion's closed proof here and activate in the warm successor.
+          specialProof=await finishSpecialTransition(plan,'forward');
+        }else{
+          await plan.special.recover();await plan.special.activate();
+          specialProof=await plan.special.verifyPublished({expected:result});
+        }
+        const reader=plan.nonemptySpecial?sourceTree:tree;
+        const specialSha=await usingSource(await reader.capture(p.join(base,'.work-data','skill-backups')),async capture=>
+          (plan.nonemptySpecial?reader.fingerprint(capture):await reader.verify(capture)).sha256);
         published.set(prepared,Object.freeze({expected:receipt(result),targetSha:plan.targetProof.sha256,targetNativeSha:plan.nonemptySpecial?plan.targetProof.nativeSha256:null,specialSha,specialProof:Object.freeze({...specialProof}),instanceId:plan.targetInstanceId,transformed:prepared.transformed,nonemptySpecial:plan.nonemptySpecial}));
         issued.delete(prepared);return Object.freeze({active:result,processExitRequired:true});}catch(cause){throw Object.assign(Error('work_data_migration_host.publish_failed',{cause}),{code:'work_data_migration_host.publish_failed',commitUncertain:true,retry:false,...(preservedRead!==undefined&&sourceUnknown(cause)?{helperMayStillRun:true,ownershipRetained:true}:{})});}finally{if(publishing)for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
     async function cancel(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await current(plan.expected);return usingPlanSource(plan,()=>true,async()=>{try{if(plan.nonemptySpecial)await finishSpecialTransition(plan,'inverse');else{await plan.special.recoverRepresentation();await plan.special.recover();}issued.delete(prepared);return Object.freeze({canceled:true,candidateRetained:plan.candidate.root});}finally{for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
-    async function verifyPublished(prepared){return run(async()=>{
+    const qualifiedPublication = new WeakMap();
+    async function verifyPublished(prepared, { recheck = false } = {}) { return run(async()=>{
       const proof=published.get(prepared);if(!proof)fail('published_token_invalid');const selected=await current(proof.expected);
-      const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,failed=false;
-      const verifyTarget=async()=>{
-        const actual=await sourceTree.verify(target);
+      const specialRoot=p.join(base,'.work-data','skill-backups');
+      const prior=qualifiedPublication.get(prepared);
+      if(recheck&&prior){
+        // The cold qualification already decoded every record and proved
+        // the selected key and special owner. The final intent fence binds
+        // those results to two fresh preserved censuses and the same pointer.
+        return usingSource(await sourceTree.capture(selected.root),async active=>{
+          const target=sourceTree.fingerprint(active);
+          if(target.sha256!==proof.targetSha||target.nativeSha256!==prior.targetNativeSha256)fail('published_target_changed');
+          return usingSource(await sourceTree.capture(specialRoot),async special=>{
+            const actual=sourceTree.fingerprint(special);
+            if(actual.sha256!==proof.specialSha||actual.nativeSha256!==prior.specialNativeSha256)fail('published_special_changed');
+            await current(proof.expected);
+            return prior.result;
+          });
+        });
+      }
+      qualifiedPublication.delete(prepared);
+      const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,qualification,failed=false;
+      const checkTarget=actual=>{
         if(actual.sha256!==proof.targetSha||proof.targetNativeSha&&actual.nativeSha256!==proof.targetNativeSha)fail('published_target_changed');
+        return actual;
       };
-      return usingSource(target,async()=>{try{
-        await verifyTarget();
+      const result=await usingSource(target,async()=>{try{
+        checkTarget(preservedRead===undefined?await sourceTree.verify(target):sourceTree.fingerprint(target));
         const headerRow=target.files.find(row=>key(row.path)==='work-data-key-v1.json');let header;try{header=JSON.parse(strict(headerRow.data));}catch{fail('key_header_invalid');}
         if(!WorkDataKeys.validate(header)||header.instanceId!==proof.instanceId)fail('key_header_invalid');
         keys=WorkDataKeys.create({protector,enabled:()=>selected.mode==='encrypted',store:{read:async()=>header}});const lease=await keys.snapshot();try{if(lease.instanceId!==proof.instanceId)fail('key_header_invalid');}finally{lease.release();}
@@ -14004,14 +14072,23 @@ const WorkDataMigrationHost = ((io,p,c) => {
         else await WorkDataTree.readCapturedScope(target,ownership,verifyLogical);
         const ownerRead=proof.nonemptySpecial?{preservedRead,ownership,assertExclusive,assertExclusiveSync}:{};
         const owner=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys,...ownerRead});if(typeof owner?.verifyPublished!=='function')fail('special_owner_invalid');const actualSpecial=await owner.verifyPublished({expected:selected});
-        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await sourceTree.capture(p.join(base,'.work-data','skill-backups'));if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
-        await current(proof.expected);await verifyTarget();if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
-        return Object.freeze({active:selected,candidateId:selected.id,generation:selected.generation,mode:selected.mode,targetSha256:proof.targetSha,specialSha256:proof.specialSha,logicalFiles:proof.transformed.length,readOnly:true,processExitRequired:true});
+        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');
+        specialTree=await sourceTree.capture(specialRoot);
+        if((preservedRead===undefined?await sourceTree.verify(specialTree):sourceTree.fingerprint(specialTree)).sha256!==proof.specialSha)
+          fail('published_special_changed');
+        await current(proof.expected);
+        const finalTarget=checkTarget(await sourceTree.verify(target)), finalSpecial=await sourceTree.verify(specialTree);
+        if(finalSpecial.sha256!==proof.specialSha)fail('published_special_changed');
+        const result=Object.freeze({active:selected,candidateId:selected.id,generation:selected.generation,mode:selected.mode,targetSha256:proof.targetSha,specialSha256:proof.specialSha,logicalFiles:proof.transformed.length,readOnly:true,processExitRequired:true});
+        if(preservedRead!==undefined)qualification={result,targetNativeSha256:finalTarget.nativeSha256,specialNativeSha256:finalSpecial.nativeSha256};
+        return result;
       }catch(cause){failed=true;primary=cause;throw cause;}finally{
         const errors=[];try{keys?.clear();}catch(cause){errors.push(cause);}
         if(specialTree)try{closeSource(specialTree,undefined,false);}catch(cause){errors.push(cause);}
         if(errors.length)throw sourceFailure(primary,failed,errors,errors.some(sourceUnknown));
       }});
+      if(qualification)qualifiedPublication.set(prepared,qualification);
+      return result;
     });}
     return Object.freeze({prepare,publish,cancel,verifyPublished});
   }
@@ -19429,10 +19506,11 @@ async function withJournalArtifactOperation(work, supplied = null) {
     }
   }
 }
-function journalJsonStore(sessionId, kind, operation = null, metadata = {}) {
+function journalJsonStore(sessionId, kind, operation = null, metadata = {}, directory = null) {
   const sid = assertSessionIdForPath(sessionId);
-  const file = kind === 'index' ? journalIndexPath(sid)
+  const activeFile = kind === 'index' ? journalIndexPath(sid)
     : kind === 'reverts' ? journalRevertLogPath(sid) : (() => { throw journalArtifactFailure('kind'); })();
+  const file = directory === null ? activeFile : path.join(directory, path.basename(activeFile));
   return WorkDataStore.createText({
     file: () => file, purpose: 'session', schema: 1,
     scopeId: sid, recordId: kind === 'index' ? 'journal-index' : 'journal-reverts',
@@ -19453,10 +19531,10 @@ function journalGzipIdentity(sessionId, name) {
   if (!/^(?:\d+-\d+\.gz|history-\d+(?:-[a-f0-9]{16})?\.json\.gz)$/.test(base)) throw journalArtifactFailure('snapshot_name');
   return { sid, base, file: path.join(journalDir(sid), base), history: base.startsWith('history-') };
 }
-function journalGzipStore(sessionId, name, metadata = {}, operation = null) {
+function journalGzipStore(sessionId, name, metadata = {}, operation = null, directory = null) {
   const identity = journalGzipIdentity(sessionId, name);
   return WorkDataStore.createBinary({
-    file: () => identity.file, purpose: 'session', schema: 1,
+    file: () => directory === null ? identity.file : path.join(directory, identity.base), purpose: 'session', schema: 1,
     scopeId: identity.sid, recordId: identity.base,
     keys: operation ? operation.keys : WorkDataStore.requireKeys(), chunked: true,
     maxBinaryBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
@@ -20094,8 +20172,7 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entry
   }
 }
 
-// GC. Keep the newest JOURNAL_KEEP_TURNS turns per session. Whole-directory
-// eviction is only supported for ordinary checkpoints.
+// GC. Keep the newest JOURNAL_KEEP_TURNS turns per session.
 // knownIndex is the caller's just-published index under the session write lock.
 async function journalGc(sessionId, knownIndex, operation = null) {
   try { return await withJournalArtifactOperation(scope => journalGcContents(sessionId, knownIndex, scope), operation); }
@@ -20111,29 +20188,36 @@ function journalRetentionDeferred(scope, error, sessionId) {
 }
 async function journalRetentionStat(file, directory = false) {
   const stat = await fsp.lstat(file, { bigint: true });
-  if (directory ? !stat.isDirectory() : !stat.isFile()) throw journalArtifactFailure('retention_type');
+  if (directory ? !stat.isDirectory() : !stat.isFile() || stat.nlink !== 1n) throw journalArtifactFailure('retention_type');
   return {
     identity: `${stat.dev}:${stat.ino}`,
+    birth: String(stat.birthtimeNs),
     stamp: `${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`,
     size: Number(stat.size), mtime: Number(stat.mtimeMs),
   };
 }
-async function journalRetentionAssert(file, proof) {
-  const current = await journalRetentionStat(file);
-  if (current.identity !== proof.identity || current.stamp !== proof.stamp) {
+async function journalRetentionAssert(file, proof, directory = false) {
+  const current = await journalRetentionStat(file, directory);
+  if (current.identity !== proof.identity || current.birth !== proof.birth || current.stamp !== proof.stamp) {
     throw journalArtifactFailure('retention_changed');
   }
 }
-async function journalRetentionAuthenticate(sessionId, name, operation) {
-  const { file } = journalGzipIdentity(sessionId, name);
+async function journalRetentionAuthenticate(sessionId, name, operation, directory = journalDir(sessionId)) {
+  const file = path.join(directory, name);
   const proof = await journalRetentionStat(file);
   const metadata = {};
-  const bytes = await journalGzipStore(sessionId, name, metadata, operation).read();
-  bytes.fill(0);
-  metadata.decoded?.fill(0);
+  let index;
+  if (name === 'index.json' || name === 'reverts.json') {
+    const raw = await journalJsonStore(sessionId, name.slice(0, -5), operation, metadata, directory).read();
+    if (name === 'index.json') index = JSON.parse(raw);
+  } else {
+    const bytes = await journalGzipStore(sessionId, name, metadata, operation, directory).read();
+    bytes.fill(0);
+    metadata.decoded?.fill(0);
+  }
   if (metadata.sealed !== operation.enabled) throw journalArtifactFailure('retention_representation');
   await journalRetentionAssert(file, proof);
-  return { file, ...proof };
+  return { file, ...proof, index };
 }
 async function journalReadRetentionIndex(sessionId, operation) {
   const metadata = {};
@@ -20321,6 +20405,83 @@ async function journalGlobalSweep() {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('journal-retention')) return WorkDataMaintenanceHooks.run('journal-retention', () => journalGlobalSweep(...arguments));
   return withJournalArtifactOperation(journalGlobalSweepContents);
 }
+const JOURNAL_RETIRED_PREFIX = '.retired-v1-';
+async function journalRetirementName(sid, proof, operation) {
+  const { key, instanceId } = await operation.credential();
+  const tag = crypto.createHmac('sha256', key)
+    .update(JSON.stringify(['ruyi-journal-retirement-v1', instanceId, sid, proof.identity, proof.birth])).digest('hex');
+  return JOURNAL_RETIRED_PREFIX + sid + '.' + tag;
+}
+async function journalRetirementFiles(directory, sid, proof, operation, detached) {
+  if (path.relative(directory, await fsp.realpath(directory)) !== '') throw journalArtifactFailure('retention_changed');
+  await journalRetentionAssert(directory, proof, true);
+  const names = await fsp.readdir(directory);
+  const files = [];
+  for (const name of names) files.push(await journalRetentionAuthenticate(sid, name, operation, directory));
+  if (!detached) {
+    const index = files.find(row => path.basename(row.file) === 'index.json')?.index || [];
+    const present = new Set(names);
+    for (const row of index) {
+      if (!row || typeof row !== 'object') throw journalArtifactFailure('retention_index');
+      if (!row.skipped && row.op !== 'create' && !present.has(`${row.turnSeq}-${row.entrySeq}.gz`))
+        throw journalArtifactFailure('retention_missing_original');
+    }
+  }
+  for (const file of files) await journalRetentionAssert(file.file, file);
+  await journalRetentionAssert(directory, proof, true);
+  return files;
+}
+async function journalReclaimRetired(directory, operation, flush) {
+  const name = path.basename(directory), sid = safeSessionId(name.slice(JOURNAL_RETIRED_PREFIX.length, name.lastIndexOf('.')));
+  const proof = await journalRetentionStat(directory, true);
+  if (!sid || name !== await journalRetirementName(sid, proof, operation)) throw journalArtifactFailure('retirement_receipt');
+  // A prior process can exit just after the rename. Make the detached name
+  // durable before removing any original, including on the retry path.
+  await flush(path.dirname(directory));
+  const files = await journalRetirementFiles(directory, sid, proof, operation, true);
+  for (const file of files) {
+    const current = await journalRetentionStat(directory, true);
+    if (current.identity !== proof.identity || current.birth !== proof.birth) throw journalArtifactFailure('retention_changed');
+    await journalRetentionAssert(file.file, file);
+    await fsp.unlink(file.file);
+  }
+  const current = await journalRetentionStat(directory, true);
+  if (current.identity !== proof.identity || current.birth !== proof.birth) throw journalArtifactFailure('retention_changed');
+  await fsp.rmdir(directory);
+  return files.reduce((total, file) => total + file.size, 0);
+}
+async function journalResumeRetirements() {
+  const flush = WorkDataMaintenanceHooks.flushJournalRetirement;
+  if (!flush) return;
+  try {
+    const root = paths.checkpoints;
+    const names = await fsp.readdir(root).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
+    const retired = names.filter(name => name.startsWith(JOURNAL_RETIRED_PREFIX));
+    if (!retired.length) return;
+    await withJournalArtifactOperation(async operation => {
+      if (!operation.enabled) throw journalArtifactFailure('retention_representation');
+      for (const name of retired) await journalReclaimRetired(path.join(root, name), operation, flush);
+    });
+  } catch (error) {
+    if (error?.helperMayStillRun === true || error?.ownershipRetained === true) throw error;
+    journalRetentionDeferred('global', error);
+  }
+}
+async function journalRetireSealed(directory, operation, isProtected, flush) {
+  const sid = safeSessionId(path.basename(directory));
+  if (!sid) throw journalArtifactFailure('retention_type');
+  // A writer can be awaiting this very sweep. Skip its lock rather than
+  // enqueue behind it. Managed MCP writers are covered by activeChildren.
+  if (isProtected() || journalWriteChains.has(sid) || journalRevertChains.has(sid)) return 0;
+  return withJournalWriteLock(sid, () => runKeyedChain(journalRevertChains, sid, async () => {
+    const proof = await journalRetentionStat(directory, true);
+    const detached = path.join(path.dirname(directory), await journalRetirementName(sid, proof, operation));
+    await journalRetirementFiles(directory, sid, proof, operation, false);
+    if (isProtected()) return 0;
+    await fsp.rename(directory, detached);
+    return journalReclaimRetired(detached, operation, flush);
+  }));
+}
 async function journalGlobalSweepContents(operation) {
   journalGcProbe.fullScans++;
   journalGcSinceScan = 0;
@@ -20332,10 +20493,15 @@ async function journalGlobalSweepContents(operation) {
     // purge decision is always made against real bytes, never the estimate.
     const root = paths.checkpoints;
     const names = await journalScan(() => fsp.readdir(root), operation, []);
+    const flush = WorkDataMaintenanceHooks.flushJournalRetirement;
     const dirs = [];
     let total = 0;
     for (const name of names) {
       const p = path.join(root, name);
+      if (name.startsWith(JOURNAL_RETIRED_PREFIX) && operation.enabled && flush) {
+        await journalReclaimRetired(p, operation, flush);
+        continue;
+      }
       const st = await journalScan(() => fsp.lstat(p), operation, null);
       if (!st?.isDirectory()) continue;
       const size = await dirSize(p, operation);
@@ -20349,13 +20515,12 @@ async function journalGlobalSweepContents(operation) {
       // observation_recall 回 `observation recall failed: ENOENT`,连它的文件回滚点也一并消失。现在:触发清扫的写者与有活回合的会话
       // 不整目录清;其余照旧最旧优先。仍超限时只削受保护会话自己最旧的历史快照(见 journalTrimProtectedSnapshots)。
       const isProtected = d => { const name = path.basename(d.p); return journalSweepProtect.has(name) || activeChildren.has(name); };
-      // A recursive delete can fail after removing part of an authenticated
-      // checkpoint set. Keep the sealed directory until an atomic retirement
-      // protocol can prove the outcome. Exact history records can still trim.
-      if (!operation.enabled) {
-        for (const d of dirs) {
-          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-          if (isProtected(d)) continue;
+      for (const d of dirs) {
+        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        if (isProtected(d) || path.basename(d.p).startsWith(JOURNAL_RETIRED_PREFIX)) continue;
+        if (operation.enabled) {
+          if (flush) total -= await journalRetireSealed(d.p, operation, () => isProtected(d), flush);
+        } else {
           await fsp.rm(d.p, { recursive: true, force: true });
           total -= d.size;
         }
@@ -79503,6 +79668,7 @@ async function startServer(opts) {
     }
     const selected = await WorkDataRootHooks.bind(ownership);
     if (typeof WorkDataMaintenanceRuntimeHooks.configureServe === 'function') await WorkDataMaintenanceRuntimeHooks.configureServe({base:dataRoot(),ownership});
+    await journalResumeRetirements();
     if (selected.present && typeof MigrationHooks.activateBackupAuthority === 'function') {
       const base = selected.canonicalBase, manifest = WorkDataManifest.create({ base });
       await MigrationHooks.activateBackupAuthority({
@@ -102945,7 +103111,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       migrationCapsuleFail('representation_prepared_changed',true);
     return relocation;
   }
-  async function finishPreparedRepresentation(journal, selected, keep, assertUnchanged, verifyOnly=false) {
+  async function finishPreparedRepresentation(journal, selected, keep, assertUnchanged, verifyOnly=false, includePublishedProof=false) {
     const raw = keep ? journal.prepared.targetRaw : journal.prepared.sourceRaw, settled = keep ? 'kept' : 'canceled';
     const admitted = async () => {
       if (await assertUnchanged() !== true) migrationCapsuleFail('representation_prepared_changed', true);
@@ -102992,20 +103158,24 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         await conversionNative.flush([control],true);
       }
       await admitted();
-      const after = await representationStore().read();
-      if (JSON.stringify(after) !== JSON.stringify(journal)) migrationCapsuleFail('representation_prepared_changed', true);
-      const confirmed = await withCapturedReads(() => verifyPreparedRecords(journal,{storeRoot}));
-      if (confirmed.some(record => record.phase !== (keep ? 'forward' : 'canceled'))) migrationCapsuleFail('representation_prepared_changed', true);
-      await withCapturedReads(async()=>{
+      const publishedProof=await withCapturedReads(async()=>{
+        const after = await representationStore().read();
+        if (JSON.stringify(after) !== JSON.stringify(journal)) migrationCapsuleFail('representation_prepared_changed', true);
+        const confirmed = await verifyPreparedRecords(journal,{storeRoot});
+        if (confirmed.some(record => record.phase !== (keep ? 'forward' : 'canceled'))) migrationCapsuleFail('representation_prepared_changed', true);
         const binding=await bindingsStore(journal.targetId).read();
         await verifyOwnedTransitionRows(journal,confirmed,binding,keep,storeRoot);
+        if(includePublishedProof)return Object.freeze({generationId:selected.id,storeId:journal.storeId,rootId:journal.prepared.store.id,
+          volume:journal.prepared.store.volume,mode:journal.mode,entries:binding.entries.length,readOnly:true});
       });
       await admitted();
-      return Object.freeze({ phase: journal.phase, mode: journal.mode, entries: journal.entries.length });
+      return Object.freeze({ phase: journal.phase, mode: journal.mode, entries: journal.entries.length,
+        ...(includePublishedProof?{publishedProof}:{}) });
     } catch (cause) { throw representationUncertain(cause); }
   }
-  async function recoverPreparedTransition({ state, disposition, assertUnchanged, verifyOnly=false } = {}) {
+  async function recoverPreparedTransition({ state, disposition, assertUnchanged, verifyOnly=false, includePublishedProof=false } = {}) {
     if (!['forward', 'inverse'].includes(disposition) || typeof assertUnchanged !== 'function' || typeof verifyOnly!=='boolean'
+      || typeof includePublishedProof!=='boolean'||includePublishedProof&&disposition!=='forward'
       || !exact(state?.transition, 'schema,operationId,preparedSha256') || state.transition.schema !== 1) migrationCapsuleFail('representation_prepared');
     requireConversionNative();
     if (await assertUnchanged() !== true) migrationCapsuleFail('representation_prepared_changed', true);
@@ -103016,8 +103186,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       || journal.sourceId !== state.expectedAuthority?.id || journal.sourceProof !== state.expectedAuthority?.sha256
       || journal.targetId !== state.candidate?.id || journal.mode !== state.candidate?.mode
       || hash(journal.prepared.targetRaw) !== state.candidate?.pointerSha256) migrationCapsuleFail('representation_prepared_changed', true);
-    await finishPreparedRepresentation(journal, selected, disposition === 'forward', assertUnchanged, verifyOnly);
-    return Object.freeze({ operationId: journal.operationId, disposition });
+    const settled=await finishPreparedRepresentation(journal, selected, disposition === 'forward', assertUnchanged, verifyOnly, includePublishedProof);
+    return Object.freeze({ operationId: journal.operationId, disposition,
+      ...(includePublishedProof?{publishedProof:settled.publishedProof}:{}) });
   }
 
   // Both views are closed native enumerations. The caller may reconcile only the
@@ -110850,7 +111021,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
 // for every update/removal. A failed or interrupted write never authorizes the
 // next mutation; the next boot refuses before normal recovery/ensureDirs.
 const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
-  const NAME = 'maintenance-v1.json', STAGE = '.maintenance-v1.stage-', LIMIT = 32 * 1024;
+  const NAME = 'maintenance-v1.json', STAGE = '.maintenance-v1.stage-', LIMIT = 32 * 1024, RETIRE_LIMIT = 4 * 1024 * 1024;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const LEGACY_NATIVE = 'migrations/skill-backups', CONTROL_PARENTS = ['.work-data','.work-data/generations'];
   const hash = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
@@ -110872,13 +111043,13 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
   }
   async function read(file) {
     const before = await fsApi.lstat(file, { bigint: true });
-    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size > BigInt(LIMIT)) throw fail('intent_invalid');
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size > BigInt(RETIRE_LIMIT)) throw fail('intent_invalid');
     const handle = await fsApi.open(file, 'r');
     try {
-      const bytes = Buffer.alloc(LIMIT + 1); let used = 0;
+      const bytes = Buffer.alloc(Number(before.size) + 1); let used = 0;
       for (;;) {
         const result = await handle.read(bytes, used, bytes.length - used, null); used += result.bytesRead;
-        if (used > LIMIT) throw fail('intent_invalid');
+        if (used > Number(before.size)) throw fail('intent_changed');
         if (!result.bytesRead) break;
       }
       const after = await handle.stat({ bigint: true });
@@ -110902,7 +111073,7 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
       && Object.keys(value).sort().join(',') === 'operationId,preparedSha256,schema'
       && value.schema === 1 && typeof value.operationId === 'string' && ID.test(value.operationId)
       && typeof value.preparedSha256 === 'string' && SHA.test(value.preparedSha256)
-      && ['enable', 'disable'].includes(state.operation) && ['key-ready', 'published', 'complete'].includes(state.phase)
+      && ['enable', 'disable'].includes(state.operation) && ['key-ready', 'published', 'complete', 'retiring'].includes(state.phase)
       && candidate && typeof candidate.pointerSha256 === 'string' && SHA.test(candidate.pointerSha256)
       && typeof candidate.headerSha256 === 'string' && SHA.test(candidate.headerSha256);
   }
@@ -110964,6 +111135,20 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     const sourceScope=scope===undefined?{}:{scope:{nativePath:scope.nativePath,createdParents:scope.createdParents}};
     return hash(JSON.stringify({files,directories,...sourceScope}));
   }
+  function retirementValid(value) {
+    const claim = value?.claim, rows = value?.rows;
+    return value && Object.keys(value).sort().join(',') === 'claim,retainedSha256,rows,schema'
+      && value.schema === 1 && SHA.test(value.retainedSha256 || '')
+      && claim && Object.keys(claim).sort().join(',') === 'childPid,dev,ino,parentPid,sha256'
+      && SHA.test(claim.sha256 || '') && [claim.dev, claim.ino].every(field => typeof field === 'string' && /^\d{1,40}$/.test(field))
+      && [claim.parentPid, claim.childPid].every(pid => Number.isSafeInteger(pid) && pid > 0)
+      && Array.isArray(rows) && rows.length > 0 && rows.length <= 10000
+      && rows.every(row => row && Object.keys(row).sort().join(',') === 'dir,id,path,sha256'
+        && typeof row.dir === 'boolean' && /^[a-f0-9]{24}$/.test(row.id || '') && SHA.test(row.sha256 || '')
+        && typeof row.path === 'string' && row.path.length <= 8192 && row.path.split('/').every(part =>
+          part && part !== '.' && part !== '..' && !/[\\:\0\r\n]/.test(part)))
+      && new Set(rows.map(row => fold(row.path))).size === rows.length;
+  }
   function stateValid(state) {
     if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
     const fields = Object.keys(state).sort().join(',');
@@ -110971,15 +111156,18 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     const transitionFields=baseFields+',transition'+(state.transitionReady===undefined?'':',transitionReady')
       +(state.transitionSourceScope===undefined?'':',transitionSourceScope')
       +(state.transitionSourceSha256===undefined?'':',transitionSourceSha256');
-    return (fields === baseFields || fields===transitionFields&&transitionValid(state)
+    const retiring=state.phase==='retiring';
+    const expectedFields=retiring?transitionFields.split(',').concat('retirement').sort().join(','):transitionFields;
+    return (!retiring&&fields===baseFields || fields===expectedFields&&transitionValid(state)
       && (state.transitionReady===undefined||transitionReadyValid(state.transitionReady))
       && (state.transitionSourceScope===undefined||transitionSourceScopeValid(state.transitionSourceScope)
         &&state.transitionSourceSha256!==undefined&&state.operation==='enable'&&state.expectedAuthority?.generation===0
         &&state.expectedAuthority.id===null&&state.expectedAuthority.mode==='plain'&&state.expectedAuthority.sha256===null)
       && (state.transitionSourceSha256===undefined||typeof state.transitionSourceSha256==='string'&&SHA.test(state.transitionSourceSha256)))
+      && (!retiring || state.transitionReady && state.transitionSourceSha256 && retirementValid(state.retirement))
       && state.schema === 1 && ID.test(state.id || '')
       && ['enable', 'disable', 'restore'].includes(state.operation)
-      && ['prepared', 'candidate', 'key-ready', 'published', 'complete'].includes(state.phase)
+      && ['prepared', 'candidate', 'key-ready', 'published', 'complete', 'retiring'].includes(state.phase)
       && typeof state.createdAt === 'string' && new Date(state.createdAt).toISOString() === state.createdAt
       && state.backup && Object.keys(state.backup).sort().join(',') === 'path,sha256'
       && typeof state.backup.path === 'string' && pathApi.isAbsolute(state.backup.path)
@@ -111026,7 +111214,8 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
       const captured = await read(file); let state;
       try {
         const text = captured.bytes.toString('utf8'); if (!Buffer.from(text).equals(captured.bytes)) throw fail('intent_invalid');
-        state = JSON.parse(text); if (!stateValid(state)) throw fail('intent_invalid');
+        state = JSON.parse(text);
+        if (!stateValid(state) || state.phase !== 'retiring' && captured.bytes.length > LIMIT) throw fail('intent_invalid');
       } catch (cause) { throw fail('intent_invalid', cause); }
       return Object.freeze({ pending: true, id: state.id, operation: state.operation, phase: state.phase,
         backupPath: state.backup.path, sha256: hash(captured.bytes) });
@@ -111065,7 +111254,7 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     }
     async function write(state, previous = null) {
       let serialized, selected;
-      try { serialized = JSON.stringify(state); selected = JSON.parse(serialized); if (!stateValid(selected)) throw fail('intent_invalid'); }
+      try { serialized = JSON.stringify(state); selected = JSON.parse(serialized); if (selected?.phase === 'retiring' || !stateValid(selected)) throw fail('intent_invalid'); }
       catch (cause) { throw fail('intent_invalid', cause); }
       if (Buffer.byteLength(serialized) > LIMIT) throw fail('intent_invalid');
       if (writing) throw fail('intent_busy'); writing = true;
@@ -111123,12 +111312,12 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
       await admission();await directory(root);
       if((await fsApi.readdir(root)).some(name=>fold(name).startsWith(STAGE)&&name!==ownStage))throw fail('intent_stage_pending');
       const before=await fsApi.lstat(file,{bigint:true});
-      if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(LIMIT))throw fail('intent_invalid');
-      const handle=await fsApi.open(file,'r'),bytes=Buffer.alloc(LIMIT+1);let used=0;
+      if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(RETIRE_LIMIT))throw fail('intent_invalid');
+      const handle=await fsApi.open(file,'r'),bytes=Buffer.alloc(Number(before.size)+1);let used=0;
       try {
         const opened=await handle.stat({bigint:true});
         if(!opened.isFile()||opened.nlink!==1n||opened.dev!==before.dev||opened.ino!==before.ino||opened.size!==before.size)throw fail('intent_changed');
-        for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>LIMIT)throw fail('intent_invalid');if(!part.bytesRead)break;}
+        for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>Number(before.size))throw fail('intent_changed');if(!part.bytesRead)break;}
         const after=await handle.stat({bigint:true}),current=await fsApi.lstat(file,{bigint:true});
         if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
           ||after.dev!==before.dev||after.ino!==before.ino||current.dev!==before.dev||current.ino!==before.ino
@@ -111145,7 +111334,8 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         const text=original.bytes.toString('utf8');if(!Buffer.from(text).equals(original.bytes))throw fail('intent_invalid');
         state=JSON.parse(text);
         const a=state.expectedAuthority;
-        if(!stateValid(state)||(kind==='complete'?state.phase!=='complete':!state.transition)||!['enable','disable'].includes(state.operation)
+        if(!stateValid(state)||(kind==='complete'?state.phase!=='complete':!state.transition)
+          ||state.phase!=='retiring'&&original.bytes.length>LIMIT||!['enable','disable'].includes(state.operation)
           ||(a.generation===0?a.id!==null||a.sha256!==null:!/^[a-f0-9]{48}$/.test(a.id||'')||!/^[a-f0-9]{64}$/.test(a.sha256||''))
           ||a.mode!==(state.operation==='enable'?'plain':'encrypted')||!state.candidate
           ||state.candidate.mode!==(state.operation==='enable'?'encrypted':'plain')||!/^[a-f0-9]{64}$/.test(state.candidate.headerSha256||''))throw fail(ineligible);
@@ -111164,9 +111354,45 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
     }
     const selectCompleteRecovery = () => selectRecovery('complete');
     const selectTransitionRecovery = () => selectRecovery('transition');
+    async function recoverInverse(selected, recover) {
+      const known=recoveryProofs.get(selected);
+      if(!known||known.kind!=='transition'||known.owner!==controlIdentity||known.retired||typeof recover!=='function'
+        ||!['key-ready','retiring'].includes(selected.state.phase)||!selected.state.transitionReady||!selected.state.transitionSourceSha256)
+        throw fail('transition_recovery_receipt_invalid');
+      if(writing)throw fail('intent_busy');writing=true;
+      let receipt=selected.receipt, committed=selected.state.phase==='retiring', finished=false, closed=false;
+      const check=async()=>{
+        if(finished||closed)throw fail('transition_recovery_receipt_invalid');
+        const current=await captureRecovery();
+        try{
+          if(current.receipt.sha256!==receipt.sha256||JSON.stringify(current.receipt.identity)!==JSON.stringify(receipt.identity))
+            throw fail('intent_changed');
+          return true;
+        }finally{current.bytes.fill(0);}
+      };
+      const persist=async(plan,verify)=>{
+        if(committed||closed||typeof verify!=='function')throw fail('transition_recovery_receipt_invalid');
+        const next={...selected.state,phase:'retiring',retirement:plan},serialized=JSON.stringify(next);
+        if(!stateValid(next)||Buffer.byteLength(serialized)>RETIRE_LIMIT)throw fail('intent_invalid');
+        receipt=await publishIntent(serialized,next,async ownStage=>{
+          await known.check(ownStage);
+          if(await verify(ownStage)!==true)throw fail('transition_recovery_receipt_invalid');
+          await known.check(ownStage);
+        });
+        committed=true;await check();return next;
+      };
+      const finish=async verify=>{
+        if(!committed||typeof verify!=='function')throw fail('transition_recovery_receipt_invalid');
+        await check();
+        if(await verify()!==true)throw fail('transition_recovery_receipt_invalid');
+        await check();await fsApi.unlink(file);finished=true;await flush([root,base]);
+      };
+      try{await check();const result=await recover({check,persist,finish});if(!finished)throw fail('transition_recovery_receipt_invalid');return result;}
+      finally{closed=true;known.retired=true;known.bytes.fill(0);writing=false;}
+    }
     async function recoverTransition(selected, recover) {
       const known = recoveryProofs.get(selected);
-      if (!known || known.kind !== 'transition' || known.owner !== controlIdentity || known.retired || typeof recover !== 'function')
+      if (!known || known.kind !== 'transition' || known.owner !== controlIdentity || known.retired || selected.state.phase==='retiring' || typeof recover !== 'function')
         throw fail('transition_recovery_receipt_invalid');
       if (writing) throw fail('intent_busy');
       writing = true;
@@ -111248,7 +111474,7 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         await verify(receipt); await fsApi.unlink(file); await flush([root, base]); issued.delete(receipt);
       } finally { writing = false; }
     }
-    return Object.freeze({ inspect, write, verify, finish, selectCompleteRecovery, recoverComplete, selectTransitionRecovery, recoverTransition });
+    return Object.freeze({ inspect, write, verify, finish, selectCompleteRecovery, recoverComplete, selectTransitionRecovery, recoverTransition, recoverInverse });
   }
   return Object.freeze({ create, acceptsRecoveryProfile, verifyRecoveryProfile, legacyTransitionSourceScope, sourceOrdinaryDigest });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
@@ -111746,7 +111972,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           await release(rehearsalOwner);
           if (await host.verifyFresh({ target: rehearsal, password: context.password, generation: expected.generation }) !== true) throw fail('fresh_verification_failed');
           const cleanupOwner = await acquire(rehearsal);
-          if(await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
+          // The portable native census below already compares the exact
+          // restored receipt. Its final byte and identity readback still
+          // follows that census, immediately before disposal.
+          if(!rehearsalReceipt&&await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
           if (!owned.has(cleanupOwner) || p.dirname(rehearsal) !== backupDirectory || p.basename(rehearsal) !== '.ruyi-work-data-verify-' + id
             || inside(base, rehearsal) || inside(rehearsal, base)) throw fail('rehearsal_cleanup_invalid');
           // Default-stream verification cannot detect a newly added ADS. The
@@ -111823,8 +112052,8 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         await update('published', prepared.candidate);
         // verifyPublished must inspect the exact selected generation using cold,
         // independent owner factories; no global mode/cache change is accepted.
-        const verifyPublished = async () => {
-          const proof = await migration.verifyPublished(prepared), selected = await WorkDataManifest.create({ base }).readActive();
+        const verifyPublished = async recheck => {
+          const proof = await migration.verifyPublished(prepared,{recheck}), selected = await WorkDataManifest.create({ base }).readActive();
           const sameActive = value => value && value.id === prepared.candidate.id && value.mode === prepared.candidate.mode
             && value.root === prepared.candidate.root && value.generation === expected.generation + 1
             && value.proof?.sha256 === state.candidate.pointerSha256;
@@ -111841,7 +112070,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         const result = { id, operation: context.operation, state: 'published', backup, authority: published,
           restartRoot: base, publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: prepared.retainedPlainDisclosure };
         const resultReceipt = await persistResult(result);
-        await control.finish(intent, async()=>await verifyPublished() === true && await results.verify(resultReceipt) === true); intent = null;
+        await control.finish(intent, async()=>await verifyPublished(true) === true && await results.verify(resultReceipt) === true); intent = null;
         // The intent is gone and the result is verified: this is the only point at
         // which the handoff record may be retired for a generation change.
         await clearClaim();
@@ -115198,6 +115427,76 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         await tree.verify(captured);
       },'source');
     }
+    async function transitionRetirementView(base,state,guard) {
+      const generations='.work-data/generations/', control='.work-data/skill-backups';
+      const candidate=state.candidate?.id;
+      if(!ID.test(candidate||'')||candidate===state.expectedAuthority?.id||!state.transitionReady||!state.transitionSourceSha256)
+        throw fail('transition_retirement_invalid');
+      const shadow=generations+candidate;
+      const targets=state.transitionSourceScope?[shadow,control]:[shadow,control+'/plain-v1/'+candidate,control+'/intents/'+candidate];
+      const under=(name,parent)=>name===parent||name.startsWith(parent+'/');
+      await guard();
+      const native=await guarded(()=>bindings.capturePreserved(base,c.randomBytes(32).toString('hex')));
+      if(!migrationCapsuleShape(native))throw fail('transition_retirement_invalid');
+      const rows=[],retained=[];
+      for(const {rel:path,id,dir,attrs,shortName,times,streams} of native.entries){
+        const name=fold(path), disposable=targets.some(root=>under(name,root));
+        if(name==='.work-data/maintenance-v1.json')continue;
+        const parent=dir&&(!name||name==='.work-data'||targets.some(root=>root.startsWith(name+'/')));
+        // Authority and key-header reads can advance these control files'
+        // access times. The original skill objects retain all four times.
+        const readControl=name==='.work-data/active-v1.json'||name.endsWith('/work-data-key-v1.json')
+          ||name==='config.json'&&state.expectedAuthority.generation===0;
+        const stableTimes=dir?[times[0],null,...(parent||disposable?[null,null]:times.slice(2))]
+          :readControl?[times[0],null,...times.slice(2)]:times;
+        const proof={path,id,dir,sha256:c.createHash('sha256').update(JSON.stringify([attrs,shortName,stableTimes,
+          streams.map(({name,size,hash})=>[name,size,hash]).sort(([a],[b])=>a<b?-1:a>b?1:0)])).digest('hex')};
+        (disposable?rows:retained).push(proof);
+      }
+      const ordered=items=>items.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
+      await guard();
+      return {rows:ordered(rows),shadow,targets,retainedSha256:c.createHash('sha256').update(JSON.stringify(ordered(retained))).digest('hex')};
+    }
+    async function retireTransitionCandidate({base,ownership,assertExclusive,state,assertUnchanged,prepare=false,verifyOnly=false}) {
+      const exclusive=synchronousOwner(base,ownership,assertExclusive);
+      return withSource(ownership,base,async keeper=>{
+        const guard=async()=>{
+          if(await assertUnchanged()!==true||exclusive(ownership)!==true||!keeper.assertExclusive(ownership))throw fail('transition_retirement_changed');
+          check();
+        };
+        const before=await transitionRetirementView(base,state,guard);
+        if(prepare){
+          if(!before.rows.some(row=>row.dir&&fold(row.path)===before.shadow))throw fail('transition_retirement_invalid');
+          return {schema:1,rows:before.rows,retainedSha256:before.retainedSha256};
+        }
+        const {rows,retainedSha256}=state.retirement||{};
+        if(!Array.isArray(rows)||!rows.some(row=>row.dir&&fold(row.path)===before.shadow)||retainedSha256!==before.retainedSha256)
+          throw fail('transition_retirement_changed');
+        if(rows.some(row=>!before.targets.some(root=>fold(row.path)===root||fold(row.path).startsWith(root+'/'))))
+          throw fail('transition_retirement_invalid');
+        const expected=new Map(rows.map(row=>[row.path,JSON.stringify(row)]));
+        if(before.rows.some(row=>JSON.stringify(row)!==expected.get(row.path)))throw fail('transition_retirement_changed');
+        if(verifyOnly)return before.rows.length===0;
+        const parents=new Set();
+        for(const row of rows){
+          const parent=p.posix.dirname(row.path);
+          if(!expected.has(parent))parents.add(p.join(base,...parent.split('/')));
+        }
+        for(const row of before.rows.sort((a,b)=>b.path.length-a.path.length)){
+          const file=p.join(base,...row.path.split('/'));
+          const stat=await io.lstat(file,{bigint:true});
+          if(fold(await io.realpath(file))!==fold(file)||stat.ino.toString(16).padStart(16,'0')!==row.id.slice(8)
+            ||(row.dir?!stat.isDirectory():!stat.isFile()||stat.nlink!==1n)||exclusive(ownership)!==true)
+            throw fail('transition_retirement_changed');
+          if(row.dir)await io.rmdir(file);
+          else await io.unlink(file);
+        }
+        await flush([...parents]);
+        const after=await transitionRetirementView(base,state,guard);
+        if(after.rows.length||after.retainedSha256!==retainedSha256)throw fail('transition_retirement_changed');
+        return true;
+      });
+    }
     async function recoverPreparedTransition({base,ownership,assertExclusive,state,disposition,header,sourceHeader,assertUnchanged,settleForward=false,sourceDigest}={}) {
       const exclusive=synchronousOwner(base,ownership,assertExclusive),types=require('node:util').types;
       const inverseProof=disposition==='inverse';
@@ -115298,7 +115597,9 @@ const WorkDataNativeAdapters = ((io, p, c) => {
             if(descriptor&&!Object.hasOwn(descriptor,'value')){unknown=true;throw fail('migration_host_uncertain',true);}
             if(typeof descriptor?.value!=='function')throw fail('migration_host_invalid');
             if(types.isProxy(descriptor.value)){unknown=true;throw fail('migration_host_uncertain',true);}
-            const method=descriptor.value;wrapped[name]=value=>withSource(ownership,base,()=>Reflect.apply(method,owner,[value]));
+            const method=descriptor.value;
+            wrapped[name]=(value,options)=>withSource(ownership,base,()=>Reflect.apply(method,owner,
+              name==='verifyPublished'?[value,options]:[value]));
           }
           return Object.freeze(wrapped);
           }catch(cause){
@@ -115317,7 +115618,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     const capabilities = Object.freeze({implemented:Object.freeze(['native-flush-adapter','full-snapshot-adapter','cold-verifier-protocol','genuine-source-keeper']),verifierCommandBound:command !== null,
       operations:Object.freeze({enable:false,disable:false,export:false,restore:false}),
       unsupported:Object.freeze(['runtime-configure','crash-claim','upload','download','fresh-root-activation'])});
-    return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,recoverPreparedTransition,readRecoveryControl,
+    return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,recoverPreparedTransition,retireTransitionCandidate,readRecoveryControl,
       coldOperationHost,helperMayStillRun:cause => latch(cause),ownsVerifierReceipt:value => receipts.has(value)});
   }
   return Object.freeze({create,input,result,INPUT_LIMIT,VERIFY_MS,CLOSE_MS});
@@ -116544,12 +116845,12 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         intentRetired:true,claimRetired:true,currentSourceReadable:true,authority:pinned.authority,sourceProof:profile,sourceProofPhase:'before-intent-retirement'});
     }
 
-    // This repairs the special owner's physical representation only. Even a
-    // successful replay keeps the pending intent and the original handoff claim.
-    async function recoverPreparedTransition({base,settleForward=false}={}) {
+    // Replay alone retains both records. The explicit inverse retirement also
+    // commits the exact deletion plan before reclaiming any shadow objects.
+    async function recoverPreparedTransition({base,settleForward=false,retireInverse=false}={}) {
       const profile='transition_recovery', refuse=(code,cause)=>fail(profile+'_'+code,cause);
       if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw refuse('requires_cold_process');
-      if(typeof settleForward!=='boolean')throw refuse('options_invalid');
+      if(typeof settleForward!=='boolean'||typeof retireInverse!=='boolean'||settleForward&&retireInverse)throw refuse('options_invalid');
       if(!methods(bindings.claim,['inspect'])||typeof N.recoverPreparedTransition!=='function')throw refuse('unavailable');
       base=fold(await canonical(base));
       const owner=await coldAcquire([base],base),ctx=cold;
@@ -116565,10 +116866,12 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         if(settleForward&&!methods(results,['inspect','read','write','verify']))throw refuse('unavailable');
         const selected=await control.selectTransitionRecovery(),claim=await bindings.claim.inspect({base});
         const {state}=selected, {candidate,expectedAuthority:expected}=state;
-        if(!claim?.present||claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation)throw refuse('claim_required');
+        if(claim?.present ? claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation
+          : !retireInverse||state.phase!=='retiring')throw refuse('claim_required');
+        const originalPids=state.retirement?.claim||claim.value;
         const stopped=()=>{
           const dead=pid=>{try{proc.kill(pid,0);return false;}catch(cause){return cause?.code==='ESRCH';}};
-          if(!dead(claim.value.parentPid)||!dead(claim.value.childPid))throw refuse('process_pending');
+          if(!dead(originalPids.parentPid)||!dead(originalPids.childPid))throw refuse('process_pending');
           ensure(ctx);
         };
         const currentClaim=async()=>{
@@ -116616,7 +116919,59 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           }finally{pointer?.data.fill(0);}
         };
         stopped();
-        outcome=await control.recoverTransition(selected,async(recovered,checkIntent,complete)=>{
+        if(retireInverse){
+          if(!methods(control,['recoverInverse'])||!methods(bindings.claim,['remove'])||typeof N.retireTransitionCandidate!=='function'
+            ||typeof bindings.controlApi.sourceOrdinaryDigest!=='function')throw refuse('unavailable');
+          outcome=await control.recoverInverse(selected,async({check:checkIntent,persist,finish})=>{
+            let retiring=state;
+            const backup=await results.captureTransitionBackup(state);
+            const pinClaim=found=>({sha256:found.receipt.sha256,dev:found.receipt.dev,ino:found.receipt.ino,
+              parentPid:found.value.parentPid,childPid:found.value.childPid});
+            const pinned=state.retirement?.claim||pinClaim(claim);
+            const inverseAuthority=async({allowAbsent=false}={})=>{
+              const found=await bindings.claim.inspect({base});
+              if(found?.present?found.value.id!==state.id||found.value.operation!==state.operation||found.value.phase!=='owned'||!same(pinClaim(found),pinned)
+                : !allowAbsent)throw refuse('claim_changed');
+              stopped();
+              const actual=await N.readAuthority(base);
+              if(!sameAuthority(authorityOf(actual),expected)||fold(actual.root)!==fold(oldRoot))throw refuse('authority_mismatch');
+              return found;
+            };
+            const verifyBackup=async()=>{
+              if(!same(await results.captureTransitionBackup(state),backup))throw refuse('backup_changed');
+            };
+            if(state.phase!=='retiring'){
+              const original=await evidence();
+              if(original.pin.disposition!=='inverse')throw refuse('settlement_ineligible');
+              const assertUnchanged=async()=>{
+                if(!same((await evidence()).pin,original.pin))throw refuse('evidence_changed');
+                await inverseAuthority();return checkIntent();
+              };
+              const replay=await N.recoverPreparedTransition({base,ownership:owner,assertExclusive:exclusive,state,disposition:'inverse',
+                header:original.header,sourceHeader:original.sourceHeader,assertUnchanged,sourceDigest:bindings.controlApi.sourceOrdinaryDigest});
+              if(replay?.disposition!=='inverse'||replay.operationId!==state.transition.operationId
+                ||replay.sourceProofVerified!==true||replay.candidateProofVerified!==true)throw refuse('unverified');
+              const plan=await N.retireTransitionCandidate({base,ownership:owner,assertExclusive:exclusive,state,assertUnchanged,prepare:true});
+              await verifyBackup();await assertUnchanged();
+              retiring=await persist({...plan,claim:pinned},async()=>{await inverseAuthority();return true;});
+            }
+            const assertUnchanged=async()=>{await inverseAuthority({allowAbsent:true});return checkIntent();};
+            const retirement={base,ownership:owner,assertExclusive:exclusive,state:retiring,assertUnchanged};
+            if(await N.retireTransitionCandidate(retirement)!==true)throw refuse('settlement_unverified');
+            await verifyBackup();await assertUnchanged();
+            const found=await inverseAuthority({allowAbsent:true});
+            // Retire the claim first. A crash leaves the durable plan with the
+            // original PID witnesses and sufficient evidence to retry alone.
+            if(found?.present&&await bindings.claim.remove(found.receipt)!==true)throw refuse('claim_changed');
+            await finish(async()=>{
+              if((await inverseAuthority({allowAbsent:true}))?.present)throw refuse('claim_changed');
+              await verifyBackup();
+              return N.retireTransitionCandidate({...retirement,verifyOnly:true});
+            });
+            return Object.freeze({schema:1,kind:'inverse-transition-retirement',id:state.id,disposition:'inverse',
+              authority:Object.freeze(expected),candidateRetired:true,intentRetired:true,claimRetired:true});
+          });
+        }else outcome=await control.recoverTransition(selected,async(recovered,checkIntent,complete)=>{
           if(recovered!==state)throw refuse('intent_changed');
           const original=await evidence(),backup=await results.captureTransitionBackup(state);
           const disposition=original.pin.disposition,candidateProof=state.transitionReady!==undefined;
@@ -116723,6 +117078,14 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         downloadPackage:{value:warm.api.downloadPackage,writable:true,configurable:true,enumerable:true},packageTransfer:{value:true,writable:false,configurable:true,enumerable:false}};
       for(const name of Object.keys(descriptors)){const old=Object.getOwnPropertyDescriptor(hooks,name);if(old&&!old.configurable||!old&&!Object.isExtensible(hooks))throw fail('worker_hooks_invalid');}
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&typeof N.flush==='function'){
+        // Only the serving owner may detach live checkpoint directories. The
+        // existing native adapter carries uncertain helper state into shutdown.
+        WorkDataMaintenanceHooks.flushJournalRetirement=root=>operation(warm,()=>{
+          if(!inside(warm.base,root)||p.basename(root)!=='checkpoints')throw fail('journal_retirement_root_invalid');
+          return N.flush([root]);
+        },{newAdmission:true});
+      }
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
     return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,recoverCompletedIntent,recoverPreparedTransition,helperMayStillRun:helperUnknown,
@@ -117066,11 +117429,13 @@ async function main() {
   // Detect the raw option before parseArgs can consume a following "doctor" as
   // its value or hide an =value spelling among ordinary doctor options.
   const raw = process.argv.slice(2);
-  if (raw.some(value => value === '--settle-work-data-transition' || value.startsWith('--settle-work-data-transition='))) {
-    if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--settle-work-data-transition'
-      || argv['settle-work-data-transition'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+  const transitionOptions=['--settle-work-data-transition','--retire-work-data-transition'];
+  if (raw.some(value => transitionOptions.some(option=>value===option||value.startsWith(option+'=')))) {
+    if (raw.length !== 2 || raw[0] !== 'doctor' || !transitionOptions.includes(raw[1])
+      || argv[raw[1].slice(2)] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
       throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
-    const result = await WorkDataRuntimeHost.create().recoverPreparedTransition({base:dataRoot(),settleForward:true});
+    const retireInverse=raw[1]==='--retire-work-data-transition';
+    const result = await WorkDataRuntimeHost.create().recoverPreparedTransition({base:dataRoot(),settleForward:!retireInverse,retireInverse});
     console.log(JSON.stringify(result));return result;
   }
   if (raw.some(value => value === '--recover-work-data-intent' || value.startsWith('--recover-work-data-intent='))) {

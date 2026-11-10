@@ -133,6 +133,8 @@ test('exact prepared owner delta admits named transition changes and rejects ext
  f.select(next,2,'plain');
  const proof=await f.owner.recoverPreparedTransition({state,disposition:'forward',assertUnchanged:async()=>true});
  assert.equal(proof.disposition,'forward');assert.equal((await f.owner.verifyPublished({expected:f.selected})).entries,1);
+ const witnessed=await f.owner.recoverPreparedTransition({state,disposition:'forward',verifyOnly:true,includePublishedProof:true,assertUnchanged:async()=>true});
+ assert.deepEqual(witnessed.publishedProof,await f.owner.verifyPublished({expected:f.selected}));
 });
 test('legacy nonempty owner binds relocation and conversion before the original directory moves',async()=>{
  for(const disposition of ['inverse','forward']){
@@ -154,10 +156,14 @@ test('legacy nonempty owner binds relocation and conversion before the original 
   const delta=await f.owner.preparedDelta(token);
   assert.ok(delta.some(row=>row.before?.path.startsWith('migrations/skill-backups/')&&row.after===null));
   if(disposition==='forward')f.select(candidate);
-  const replay=await f.owner.recoverPreparedTransition({state,disposition,assertUnchanged:async()=>true});
+  const replay=await f.owner.recoverPreparedTransition({state,disposition,includePublishedProof:disposition==='forward',assertUnchanged:async()=>true});
   assert.equal(replay.disposition,disposition);
   if(disposition==='inverse')assert.deepEqual(identities(p.backup),before);
-  else assert.equal((await f.owner.verifyPublished({expected:f.selected})).entries,1);
+  else {
+   const verified=await f.owner.verifyPublished({expected:f.selected});
+   assert.equal(verified.entries,1);
+   assert.deepEqual(replay.publishedProof,verified);
+  }
  }
 });
 test('legacy cold inverse distinguishes original location before move and after lost move acknowledgment',async()=>{
