@@ -4,7 +4,7 @@
   "reviewedAt": "2026-11-10T11:44:14.459915+00:00",
   "workPackage": "P5-03",
   "scope": "Current-host selected TextEdit/Finder/CFT AX scenarios, explicit renderer limitations, bounded CDP waiting and input/capture/App regressions",
-  "status": "current_host_selected_application_functional_and_engineering_acceptance_passed_commit_pending",
+  "status": "current_host_selected_application_acceptance_and_implementation_commit_verified",
   "finalSourceFingerprint": "../source-fingerprint-worker-ready.json",
   "sourceFiles": 61,
   "evidenceLayers": {
@@ -119,7 +119,6 @@
     "Earlier P5-02 clipboard-content loss remains documented separately and is not erased by passing restoration tests."
   ],
   "pending": [
-    "Independent binding of the actual local implementation commit.",
     "Actual mid-action TCC revocation/lock, physical multi-display/non-Retina, supported real input methods, Windows runtime, minimum macOS14 runtime and formal signing.",
     "Chromium renderer DOM AX mutation support if later required.",
     "P5-04 OCR and P5-05 recording/composite work."
@@ -129,5 +128,8 @@
   "finalEngineeringBound": true,
   "finalDeliveryReview": "../final-delivery-review.json",
   "finalDeliveryFingerprint": "../source-fingerprint-final-delivery.json",
-  "commitReadiness": "Current-host selected-application slice ready for local implementation commit with reviewed three-layer source binding. P5/P5-03 remain in_progress."
+  "commitReadiness": "Implementation commit 649556f0d5aeaf587d1b73337aa5b3da0833fe0c is independently bound through ../commit-binding-review.json. P5 and P5-03 remain in_progress.",
+  "implementationCommit": "649556f0d5aeaf587d1b73337aa5b3da0833fe0c",
+  "committedSourceVerified": true,
+  "commitBindingReview": "../commit-binding-review.json"
 }
