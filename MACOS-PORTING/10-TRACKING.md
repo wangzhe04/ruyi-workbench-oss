@@ -165,3 +165,5 @@ P5-03 AX核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，56
 2026-11-10 应用切片前两轮独立验收分别停在 CFT symlink 的 Frameworks 定位失败、默认 wrapper 浏览器的偶发调试端口挂起。前者已让 AX 夹具解析真实 binary，后者根因未定，人工保全剪贴板快照后恢复清理。另修复公共 CDP 等待按轮询计数而缺少真实截止的问题，8 项单元、15 秒真实阻塞端点清理、默认/AX/renderer 与既有无头浏览器主链通过。61源重新冻结，完整独立验收进行中。旧失败及人工干预记录保留。[等待修复](evidence/P5/ax/apps/bounded-wait/code-review.json) [当前源码](evidence/P5/ax/apps/source-fingerprint-bounded.json)
 
 2026-11-10 真实应用切片完成当前主机功能独立验收和最终工程终审。有效23命令350条E2E、8项focused unit、62项Python及三项预期负向清理通过。系统浮窗遮挡通过自有截图夹具下移验证，Python首帧marker时序经同worker就绪ACK与独立未消费帧case区分，原四轮失败均保留。Node61、Python61、最终工程63的纯测试/清册差异已独立绑定，最终单元2499通过/18既有跳过、静态80/80、语法1146、构建新鲜度及严格签名通过，默认helper全程同SHA。实现提交绑定待完成，P5/P5-03继续in_progress。[交付终审](evidence/P5/ax/apps/final-delivery-review.json)
+
+应用切片实现已提交 `649556f0d5aeaf587d1b73337aa5b3da0833fe0c`，63份实际提交blob独立验证匹配交付候选。最初索引校验发生默认Node输出缓冲ENOBUFS且shell继续提交，随后32MiB补验及独立Python完整字节复验均通过，过程明确留证。P5/P5-03保持in_progress，继续OCR、录制组合与原环境验收。[提交绑定](evidence/P5/ax/apps/commit-binding-review.json)

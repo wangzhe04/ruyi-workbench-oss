@@ -1486,7 +1486,7 @@
           ],
           "startedDate": "2026-11-10",
           "baselineCommit": "c1b90ad2",
-          "progress": "真实应用切片当前主机独立验收与终审通过，350条E2E、8项focused unit、62项Python及三负向完成。三层测试/清册差异逐项绑定，最终63文件指纹匹配；完整单元2499通过/18既有跳过、静态80/80、语法1146与构建新鲜度通过，helper/App指纹和严格签名通过，提交绑定待完成。Chromium页面AX动作限制、历史未定启动挂起与原环境门保留，P5-03整体in_progress。",
+          "progress": "真实应用切片当前主机实现已提交649556f0，63份提交blob独立逐项匹配交付指纹。有效350条E2E、8项focused unit、62项Python及三负向通过，完整单元2499通过/18既有跳过、静态80/80、语法1146和构建新鲜度通过。三层测试/清册差异及提交前校验缓冲失败后的补验均登记。Chromium页面AX动作限制、历史未定启动挂起与原环境门保留，P5-03整体in_progress。",
           "coreSlice": {
             "status": "committed_current_host",
             "baselineCommit": "c1b90ad2",
@@ -1510,7 +1510,7 @@
             "commitBinding": "evidence/P5/ax/commit-binding.json"
           },
           "applicationSlice": {
-            "status": "verified_current_host_commit_pending",
+            "status": "committed_current_host",
             "baselineCommit": "d1b01adb",
             "evidence": "evidence/P5/ax/apps/README.md",
             "sourceFingerprint": "evidence/P5/ax/apps/source-fingerprint-final-delivery.json",
@@ -1522,7 +1522,6 @@
             "chromiumRendererAXActions": "blocked_by_verified_asymmetric_provider_membership",
             "finderScope": "explicit opt-in, initially windowless Finder, exact controlled content URLs, shared process retained",
             "pending": [
-              "Commit binding",
               "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity",
               "Chromium renderer AX actions under the existing bidirectional membership contract"
             ],
@@ -1555,7 +1554,10 @@
             "engineeringStaticPassed": 80,
             "engineeringStaticTotal": 80,
             "engineeringSyntaxFiles": 1146,
-            "helperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029"
+            "helperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029",
+            "implementationCommit": "649556f0d5aeaf587d1b73337aa5b3da0833fe0c",
+            "commitBinding": "evidence/P5/ax/apps/commit-binding.json",
+            "commitBindingReview": "evidence/P5/ax/apps/commit-binding-review.json"
           }
         },
         {

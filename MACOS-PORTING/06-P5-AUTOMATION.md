@@ -48,7 +48,7 @@
 
 - [ ] TASKS.json 与执行看板已登记真实状态、提交 SHA、日志、已知限制。
 
-2026-11-10 真实应用切片已完成当前主机功能独立验收。350 条 E2E、8 项 focused unit、62 项 Python 及三项预期负向通过。默认 CFT 未观察到 WebArea，配置 renderer 后可观察页面，页面 AX 动作因公开父子关系不对称被成员校验拒绝。Node 与 Python 的独立测试夹具差异逐项绑定，最终 63 文件工程门与独立终审通过，提交绑定待完成。[应用场景记录](evidence/P5/ax/apps/README.md)
+2026-11-10 真实应用切片已完成当前主机功能独立验收。350 条 E2E、8 项 focused unit、62 项 Python 及三项预期负向通过。默认 CFT 未观察到 WebArea，配置 renderer 后可观察页面，页面 AX 动作因公开父子关系不对称被成员校验拒绝。Node 与 Python 的独立测试夹具差异逐项绑定，最终 63 文件工程门与独立终审通过，实现提交 `649556f0` 的63份文件已逐项绑定。[应用场景记录](evidence/P5/ax/apps/README.md)
 
 ## 回退与失败处理
 

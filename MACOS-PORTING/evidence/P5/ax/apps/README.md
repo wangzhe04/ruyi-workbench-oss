@@ -1,6 +1,6 @@
 # P5-03 真实应用 AX 选定场景
 
-2026-11-10，基线提交 `d1b01adb`，当前主机 macOS 27.0.1 arm64、Node 24.15.0、Python 3.12.10、SDK 15.2，原生目标 macOS 14.0。当前主机的应用切片功能独立验收与最终工程门通过，提交绑定待完成。P5 与 P5-03 保持进行中。
+2026-11-10，基线提交 `d1b01adb`，当前主机 macOS 27.0.1 arm64、Node 24.15.0、Python 3.12.10、SDK 15.2，原生目标 macOS 14.0。当前主机的应用切片功能独立验收、工程门与63文件提交绑定通过，实现提交 `649556f0`。P5 与 P5-03 保持进行中。
 
 ## 选定应用与限制
 
@@ -83,3 +83,9 @@ Node 的 350 条 E2E 与 8 项 unit 绑定 selected-apps 61 文件指纹，五�
 默认 helper SHA-256 为 `a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029`，全部验收与工程过程中保持同一二进制，helper 与如意 App 严格签名校验通过。最终只读状态为已授权、桌面解锁、截图/输入/AX 就绪。529 组独立观察到的自有进程身份末检均退出，共享 Finder 的原出生身份仍存活，测试窗口均已关闭。[运行状态](runtime-status-final.json) [进程清理](independent-completion/process-cleanup.json)
 
 独立只读终审已核对最终工程、当前 63 文件、三层差异及 App 六项构建来源，无待修发现，当前主机应用切片准予提交。P5 与 P5-03 的其余范围继续登记。[交付终审](final-delivery-review.json)
+
+## 提交绑定
+
+实现提交 `649556f0d5aeaf587d1b73337aa5b3da0833fe0c` 的 63 份实际 blob 已由实施者与独立复核分别逐项验证，与最终交付指纹和工作文件相等。默认 helper/App 指纹及严格签名再次通过，`git show --check` 通过。[实施者绑定](commit-binding.json) [独立绑定复核](commit-binding-review.json)
+
+最初提交前的索引校验脚本使用 Node 默认 1MiB 输出缓冲，在 6,777,632 字节的 server.js 处 ENOBUFS，shell 未 fail-fast 而继续提交。随后实施者使用显式 32MiB 缓冲补验全部真实提交 blob，独立复核使用 Python 原始完整字节再次验证 63 份文件。初次校验失败和更正过程均保留在绑定记录中。

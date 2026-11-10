@@ -60,4 +60,4 @@ App 初次组合探针中，AXTextArea 缺省 enabled 被错误当作不可操�
 
 ## 真实应用后续切片
 
-2026-11-10 TextEdit、Finder 和 Chromium 选定 AX 场景完成当前主机功能独立验收，有效 350 条 E2E、8 项 focused unit、62 项 Python 及三项负向清理通过。Chromium 默认页面树缺失与配置后页面动作的成员关系限制分别列证。最终工程门与独立终审通过，提交绑定待完成。[应用场景](apps/README.md)
+2026-11-10 TextEdit、Finder 和 Chromium 选定 AX 场景完成当前主机功能独立验收，有效 350 条 E2E、8 项 focused unit、62 项 Python 及三项负向清理通过。Chromium 默认页面树缺失与配置后页面动作的成员关系限制分别列证。最终工程门与独立终审通过，应用切片提交 `649556f0` 的63份文件已独立绑定。[应用场景](apps/README.md)
