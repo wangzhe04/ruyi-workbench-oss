@@ -185,6 +185,9 @@ def capability():
         out.update(ocrSupported=status.get("ocrSupported") is True,
                    ocrReady=bool(status.get("ocrSupported") is True and status.get("ocrReady")),
                    ocrRevision=status.get("ocrRevision"))
+        out.update(recordSupported=status.get("recordSupported") is True,
+                   recordReady=bool(status.get("recordSupported") is True and status.get("recordReady")
+                                    and out.get("inputReady")), recordSource=status.get("recordSource"))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))

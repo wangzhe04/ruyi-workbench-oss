@@ -74,7 +74,7 @@ class MacShared(unittest.TestCase):
         self.assertNotIn("ocr", active)
         self.assertIn("macos_ocr", active)
         with patch.dict(os.environ, {"ACC_TOOLSETS": "observe,macro"}):
-            self.assertEqual(set(self.server._active_modules()), {"audit", "diagnostics", "macos_observe", "macos_act_and_verify", "batch"})
+            self.assertEqual(set(self.server._active_modules()), {"audit", "diagnostics", "macos_observe", "macos_act_and_verify", "macos_record", "batch"})
 
     def test_system_roots_aliases_and_temporary_workspaces(self):
         guard = self.safety.protected_path_reason

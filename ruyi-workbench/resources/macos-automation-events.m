@@ -371,6 +371,44 @@ static void Wait(NSTimeInterval seconds) {
     [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:seconds]];
 }
 
+NSArray *RuyiAutomationChordKeys(id parts, NSDictionary **failure) {
+    if (![parts isKindOfClass:NSArray.class] || [parts count] < 1 || [parts count] > 8) {
+        *failure = RuyiAutomationFailure(@"invalid_args", @"Pass one to eight Mac key names"); return nil;
+    }
+    NSMutableArray *keys = [NSMutableArray array];
+    for (id part in parts) {
+        NSNumber *key = [part isKindOfClass:NSString.class] ? KeyMap()[[part lowercaseString]] : nil;
+        if (!key || [keys containsObject:key]) {
+            *failure = RuyiAutomationFailure(@"invalid_args", @"Unknown or repeated Mac key name"); return nil;
+        }
+        if (keys.count && !Modifier([keys.lastObject unsignedShortValue])) {
+            *failure = RuyiAutomationFailure(@"invalid_args", @"A chord may contain modifiers followed by one ordinary key"); return nil;
+        }
+        [keys addObject:key];
+    }
+    return keys;
+}
+
+NSDictionary *RuyiAutomationValidateText(NSDictionary *request) {
+    NSString *text = request[@"text"];
+    NSNumber *paste = request[@"paste"], *interval = request[@"interval"], *enters = request[@"enters"];
+    if (![text isKindOfClass:NSString.class] || [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 48000 ||
+        ![paste isKindOfClass:NSNumber.class] || CFGetTypeID((__bridge CFTypeRef)paste) != CFBooleanGetTypeID() ||
+        !RuyiAutomationFiniteNumber(interval) || interval.doubleValue < 0 || interval.doubleValue > 0.2 ||
+        !RuyiAutomationFiniteNumber(enters) || enters.doubleValue != trunc(enters.doubleValue) || enters.intValue < 0 ||
+        enters.intValue > 20 || (!paste.boolValue && text.length * MAX(interval.doubleValue, 0.001) > 5))
+        return RuyiAutomationFailure(@"invalid_args", @"Text, interval or trailing Enter count exceeds the input limits");
+    if (!paste.boolValue) {
+        for (NSUInteger i = 0; i < text.length;) {
+            NSRange range = [text rangeOfComposedCharacterSequenceAtIndex:i];
+            if (range.length > 20)
+                return RuyiAutomationFailure(@"invalid_args", @"A composed character exceeds the Unicode event capacity");
+            i = NSMaxRange(range);
+        }
+    }
+    return nil;
+}
+
 static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElementRef window) {
     pthread_mutex_lock(&eventLock);
     keyboardPID = [row[@"pid"] intValue];
@@ -378,20 +416,10 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
     NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 8;
     NSString *op = request[@"op"];
     if ([op isEqual:@"keyboard.chord"]) {
-        NSArray *parts = request[@"keys"];
-        if (![parts isKindOfClass:NSArray.class] || parts.count < 1 || parts.count > 8)
-            return RuyiAutomationFailure(@"invalid_args", @"Pass one to eight Mac key names");
-        NSMutableArray *keys = [NSMutableArray array];
-        for (id part in parts) {
-            NSNumber *key = [part isKindOfClass:NSString.class] ? KeyMap()[[part lowercaseString]] : nil;
-            if (!key || [keys containsObject:key])
-                return RuyiAutomationFailure(@"invalid_args", @"Unknown or repeated Mac key name");
-            if (keys.count && !Modifier([keys.lastObject unsignedShortValue]))
-                return RuyiAutomationFailure(@"invalid_args",
-                                             @"A chord may contain modifiers followed by one ordinary key");
-            [keys addObject:key];
-        }
-        NSDictionary *failure = FocusGuard(row, window, deadline);
+        NSDictionary *failure = nil;
+        NSArray *keys = RuyiAutomationChordKeys(request[@"keys"], &failure);
+        if (!keys) return failure;
+        failure = FocusGuard(row, window, deadline);
         if (failure)
             return failure;
         BOOL sent = Chord(keys);
@@ -409,13 +437,8 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
         return RuyiAutomationFailure(@"invalid_args", @"Unsupported keyboard operation");
     NSString *text = request[@"text"];
     NSNumber *paste = request[@"paste"], *interval = request[@"interval"], *enters = request[@"enters"];
-    if (![text isKindOfClass:NSString.class] || [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 48000 ||
-        ![paste isKindOfClass:NSNumber.class] || CFGetTypeID((__bridge CFTypeRef)paste) != CFBooleanGetTypeID() ||
-        !RuyiAutomationFiniteNumber(interval) || interval.doubleValue < 0 || interval.doubleValue > 0.2 ||
-        !RuyiAutomationFiniteNumber(enters) || enters.doubleValue != trunc(enters.doubleValue) || enters.intValue < 0 ||
-        enters.intValue > 20 || (!paste.boolValue && text.length * MAX(interval.doubleValue, 0.001) > 5))
-        return RuyiAutomationFailure(@"invalid_args",
-                                     @"Text, interval or trailing Enter count exceeds the input limits");
+    NSDictionary *invalidText = RuyiAutomationValidateText(request);
+    if (invalidText) return invalidText;
     BOOL acted = NO;
     NSDictionary *failure = FocusGuard(row, window, deadline);
     if (failure)
@@ -439,11 +462,6 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
                 if (failure)
                     break;
                 NSRange range = [text rangeOfComposedCharacterSequenceAtIndex:i];
-                if (range.length > 20) {
-                    failure = RuyiAutomationFailure(@"invalid_args",
-                                                    @"A composed character exceeds the Unicode event capacity");
-                    break;
-                }
                 NSString *unit = [text substringWithRange:range];
                 BOOL sent;
                 if ([unit isEqual:@"\n"] || [unit isEqual:@"\r"] || [unit isEqual:@"\r\n"])

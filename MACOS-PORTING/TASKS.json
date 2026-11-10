@@ -1611,7 +1611,10 @@
           "evidence": [
             "evidence/P5/composed/README.md",
             "evidence/P5/composed/code-review.json",
-            "evidence/P5/composed/independent/report.json"
+            "evidence/P5/composed/independent/report.json",
+            "evidence/P5/record/README.md",
+            "evidence/P5/record/code-review.json",
+            "evidence/P5/record/independent/report.json"
           ],
           "composedSliceAcceptance": {
             "date": "2026-11-10",
@@ -1630,6 +1633,29 @@
             "engineeringSyntaxFiles": 1148,
             "helperSha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
             "recordingStatus": "following_slice"
+          },
+          "controlledRecordingSlice": {
+            "status": "passed_current_host_scope",
+            "source": "controlled_native_requests",
+            "mainNodeE2EAssertions": 23,
+            "mainAppE2EAssertions": 18,
+            "mainPythonTests": 24,
+            "physicalInputListening": "following_evaluation",
+            "externalGates": "retained",
+            "date": "2026-11-10",
+            "nodeE2EAssertions": 303,
+            "pythonTests": 127,
+            "commands": 21,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 94,
+            "binaryArtifacts": 3,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1149,
+            "helperSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809"
           }
         }
       ],

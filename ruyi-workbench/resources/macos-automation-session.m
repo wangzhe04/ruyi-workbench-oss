@@ -66,11 +66,12 @@ int RuyiAutomationRunInputSession(void) {
         dispatch_resume(observer); [signals addObject:observer];
     }
     [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *timer) {
-        (void)timer; RuyiAutomationRefreshInputBindings();
+        (void)timer; RuyiAutomationRefreshInputBindings(); RuyiAutomationRefreshRecording();
     }];
     [NSWorkspace.sharedWorkspace.notificationCenter addObserverForName:NSWorkspaceSessionDidResignActiveNotification
         object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
-            (void)note; RuyiAutomationReleaseEvents(); RuyiAutomationResetInputBindings();
+            (void)note; RuyiAutomationEndRecording(@"session_locked");
+            RuyiAutomationReleaseEvents(); RuyiAutomationResetInputBindings();
         }];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSMutableData *line = [NSMutableData data];

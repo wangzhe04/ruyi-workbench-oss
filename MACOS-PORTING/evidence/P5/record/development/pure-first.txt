@@ -1,0 +1,83 @@
+test_all_bad_documents_refused_before_native_request (__main__.RecordingContracts.test_all_bad_documents_refused_before_native_request) ... ok
+test_all_pointer_and_chord_operations_use_existing_tools (__main__.RecordingContracts.test_all_pointer_and_chord_operations_use_existing_tools) ... ok
+test_expanded_step_limit_is_checked_before_dispatch (__main__.RecordingContracts.test_expanded_step_limit_is_checked_before_dispatch) ... ok
+test_idle_gaps_use_ended_time_and_cap_at_five_seconds (__main__.RecordingContracts.test_idle_gaps_use_ended_time_and_cap_at_five_seconds) ... ok
+test_interrupted_recordings_are_returned_but_refuse_save (__main__.RecordingContracts.test_interrupted_recordings_are_returned_but_refuse_save) ... ok
+test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) ...
+  test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='../outside') ... FAIL
+  test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='/outside') ... FAIL
+  test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='C:\\outside') ... FAIL
+  test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='.') ... FAIL
+  test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='   ') ... FAIL
+  test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') ... FAIL
+test_listing_never_follows_symlinks_or_opens_fifo_blocking (__main__.RecordingContracts.test_listing_never_follows_symlinks_or_opens_fifo_blocking) ... ok
+test_missing_hidden_input_and_windows_recording_refuse_dispatch (__main__.RecordingContracts.test_missing_hidden_input_and_windows_recording_refuse_dispatch) ... ok
+test_mixed_or_unbound_recordings_refuse_dispatch (__main__.RecordingContracts.test_mixed_or_unbound_recordings_refuse_dispatch) ... ok
+test_native_start_is_synchronous_and_explicitly_target_bound (__main__.RecordingContracts.test_native_start_is_synchronous_and_explicitly_target_bound) ... ok
+test_oversized_and_invalid_text_refused (__main__.RecordingContracts.test_oversized_and_invalid_text_refused) ... ok
+test_rebind_translates_global_points_and_drops_old_private_identity (__main__.RecordingContracts.test_rebind_translates_global_points_and_drops_old_private_identity) ... ok
+test_recording_replay_uses_live_registry_and_preserves_plain_steps (__main__.RecordingContracts.test_recording_replay_uses_live_registry_and_preserves_plain_steps) ... ok
+test_save_failure_retains_collected_recording (__main__.RecordingContracts.test_save_failure_retains_collected_recording) ... ok
+test_saved_complete_recording_is_atomic_and_listed (__main__.RecordingContracts.test_saved_complete_recording_is_atomic_and_listed) ... ok
+test_symlink_directory_refuses_save (__main__.RecordingContracts.test_symlink_directory_refuses_save) ... ok
+test_text_preserves_chinese_and_separates_trailing_enter (__main__.RecordingContracts.test_text_preserves_chinese_and_separates_trailing_enter) ... ok
+test_wrong_application_size_and_pending_recording_refuse_binding (__main__.RecordingContracts.test_wrong_application_size_and_pending_recording_refuse_binding) ... ok
+
+======================================================================
+FAIL: test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='../outside')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_record.py", line 159, in test_invalid_name_does_not_consume_recording
+    with self.subTest(name=name), patch.object(self.record, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DesktopError not raised
+
+======================================================================
+FAIL: test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='/outside')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_record.py", line 159, in test_invalid_name_does_not_consume_recording
+    with self.subTest(name=name), patch.object(self.record, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DesktopError not raised
+
+======================================================================
+FAIL: test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='C:\\outside')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_record.py", line 159, in test_invalid_name_does_not_consume_recording
+    with self.subTest(name=name), patch.object(self.record, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DesktopError not raised
+
+======================================================================
+FAIL: test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='.')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_record.py", line 159, in test_invalid_name_does_not_consume_recording
+    with self.subTest(name=name), patch.object(self.record, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DesktopError not raised
+
+======================================================================
+FAIL: test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='   ')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_record.py", line 159, in test_invalid_name_does_not_consume_recording
+    with self.subTest(name=name), patch.object(self.record, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DesktopError not raised
+
+======================================================================
+FAIL: test_invalid_name_does_not_consume_recording (__main__.RecordingContracts.test_invalid_name_does_not_consume_recording) (name='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/tests/smoke_macos_record.py", line 159, in test_invalid_name_does_not_consume_recording
+    with self.subTest(name=name), patch.object(self.record, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: DesktopError not raised
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.211s
+
+FAILED (failures=6)

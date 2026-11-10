@@ -1,0 +1,1366 @@
+{
+  "schema_version": 1,
+  "review": "P5-05 controlled native recording final delivery review",
+  "reviewer": "/root/p5_review_resumed",
+  "created_at_utc": "2026-11-10T15:48:24.469180+00:00",
+  "baseline_commit": "374d15fbcd88be5a6d4b0cab39c62e31c77747ed",
+  "current_head": "374d15fbcd88be5a6d4b0cab39c62e31c77747ed",
+  "verdict": "passed_current_host_controlled_recording_slice_ready_to_commit",
+  "may_commit_current_host_slice": true,
+  "blocking_findings": [],
+  "reviewer_executed_gui_or_runtime_tests": false,
+  "reviewer_modified_implementation": false,
+  "reviewer_rebuilt_runtime": false,
+  "reviewer_evidence_edits": [
+    "Updated the source-review log entry to the readable normalized hash while preserving original raw/base64/normalization hashes and verification proof",
+    "Added a record README paragraph explaining the one-space normalization and exact retained original log"
+  ],
+  "execution_ownership": "Main agent owns engineering and development execution. Independent /root/p5_acceptance owns the21-command current-host acceptance. This reviewer verifies source/index/runtime hashes, recorded boundary hashes, raw logs and documentary scope.",
+  "source_review_chain": {
+    "path": "MACOS-PORTING/evidence/P5/record/code-review.json",
+    "original_review_sha256": "dee5f8bff49bf27e53ba5afe3a5bbf09e918ba74a480702eb99e9e7f736b76a6",
+    "evidence_amended_sha256": "f00f191e37ba42476aac506953f91bdee980fe1d37d8e258c226aadb1563ba13",
+    "functional_source_snapshot_equal": true,
+    "closed_findings": 4,
+    "open_findings": 0,
+    "assessment": "Zero-delay cancellation, whole-record Unicode/half-open-bound validation, missing macro input and save directory-FD cleanup are closed. The evidence-only amendment retains that source snapshot and all finding conclusions. Windows record module bytes and batch compatibility checks remain as source-reviewed."
+  },
+  "source_binding": {
+    "functional_sources": 94,
+    "delivery_sources": 94,
+    "same_path_set": true,
+    "byte_identical_source_files": 89,
+    "documentation_only_changes": {
+      "MACOS-PORTING/06-P5-AUTOMATION.md": {
+        "functional_sha256": "952cb3fd3f6283268d57dfff9595a3cc86f06d3ebffa4365ded22f8c9cb1e5dc",
+        "delivery_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d"
+      },
+      "MACOS-PORTING/10-TRACKING.md": {
+        "functional_sha256": "9d7ebc2f705f6ad3687da17b1aff6ed458890746943294e1827cae886f7271d7",
+        "delivery_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2"
+      },
+      "MACOS-PORTING/TASKS.json": {
+        "functional_sha256": "daf110e307e456d64037ef3ad14284c1c18cf85cd1c0c730f3d41b11191e836e",
+        "delivery_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171"
+      },
+      "README.md": {
+        "functional_sha256": "ece33709d7763bce91a01f71159f6eff7f8c7c549ded4a75ea4571bcf5ded003",
+        "delivery_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66"
+      },
+      "README_EN.md": {
+        "functional_sha256": "16d6ec24f42d72a424428b32529bc6767a3f4de164381083056fc6eecc69acca",
+        "delivery_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6"
+      }
+    },
+    "raw_index_bytes_read": 10935192,
+    "method": "Complete raw Python subprocess reads of every staged blob without text conversion or a fixed output-buffer limit. All94 index and disk hashes equal final delivery.",
+    "checks": [
+      {
+        "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+        "bytes": 6520,
+        "expected_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d",
+        "working_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d",
+        "index_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d",
+        "match": true
+      },
+      {
+        "path": "MACOS-PORTING/10-TRACKING.md",
+        "bytes": 34412,
+        "expected_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2",
+        "working_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2",
+        "index_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2",
+        "match": true
+      },
+      {
+        "path": "MACOS-PORTING/TASKS.json",
+        "bytes": 85875,
+        "expected_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171",
+        "working_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171",
+        "index_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171",
+        "match": true
+      },
+      {
+        "path": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt",
+        "bytes": 1533,
+        "expected_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+        "working_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+        "index_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+        "match": true
+      },
+      {
+        "path": "README.md",
+        "bytes": 65808,
+        "expected_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66",
+        "working_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66",
+        "index_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66",
+        "match": true
+      },
+      {
+        "path": "README_EN.md",
+        "bytes": 72914,
+        "expected_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6",
+        "working_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6",
+        "index_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "bytes": 41655,
+        "expected_sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+        "working_sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+        "index_sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-ax-window.m",
+        "bytes": 11136,
+        "expected_sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+        "working_sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+        "index_sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-capture-window.m",
+        "bytes": 6245,
+        "expected_sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+        "working_sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+        "index_sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "expected_sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "working_sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "index_sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-finder-identity.m",
+        "bytes": 7537,
+        "expected_sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+        "working_sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+        "index_sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-input-window.m",
+        "bytes": 14194,
+        "expected_sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+        "working_sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+        "index_sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+        "match": true
+      },
+      {
+        "path": "dev-harness/fixtures/macos-ocr-window.m",
+        "bytes": 7227,
+        "expected_sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+        "working_sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+        "index_sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+        "match": true
+      },
+      {
+        "path": "dev-harness/lib/browser-fixture.js",
+        "bytes": 21509,
+        "expected_sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+        "working_sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+        "index_sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-acc-shared.e2e.js",
+        "bytes": 7191,
+        "expected_sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+        "working_sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+        "index_sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-ax-finder.e2e.js",
+        "bytes": 11628,
+        "expected_sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+        "working_sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+        "index_sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-ax.e2e.js",
+        "bytes": 18492,
+        "expected_sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+        "working_sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+        "index_sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-capabilities.e2e.js",
+        "bytes": 8091,
+        "expected_sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+        "working_sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+        "index_sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-capture-contract.e2e.js",
+        "bytes": 12752,
+        "expected_sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+        "working_sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+        "index_sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-capture-host.e2e.js",
+        "bytes": 5558,
+        "expected_sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+        "working_sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+        "index_sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-capture.e2e.js",
+        "bytes": 13434,
+        "expected_sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+        "working_sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+        "index_sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-input-apps.e2e.js",
+        "bytes": 29397,
+        "expected_sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+        "working_sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+        "index_sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-input-events.e2e.js",
+        "bytes": 23780,
+        "expected_sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+        "working_sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+        "index_sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-input-host.e2e.js",
+        "bytes": 21492,
+        "expected_sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+        "working_sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+        "index_sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-mcp-capabilities.e2e.js",
+        "bytes": 5447,
+        "expected_sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+        "working_sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+        "index_sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-observe.e2e.js",
+        "bytes": 10944,
+        "expected_sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+        "working_sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+        "index_sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-ocr.e2e.js",
+        "bytes": 14279,
+        "expected_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+        "working_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+        "index_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-record.e2e.js",
+        "bytes": 14122,
+        "expected_sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+        "working_sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+        "index_sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+        "match": true
+      },
+      {
+        "path": "dev-harness/macos-window-clipboard.e2e.js",
+        "bytes": 16038,
+        "expected_sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+        "working_sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+        "index_sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+        "match": true
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "bytes": 13918,
+        "expected_sha256": "fdac38ad1957a96c75b6cd5bc36903ec204cab7bdff775f4a4ed6a6a3d87c621",
+        "working_sha256": "fdac38ad1957a96c75b6cd5bc36903ec204cab7bdff775f4a4ed6a6a3d87c621",
+        "index_sha256": "fdac38ad1957a96c75b6cd5bc36903ec204cab7bdff775f4a4ed6a6a3d87c621",
+        "match": true
+      },
+      {
+        "path": "dev-harness/theme-default.browser.e2e.js",
+        "bytes": 3282,
+        "expected_sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+        "working_sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+        "index_sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+        "match": true
+      },
+      {
+        "path": "dev-harness/unit/browser-fixture-deadline.test.js",
+        "bytes": 6256,
+        "expected_sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+        "working_sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+        "index_sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+        "match": true
+      },
+      {
+        "path": "dev-harness/unit/tool-dispatch-hardening.test.js",
+        "bytes": 26441,
+        "expected_sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+        "working_sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+        "index_sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+        "match": true
+      },
+      {
+        "path": "docs/architecture/module-dependency-graph.json",
+        "bytes": 923751,
+        "expected_sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+        "working_sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+        "index_sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+        "match": true
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "bytes": 205532,
+        "expected_sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+        "working_sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+        "index_sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+        "match": true
+      },
+      {
+        "path": "facts.json",
+        "bytes": 1335,
+        "expected_sha256": "cd442fbb7b02386e183a036891cfdd4466f2ddcc220362040a61552a2d98b482",
+        "working_sha256": "cd442fbb7b02386e183a036891cfdd4466f2ddcc220362040a61552a2d98b482",
+        "index_sha256": "cd442fbb7b02386e183a036891cfdd4466f2ddcc220362040a61552a2d98b482",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+        "bytes": 22556,
+        "expected_sha256": "eb071cddf42b8768ec9c050bb97a93f015e60e9150fe4da11e8cbf1f79f0bf8f",
+        "working_sha256": "eb071cddf42b8768ec9c050bb97a93f015e60e9150fe4da11e8cbf1f79f0bf8f",
+        "index_sha256": "eb071cddf42b8768ec9c050bb97a93f015e60e9150fe4da11e8cbf1f79f0bf8f",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+        "bytes": 11509,
+        "expected_sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+        "working_sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+        "index_sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+        "bytes": 10402,
+        "expected_sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+        "working_sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+        "index_sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+        "bytes": 10638,
+        "expected_sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+        "working_sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+        "index_sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+        "bytes": 9275,
+        "expected_sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+        "working_sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+        "index_sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+        "bytes": 11294,
+        "expected_sha256": "6f0bfc7ad150555fbff288ab5a7b4a4d30167e955e664f38017df1aebd60e446",
+        "working_sha256": "6f0bfc7ad150555fbff288ab5a7b4a4d30167e955e664f38017df1aebd60e446",
+        "index_sha256": "6f0bfc7ad150555fbff288ab5a7b4a4d30167e955e664f38017df1aebd60e446",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+        "bytes": 1685,
+        "expected_sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+        "working_sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+        "index_sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+        "bytes": 3163,
+        "expected_sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+        "working_sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+        "index_sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+        "bytes": 5201,
+        "expected_sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+        "working_sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+        "index_sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+        "bytes": 6043,
+        "expected_sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+        "working_sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+        "index_sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+        "bytes": 5512,
+        "expected_sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+        "working_sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+        "index_sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+        "bytes": 9182,
+        "expected_sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+        "working_sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+        "index_sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+        "bytes": 6119,
+        "expected_sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+        "working_sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+        "index_sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+        "bytes": 5634,
+        "expected_sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+        "working_sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+        "index_sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+        "bytes": 6903,
+        "expected_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+        "working_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+        "index_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+        "bytes": 32996,
+        "expected_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+        "working_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+        "index_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+        "bytes": 14860,
+        "expected_sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+        "working_sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+        "index_sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+        "bytes": 11015,
+        "expected_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+        "working_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+        "index_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+        "bytes": 12450,
+        "expected_sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+        "working_sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+        "index_sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+        "bytes": 4493,
+        "expected_sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+        "working_sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+        "index_sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+        "bytes": 7775,
+        "expected_sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+        "working_sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+        "index_sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+        "bytes": 6057,
+        "expected_sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+        "working_sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+        "index_sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+        "bytes": 4104,
+        "expected_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+        "working_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+        "index_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+        "bytes": 3620,
+        "expected_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+        "working_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+        "index_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+        "bytes": 8532,
+        "expected_sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+        "working_sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+        "index_sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+        "bytes": 8643,
+        "expected_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+        "working_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+        "index_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+        "bytes": 3820,
+        "expected_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+        "working_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+        "index_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+        "bytes": 2589,
+        "expected_sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+        "working_sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+        "index_sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+        "bytes": 5321,
+        "expected_sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+        "working_sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+        "index_sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_ax.py",
+        "bytes": 6311,
+        "expected_sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+        "working_sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+        "index_sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_capture.py",
+        "bytes": 9976,
+        "expected_sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+        "working_sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+        "index_sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_composed.py",
+        "bytes": 15520,
+        "expected_sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+        "working_sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+        "index_sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+        "bytes": 8420,
+        "expected_sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+        "working_sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+        "index_sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+        "bytes": 13646,
+        "expected_sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+        "working_sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+        "index_sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+        "bytes": 17336,
+        "expected_sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+        "working_sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+        "index_sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_shared.py",
+        "bytes": 10579,
+        "expected_sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+        "working_sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+        "index_sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+        "match": true
+      },
+      {
+        "path": "mcp/ai-computer-control/tests/smoke_macos_visual.py",
+        "bytes": 18044,
+        "expected_sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+        "working_sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+        "index_sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "bytes": 6777632,
+        "expected_sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+        "working_sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+        "index_sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+        "bytes": 24619,
+        "expected_sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+        "working_sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+        "index_sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+        "bytes": 5148,
+        "expected_sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+        "working_sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+        "index_sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/06-provider-engine.js",
+        "bytes": 166256,
+        "expected_sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+        "working_sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+        "index_sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/07-autonomy.js",
+        "bytes": 234075,
+        "expected_sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+        "working_sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+        "index_sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "bytes": 301464,
+        "expected_sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+        "working_sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+        "index_sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/13-http-router.js",
+        "bytes": 221621,
+        "expected_sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+        "working_sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+        "index_sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+        "bytes": 150843,
+        "expected_sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+        "working_sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+        "index_sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "bytes": 23789,
+        "expected_sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+        "working_sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+        "index_sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/app/src/module-contracts.json",
+        "bytes": 697478,
+        "expected_sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+        "working_sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+        "index_sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/desktop-macos/RuyiDesktop.swift",
+        "bytes": 35428,
+        "expected_sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+        "working_sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+        "index_sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-ax.m",
+        "bytes": 36819,
+        "expected_sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+        "working_sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+        "index_sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-events.m",
+        "bytes": 31746,
+        "expected_sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+        "working_sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+        "index_sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-helper.m",
+        "bytes": 22388,
+        "expected_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+        "working_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+        "index_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-input.m",
+        "bytes": 47155,
+        "expected_sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+        "working_sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+        "index_sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+        "bytes": 11356,
+        "expected_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+        "working_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+        "index_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-record.m",
+        "bytes": 7671,
+        "expected_sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+        "working_sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+        "index_sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation-session.m",
+        "bytes": 5315,
+        "expected_sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+        "working_sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+        "index_sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/resources/macos-automation.h",
+        "bytes": 2908,
+        "expected_sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+        "working_sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+        "index_sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+        "bytes": 2589,
+        "expected_sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+        "working_sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+        "index_sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-desktop.js",
+        "bytes": 6489,
+        "expected_sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+        "working_sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+        "index_sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+        "match": true
+      }
+    ],
+    "cached_whitespace_check_exit": 0,
+    "unstaged_evidence_whitespace_check_exit": 0
+  },
+  "runtime_binding": {
+    "artifacts": 3,
+    "functional_delivery_and_disk_equal": true,
+    "checks": [
+      {
+        "path": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "sha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+        "matches_functional_and_delivery": true
+      },
+      {
+        "path": "ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+        "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+        "matches_functional_and_delivery": true
+      },
+      {
+        "path": "ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+        "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+        "matches_functional_and_delivery": true
+      }
+    ],
+    "app_build_source_checks": [
+      {
+        "path": "ruyi-workbench/desktop-macos/DesktopService.swift",
+        "sha256": "93d865770d762fde93fe91a40b630fa87c4f5c2a965e1fb7d9a8cc291985d6d9",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/desktop-macos/MacHostBridge.swift",
+        "sha256": "e1f97706f0584192d70da6ed1e7ef72228209b4b45f06f20c4c2feef9d0c94b5",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/desktop-macos/RuyiDesktop.swift",
+        "sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/desktop-macos/main.swift",
+        "sha256": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/desktop-macos/service-lease.cjs",
+        "sha256": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6",
+        "match": true
+      },
+      {
+        "path": "ruyi-workbench/tools/build-macos-desktop.js",
+        "sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+        "match": true
+      }
+    ],
+    "app_build_identity": "ad-hoc-development",
+    "strict_signature_and_status": "Independent helper/App --verify --strict and default-helper status checks each exit0 with97-item before/after hashes equal to the functional candidate. Exact helper bytes are be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809. Formal identity/upgrade remain outside this scope."
+  },
+  "independent_acceptance": {
+    "verdict": "passed_requested_current_host_controlled_recording_scope",
+    "commands": 21,
+    "unique_names": 21,
+    "node_assertions": 303,
+    "python_tests": 127,
+    "failures": 0,
+    "skips": 0,
+    "automatic_retries": false,
+    "implementation_modified_during_execution": false,
+    "fingerprint_items": 97,
+    "before_after_and_final_snapshots": 49,
+    "all_expected_actual_and_functional_hashes_equal": true,
+    "runs": [
+      {
+        "name": "record",
+        "exit": 0,
+        "node_assertions": 23,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/record.txt",
+        "log_sha256": "7ba7d6786ba902efc753f184a456a99eb2d83e9fadc40a3a6b99efebe1a5c2c6"
+      },
+      {
+        "name": "app-record",
+        "exit": 0,
+        "node_assertions": 18,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/app-record.txt",
+        "log_sha256": "2dc50dbede9aa96bfd37f2a7b21ca41092415091792b65fd1408a995dc934d31"
+      },
+      {
+        "name": "composed",
+        "exit": 0,
+        "node_assertions": 16,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/composed.txt",
+        "log_sha256": "36a7bf632b25150d5bc39cd31d66a919847b74fbb431a11f1aa9675dbdf350a3"
+      },
+      {
+        "name": "app-composed",
+        "exit": 0,
+        "node_assertions": 13,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/app-composed.txt",
+        "log_sha256": "7a6e9fa93868bd262a9b80a9217ebc5aa6a2db1beff885685242531c0f7d0081"
+      },
+      {
+        "name": "ocr",
+        "exit": 0,
+        "node_assertions": 29,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/ocr.txt",
+        "log_sha256": "75c394242a72f3005c2c0278869cf5c8a991d335d141335603eb3b0c59020fa3"
+      },
+      {
+        "name": "app-visual",
+        "exit": 0,
+        "node_assertions": 13,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/app-visual.txt",
+        "log_sha256": "d73e19a6bb409456388750cb9450db64188f25180a6582718e5466eef32d87f7"
+      },
+      {
+        "name": "capture",
+        "exit": 0,
+        "node_assertions": 33,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/capture.txt",
+        "log_sha256": "b5c2bd3643d1f11685d8551389e8326ba3f4032ef4d1d3a10af99e42f84946f8"
+      },
+      {
+        "name": "ax",
+        "exit": 0,
+        "node_assertions": 36,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/ax.txt",
+        "log_sha256": "fa4cc419c2b9f585f58f58399d636e5d60842b7efa5dc9ae1d12ba30259c6c8f"
+      },
+      {
+        "name": "input-events",
+        "exit": 0,
+        "node_assertions": 42,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/input-events.txt",
+        "log_sha256": "5cb0bf68878e4468da563668f2afc8af0e74931d9a6ce417daef8f2ac291bb47"
+      },
+      {
+        "name": "window-clipboard",
+        "exit": 0,
+        "node_assertions": 37,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/window-clipboard.txt",
+        "log_sha256": "fab1f150690696babe7a6a094576a807ff6759d81d201356a94693d3bd140082"
+      },
+      {
+        "name": "app-input",
+        "exit": 0,
+        "node_assertions": 13,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/app-input.txt",
+        "log_sha256": "da5c92f8d536f07212428e3214c691c874badec7ca1a9ea42b16a8621238b658"
+      },
+      {
+        "name": "app-ax",
+        "exit": 0,
+        "node_assertions": 12,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/app-ax.txt",
+        "log_sha256": "2fac9d1f048a48858da2091fd7f8cb335eed9681980988cffbeed6057763b898"
+      },
+      {
+        "name": "acc-shared",
+        "exit": 0,
+        "node_assertions": 18,
+        "python_tests": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/acc-shared.txt",
+        "log_sha256": "42e0a3177925769773e1366b8beed6ceb74f9d509549d4e0212751b1fe26fe56"
+      },
+      {
+        "name": "python-record",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 24,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-record.txt",
+        "log_sha256": "1b5adbdabfe874b8f79b0f6b915301d99fa49b6e2afd1f630fe862cbe656ef39"
+      },
+      {
+        "name": "python-composed",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 16,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-composed.txt",
+        "log_sha256": "319d65d739c4d728d87894718759f50a50a5db9f2b245a5fb9d8ba1c0157bb87"
+      },
+      {
+        "name": "python-visual",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 25,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-visual.txt",
+        "log_sha256": "2afdf166a3aa9b37caa5ffee016fc5709742b1dae13349533ef3baed7168c620"
+      },
+      {
+        "name": "python-capture",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 13,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-capture.txt",
+        "log_sha256": "0126ca2275e89c7859deb1dff46559f7a3e67678b8e3d75dd1c99801f7fb6dd7"
+      },
+      {
+        "name": "python-shared",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 8,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-shared.txt",
+        "log_sha256": "6eace04ad53677d7973ab2e6edbce5084e78094eda0ea5b85c97959dd2a51266"
+      },
+      {
+        "name": "python-input",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 18,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-input.txt",
+        "log_sha256": "21be143094f7e2c57399f112984946345574e931eb32284f4c9db0cbbe57bd48"
+      },
+      {
+        "name": "python-events",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 15,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-events.txt",
+        "log_sha256": "932c6b70d193625853c4a251294f1b984b8ab6962d5506e2abb251e110063278"
+      },
+      {
+        "name": "python-ax",
+        "exit": 0,
+        "node_assertions": 0,
+        "python_tests": 8,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/python-ax.txt",
+        "log_sha256": "688c2cfdd9b2ede4fa47b9864079df0a17e906c0b6a12ca86e2a6f38343128ab"
+      }
+    ],
+    "read_only_checks": [
+      {
+        "name": "helper-codesign",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/helper-codesign.txt"
+      },
+      {
+        "name": "app-codesign",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/app-codesign.txt"
+      },
+      {
+        "name": "default-helper-status",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/independent/default-helper-status.txt"
+      }
+    ],
+    "cleanup": {
+      "table_available": true,
+      "App_identity_checks": 186,
+      "App_reports": [
+        {
+          "name": "app-record",
+          "identities": 36,
+          "all_confirmed_absent": true
+        },
+        {
+          "name": "app-composed",
+          "identities": 42,
+          "all_confirmed_absent": true
+        },
+        {
+          "name": "app-visual",
+          "identities": 51,
+          "all_confirmed_absent": true
+        },
+        {
+          "name": "app-input",
+          "identities": 29,
+          "all_confirmed_absent": true
+        },
+        {
+          "name": "app-ax",
+          "identities": 28,
+          "all_confirmed_absent": true
+        }
+      ],
+      "all_App_identities_confirmed_absent": true,
+      "extra_scoped_command_matches": [],
+      "clipboard": "Recorded current-run pre-test snapshot restoration assertions pass for native/App fixtures, including image/private-format retention and balanced input. Historical P5-02 clipboard loss remains separate."
+    },
+    "recording_evidence": {
+      "source": "controlled_native_requests",
+      "nativeCollections": [
+        {
+          "ok": false,
+          "hasPath": false
+        },
+        {
+          "ok": true,
+          "complete": true,
+          "count": 6,
+          "end_reason": "stopped",
+          "source": "controlled_native_requests",
+          "hasPath": true
+        },
+        {
+          "ok": true,
+          "complete": false,
+          "count": 0,
+          "end_reason": "input_failed",
+          "source": "controlled_native_requests",
+          "hasPath": false
+        },
+        {
+          "ok": true,
+          "complete": false,
+          "count": 0,
+          "end_reason": "focus_changed",
+          "source": "controlled_native_requests",
+          "saved": null,
+          "save_error": "Pass a complete bounded Mac controlled recording from record_stop",
+          "hasPath": false
+        },
+        {
+          "ok": true,
+          "complete": false,
+          "count": 0,
+          "end_reason": "deadline",
+          "source": "controlled_native_requests",
+          "hasPath": false
+        },
+        {
+          "ok": true,
+          "complete": false,
+          "count": 0,
+          "end_reason": "secure_input",
+          "source": "controlled_native_requests",
+          "hasPath": false
+        },
+        {
+          "ok": true,
+          "complete": false,
+          "count": 0,
+          "end_reason": "window_changed",
+          "source": "controlled_native_requests",
+          "hasPath": false
+        },
+        {
+          "ok": true,
+          "complete": false,
+          "count": 100,
+          "end_reason": "capacity",
+          "source": "controlled_native_requests",
+          "hasPath": false
+        },
+        {
+          "ok": false,
+          "hasPath": false
+        }
+      ],
+      "appRecording": {
+        "source": "controlled_native_requests",
+        "complete": true,
+        "count": 5,
+        "savedPath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-v8sKpf/acc-data/macros/App受控宏.json",
+        "replayOk": true,
+        "replayCompleted": 5,
+        "replayFailed": 0
+      },
+      "appReceiverReadback": {
+        "textMatches": true,
+        "counts": {
+          "key_down": 4,
+          "key_up": 4,
+          "left_down": 4,
+          "left_up": 4,
+          "vertical_scroll": 2
+        },
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 200,
+          "y": 657
+        },
+        "leftHeld": false,
+        "modifierFlags": 0,
+        "clipboardPreserved": true
+      },
+      "nativeClipboardRestore": [
+        {
+          "restored": true
+        }
+      ],
+      "businessMeaning": "Only successful controlled native request semantics are recorded. Receiver state and balanced input are independently checked by the owned fixture; screen change alone remains semantically unconfirmed."
+    },
+    "scope": {
+      "actualHost": "macOS27.0.1 arm64, single built-in Retina display",
+      "executed": "Thirteen real current-host MCP/App/receiver/shared-registry regressions plus eight isolated pure Python suites, each once",
+      "recordingSource": "controlled_native_requests",
+      "manualPhysicalEventListenerImplemented": false,
+      "defaultBinary": "Frozen be795f51... default runtime helper used by explicit recording/OCR/composed overrides and actual App recording/visual/composed paths. Default helper and App byte hashes remained unchanged.",
+      "clipboard": "Only current-run native snapshot-restoration assertions are counted. Historical P5-02 clipboard-loss evidence remains separate.",
+      "inputMethod": "No input-source switching command or test was performed",
+      "sourceCompatibility": "Pure simulated platform rejection and code review are separate from actual Windows execution",
+      "notExecuted": [
+        "Manual physical event monitoring",
+        "Actual macOS14 runtime",
+        "Same-candidate Windows physical or CI execution",
+        "Physical multi-display/non-Retina desktop",
+        "Actual TCC revocation or OS lock during recording/action",
+        "Formal signing identity/upgrade",
+        "Physical input-method switching"
+      ],
+      "skipCount": 0,
+      "retryCount": 0
+    },
+    "fullP5Completion": false
+  },
+  "engineering": {
+    "gates": [
+      {
+        "name": "syntax",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/syntax.txt"
+      },
+      {
+        "name": "build-check",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/build-check.txt"
+      },
+      {
+        "name": "unit",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/unit.txt"
+      },
+      {
+        "name": "static",
+        "exit": 0,
+        "log": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/static.txt"
+      }
+    ],
+    "before_after_maps": 8,
+    "hashes_per_map": 97,
+    "all_maps_equal_functional_raw_hashes": true,
+    "syntax_files": 1149,
+    "syntax_failures": 0,
+    "build_fresh": true,
+    "unit_passed": 2499,
+    "unit_existing_skipped": 18,
+    "unit_failed": 0,
+    "static_passed": 80,
+    "static_failed": 0,
+    "static_opt_in_live_probes_skipped": 7,
+    "flaky": 0,
+    "residual_test_browsers": 0
+  },
+  "historical_log_normalization": {
+    "path": "MACOS-PORTING/evidence/P5/record/development/pure-first.txt",
+    "raw_log_sha256": "031e4e4e7354964d4c3309da29db056f8c07fcefe4772492be92f91c0490eb64",
+    "readable_log_sha256": "6b33a7b720b23e2d6e68a4e9da5ae7387dd73de42d2f8f7e7f12240eea12532c",
+    "raw_base64": "MACOS-PORTING/evidence/P5/record/development/pure-first.raw.base64",
+    "raw_base64_sha256": "76614b0960a507981ba8bbcb5c2acf64132adbc0f6379ae4bab3c5211a75e097",
+    "normalization_record": "MACOS-PORTING/evidence/P5/record/development/log-normalization.json",
+    "original_review_hash_matches_decoded_bytes": true,
+    "base64_roundtrip_exact": true,
+    "line_count": 83,
+    "changed_lines": [
+      6
+    ],
+    "removed_ASCII_space_bytes": 1,
+    "all_other_bytes_equal": true,
+    "six_failure_subcases_retained": true,
+    "source_review_entry_updated": true,
+    "README_preservation_note_added": true
+  },
+  "documentation_assessment": "The final README and five status documents distinguish controlled_native_requests recording from later manual physical-event listening. They accurately report303 Node/127 Python,21 once-only commands, current-host scope, explicit incomplete recording reasons, secure input by an owned fixture, saved=null persistence uncertainty,186 confirmed App identity exits, engineering existing skips and the five document-only delta. Failure histories and the raw original normalized log remain retained. P5/P5-05 stay in_progress and the original environment gates remain open.",
+  "remaining_gates": [
+    "Manual physical event monitoring",
+    "Actual macOS14 runtime",
+    "Same-candidate Windows physical or CI execution",
+    "Physical multi-display/non-Retina desktop",
+    "Actual TCC revocation or OS lock during recording/action",
+    "Formal signing identity/upgrade",
+    "Physical input-method switching",
+    "Final committed raw-blob binding once the implementation commit exists"
+  ],
+  "submission_scope": "The current macOS27.0.1 arm64 single built-in Retina controlled-call recording slice is ready to commit. The code-review and README evidence amendments plus this final review should be staged with the evidence. Product/test source hashes are unchanged. This verdict covers the current-host slice and preserves P5/P5-05 in_progress.",
+  "evidence_reviewed": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/source-fingerprint.json",
+      "sha256": "af0cac730e948ccae4e707e87b1d513aa368b69f200d647647a298c66ad74d91"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/source-fingerprint-final-delivery.json",
+      "sha256": "dcd2f9962bffd3c524ab42f4e5dffdaa9ac713cfecde79b3ea60790b55c3caf9"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/code-review.json",
+      "sha256": "f00f191e37ba42476aac506953f91bdee980fe1d37d8e258c226aadb1563ba13"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/independent/report.json",
+      "sha256": "a2a608650712e3377f55cbf1dde760c556aff3148b2c26489617155d7fb1af31"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/results.json",
+      "sha256": "2d2c9d6e1a46687e74aa4c0e1748b62d5692314d69d4fd6e43e388736db3742d"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/README.md",
+      "sha256": "e10f00a4eebb2a44e217b8162cc1f5e64fdd0ae2ee13a411b81cd046af5e73ca"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/development/pure-first.txt",
+      "sha256": "6b33a7b720b23e2d6e68a4e9da5ae7387dd73de42d2f8f7e7f12240eea12532c"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/development/pure-first.raw.base64",
+      "sha256": "76614b0960a507981ba8bbcb5c2acf64132adbc0f6379ae4bab3c5211a75e097"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/development/log-normalization.json",
+      "sha256": "d9427967ba0ad1092fc79d1d173d36b1e2bbfbef61815dea1c80605c059c8366"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/syntax.txt",
+      "sha256": "cd3316a74250998d2121f652fc8b38c46d14e002403d5dc998d7c4cc030269d0"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/build-check.txt",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/unit.txt",
+      "sha256": "38af58f349bf626665c924576fbb6ebc86345724b5c5bb4ee198bfb35bf2873e"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/acceptance/engineering/static.txt",
+      "sha256": "364896b0ab0ac5fc6c20927dd8874614a4a78b430a90c2069ab7b17d246f9562"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/independent/helper-codesign.txt",
+      "sha256": "c6848e8aac7c6a5399492090fc138a7cc6f313ac4f74914eb173b87e20499cd5"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/independent/app-codesign.txt",
+      "sha256": "834c5397e0b11c8b40b546cf9132479d56a74b8e0246c0d25a424937d79ddd7a"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/independent/default-helper-status.txt",
+      "sha256": "169b46a4ea78b95c1db22e1026c4602f0f422467c151de7ff7658de21a310bf1"
+    }
+  ]
+}

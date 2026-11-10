@@ -29,6 +29,14 @@ NSArray *RuyiAutomationSnapshotClipboard(NSPasteboard *board, NSInteger *version
 NSDictionary *RuyiAutomationWriteClipboard(NSPasteboard *board, NSArray *objects, NSArray **previous);
 NSString *RuyiAutomationRestoreClipboard(NSPasteboard *board, NSArray *previous, NSInteger expected);
 NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request);
+NSArray *RuyiAutomationChordKeys(id parts, NSDictionary **failure);
+NSDictionary *RuyiAutomationValidateText(NSDictionary *request);
+NSDictionary *RuyiAutomationRecordRequest(NSDictionary *request);
+NSDictionary *RuyiAutomationRecordStatus(void);
+void RuyiAutomationRefreshRecording(void);
+void RuyiAutomationEndRecording(NSString *reason);
+void RuyiAutomationBeforeRecordedRequest(NSDictionary *request);
+void RuyiAutomationAfterRecordedRequest(NSDictionary *request, NSDictionary *result, NSTimeInterval began);
 void RuyiAutomationReleaseEvents(void);
 void RuyiAutomationStopEvents(void);
 BOOL RuyiAutomationEventsStopping(void);

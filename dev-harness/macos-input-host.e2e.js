@@ -2,6 +2,7 @@
 require('./lib/self-isolate-home');
 // LaunchServices Ruyi.app -> owned workbench -> normal HTTP invoke -> real ACC -> native input worker.
 // RUYI_P5_APP_COMPOSED=1 verifies shared-frame observation, action verification and macro readback.
+// RUYI_P5_APP_RECORD=1 verifies native controlled recording and fresh-target replay.
 // RUYI_P5_APP_VISUAL=1 verifies Vision OCR and OpenCV clicks against the owned bilingual receiver.
 // All injected events target a self-owned fixture. RUYI_P5_APP_PASTE=1 also verifies guarded Cmd+V.
 // RUYI_P5_APP_EXIT_FAILURE=1 forces an owned App crash after input and expects one injected failure.
@@ -22,6 +23,7 @@ let fixture, launcher, owned, ownedTree = [];
 const paste = process.env.RUYI_P5_APP_PASTE === '1';
 const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
 const ax = process.env.RUYI_P5_APP_AX === '1';
+const recording = process.env.RUYI_P5_APP_RECORD === '1';
 const composed = process.env.RUYI_P5_APP_COMPOSED === '1';
 const visual = composed || process.env.RUYI_P5_APP_VISUAL === '1';
 const events = [];
@@ -63,7 +65,8 @@ async function cleanupOwned() {
 (async () => {
   try {
     if (process.platform !== 'darwin') { console.log('SKIP Mac App input launch chain'); return; }
-    const helper = (visual && process.env.RUYI_P5_OCR_HELPER) || buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
+    const helper = (recording && process.env.RUYI_P5_RECORD_HELPER) || (visual && process.env.RUYI_P5_OCR_HELPER)
+      || buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
     const receiver = path.join(root, 'receiver');
     const compiled = cp.spawnSync('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-fblocks', '-Wall', '-Wextra', '-Werror',
       '-mmacosx-version-min=14.0', '-framework', 'AppKit', '-framework', 'ApplicationServices',
@@ -98,7 +101,7 @@ async function cleanupOwned() {
       ...(process.env.DYLD_FRAMEWORK_PATH ? { DYLD_FRAMEWORK_PATH: process.env.DYLD_FRAMEWORK_PATH } : {}),
       ...(process.env.DYLD_LIBRARY_PATH ? { DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH } : {}),
       PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
-      ACC_TOOLSETS: composed ? 'desktop,uia,ocr,observe,macro' : visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
+      ACC_TOOLSETS: composed ? 'desktop,uia,ocr,observe,macro' : recording ? 'desktop,macro' : visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
     const schema = require('../ruyi-workbench/app/server').CONFIG_SCHEMA;
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: schema, permissionMode: 'bypass',
       defaultWorkspace: root, workspaces: [{ path: root }], allowDesktopTools: true, allowCommandTools: true,
@@ -148,6 +151,11 @@ if(${visual} && focused.ok){
   const templateClick=templates?.ok?await invoke('vision_click',{template_b64:shot.image,threshold:.99,multiscale:false,target:row.target,nth:1}):null;
   return {capabilities,focused,visual:{warm,found,chinese,templates,templateClick}};
 }
+const recordStarted=${recording}&&focused.ok?await invoke('record_start',{target:row.target,max_seconds:30}):null;
+if(${recording}&&recordStarted?.ok){
+  await invoke('mouse_click',{target:row.target,...${JSON.stringify(ready.editor ? { x: Math.round(ready.editor.x + ready.editor.width / 2), y: Math.round(ready.editor.y + ready.editor.height / 2) } : {})}});
+  await invoke('hotkey',{target:row.target,keys:['cmd','a']});
+}
 const typed=!${ax}&&focused.ok?await invoke('type_text',{text:${JSON.stringify(sample)},target:row.target,use_clipboard:${paste},interval:0}):null;
 let ax=null;
 if(${ax} && focused.ok){
@@ -159,7 +167,10 @@ if(${ax} && focused.ok){
 }
 const clicked=typed?.ok?await invoke('mouse_click',{...${JSON.stringify(pad)},target:row.target}):null;
 const scrolled=clicked?.ok?await invoke('mouse_scroll',{...${JSON.stringify(pad)},target:row.target,clicks:-2}):null;
-return {capabilities,focused,typed,clicked,scrolled,ax};`);
+const collected=${recording}&&recordStarted?.ok?await invoke('record_stop',{save_as:'App受控宏'}):null;
+const current=${recording}&&collected?.complete?await invoke('get_active_window'):null;
+const replayed=current?.ok?await invoke('macro_run',{recording:collected.recording,target:current.window.target}):null;
+return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{started:recordStarted,collected,replayed}:null};`);
     const env = { ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, RUYI_NODE_PATH: process.execPath };
     const launchEnv = { HOME: env.HOME, USERPROFILE: env.USERPROFILE, LOCALAPPDATA: env.LOCALAPPDATA, APPDATA: env.APPDATA,
       RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, RUYI_NODE_PATH: process.execPath };
@@ -189,7 +200,7 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
     const state = await fixtureCommand();
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
-      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, composed ? 'composed-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
+      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, composed ? 'composed-host.json' : recording ? 'record-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
         servicePID: result.servicePID, launch: 'LaunchServices', ...extra,
         observedProcesses: ownedTree.map(row => ({ pid: row.pid, ppid: row.ppid, created: row.created.toString() })),
         receiver: { textMatches: state.text === sample, counts: state.counts, pad: state.pad,
@@ -215,8 +226,16 @@ return {capabilities,focused,typed,clicked,scrolled,ax};`);
     if (!ax && !visual) {
       t.ok(extra.clicked?.ok && extra.scrolled?.ok, 'App launch chain sends guarded pointer and wheel events');
       t.ok(state.text === sample && state.counts.key_down > 0, 'real receiver confirms the App-originated Chinese text');
-      t.ok(state.counts.left_down === 1 && state.counts.left_up === 1 && state.counts.vertical_scroll > 0,
+      t.ok(state.counts.left_down === (recording ? 4 : 1) && state.counts.left_up === (recording ? 4 : 1) && state.counts.vertical_scroll > 0,
         'real receiver confirms the App-originated balanced click and wheel events');
+    }
+    if (recording) {
+      t.ok(extra.recording?.started?.source === 'controlled_native_requests' && extra.recording.collected?.complete
+        && extra.recording.collected.count === 5 && extra.recording.collected.path,
+        'actual App HTTP route records and atomically saves five successful native input semantics');
+      t.ok(extra.recording?.replayed?.ok && extra.recording.replayed.completed >= 5 && extra.recording.replayed.failed === 0
+        && state.text === sample && state.counts.vertical_scroll === 2,
+        'actual App macro route rebinds a fresh window and reproduces Chinese text and balanced receiver events');
     }
     if (visual && !composed) {
       t.ok(extra.visual?.warm?.ok && extra.visual.warm.text.includes('中文测试'), 'normal App HTTP route recognizes the local bilingual image with Vision');

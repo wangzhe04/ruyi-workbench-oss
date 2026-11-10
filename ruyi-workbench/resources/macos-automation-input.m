@@ -781,16 +781,19 @@ static NSDictionary *OpenBoundApplication(NSDictionary *request) {
 NSDictionary *RuyiAutomationInputStatus(void) {
     BOOL trusted = AXIsProcessTrusted();
     BOOL locked = RuyiAutomationLocked();
-    return @{@"windowAuthorization":trusted ? @"granted" : @"denied", @"windowReady":@(trusted && !locked),
+    NSMutableDictionary *status = [@{@"windowAuthorization":trusted ? @"granted" : @"denied", @"windowReady":@(trusted && !locked),
         @"windowListReady":@(!locked), @"clipboardReady":@(!locked),
         @"inputReady":@(trusted && CGPreflightPostEventAccess() && !locked),
         @"eventAuthorization":CGPreflightPostEventAccess() ? @"granted" : @"denied",
         @"pointerQueryReady":@(!locked), @"applicationReady":@(!locked),
-        @"axSupported":@YES, @"axReady":@(trusted && !locked)};
+        @"axSupported":@YES, @"axReady":@(trusted && !locked)} mutableCopy];
+    [status addEntriesFromDictionary:RuyiAutomationRecordStatus()];
+    return status;
 }
 
 static NSDictionary *HandleInputRequest(NSDictionary *request) {
     NSString *op = request[@"op"];
+    if ([op hasPrefix:@"record."]) return RuyiAutomationRecordRequest(request);
     if ([op hasPrefix:@"ax."]) return RuyiAutomationAXRequest(request);
 #ifdef RUYI_AUTOMATION_TESTING
     if ([op isEqual:@"test_stall_clipboard"]) return RuyiAutomationTestBlockedClipboard(request);
@@ -821,6 +824,8 @@ static NSDictionary *HandleInputRequest(NSDictionary *request) {
 }
 
 NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
+    NSTimeInterval began = NSProcessInfo.processInfo.systemUptime;
+    RuyiAutomationBeforeRecordedRequest(request);
     NSDictionary *result = HandleInputRequest(request);
     NSString *op = request[@"op"];
     BOOL events = [op hasPrefix:@"keyboard."] || ([op hasPrefix:@"mouse."] && ![op isEqual:@"mouse.position"]);
@@ -835,7 +840,9 @@ NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
             failure[@"acted"] = @YES; failure[@"action_sent"] = @YES; failure[@"outcome"] = @"unconfirmed";
             if (result[@"restore"]) failure[@"restore"] = result[@"restore"];
         }
+        RuyiAutomationAfterRecordedRequest(request, failure, began);
         return failure;
     }
+    RuyiAutomationAfterRecordedRequest(request, result, began);
     return result;
 }

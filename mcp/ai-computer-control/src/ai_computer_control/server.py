@@ -88,6 +88,7 @@ class PlatformMCP(FastMCP):
                 and (info.name not in macos.WINDOW_QUERY_TOOLS or state.get("windowQueryReady"))
                 and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))
                 and (info.name not in macos.INPUT_TOOLS or state.get("inputReady"))
+                and (info.name != "record_start" or state.get("recordReady"))
                 and (info.name not in macos.POINTER_QUERY_TOOLS or state.get("pointerQueryReady"))
                 and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))
                 and (info.name not in macos.AX_TOOLS or state.get("axReady"))
@@ -361,6 +362,7 @@ if sys.platform == "darwin":
     _UNSUPPORTED_MODULES.pop("observe", None)
     _UNSUPPORTED_MODULES.pop("act_and_verify", None)
     _UNSUPPORTED_MODULES.pop("batch", None)
+    _UNSUPPORTED_MODULES.pop("record", None)
 
 
 def _platform_modules(modules: list[str]) -> list[str]:
@@ -369,7 +371,7 @@ def _platform_modules(modules: list[str]) -> list[str]:
         replacements = {"screen": "macos_capture", "capture": "macos_capture",
                         "window": "macos_input", "clipboard": "macos_input",
                         "keyboard": "macos_events", "mouse": "macos_events", "application": "macos_application",
-                        "uia": "macos_ax", "ocr": "macos_ocr", "vision": "macos_vision", "observe": "macos_observe", "act_and_verify": "macos_act_and_verify"}
+                        "uia": "macos_ax", "ocr": "macos_ocr", "vision": "macos_vision", "observe": "macos_observe", "act_and_verify": "macos_act_and_verify", "record": "macos_record"}
         active = [replacements.get(module, module) for module in active]
     return list(dict.fromkeys(active))
 

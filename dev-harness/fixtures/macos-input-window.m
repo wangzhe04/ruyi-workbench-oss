@@ -2,6 +2,9 @@
 #import "macos-clipboard-fixture.h"
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
+#ifdef RUYI_RECORD_FIXTURE
+#import <Carbon/Carbon.h>
+#endif
 
 static NSMutableDictionary *counts;
 static NSWindow *primary;
@@ -219,6 +222,12 @@ static void ShowCover(void) {
 }
 
 static void Command(NSString *command) {
+#ifdef RUYI_RECORD_FIXTURE
+    if ([command isEqual:@"record-move"]) [primary setFrameOrigin:NSMakePoint(primary.frame.origin.x + 40, 80)];
+    if ([command isEqual:@"record-resize"]) [primary setContentSize:NSMakeSize(780, 500)];
+    if ([command isEqual:@"secure-on"]) EnableSecureEventInput();
+    if ([command isEqual:@"secure-off"]) DisableSecureEventInput();
+#endif
     if ([command hasPrefix:@"clipboard-track "]) {
         NSData *encoded = [[NSData alloc] initWithBase64EncodedString:[command substringFromIndex:16] options:0];
         trackedClipboardText = encoded ? [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding] : nil;

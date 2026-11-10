@@ -1,0 +1,405 @@
+{
+  "nativePID": 4472,
+  "servicePID": 4492,
+  "launch": "LaunchServices",
+  "ax": null,
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "recordReady": true,
+    "recordSource": "controlled_native_requests",
+    "recordSupported": true,
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 3661,
+      "height": 528,
+      "pid": 4444,
+      "process_start": "1794324511:514236",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 3661,
+        "pid": 4444,
+        "process_start": "1794324511:514236",
+        "ref": "F9C68ACE-8769-4C3D-963E-E97D968695AD"
+      },
+      "title": "Ruyi P5 Input 4444",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "recording": {
+    "collected": {
+      "complete": true,
+      "count": 5,
+      "ok": true,
+      "output_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-6dKDsu/acc-data/macros/App受控宏.json",
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-6dKDsu/acc-data/macros/App受控宏.json",
+      "protocolVersion": 1,
+      "recording": {
+        "actions": [
+          {
+            "at": 0.038183749995369,
+            "button": "left",
+            "clicks": 1,
+            "ended": 0.14829712500068126,
+            "interval": 0.1,
+            "op": "mouse.click",
+            "x": 560,
+            "y": 497
+          },
+          {
+            "at": 0.20172674999776063,
+            "ended": 0.21532487499644049,
+            "keys": [
+              "cmd",
+              "a"
+            ],
+            "op": "keyboard.chord"
+          },
+          {
+            "at": 0.2553984166661394,
+            "ended": 0.67100924999977,
+            "enters": 0,
+            "interval": 0,
+            "op": "keyboard.text",
+            "paste": true,
+            "text": "如意 App 输入链 中文😀"
+          },
+          {
+            "at": 0.7330575833329931,
+            "button": "left",
+            "clicks": 1,
+            "ended": 0.7909725416684523,
+            "interval": 0.1,
+            "op": "mouse.click",
+            "x": 560,
+            "y": 742
+          },
+          {
+            "amount": -2,
+            "at": 0.8372317083340022,
+            "direction": "vertical",
+            "ended": 0.893301458330825,
+            "op": "mouse.scroll",
+            "x": 560,
+            "y": 742
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-6dKDsu/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "platform": "darwin",
+        "schema": 1,
+        "source": "controlled_native_requests"
+      },
+      "saved_as": "App受控宏"
+    },
+    "replayed": {
+      "code": "invalid_args",
+      "error": "DesktopError: Unexpected recording field",
+      "ok": false
+    },
+    "started": {
+      "max_seconds": 30,
+      "ok": true,
+      "protocolVersion": 1,
+      "recording": true,
+      "source": "controlled_native_requests"
+    }
+  },
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 490,
+    "length": 14,
+    "method": "clipboard",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "done",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "observedProcesses": [
+    {
+      "pid": 4472,
+      "ppid": 1,
+      "created": "1794324512607477"
+    },
+    {
+      "pid": 4492,
+      "ppid": 4472,
+      "created": "1794324512797160"
+    },
+    {
+      "pid": 4502,
+      "ppid": 4492,
+      "created": "1794324512903283"
+    },
+    {
+      "pid": 4506,
+      "ppid": 4492,
+      "created": "1794324512919651"
+    },
+    {
+      "pid": 4505,
+      "ppid": 4492,
+      "created": "1794324512918837"
+    },
+    {
+      "pid": 4535,
+      "ppid": 4492,
+      "created": "1794324513249981"
+    },
+    {
+      "pid": 4538,
+      "ppid": 4492,
+      "created": "1794324513291414"
+    },
+    {
+      "pid": 4539,
+      "ppid": 4538,
+      "created": "1794324513292783"
+    },
+    {
+      "pid": 4546,
+      "ppid": 4492,
+      "created": "1794324513336846"
+    },
+    {
+      "pid": 4547,
+      "ppid": 4546,
+      "created": "1794324513338398"
+    },
+    {
+      "pid": 4548,
+      "ppid": 4547,
+      "created": "1794324513339111"
+    },
+    {
+      "pid": 4553,
+      "ppid": 4492,
+      "created": "1794324513417464"
+    },
+    {
+      "pid": 4560,
+      "ppid": 4492,
+      "created": "1794324513469497"
+    },
+    {
+      "pid": 4564,
+      "ppid": 4492,
+      "created": "1794324513537770"
+    },
+    {
+      "pid": 4566,
+      "ppid": 4564,
+      "created": "1794324513539484"
+    },
+    {
+      "pid": 4567,
+      "ppid": 4566,
+      "created": "1794324513540026"
+    },
+    {
+      "pid": 4575,
+      "ppid": 4492,
+      "created": "1794324513682325"
+    },
+    {
+      "pid": 4584,
+      "ppid": 4567,
+      "created": "1794324513831346"
+    },
+    {
+      "pid": 4589,
+      "ppid": 4567,
+      "created": "1794324513868053"
+    },
+    {
+      "pid": 4592,
+      "ppid": 4567,
+      "created": "1794324513896166"
+    },
+    {
+      "pid": 4595,
+      "ppid": 4567,
+      "created": "1794324513926990"
+    },
+    {
+      "pid": 4598,
+      "ppid": 4567,
+      "created": "1794324513956643"
+    },
+    {
+      "pid": 4606,
+      "ppid": 4492,
+      "created": "1794324514018247"
+    },
+    {
+      "pid": 4602,
+      "ppid": 4492,
+      "created": "1794324514015123"
+    },
+    {
+      "pid": 4604,
+      "ppid": 4602,
+      "created": "1794324514016787"
+    },
+    {
+      "pid": 4605,
+      "ppid": 4604,
+      "created": "1794324514017372"
+    },
+    {
+      "pid": 4608,
+      "ppid": 4492,
+      "created": "1794324514044196"
+    },
+    {
+      "pid": 4609,
+      "ppid": 4608,
+      "created": "1794324514045620"
+    },
+    {
+      "pid": 4610,
+      "ppid": 4609,
+      "created": "1794324514046146"
+    },
+    {
+      "pid": 4611,
+      "ppid": 4567,
+      "created": "1794324514047413"
+    },
+    {
+      "pid": 4614,
+      "ppid": 4492,
+      "created": "1794324514073240"
+    },
+    {
+      "pid": 4619,
+      "ppid": 4492,
+      "created": "1794324514152046"
+    },
+    {
+      "pid": 4625,
+      "ppid": 4492,
+      "created": "1794324514196324"
+    },
+    {
+      "pid": 4633,
+      "ppid": 4492,
+      "created": "1794324514354211"
+    },
+    {
+      "pid": 4638,
+      "ppid": 4492,
+      "created": "1794324514409836"
+    },
+    {
+      "pid": 4668,
+      "ppid": 4492,
+      "created": "1794324514872418"
+    },
+    {
+      "pid": 4675,
+      "ppid": 4492,
+      "created": "1794324514986308"
+    },
+    {
+      "pid": 4682,
+      "ppid": 4492,
+      "created": "1794324515088476"
+    },
+    {
+      "pid": 4687,
+      "ppid": 4492,
+      "created": "1794324515139236"
+    },
+    {
+      "pid": 4690,
+      "ppid": 4492,
+      "created": "1794324515182222"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 2,
+      "key_up": 2,
+      "left_down": 2,
+      "left_up": 2,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": true
+  }
+}

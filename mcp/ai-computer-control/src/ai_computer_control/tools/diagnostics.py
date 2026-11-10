@@ -149,6 +149,12 @@ def diagnostics() -> dict:
             "verification": "screen_change_observation", "coordinate_space": "macos_global_points"}
         desktop["desktop.macro_replay"] = {"supported": True, "installed": replay, "ready": replay,
             "inputReady": bool(replay and state.get("inputReady")), "backend": "ACC tool registry"}
+        record = bool(sys.modules.get(_TOOLS_PKG + "macos_record"))
+        desktop["desktop.recording"] = {"supported": state.get("recordSupported", False),
+            "installed": bool(record and state.get("installed") and state.get("recordSupported")),
+            "authorization": state.get("eventAuthorization", "unknown"),
+            "ready": bool(record and state.get("recordReady")), "source": "controlled_native_requests",
+            "coordinate_space": "macos_global_points"}
     return {
         "ok": True,
         "version": VERSION,

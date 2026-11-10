@@ -127,6 +127,8 @@ async def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
                 break
             continue
         try:
+            # Synchronous native input wrappers must still observe cancellation between steps.
+            await asyncio.sleep(0)
             res = await _invoke(tools[name], args)
             # Prefer the tool's own normalized 'ok'; fall back to absence of an 'error' key.
             if isinstance(res, dict) and "ok" in res:
@@ -169,13 +171,32 @@ async def batch_actions(actions: list[dict], on_error: str = "stop", delay_ms: i
 
 
 @mcp.tool(audit=True)
-async def macro_run(steps: list[dict], on_error: str = "stop", delay_ms: int = 120) -> dict:
+async def macro_run(steps: list[dict] | None = None, on_error: str = "stop", delay_ms: int | None = None,
+                    recording: dict | None = None, target: dict | None = None) -> dict:
     """Replay a Claude-authored macro (a JSON list of tool steps) in one round-trip.
 
     Same shape as batch_actions but with a small default inter-step delay suited to UI automation
     (focus -> type -> click sequences). See batch_actions for the step schema.
+    On Mac, alternatively pass recording from record_stop plus a fresh complete target. The whole
+    recording is validated and bound to the same application executable and window size before replay.
+    Points follow a moved window. Interrupted recordings are refused. Recorded idle gaps are capped at 5s.
+    Omitted delay_ms uses 120ms for authored steps and zero additional delay for timed recordings.
     """
-    return await _run_batch(steps, on_error, delay_ms)
+    if recording is not None:
+        if sys.platform != 'darwin' or steps is not None or target is None:
+            return {'ok': False, 'code': 'recording_invalid', 'error': 'Mac recording replay requires recording and target, with steps omitted'}
+        from ai_computer_control.utils.macos_recording import prepare_recording, recording_gate
+        with recording_gate():
+            steps = prepare_recording(recording, target)
+            tools = _tool_map()
+            if any(step['tool'] not in tools for step in steps):
+                return {'ok': False, 'code': 'tool_unavailable', 'error': 'A recorded input tool is unavailable in the current registry'}
+            return await _run_batch(steps, on_error, 0 if delay_ms is None else delay_ms)
+    elif target is not None:
+        return {'ok': False, 'code': 'recording_invalid', 'error': 'target binding applies to recording replay'}
+    if steps is None:
+        return {'ok': False, 'code': 'invalid_args', 'error': 'Pass authored steps or a complete Mac recording'}
+    return await _run_batch(steps, on_error, 120 if delay_ms is None else delay_ms)
 
 
 # Mac macro pacing uses an asynchronous wait registered with the batch backend.
