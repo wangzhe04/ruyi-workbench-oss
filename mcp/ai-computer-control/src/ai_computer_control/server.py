@@ -49,7 +49,7 @@ from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import FastMCP
 
-from ai_computer_control.utils.errors import exc_text, hint_for
+from ai_computer_control.utils.errors import exc_text, hint_for, ToolCancelled
 
 VERSION = "1.9.1"
 
@@ -270,7 +270,7 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
             if do_audit:
                 _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True),
                             None if out.get("ok", True) else out.get("error"),
-                            int((time.monotonic() - t0) * 1000))
+                            int((time.monotonic() - t0) * 1000), outcome=out)
 
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
@@ -278,6 +278,12 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
                 t0 = time.monotonic()
                 try:
                     out = _normalize(await fn(*args, **kwargs), tool_name)
+                except asyncio.CancelledError as error:
+                    out = error.result if isinstance(error, ToolCancelled) and error.tool_name == tool_name else {
+                        'ok': False, 'code': 'cancelled', 'error': 'Tool execution cancelled',
+                        'cancelled': True, 'outcome': 'unknown'}
+                    _record(out, args, kwargs, t0)
+                    raise
                 except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
                     out = _fail_envelope(e, tool_name)
                 _record(out, args, kwargs, t0)
@@ -301,11 +307,11 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
     return decorator
 
 
-def _audit_safe(tool_name, args, ok, error=None, ms=None):
+def _audit_safe(tool_name, args, ok, error=None, ms=None, outcome=None):
     """Call the audit logger without ever letting it raise into the tool path."""
     try:
         from ai_computer_control.tools.audit import log_action
-        log_action(tool_name, args, ok, error, ms)
+        log_action(tool_name, args, ok, error, ms, outcome=outcome)
     except Exception:
         pass
 

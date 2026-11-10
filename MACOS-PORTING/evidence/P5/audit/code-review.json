@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "workPackage": "P5 cancellation audit repair",
+  "baselineCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+  "status": "passed_source_review",
+  "scope": "Read-only review of the working-tree cancellation-audit repair and test sources. No GUI use, test execution or implementation edit by this reviewer. Earlier remaining-audit.json describes the baseline separately.",
+  "sourceSha256": {
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "1b5026145545e4c3046cf346c6a2654d4b359b51ca5dd140baeb952570c3059a",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py": "767942a58c53504bdfd59c1cd21101c0cc5b02901ebb1b48aa9408fcf92e00ca",
+    "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py": "0ca189dc4bbc8fe2c89cb403f15f92b37d9bd991d7ab513fd8392e9bfceb4f6d",
+    "mcp/ai-computer-control/tests/smoke_audit_cancellation.py": "56b76d2d1ab510981d757c9a646ada4c20486ad08e65b7cadc049ef4647beb56",
+    "dev-harness/macos-audit-cancellation.e2e.js": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07",
+    "dev-harness/fixtures/macos-audit-cancel-server.py": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+  },
+  "reviewedBehavior": [
+    "The async audited wrapper handles asyncio.CancelledError before Exception, performs one synchronous best-effort audit attempt and re-raises. Generic cancellation remains unknown. Non-audited calls remain unlogged.",
+    "ToolCancelled subclasses asyncio.CancelledError and remains outside Exception catches in the real batch/macro step runner and MCP SDK. Mac act cancellation preserves its known local dispatch result without converting cancellation to normal success.",
+    "The four-field typed audit allowlist does not copy action_result, image or arbitrary result payloads. Existing argument/error redaction and bounded log handling remain in use. Legacy five-positional-argument log_action calls remain compatible.",
+    "The synchronous native request remains bounded and cannot process asyncio cancellation halfway through its call. Once it returns, state is assigned before the following await. Background observation tasks retain the existing gate until their actual completion, preventing a second verification action during pending cleanup.",
+    "The E2E calls actual ACC stdio and the native receiver. The fixture only places bounded barriers around original capture/after observers. It does not fake cancellation or native input.",
+    "The E2E obtains the actual upcoming request id from the already-started McpStdioClient and sends the standard notifications/cancelled notification. Installed MCP SDK code cancels the matching in-flight request scope. Actual audit rows and receiver counts prove that the cancellation path was reached.",
+    "The E2E checks gate refusal before barrier release, audit uniqueness after release and a subsequent action after gate cleanup. The before-capture case additionally checks that no late click occurs.",
+    "The precise ToolCancelled state is now scoped by its producing tool_name. Existing macro/batch wrappers retain cancellation propagation and conservatively audit unknown rather than reusing a nested local not_dispatched result.",
+    "The new _action_status helper is used by the native action failure early return, external cancellation and outer timeout. Unknown native communication outcomes remain unknown even when action_sent is known true.",
+    "ToolCancelled defensively forces ok=false and cancelled=true in its copied result. This preserves its cancellation classification even if a producer supplies conflicting flags."
+  ],
+  "findings": [
+    {
+      "id": "A1",
+      "priority": 1,
+      "status": "closed",
+      "title": "Nested cancellation can label an already-active macro as not dispatched",
+      "file": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "line": 282,
+      "detail": "Every enclosing audited wrapper reuses ToolCancelled.result without identifying the invocation that produced it. If macro_run first completes a click and a later act_and_verify is cancelled before capture, the inner result says action_sent=false/outcome=not_dispatched. The macro wrapper then records the same fields for the whole macro despite its prior executed click.",
+      "requestedChange": "Scope the exact ToolCancelled result to its producing invocation, or give outer batch/macro cancellation a conservative unknown/aggregate outcome. Add a real batch or macro regression with an earlier completed side effect and a later pre-dispatch inner cancellation. The inner record should remain not_dispatched and the outer must not claim that the macro dispatched nothing.",
+      "resolution": "ToolCancelled now identifies its producing tool_name. An audited wrapper trusts precise state only when it owns that name. Enclosing macro/batch wrappers record generic cancellation with outcome=unknown and omit action_sent. The new pure regression models an earlier completed prefix. The real macro_run E2E completes its first mouse_click, cancels its second act_and_verify before capture, and verifies inner not_dispatched plus outer unknown."
+    },
+    {
+      "id": "A2",
+      "priority": 2,
+      "status": "closed",
+      "title": "Native uncertain-dispatch failure loses top-level audit state",
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "line": 140,
+      "detail": "macos_session.request can raise a DesktopError carrying action_sent=true/outcome=unknown after a request was sent but a protocol/communication/dependency failure prevented confirmation. The _act failure return preserves these fields only inside action_result. The new audit allowlist reads top-level fields, so this actual uncertain-dispatch failure still lacks action_sent/outcome in its audit row.",
+      "requestedChange": "Propagate known dispatch state and uncertainty into the top-level ordinary failure result and add a regression for DesktopError details action_sent=true/outcome=unknown. Preserve unknown rather than inferring no dispatch.",
+      "resolution": "The new _action_status helper propagates known dispatch/unknown state into the ordinary native failure result and into cancellation/timeout envelopes. The added DesktopError(action_sent=true,outcome=unknown) regression checks both returned result and actual audit row."
+    }
+  ],
+  "evidenceInspected": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/pure-corrected.txt",
+      "reportedResult": "9 tests passed",
+      "independentExecution": false,
+      "note": "Source review of coverage only. The first development log records two fixture failures and duplicated inherited test runs. The corrected test class layout and freshness patch explain those corrections.",
+      "sha256": "fb84aa2180509234137043a472e9717f02daafbfa80cad72dd9cf40da34b7f71"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/live-first.txt",
+      "reportedResult": "15 PASS lines, ALL PASS",
+      "independentExecution": false,
+      "note": "Supports direct cooperative MCP cancellation. This was inspected before the acceptance candidate was frozen. Final frozen-candidate evidence is recorded separately.",
+      "sha256": "8e57d37d4a61c29b96cef693379d350fd2d37ae509bd90584c4927c80a912eb4"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/pure-reviewed.txt",
+      "reportedResult": "11 tests passed",
+      "independentExecution": false,
+      "note": "Includes owner-scoped nested cancellation and uncertain native-dispatch regressions.",
+      "sha256": "e6ce52d349b03e9029e381b6186210a863830e3e2a2efcdb1bae46d80824fee1"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/live-reviewed.txt",
+      "reportedResult": "23 PASS lines, ALL PASS",
+      "independentExecution": false,
+      "note": "Includes actual MCP macro_run completed prefix followed by pre-capture cancellation.",
+      "sha256": "b9014d93429ceac84cafa74c3aca4de979e7afbb40ce6a55dbfa658b8462d89c"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/live-reviewed/results.json",
+      "reportedResult": "after requestId6 receiver count1/action_sent=true/unconfirmed, before requestId12 receiver count1/action_sent=false/not_dispatched, macro-before requestId17 receiver count2/macro outcome=unknown/no action_sent",
+      "independentExecution": false,
+      "note": "Receiver states show modifiers=0 and leftHeld=false. The E2E also asserts the nested cancelled act state and no late second click.",
+      "sha256": "55279f10a8f315ea8a2c7fb4f4eebe21bdf193044f31598e2e316a74b100eeef"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/pure-final.txt",
+      "reportedResult": "Ran 12 tests in 0.270s\n\nOK",
+      "independentExecution": false,
+      "sha256": "aef42a2efd83bf7e3d5cdf8ad02896f30bf33ab3f9223d7e4f16e4d23c79cc43",
+      "note": "Post-review defensive flag enforcement rerun recorded by parent."
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/development/pure-first.txt",
+      "reportedResult": "Historical development fixture failures preserved",
+      "independentExecution": false,
+      "sha256": "c6da02c4215db0b3ecac485f33af5c384ba6a7d2abf50836de0f0eb1b0c3e988",
+      "normalizedSha256": "c6da02c4215db0b3ecac485f33af5c384ba6a7d2abf50836de0f0eb1b0c3e988",
+      "originalRawSha256": "14801d65003c0de4e73a16c2ae5659769ae72e32af9e335451a1c745541417e2",
+      "originalRawBase64": "MACOS-PORTING/evidence/P5/audit/development/pure-first.raw.base64",
+      "normalizationRecord": "MACOS-PORTING/evidence/P5/audit/log-normalization.json",
+      "independentlyVerifiedRawRoundtrip": true,
+      "changedLineCount": 6,
+      "note": "Final delivery review independently decoded Base64, verified raw and normalized SHA256, exact changed line list and ASCII-space-only line-end cleanup. All other bytes are retained."
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/independent/python-browser-runtime.txt",
+      "reportedResult": "8 browser-runtime tests passed with startup WARNING and process exit INFO retained",
+      "independentExecution": false,
+      "sha256": "3ef0c51401957bda744f11c8041a70624bf5b864d2b1b348e71032eb4557a8b0",
+      "normalizedSha256": "3ef0c51401957bda744f11c8041a70624bf5b864d2b1b348e71032eb4557a8b0",
+      "originalRawSha256": "e830c2cd3a54b3916347c07fb492ff56d78bab1a18f94de26f6c6570fe15103a",
+      "originalRawBase64": "MACOS-PORTING/evidence/P5/audit/independent/python-browser-runtime.raw.base64",
+      "normalizationRecord": "MACOS-PORTING/evidence/P5/audit/log-normalization.json",
+      "independentlyVerifiedRawRoundtrip": true,
+      "changedLineCount": 79,
+      "note": "Final delivery review independently decoded Base64, verified raw and normalized SHA256, exact changed line list and ASCII-space-only line-end cleanup. All other bytes are retained."
+    }
+  ],
+  "limits": [
+    "The wire test deliberately sends a cancellation notification while keeping the server alive. It does not exercise the normal Workbench AbortSignal callTool path that immediately follows notification with process-tree termination.",
+    "Best-effort auditing cannot guarantee a durable child-side log when that child is forcibly terminated before its cancellation handler runs. This review makes no new guarantee for that existing kill path.",
+    "Cross-platform source compatibility is reviewed. Same-candidate Windows execution is not supplied by this slice.",
+    "P5 completion and the separate live/manual recording, approval, checkpoints and environment gates remain open."
+  ],
+  "acceptanceStatus": "passed_current_host_cooperative_scope_in_separate_final_delivery_review",
+  "conclusion": "Both initial source findings are closed. No remaining source defect was found within this repair scope. This remains a source-review report. Frozen-candidate delivery verification is recorded separately in final-delivery-review.json and does not close P5.",
+  "finalDeliveryReview": "MACOS-PORTING/evidence/P5/audit/final-delivery-review.json"
+}

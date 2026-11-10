@@ -1614,7 +1614,11 @@
             "evidence/P5/composed/independent/report.json",
             "evidence/P5/record/README.md",
             "evidence/P5/record/code-review.json",
-            "evidence/P5/record/independent/report.json"
+            "evidence/P5/record/independent/report.json",
+            "evidence/P5/remaining-audit.json",
+            "evidence/P5/audit/README.md",
+            "evidence/P5/audit/code-review.json",
+            "evidence/P5/audit/independent/report.json"
           ],
           "composedSliceAcceptance": {
             "date": "2026-11-10",
@@ -1640,7 +1644,7 @@
             "mainNodeE2EAssertions": 23,
             "mainAppE2EAssertions": 18,
             "mainPythonTests": 24,
-            "physicalInputListening": "following_evaluation",
+            "physicalInputListening": "required_pending_implementation",
             "externalGates": "retained",
             "date": "2026-11-10",
             "nodeE2EAssertions": 303,
@@ -1656,6 +1660,27 @@
             "engineeringStaticPassed": 80,
             "engineeringSyntaxFiles": 1149,
             "helperSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809"
+          },
+          "cancellationAuditSlice": {
+            "status": "passed_current_host_cooperative_cancellation_scope",
+            "mainNodeE2EAssertions": 23,
+            "mainPythonTests": 12,
+            "scope": "cooperative MCP cancellation; per-tool dispatched state and unknown enclosing macro outcome",
+            "manualInputRecording": "required_local_gap",
+            "workbenchAbortKillAudit": "pending_separate_validation",
+            "date": "2026-11-11",
+            "nodeE2EAssertions": 326,
+            "pythonTests": 147,
+            "commands": 24,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 100,
+            "binaryArtifacts": 3,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1150
           }
         }
       ],

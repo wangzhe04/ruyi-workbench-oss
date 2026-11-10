@@ -7,6 +7,7 @@ import time
 
 from ai_computer_control.server import mcp
 from ai_computer_control.paths import data_dir
+from ai_computer_control.utils.errors import ToolCancelled
 from ai_computer_control.utils import macos
 from ai_computer_control.utils.macos_session import request
 from ai_computer_control.utils.macos_visual import capture_frame, capture_fields, parse_region
@@ -111,6 +112,16 @@ def _release_gate(task):
     _ACT_GATE.release()
 
 
+def _action_status(result):
+    sent = bool(result and (result.get('action_sent') or result.get('acted')))
+    outcome = 'not_dispatched'
+    if sent:
+        outcome = 'unconfirmed'
+    if result and result.get('outcome') == 'unknown':
+        outcome = 'unknown'
+    return {'action_sent': sent, 'outcome': outcome}
+
+
 async def _act(action, target, region, settle_ms, save_shots, return_image, state):
     payload = _action_payload(action, target)
     if type(settle_ms) is not int or not 0 <= settle_ms <= 5000 or return_image not in ('', 'after', 'diff'):
@@ -138,7 +149,7 @@ async def _act(action, target, region, settle_ms, save_shots, return_image, stat
         state['action_result'] = action_result
         if not action_result.get('ok'):
             return {'ok': False, 'code': action_result.get('code', 'action_failed'), 'error': 'The guarded action failed',
-                    'action_result': action_result, 'confirmed': None}
+                    'action_result': action_result, 'confirmed': None, **_action_status(action_result)}
         after, waited_ms, observed, settled = await background(_after, before, crop, settle_ms)
         ratio, pixels, _ = _changed_stats(before.image.crop(crop), after.image.crop(crop))
         full_ratio, full_pixels, _ = _changed_stats(before.image, after.image)
@@ -185,9 +196,14 @@ async def act_and_verify(action: dict, target: dict, region: str | None = None, 
     state = {}
     try:
         return await asyncio.wait_for(_act(action, target, region, settle_ms, save_shots, return_image, state), timeout=_VERIFICATION_TIMEOUT_S)
+    except asyncio.CancelledError as error:
+        action_result = state.get('action_result')
+        raise ToolCancelled('act_and_verify', {'ok': False, 'code': 'cancelled', 'error': 'Action verification cancelled',
+            'cancelled': True, 'action_result': action_result, 'confirmed': None, **_action_status(action_result)}) from error
     except TimeoutError:
+        action_result = state.get('action_result')
         return {'ok': False, 'code': 'verification_timeout', 'error': 'Action verification exceeded its deadline',
-                'action_result': state.get('action_result'), 'confirmed': None, 'outcome': 'unconfirmed'}
+                'action_result': action_result, 'confirmed': None, **_action_status(action_result)}
     except Exception as error:
         if state.get('action_result') is None:
             raise

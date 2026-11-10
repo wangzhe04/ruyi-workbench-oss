@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "auditDate": "2026-11-11",
+  "baselineCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+  "scope": "Read-only source, requirements and committed evidence audit. No GUI use or test execution in this audit. Only this report is written.",
+  "phaseStatus": "in_progress",
+  "phaseCompletionRecommended": false,
+  "laterWorkingTreeChanges": {
+    "evaluated": false,
+    "observedPaths": [
+      "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py"
+    ],
+    "note": "Implementation followups in these files were present during this audit. Findings below describe the fixed baseline and require separate followup review."
+  },
+  "requirements": [
+    "MACOS-PORTING/06-P5-AUTOMATION.md",
+    "MACOS-PORTING/08-VALIDATION.md V11, V12, V14 and release blockers",
+    "MACOS-PORTING/TASKS.json P5 and P5-01 through P5-05"
+  ],
+  "provedWithinRecordedScope": [
+    {
+      "id": "capture",
+      "scope": "Current Retina host capture coordinates and image checks, window ambiguity, covered/minimized/missing targets and guarded target identity",
+      "evidence": ["MACOS-PORTING/evidence/P5/capture/README.md", "MACOS-PORTING/evidence/P5/record/independent/report.json"],
+      "limits": "Physical non-Retina, dual-display negative-origin/mixed-scale operation and capture during a real layout transition remain open."
+    },
+    {
+      "id": "input",
+      "scope": "Guarded keyboard and pointer input, Unicode/Cmd+V, owned clipboard restoration, focus and identity refusal, bounded replay and cleanup",
+      "evidence": ["MACOS-PORTING/evidence/P5/input/events/README.md", "MACOS-PORTING/evidence/P5/record/independent/report.json"],
+      "limits": "Unicode injection alone does not establish actual input-method switching or action-time OS lock/TCC revocation."
+    },
+    {
+      "id": "ax",
+      "scope": "AX query, supported actions, expiry/stale target and resource limits, plus versioned selected TextEdit/Finder/CFT scenes",
+      "evidence": ["MACOS-PORTING/evidence/P5/ax/README.md", "MACOS-PORTING/evidence/P5/ax/apps/README.md", "MACOS-PORTING/evidence/P5/record/independent/report.json"],
+      "limits": "Selected real-application scenes bind earlier implementation/helper layers. Current record acceptance reruns AX core but does not rerun all those application scenes. Chromium renderer AX mutation remains explicitly blocked by bidirectional membership validation."
+    },
+    {
+      "id": "ocr_and_composition",
+      "scope": "Bilingual Vision OCR, no/multiple matches, coordinate mapping and guarded click, shared-frame observe, act_and_verify and asynchronous macro waits",
+      "evidence": ["MACOS-PORTING/evidence/P5/ocr/README.md", "MACOS-PORTING/evidence/P5/composed/README.md", "MACOS-PORTING/evidence/P5/record/independent/report.json"],
+      "limits": "Observed screen change may remain unconfirmed, as the result contract states. Approval and native audit-tail roundtrips are separate acceptance gaps."
+    },
+    {
+      "id": "controlled_recording",
+      "scope": "Recording successful native requests from the same MCP worker, stop/save/replay, incomplete reasons, moved-window remapping, secure-input refusal, bounded storage and cleanup",
+      "source": "controlled_native_requests",
+      "evidence": ["MACOS-PORTING/evidence/P5/record/README.md", "MACOS-PORTING/evidence/P5/record/independent/report.json", "MACOS-PORTING/evidence/P5/record/independent-commit-binding.json"],
+      "limits": "Human manual input is outside this recording source."
+    },
+    {
+      "id": "candidate_binding",
+      "scope": "21 unique once-only acceptance commands, 303 Node assertions and 127 Python tests, zero unexpected failures/skips/retries. Engineering gates passed with 2499 unit passes/18 existing skips, 80 static passes/7 opt-in live skips and 1149 syntax files. 94 source/document blobs and 3 runtime artifacts bind the delivery candidate.",
+      "implementationCommit": "0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6",
+      "helperSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+      "evidence": ["MACOS-PORTING/evidence/P5/record/independent/report.json", "MACOS-PORTING/evidence/P5/record/final-delivery-review.json", "MACOS-PORTING/evidence/P5/record/independent-commit-binding.json"],
+      "limits": "Legacy suites retain source-defined isolated helper builds where documented. This audit reuses the committed independent validation and adds no test run."
+    }
+  ],
+  "localRemaining": [
+    {
+      "id": "live_input_recording",
+      "kind": "functionality_gap",
+      "priority": 1,
+      "requirement": "P5-05 recording intent",
+      "finding": "Controlled native-request recording proves a useful slice but cannot record a user's manual demonstration. The original record_start contract explicitly begins live mouse/keyboard input capture. The Workbench policy description also explicitly describes recording real user input. No user-approved scope reduction was found in the audited requirements.",
+      "sources": ["MACOS-PORTING/06-P5-AUTOMATION.md involved call chain and P5-05", "mcp/ai-computer-control/src/ai_computer_control/tools/record.py:263", "ruyi-workbench/app/src/07-autonomy.js:183", "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py:58"],
+      "completion": "Keep live/manual recording open and implement a bounded target-scoped native capture path, or obtain an explicit scope decision and reconcile the requirement and capability descriptions. The stage goal permits different native semantics and does not itself remove manual demonstration behavior.",
+      "dependency": "Local implementation and possibly user-mediated TCC consent. No additional display or OS host is inherently required."
+    },
+    {
+      "id": "cancelled_action_audit",
+      "kind": "source_defect",
+      "priority": 1,
+      "requirement": "P5 stage acceptance preserves audit",
+      "finding": "The async tool wrapper catches Exception and records only after its try/except. asyncio.CancelledError bypasses that record. Mac act_and_verify dispatches native input directly, saves action_result, then awaits post-action verification. Cancellation in this window can leave an executed input with no ACC audit entry. A normal timeout returns an envelope and is a distinct path.",
+      "sources": ["mcp/ai-computer-control/src/ai_computer_control/server.py:275", "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py:135", "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py:142"],
+      "completion": "Preserve cancellation while recording action-sent/uncertain outcome, then exercise cancellation after action_result is saved with post-action worker blocked and assert the actual audit row.",
+      "dependency": "Local source fix and focused regression evidence. Parent followup edits are outside this baseline review."
+    },
+    {
+      "id": "approval_and_native_audit",
+      "kind": "evidence_gap",
+      "priority": 1,
+      "requirement": "P5 stage acceptance preserves approval/audit and irreversible classification",
+      "finding": "Current Mac App positive tests use permissionMode bypass. Desktop/command switches, resource classifications and generic policy tests supply partial assurance. Actual default approval, denial and request cancellation through the normal Mac Workbench path are not demonstrated for the new tools. The live ACC audit assertion inspects write_file success/refusal, not native recording, macro or action cancellation.",
+      "sources": ["ruyi-workbench/app/src/07-autonomy.js", "ruyi-workbench/app/src/06g-resource-leases.js", "dev-harness/unit/tool-dispatch-hardening.test.js", "dev-harness/macos-capture.e2e.js:145", "dev-harness/macos-acc-shared.e2e.js:91"],
+      "completion": "Exercise normal-entry allow, deny and cancel with zero-side-effect receipts for denied/cancelled requests. Check native success/failure/cancel audit rows and nested macro behavior under both master switches."
+    },
+    {
+      "id": "file_checkpoints",
+      "kind": "evidence_gap",
+      "priority": 1,
+      "requirement": "P5 new file writers and checkpoint path table",
+      "finding": "window_screenshot/output_path and get_clipboard_image/save_path are present in the checkpoint table and have audit decorators. Existing live coverage assertions inspect a name-prefix heuristic. Direct ACC saves and a Workbench native screenshot call lacking sessionId/turn context do not prove checkpoint creation or rollback. Internal record_stop macros and act_and_verify shots use data-directory storage under the existing internal-storage exemption.",
+      "sources": ["ruyi-workbench/app/src/02-session-store.js:5259", "ruyi-workbench/app/src/03-bridge-guard.js:13", "ruyi-workbench/app/src/03-bridge-guard.js:35", "ruyi-workbench/app/src/03-bridge-guard.js:67", "dev-harness/macos-capture.e2e.js:150", "dev-harness/checkpoint-coverage.e2e.js"],
+      "completion": "Inventory conditional user-path writes separately from internal storage. Through a real session/turn, save a new image and overwrite an existing image, verify journal entries and perform rollback. Preserve and document the internal-storage boundary."
+    },
+    {
+      "id": "actual_ime",
+      "kind": "evidence_gap",
+      "priority": 1,
+      "requirement": "V11 input methods",
+      "finding": "Chinese Unicode and paste success do not establish input-source switching and restoration.",
+      "sources": ["MACOS-PORTING/08-VALIDATION.md V11", "MACOS-PORTING/evidence/P5/input/events/README.md"],
+      "completion": "Switch actual available input sources, exercise guarded input and restore the original input source with identity and receiver receipts.",
+      "dependency": "Local host and installed input sources. Parent is already pursuing this followup."
+    },
+    {
+      "id": "live_revoke_and_lock",
+      "kind": "evidence_gap",
+      "priority": 1,
+      "requirement": "V11 and P5-05 lock/permission revocation",
+      "finding": "Historical capture metadata proves session_locked readiness refusal and documentation records recovery after unlock. It does not prove no wrong-target input, balanced held state or clipboard recovery when OS lock occurs during an action. Owned Secure Event Input exercises a different condition. Actual TCC revoke/recover remains unproved.",
+      "sources": ["MACOS-PORTING/evidence/P5/capture/independent-final-fixed/locked-capture.json", "MACOS-PORTING/evidence/P5/capture/README.md", "MACOS-PORTING/evidence/P5/record/README.md"],
+      "completion": "Use owned fixtures and an explicit recovery plan for actual revoke/regrant and action-time lock/unlock. Collect helper refusal, receiver event/balance and conditional clipboard restoration evidence.",
+      "dependency": "May require user interaction and TCC consent/recovery. This is a local interaction dependency rather than missing test hardware."
+    },
+    {
+      "id": "layout_transition",
+      "kind": "evidence_gap",
+      "priority": 2,
+      "requirement": "P5-01 capture consistency",
+      "finding": "Source checks and synthetic coordinate planners do not establish a physical display/window layout change during capture.",
+      "completion": "Exercise a controlled real window/layout transition and preserve either consistent frame/coordinates or an honest bounded refusal. Additional display topology cases remain external."
+    },
+    {
+      "id": "catalog_readiness_and_hidden_tools",
+      "kind": "evidence_gap",
+      "priority": 2,
+      "requirement": "Every advertised ready capability has real success/failure evidence and missing functionality is consistently labelled",
+      "finding": "Current catalog/policy checks and pure empty-map nested replay tests are partial. They do not fully prove actual missing-helper/denied-permission readiness, or hidden-tool nested replay through the real registry and normal Workbench entry.",
+      "sources": ["MACOS-PORTING/06-P5-AUTOMATION.md stage acceptance", "MACOS-PORTING/08-VALIDATION.md release blockers", "ruyi-workbench/app/src/07-autonomy.js ACC_POLICY_TOOL_FAMILIES"],
+      "completion": "Check the actual catalog/readiness for unavailable dependencies and permission states. Hide a tool in the real ACC registry, attempt nested replay and verify refusal without action. Align UI and release statements with supported scopes."
+    },
+    {
+      "id": "selected_application_candidate_scope",
+      "kind": "evidence_binding_gap",
+      "priority": 2,
+      "requirement": "V12 versioned application scenes and current-candidate claims",
+      "finding": "The 350 selected-app assertions bind the earlier AX application slice and helper a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029. Current recording acceptance refreshes core suites but does not replay all selected-app scenes with helper be795f51.",
+      "sources": ["MACOS-PORTING/evidence/P5/ax/apps/README.md", "MACOS-PORTING/evidence/P5/record/independent/report.json"],
+      "completion": "Preserve earlier scoped claims. For a broad current-candidate claim, refresh selected scenes or provide a precise dependency/source equivalence argument covering intervening helper changes."
+    },
+    {
+      "id": "status_and_bindings",
+      "kind": "bookkeeping_gap",
+      "priority": 2,
+      "requirement": "TASKS/dashboard truthful status, SHA, logs and limits",
+      "finding": "P5-05 acceptance objects omit the implementationCommit/commitBinding links already available for composed and controlled recording. physicalInputListening following_evaluation records a local status without a user scope decision. Top-level planning summaries contain older wording while slices are implemented. Archived evidence should retain its historical context.",
+      "sources": ["MACOS-PORTING/TASKS.json P5-05", "MACOS-PORTING/README.md", "MACOS-PORTING/evidence/P5/composed/commit-binding.json", "MACOS-PORTING/evidence/P5/record/independent-commit-binding.json"],
+      "completion": "Add exact implementation/binding links to current task objects and reconcile current summaries and remaining-work descriptions. Retain P5 in_progress."
+    }
+  ],
+  "externalResources": [
+    {
+      "id": "physical_displays",
+      "requirements": ["P5-01", "V11"],
+      "need": "Actual non-Retina display and dual-monitor negative-origin/mixed-scale hardware",
+      "existingEvidence": "Synthetic planner/coordinate coverage and the current Retina host are partial."
+    },
+    {
+      "id": "minimum_os",
+      "requirements": ["minimum macOS14 runtime", "O2/P6 handoff where documented"],
+      "need": "A macOS14 host for real minimum-version execution"
+    },
+    {
+      "id": "windows_candidate",
+      "requirements": ["P5 stage Windows regression", "V14"],
+      "need": "Windows host/CI on the same candidate SHA",
+      "scopeDecision": "P1 and P4 waivers are phase-specific. No P5 waiver was found in the audited baseline."
+    },
+    {
+      "id": "release_identity",
+      "requirements": ["formal signing/identity upgrade and clean-machine release validation", "O2/P6 where documented"],
+      "need": "Developer ID/signing credentials and appropriate release-validation environment",
+      "existingEvidence": "Strict development ad-hoc codesign success does not complete formal identity or notarized release validation."
+    }
+  ],
+  "evidenceInterpretation": [
+    "Actual Chinese injection is narrower than actual input-method switching.",
+    "Secure Event Input refusal is narrower than OS lock or TCC revocation.",
+    "The historical locked-capture capability receipt supports capture refusal and does not establish action-time input safety.",
+    "Bypass-mode App success and generic policy units leave normal approval deny/cancel evidence open.",
+    "An empty uncovered-name list supports heuristic inventory coverage and does not establish checkpoint/rollback behavior.",
+    "Generic audit/redaction tests and audited decorators leave real native success/failure/cancel log verification open.",
+    "Prior versioned application evidence remains valid for its bound slice and needs explicit reuse justification for a newer helper."
+  ],
+  "recommendedOrder": [
+    "Close the concrete cancelled-action audit defect and verify the actual audit row.",
+    "Complete actual IME switching and normal approval/native audit/checkpoint roundtrips on the current host.",
+    "Resolve live/manual recording scope and complete the authorized functionality accordingly.",
+    "Collect user-mediated revoke/lock evidence, then remaining layout, catalog and selected-application candidate coverage.",
+    "Reconcile current bookkeeping and retain external resource gates with their exact dependencies."
+  ]
+}
