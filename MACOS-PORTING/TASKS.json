@@ -1425,7 +1425,7 @@
           "progress": "窗口与剪贴板首批当前主机实现及独立验收通过。独立六件120条Node与29项Python通过、零skip，37项指纹零漂移，实际302秒TTL通过。完整单元2491通过/18既有跳过、静态80、语法1140与构建新鲜度通过。键盘、Cmd粘贴、中文输入、鼠标滚轮、应用启动及App启动链继续后续开发，P5-02整体仍进行中。",
           "firstSlice": {
             "scope": "window_and_clipboard_current_host",
-            "status": "accepted_for_commit",
+            "status": "committed_current_host",
             "date": "2026-11-10",
             "baselineCommit": "0de6d03e",
             "review": "evidence/P5/input/independent/review.json",
@@ -1434,7 +1434,8 @@
             "sourceFiles": 37,
             "nodeAssertions": 120,
             "pythonTests": 29,
-            "realIdleExpiryWaitMs": 302000
+            "realIdleExpiryWaitMs": 302000,
+            "implementationCommit": "fc74153d145acba7519fb5c133691017ab00964e"
           }
         },
         {
