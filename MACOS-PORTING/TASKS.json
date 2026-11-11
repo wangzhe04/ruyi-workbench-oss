@@ -1628,7 +1628,13 @@
             "evidence/P5/manual/standard-mouse/README.md",
             "evidence/P5/manual/standard-mouse/independent-final-v2/report.json",
             "evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
-            "evidence/P5/manual/standard-mouse/independent-commit-binding.json"
+            "evidence/P5/manual/standard-mouse/independent-commit-binding.json",
+            "evidence/P5/entry/README.md",
+            "evidence/P5/entry/code-review-v1.json",
+            "evidence/P5/entry/independent-v1/report.json",
+            "evidence/P5/entry/commit-binding.json",
+            "evidence/P5/entry/independent-commit-binding.json",
+            "evidence/P5/remaining-resolution-2026-11-11.json"
           ],
           "composedSliceAcceptance": {
             "date": "2026-11-10",
@@ -1701,7 +1707,7 @@
             "commitBinding": "evidence/P5/audit/commit-binding.json",
             "commitBindingReview": "evidence/P5/audit/independent-commit-binding.json"
           },
-          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常审批、真实会话/回合图片检查点回滚、撤权及动作中锁屏、当前应用绑定和原环境门继续开放。",
+          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。能力总闸与隐藏工具路径、实际撤权、动作中锁屏、当前应用绑定和原环境门继续开放。",
           "manualEventSlice": {
             "status": "implemented_independently_validated_supported_subset",
             "date": "2026-11-11",
@@ -1754,6 +1760,32 @@
               "commitBindingReview": "evidence/P5/manual/standard-mouse/independent-commit-binding.json",
               "defaultHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
             }
+          },
+          "ordinarySessionEntrySlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_ordinary_session_scope",
+            "implementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+            "commitBinding": "evidence/P5/entry/commit-binding.json",
+            "commitBindingReview": "evidence/P5/entry/independent-commit-binding.json",
+            "sourceFiles": 15,
+            "changedFiles": 12,
+            "independentOfflineAssertions": 13,
+            "independentNativeAssertions": 31,
+            "independentStaticCases": 80,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticLiveSkipped": 7,
+            "independentManualRetries": 0,
+            "independentAutomaticRetries": 0,
+            "checkpointCases": 4,
+            "scope": "Node-launched Workbench ordinary default-mode provider sessions -> proxy -> actual ACC/native helper; permission allow/deny/pending-cancel and both image writers create/overwrite rollback",
+            "limits": [
+              "No LaunchServices App acceptance or rebuild/re-sign in this slice",
+              "Pending-permission cancellation does not establish action-time hard-kill cleanup",
+              "No actual TCC revoke/OS lock or Windows runtime in this slice",
+              "Master-switch/hidden-tool readiness paths and current selected-app acceptance remain open"
+            ],
+            "evidence": "evidence/P5/entry/independent-v1/report.json"
           }
         }
       ],

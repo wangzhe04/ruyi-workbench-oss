@@ -1,0 +1,20 @@
+[
+  {
+    "pid": 96891,
+    "ppid": 96884,
+    "birth": "Wed Nov 11 16:03:29 2026",
+    "command": "/Users/jiming/.local/bin/node dev-harness/checkpoint-proxy-session.e2e.js"
+  },
+  {
+    "pid": 96895,
+    "ppid": 96891,
+    "birth": "Wed Nov 11 16:03:29 2026",
+    "command": "<defunct>"
+  },
+  {
+    "pid": 96930,
+    "ppid": 96891,
+    "birth": "Wed Nov 11 16:03:30 2026",
+    "command": "(ruyi-process-hel)"
+  }
+]

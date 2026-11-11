@@ -1,0 +1,50 @@
+[
+  {
+    "pid": 96943,
+    "ppid": 96884,
+    "birth": "Wed Nov 11 16:03:31 2026",
+    "command": "/Users/jiming/.local/bin/node dev-harness/macos-native-entry.e2e.js"
+  },
+  {
+    "pid": 96953,
+    "ppid": 96943,
+    "birth": "Wed Nov 11 16:03:31 2026",
+    "command": "/tmp/ruyi-p5-entry-ziYNAR/receiver"
+  },
+  {
+    "pid": 96964,
+    "ppid": 96943,
+    "birth": "Wed Nov 11 16:03:32 2026",
+    "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/app/server.js serve --port 53677"
+  },
+  {
+    "pid": 96977,
+    "ppid": 96964,
+    "birth": "Wed Nov 11 16:03:33 2026",
+    "command": "/private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 96978,
+    "ppid": 96977,
+    "birth": "Wed Nov 11 16:03:33 2026",
+    "command": "/private/tmp/ruyi-p5-entry-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 96979,
+    "ppid": 96978,
+    "birth": "Wed Nov 11 16:03:33 2026",
+    "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 96980,
+    "ppid": 96979,
+    "birth": "Wed Nov 11 16:03:33 2026",
+    "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+  },
+  {
+    "pid": 96984,
+    "ppid": 96979,
+    "birth": "Wed Nov 11 16:03:33 2026",
+    "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper --input-session"
+  }
+]

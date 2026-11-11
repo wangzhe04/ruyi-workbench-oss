@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "scope": "Real Workbench default-mode ordinary provider sessions with actual ACC/native helper and owned Cocoa receiver; only model provider is an offline fixture. Node launch, not a new Ruyi.app launch.",
+  "sourceFreeze": "freeze-v1.json",
+  "pass": 29,
+  "fail": 0,
+  "turns": [
+    {
+      "label": "ENTRY_APPROVAL_allow",
+      "sessionId": "sess_2c9c662d1adefdd3",
+      "permissionRequests": 1
+    },
+    {
+      "label": "ENTRY_APPROVAL_deny",
+      "sessionId": "sess_f28cf6c93508adf6",
+      "permissionRequests": 1
+    },
+    {
+      "label": "ENTRY_APPROVAL_cancel",
+      "sessionId": "sess_cf93686518a908cc",
+      "permissionRequests": 1
+    },
+    {
+      "label": "ENTRY_IMAGE_window_screenshot_false",
+      "sessionId": "sess_2c8673284e433a7a",
+      "permissionRequests": 1
+    },
+    {
+      "label": "ENTRY_IMAGE_window_screenshot_true",
+      "sessionId": "sess_ee2dcbbddc432c89",
+      "permissionRequests": 1
+    },
+    {
+      "label": "ENTRY_IMAGE_get_clipboard_image_false",
+      "sessionId": "sess_913befc67be07cb1",
+      "permissionRequests": 1
+    },
+    {
+      "label": "ENTRY_IMAGE_get_clipboard_image_true",
+      "sessionId": "sess_aec9428300081e00",
+      "permissionRequests": 1
+    }
+  ],
+  "decisions": [
+    {
+      "label": "ENTRY_APPROVAL_allow",
+      "requestId": "perm_babe539a54e52c36",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_2c9c662d1adefdd3",
+          "interventionId": "perm_babe539a54e52c36",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "ENTRY_APPROVAL_deny",
+      "requestId": "perm_e116c19acafd15f9",
+      "action": "deny",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_f28cf6c93508adf6",
+          "interventionId": "perm_e116c19acafd15f9",
+          "type": "permission",
+          "action": "deny",
+          "status": "denied",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "ENTRY_APPROVAL_cancel",
+      "requestId": "perm_a977b0a91d465c30",
+      "action": "cancel",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "stopped": true,
+          "queuedStopped": false,
+          "execution": {
+            "serverInstanceId": "aecd51ec15bb",
+            "driverRunId": "drun_8c6c761b2d2fe9f7",
+            "phase": "stopping"
+          }
+        }
+      }
+    },
+    {
+      "label": "ENTRY_IMAGE_window_screenshot_false",
+      "requestId": "perm_e57ea3e46fd12db7",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_2c8673284e433a7a",
+          "interventionId": "perm_e57ea3e46fd12db7",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "ENTRY_IMAGE_window_screenshot_true",
+      "requestId": "perm_ed9e60bd013affa6",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_ee2dcbbddc432c89",
+          "interventionId": "perm_ed9e60bd013affa6",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "ENTRY_IMAGE_get_clipboard_image_false",
+      "requestId": "perm_bd93c529b2f0bdfc",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_913befc67be07cb1",
+          "interventionId": "perm_bd93c529b2f0bdfc",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    },
+    {
+      "label": "ENTRY_IMAGE_get_clipboard_image_true",
+      "requestId": "perm_ef6e46d9eb7a5eb5",
+      "action": "allow",
+      "reply": {
+        "status": 200,
+        "json": {
+          "ok": true,
+          "missionId": "sess_aec9428300081e00",
+          "interventionId": "perm_ef6e46d9eb7a5eb5",
+          "type": "permission",
+          "action": "allow",
+          "status": "allowed",
+          "interventionVersion": 2,
+          "delivered": true
+        }
+      }
+    }
+  ],
+  "checkpointCases": 4,
+  "limits": [
+    "No TCC revoke or OS action-time lock test.",
+    "Cancellation here occurs while permission is pending; it is not worker hard-kill acceptance.",
+    "Native helper comes from the main worktree artifact specified by freeze; App executable was not rebuilt or launched by this test."
+  ],
+  "priorFailures": [
+    {
+      "run": "development/v1",
+      "reason": "Test startup port0 handshake failed before native turns; later test uses getFreePort."
+    },
+    {
+      "run": "development/v2",
+      "reason": "Test parsed ordinary NDJSON stream as SSE; events were discarded."
+    },
+    {
+      "run": "development/v3",
+      "reason": "Actual image write had no checkpoint through provider proxy; source defect fixed to use live ctx session."
+    }
+  ],
+  "offlineNegativeControl": "development/offline-before.txt: 4 actual writes succeeded, all 4 checkpoint assertions failed before fix.",
+  "artifacts": [
+    {
+      "path": "development/v4.txt",
+      "sha256": "45753fbfe9513f7092c0fc899e17e8689567cd1a8cc6b1cb720d55fc2ad822c8"
+    },
+    {
+      "path": "development/v4/results.json",
+      "sha256": "daaeb3af4b0220b8509481b3f4030b6a22431a6ee4cda034f1ba15afa555fb28"
+    },
+    {
+      "path": "development/offline-before.txt",
+      "sha256": "97b7286aa03216bfb2d53e69e88a42c88b4af25ba62c80cc2464248fc2556db8"
+    },
+    {
+      "path": "development/offline-after-v1.txt",
+      "sha256": "829ca7535dc50446ed274277a735085e80a9d725d9e4c9908871cf07fc593a86"
+    },
+    {
+      "path": "development/offline-after-v2.txt",
+      "sha256": "829ca7535dc50446ed274277a735085e80a9d725d9e4c9908871cf07fc593a86"
+    }
+  ]
+}
