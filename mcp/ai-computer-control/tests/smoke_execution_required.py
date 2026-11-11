@@ -1,5 +1,6 @@
 """Required-context refusal qualification without native processes or desktop effects."""
 import contextvars
+import asyncio
 import inspect
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from ai_computer_control.utils import execution_context as context
 from ai_computer_control.utils.execution_journal import operation_scope
+from ai_computer_control.utils.execution_arguments import arguments_digest
 from ai_computer_control.utils import macos, macos_session
 
 
@@ -69,6 +71,51 @@ class ExecutionRequired(unittest.TestCase):
                 patch.object(macos_session, '_session') as legacy:
             self.assertEqual(macos_session.request({'op': 'mouse.position'}), {'ok': True})
             receipt.assert_called_once(); legacy.assert_not_called()
+
+    def test_one_shot_active_context_preserves_payload_and_deadline_on_negotiated_route(self):
+        from ai_computer_control.utils import macos_receipt_session
+        for payload, timeout in [({'op': 'status'}, 3), ({'op': 'capture', 'region': [0, 0, 30, 30]}, 15),
+                                 ({'op': 'ocr.image', 'path': 'owned.png', 'lang': ''}, 65)]:
+            with operation_scope(object(), 'a'*32), patch.object(macos_receipt_session, 'request', return_value={'ok': True}) as receipt, \
+                    patch.object(macos, 'helper_path') as legacy:
+                self.assertEqual(macos.request(payload, timeout=timeout), {'ok': True})
+                receipt.assert_called_once_with(payload, timeout, generic=True)
+                legacy.assert_not_called()
+
+    def metadata(self):
+        return {context.META_KEY: {'schema': 1, 'invocation_id': 'b'*32, 'session_id': 'owned', 'turn_seq': 1,
+            'call_id_hash': 'c'*64, 'args_sha256': 'd'*64, 'args_codec': 'javascript-json-utf8-v1',
+            'args_semantic_sha256': arguments_digest({}), 'args_semantic_codec': 'ruyi-sdk-json-v1', 'tool_name': 'owned'}}
+
+    def test_copied_thread_context_observes_real_sdk_request_closure(self):
+        with patch.object(context, 'ReceiptJournal'):
+            with context.request_scope(self.metadata(), 'owned', {}):
+                event, lock = context.request_cancellation()
+                copied = contextvars.copy_context()
+                self.assertFalse(event.is_set())
+            self.assertTrue(event.is_set())
+            self.assertIs(copied.run(context.request_cancellation)[0], event)
+            self.assertIs(copied.run(context.request_cancellation)[1], lock)
+            self.assertEqual(context.request_cancellation(), (None, None))
+
+    def test_async_cancellation_signals_before_tool_terminal_persistence(self):
+        async def scenario():
+            started = asyncio.Event()
+            async def body():
+                started.set()
+                await asyncio.Future()
+            with patch.object(context, 'ReceiptJournal') as factory:
+                with context.request_scope(self.metadata(), 'owned', {}):
+                    event, _ = context.request_cancellation()
+                    signals = []
+                    factory.return_value.append.side_effect = lambda stage, *args, **kwargs: signals.append(event.is_set()) if stage == 'tool_terminal' else None
+                    wrapped = context.wrap_tool(body, 'owned', inspect.signature(body), lambda error, tool: self.fail(str(error)))
+                    task = asyncio.create_task(wrapped())
+                    await started.wait(); task.cancel()
+                    with self.assertRaises(asyncio.CancelledError): await task
+                    self.assertEqual(signals, [True])
+                    self.assertTrue(event.is_set())
+        asyncio.run(scenario())
 
     def test_raw_thread_context_loss_refuses_but_copied_context_preserves_admission(self):
         outputs = []

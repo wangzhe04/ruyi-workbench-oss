@@ -120,6 +120,19 @@ class NativeReceiptParser(unittest.TestCase):
         with self.assertRaises(DesktopError):
             validate_features(value, 124)
 
+    def test_generic_operations_are_explicit_not_implied_by_receipt_version(self):
+        value = {'ok': True, 'protocolVersion': 1, 'executionReceiptVersion': 1, 'worker_pid': 123, 'worker_id': 'c' * 32}
+        self.assertEqual(validate_features(value, 123)['request_operations'], ())
+        value['executionReceiptOperations'] = ['capture', 'status', 'ocr.image', 'ocr.languages']
+        self.assertEqual(set(validate_features(value, 123)['request_operations']), set(value['executionReceiptOperations']))
+
+    def test_malformed_or_unknown_generic_operation_features_are_refused(self):
+        for operations in [None, 'capture', ['capture', 'capture'], ['keyboard.chord'], [True], ['ocr.recognize']]:
+            value = {'ok': True, 'protocolVersion': 1, 'executionReceiptVersion': 1,
+                     'worker_pid': 123, 'worker_id': 'c' * 32, 'executionReceiptOperations': operations}
+            with self.subTest(operations=operations), self.assertRaises(DesktopError):
+                validate_features(value, 123)
+
     def test_success_terminal_requires_strict_protocol_version(self):
         for version in [None, 2, True]:
             decoder = ReceiptDecoder(self.frame, **self.args)

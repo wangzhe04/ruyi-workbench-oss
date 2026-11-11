@@ -148,44 +148,67 @@ static void HandleFrame(NSData *data) {
     NSMutableString *frameHash = [NSMutableString stringWithCapacity:64];
     for (NSUInteger index = 0; index < sizeof(digest); index++) [frameHash appendFormat:@"%02x", digest[index]];
     dispatch_semaphore_t finished = dispatch_semaphore_create(0);
+    BOOL generic = control && valid && [@[@"capture", @"status", @"ocr.image", @"ocr.languages"] containsObject:request[@"op"]];
     // A run-loop block permits bounded AppKit waits to service asynchronous
     // LaunchServices completions and stop signals on the main dispatch queue.
     CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopDefaultMode, ^{
         @autoreleasepool {
             frameActive = YES;
-            NSDictionary *result;
             executionFrame = nil; executionEntered = NO;
+            if (control && valid) executionFrame = [@{@"schema":@1, @"invocation_id":control[@"invocation_id"],
+                @"operation_id":control[@"operation_id"], @"worker_id":executionWorkerId,
+                @"worker_pid":@(getpid()), @"frame_id":identifier, @"frame_sha256":frameHash, @"op":request[@"op"]} mutableCopy];
+            // Capture this frame, never whichever frame is current when an async
+            // OCR/capture callback eventually arrives. Only the main run loop
+            // reads completion state or publishes/resets receipt globals.
+            NSDictionary *ownedFrame = executionFrame;
+            __block BOOL completed = NO;
+            void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
+                void (^publish)(void) = ^{
+                    if (completed) return;
+                    if (!frameActive || executionFrame != ownedFrame) { RuyiAutomationStopEvents(); _exit(70); }
+                    completed = YES;
+                    NSMutableDictionary *response = [result mutableCopy]; response[@"id"] = identifier ?: @0;
+                    if (ownedFrame) response[@"receipt"] = FrameReceipt(@"terminal");
+                    BOOL wrote = WriteSessionLine(response);
+                    executionFrame = nil; executionEntered = NO;
+                    if (!wrote) { RuyiAutomationStopEvents(); _exit(70); }
+                    frameActive = NO;
+                    dispatch_semaphore_signal(finished);
+                    int stoppedBy = atomic_load(&stopSignal);
+                    if (stoppedBy || atomic_load(&fatalExit)) {
+                        RuyiAutomationStopEvents();
+                        exit(SessionExitCode(128 + stoppedBy));
+                    }
+                };
+                if (NSThread.isMainThread) publish();
+                else {
+                    CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopDefaultMode, publish);
+                    CFRunLoopWakeUp(CFRunLoopGetMain());
+                }
+            };
             if (valid && [request[@"op"] isEqual:@"session.features"] && !control && [request count] == 3) {
-                result = @{@"ok":@YES, @"protocolVersion":@1, @"executionReceiptVersion":@1,
-                    @"worker_id":executionWorkerId, @"worker_pid":@(getpid())};
+                finish(@{@"ok":@YES, @"protocolVersion":@1, @"executionReceiptVersion":@1,
+                    @"worker_id":executionWorkerId, @"worker_pid":@(getpid()),
+                    @"executionReceiptOperations":@[@"capture", @"status", @"ocr.image", @"ocr.languages"]});
             } else if (valid) {
-                if (control) executionFrame = [@{@"schema":@1, @"invocation_id":control[@"invocation_id"],
-                    @"operation_id":control[@"operation_id"], @"worker_id":executionWorkerId,
-                    @"worker_pid":@(getpid()), @"frame_id":identifier, @"frame_sha256":frameHash, @"op":request[@"op"]} mutableCopy];
                 NSMutableDictionary *payload = [request mutableCopy];
                 [payload removeObjectsForKeys:@[@"id", @"_ruyi_receipt"]];
-                result = RuyiAutomationInputRequest(payload);
-            } else result = RuyiAutomationFailure(@"invalid_args", @"Invalid native session request envelope");
-            NSMutableDictionary *response = [result mutableCopy]; response[@"id"] = identifier ?: @0;
-            if (executionFrame) response[@"receipt"] = FrameReceipt(@"terminal");
-            BOOL wrote = WriteSessionLine(response);
-            executionFrame = nil; executionEntered = NO;
-            if (!wrote) { RuyiAutomationStopEvents(); _exit(70); }
-            frameActive = NO;
-            dispatch_semaphore_signal(finished);
-            int stoppedBy = atomic_load(&stopSignal);
-            if (stoppedBy || atomic_load(&fatalExit)) {
-                // A monitor failure can publish its reason while its background
-                // cleanup is still running. Serialize release before any exit.
-                RuyiAutomationStopEvents();
-                exit(SessionExitCode(128 + stoppedBy));
-            }
+                if (generic) {
+                    if (!RuyiAutomationEnterExecutionReceipt()) {
+                        NSMutableDictionary *failure = [RuyiAutomationFailure(@"execution_receipt_failed", @"Execution receipt was not committed") mutableCopy];
+                        failure[@"acted"] = @NO; failure[@"action_sent"] = @NO; failure[@"outcome"] = @"not_dispatched";
+                        finish(failure);
+                    } else RuyiAutomationRequest([payload copy], finish);
+                } else finish(RuyiAutomationInputRequest(payload));
+            } else finish(RuyiAutomationFailure(@"invalid_args", @"Invalid native session request envelope"));
         }
     });
     CFRunLoopWakeUp(CFRunLoopGetMain());
     // This deadline belongs to this frame, including a blocked AX call or output consumer.
     // It is not a timer left behind in the persistent worker's run loop.
-    NSTimeInterval frameDeadline = NSProcessInfo.processInfo.systemUptime + 12.;
+    BOOL ocr = generic && [request[@"op"] hasPrefix:@"ocr."];
+    NSTimeInterval frameDeadline = NSProcessInfo.processInfo.systemUptime + (ocr ? 60. : 12.);
     BOOL completed = NO;
     while (NSProcessInfo.processInfo.systemUptime < frameDeadline) {
         if (dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_MSEC)) == 0) { completed = YES; break; }

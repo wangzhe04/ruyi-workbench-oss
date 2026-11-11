@@ -91,6 +91,13 @@ def request(payload, timeout=15):
     if payload != {'op': 'status'}:
         from ai_computer_control.utils.execution_context import require_execution_context
         require_execution_context()
+    from ai_computer_control.utils.execution_journal import current_operation
+    if current_operation() is not None:
+        # Only the explicitly negotiated receipt route may carry an active host
+        # operation. It shares the owned worker/lock with input; never fall back
+        # to an untraced one-shot after a feature or receipt failure.
+        from ai_computer_control.utils.macos_receipt_session import request as receipt_request
+        return receipt_request(payload, timeout, generic=True)
     path = helper_path()
     try:
         identity = _identity(path)

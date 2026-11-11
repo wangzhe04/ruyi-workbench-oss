@@ -12,6 +12,7 @@ import re
 from ai_computer_control.utils.macos import DesktopError, _OUTPUT_LIMIT
 
 _TOKEN = re.compile(r'^[0-9a-f]{32}$')
+GENERIC_OPERATIONS = frozenset({'capture', 'status', 'ocr.image', 'ocr.languages'})
 _KEYS = frozenset({'schema', 'phase', 'invocation_id', 'operation_id', 'worker_id', 'worker_pid',
                    'frame_id', 'frame_sha256', 'op', 'challenge'})
 
@@ -53,7 +54,14 @@ def validate_features(result, child_pid):
             or not isinstance(result.get('worker_id'), str) or not _TOKEN.fullmatch(result['worker_id']):
         raise DesktopError('execution_receipts_unavailable', 'Native receipt feature could not be established',
                            {'action_sent': False, 'outcome': 'not_dispatched'})
-    return {'worker_id': result['worker_id'], 'worker_pid': child_pid, 'schema': 1}
+    operations = result.get('executionReceiptOperations', [])
+    if not isinstance(operations, list) or len(operations) > len(GENERIC_OPERATIONS) \
+            or any(not isinstance(op, str) or op not in GENERIC_OPERATIONS for op in operations) \
+            or len(set(operations)) != len(operations):
+        raise DesktopError('execution_receipts_unavailable', 'Invalid native receipt operation features',
+                           {'action_sent': False, 'outcome': 'not_dispatched'})
+    return {'worker_id': result['worker_id'], 'worker_pid': child_pid, 'schema': 1,
+            'request_operations': tuple(operations)}
 
 
 class ReceiptDecoder:

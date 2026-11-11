@@ -9,6 +9,7 @@ NSArray *RuyiAutomationDisplays(void);
 NSDictionary *RuyiAutomationEncodeImage(CGImageRef image, BOOL rejectBlank);
 NSDictionary *RuyiAutomationInputStatus(void);
 NSDictionary *RuyiAutomationInputRequest(NSDictionary *request);
+void RuyiAutomationRequest(NSDictionary *request, void (^done)(NSDictionary *));
 NSDictionary *RuyiAutomationAXRequest(NSDictionary *request);
 NSDictionary *RuyiAutomationOCRStatus(void);
 NSDictionary *RuyiAutomationOCRRequest(NSDictionary *request);

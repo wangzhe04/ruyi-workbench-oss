@@ -60,8 +60,8 @@ async function features(w) {
   if (value.id !== 1 || value.ok !== true || value.executionReceiptVersion !== 1 || value.worker_pid !== w.child.pid || !/^[a-f0-9]{32}$/.test(value.worker_id)) throw new Error('Feature negotiation failed');
   return value;
 }
-async function entered(w, feature, extra = '') {
-  const payload = { id: 2, version: 1, op: 'mouse.position', _ruyi_receipt: { schema: 1, invocation_id: token(), operation_id: token(), worker_id: feature.worker_id } };
+async function entered(w, feature, extra = '', operation = { op: 'mouse.position' }) {
+  const payload = { id: 2, version: 1, ...operation, _ruyi_receipt: { schema: 1, invocation_id: token(), operation_id: token(), worker_id: feature.worker_id } };
   const raw = JSON.stringify(payload); w.send(raw + '\n' + extra);
   const row = await w.row();
   check(row.receipt?.phase === 'handler_entered' && row.receipt.frame_sha256 === sha(raw)
@@ -109,6 +109,34 @@ async function entered(w, feature, extra = '') {
     for (const [label, data, expected] of [['oversized', 'x'.repeat(65537) + '\n', 65], ['truncated', '{"id":2', 70]]) {
       const w = await worker(label); w.send(data); w.child.stdin.end();
       check(await w.ended() === expected && w.record.rows.length === 0, label + ' input retains its nonzero framing exit');
+    }
+    if (process.env.RUYI_NATIVE_GENERIC_RECEIPT_REQUIRED === '1') {
+      for (const operation of [{ op: 'status' }, { op: 'ocr.languages' }, { op: 'ocr.image', path: path.join(root, 'missing-owned-image.png'), lang: '' }]) {
+        const w = await worker('generic-' + operation.op), feature = await features(w);
+        check(Array.isArray(feature.executionReceiptOperations) && feature.executionReceiptOperations.length === 4
+          && ['capture', 'status', 'ocr.image', 'ocr.languages'].every(op => feature.executionReceiptOperations.includes(op)), 'actual helper explicitly advertises exactly four generic receipt operations');
+        const entry = await entered(w, feature, '', operation); w.send(entry.continueFrame);
+        const result = await w.row();
+        check(result.receipt?.phase === 'terminal' && result.receipt.challenge === entry.row.receipt.challenge
+          && result.receipt.operation_id === entry.row.receipt.operation_id && result.ok === (operation.op !== 'ocr.image'),
+        operation.op + ' actual generic completion is bound to the admitted frame and retains success/failure');
+        check(await w.close() === 0 && w.record.rows.length === 3, operation.op + ' emits one terminal and closes cleanly');
+      }
+      for (const op of ['status', 'ocr.languages']) {
+        const legacy = await worker('untraced-generic-' + op); await features(legacy);
+        legacy.send({ id: 2, version: 1, op }); const refused = await legacy.row();
+        check(refused.ok === false && refused.receipt === undefined, op + ' cannot expand the legacy input-session surface without control');
+        check(await legacy.close() === 0, op + ' legacy refusal does not corrupt the old session protocol');
+        for (const mode of ['eof', 'wrong-challenge']) {
+          const w = await worker('generic-' + op + '-' + mode), feature = await features(w), entry = await entered(w, feature, '', { op });
+          if (mode === 'eof') w.child.stdin.end();
+          else w.send({ id: 2, receipt: { ...entry.continueFrame.receipt, challenge: token() } });
+          const result = await w.row();
+          check(result.ok === false && result.outcome === 'not_dispatched' && result.action_sent === false && result.receipt?.phase === 'terminal',
+            op + ' ' + mode + ' produces an actual correlated refusal before generic dispatch');
+          check(await w.ended() !== 0, op + ' ' + mode + ' closes the exact owned worker');
+        }
+      }
     }
   } catch (error) { retained = true; t.fail(error.stack || String(error)); }
   finally {
