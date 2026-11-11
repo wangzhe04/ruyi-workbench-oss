@@ -1,0 +1,67 @@
+{
+  "schema": 3,
+  "at": "2026-11-11T17:49:10.938786+00:00",
+  "status": "next_runtime_dispatch_pending",
+  "previousPlan": "next-implementation-plan-v2.json",
+  "goal": "Original full P5 remains active; the root authority slice is partial progress, not full execution or P5 acceptance.",
+  "implementedNow": [
+    "Actual SDK/native input-session receipts, strict product reader, versioned SDK-decoded numeric binding and real metadata probe.",
+    "Explicit required-context mode refuses absent host correlation at SDK, registered wrapper and native adapter; only receipt read and exact native status are contextless. Node ordinary runtime has not enabled this mode.",
+    "Shared ordinary-JSON descriptor copier and DurableJsonStore opt-in bounded/canonical/private reads, fixed queued bytes and exclusive private temp writes.",
+    "Node ledger factory with digests, persistent phases, old-epoch holds, current-host admission callback, canonical in-process authority drain, durable closed turn/rewind watermarks and mandatory retirement confirmation. File tests use simulated owner/current-turn/receipts; no actual server/controller activation.",
+    "Actual Mac serve holds kernel gate and root-directory identity, opens strict ledger before startup recovery/clients, binds actual live turnSettlers + exact session object/driver/turnSeq/rewindGen to host-generated admission IDs. Provider/CLI/driver/subagent entry and normal iteration gates hold recovered uncertainty before model continuation.",
+    "Root ownership captures existing directory identity during acquisition; replacement before/after runtime initialization is refused. Cold missing root binds under original startup gate; verified rename preserves source identity with/without a legacy junction. Startup diagnostics refuse unknown/replaced root before mkdir and after it.",
+    "Same-epoch prepared/dispatching rows are no longer considered live after cancel/supersede/release/sequence-generation change. They hold successor turns rather than disappearing."
+  ],
+  "nextSteps": [
+    "Centralize bookkeeping in root service for CLI MCP children; process-local queues do not serialize multiple processes. Inspect authenticated loopback mechanisms and bind actual CLI request/driver lifetime. Full-mode direct ACC configuration currently bypasses Node and must be addressed or remain explicitly open.",
+    "Enable required-context environment before spawning each owned ACC. Safe probe must ACK contextRequired=true and bind the exact client object/incarnation plus ACC nonce/PID; repeat after replacement. Background diagnostics currently need a deliberately qualified safe control path or a traced host context before activation; do not silently break readiness or allow a legacy mutation fallback.",
+    "At final post-approval/privacy-restoration boundary use the same immutable argument snapshot for raw bytes/hash and semantic fingerprint. Verify final serialized packet and metadata; no hashing a mutable pre-serialization object, and no _meta merge from model arguments.",
+    "Wire main provider, adaptive proxy and subagent bridge paths to persistent prepare/dispatch barriers. Recheck actual client and live admission after await and immediately before send. Local pre-send refusals need host evidence rather than invented ACC acknowledgements.",
+    "After actual return, fetch independent strict receipts and compare saved worker/tool/session/turn/call/raw+semantic binding and actual terminal flags. Persist Node observation before exposing it; store no extra plaintext argument/result blobs in the Node ledger.",
+    "Only markDelivered after the existing actual strict durable session/history save. Receiving an MCP result is not durable history delivery. Main/proxy/subagent and CLI external-response semantics must be handled explicitly, including privacy projection, image result bounds and incomplete saves.",
+    "Add global session admission/continuation gates before provider/steward/subagent model requests, not only before the next desktop tool. Unknown calls must survive restart, new call IDs, worker replacement and rewind. Record late actual results after stop without allowing new dispatch.",
+    "Implement real restart reconciliation with saved worker identity and strict reader evidence. A recovered terminal without the original result/history must not fabricate the lost result or infer application consumption. Keep unresolved delivery/effects separate and prevent automatic mutation replay.",
+    "Implement trusted exact-scope retirement callbacks, acknowledged ACC private-blob retention, global byte/file quotas, deletion and rewind lifecycle. Never prune unknown traces or remove closed-turn replay protection. Current Node factory limits256 rows/4096 session watermarks/4MiB and ACC256 traces/32MiB each are not a completed shared lifetime policy.",
+    "Implement one-shot capture/OCR native receipts. Current context guard on one-shot request is admission only; actual native entry/terminal proof remains open for that route.",
+    "Qualify actual ordinary owned actions plus cancellation/storage/crash windows through normal provider/root paths. Strictly serial native/GUI. Qualify a separately reviewed bounded out-of-tree rescue before any held-state root fault; never historical Shift/left recovery or UserNotificationCenter.",
+    "Finish facts/README and fast/related e2e/final full gates before commit/integration. Durable71, module92 and route175 inventories were refreshed; actual module policy has no new cycle/forward edges and SCC31 excludes02g/02h. facts still108 because its generator probes only Windows venv; remeasure actual candidate registry with main interpreter and candidate src. Source union110 includes a platform alternative, not the platform registry count.",
+    "Keep original10 local+4 external IDs. Actual TCC/revoke/OS-lock, topology/non-Retina/mixed scale/negative origin, macOS14, same-candidate Windows, formal identity/App/release gates remain unproved. No unattended lock or revoke and no repeat physical你好/drag or Finder setup.",
+    "Restore original screensaver idleTime300 and stop only owned keep-awake after whole-P5 acceptance. Current original caffeinate PID31171 has12h lifetime; renew before expiry as needed, revalidating exact PID/command. Do not restore after a slice."
+  ],
+  "newStepZero": "Implement actual normal ACC dispatch through existing early DesktopExecutionHooks into late13ac. Do not add another isolated ledger factory or redo the completed physical/Finder acceptance. The current prepare API has no normal callTool caller. Reuse actual root admission, never model-supplied turn/admission values.",
+  "criticalIntegrationNotes": [
+    "Ordinary Node required-context remains off; current default route still bypasses ledger preparation. Do not claim full runtime until direct provider/adaptive proxy/subagent and CLI boundaries are all connected or explicitly refused under an enabled candidate mode.",
+    "Force required-context env before owned ACC spawn, bind exact client object/incarnation and real SDK probe worker nonce/PID; guardian child PID is not ACC PID. Diagnose/readiness must use qualified read-only control or a traced context, never silently skip required guard.",
+    "At final post-approval/privacy-restoration boundary freeze actual packet args+meta, validate serialization, recheck client/current admission immediately before send. Do not claim markDispatch equals native entry.",
+    "Return path must read independent strict ACC receipts and persist observation; markDelivered only after actual requirePersisted history save and exact saved tool/call/result projection. Main, proxy, subagent and CLI histories differ.",
+    "Root RPC for CLI children must be authenticated by root token plus actual driver/session scope, never child-managed concurrent state files. Full CLI direct ACC config bypass remains open.",
+    "Current root recovery only preserves unknown and blocks continuation; it has no actual worker receipt reconciliation or lost-result delivery recovery. Global retention/session deletion/rewind and one-shot capture/OCR receipts remain open.",
+    "Latest actual Mac registry default count measured93 in development/candidate-registry-v1.log (not the previously suspected109): macOS deliberately filters/replaces platform modules. Source union110 is not actual platform registry count. Facts still108 legacy Windows-oriented generator; fix platform measurement semantics deliberately before whole-feature gates.",
+    "Keep source reviewsv1/v2 and all failed full-unit/mock fixture logs. Fullunit-root-v1 had one missing VM DesktopExecutionHooks fixture; v2 passes2583+18skip but predates the final releaseStartup/diagnostic fixes. Only final v3 should bind latest raw source.",
+    "Concrete next files:06-provider-engine.js probeDesktopMcp calls contextless diagnostics at261 (currently required-mode refuses it).04 McpStdioClient.start builds spawn env;_rpc serializes final packet;callTool swallows transport errors into business envelopes. Late runtime must preserve this distinction when recording transport loss.",
+    "09 direct bridge call is around3480;adaptive proxy ctx already contains session/turn/toolCallId;12 invokes actual client around301;08 direct subagent call around1234. Main result projection/PrivacyGateway/truncation enters providerHistory around3640 and growing tool trace saveSession around3720 currently lacks requirePersisted. Do not mark delivery from the earlier UI tool_result event.",
+    "Ledger intentionally holds returned-undelivered rows even in a live owner. Multiple tools in one provider batch and pendingToolImages need an explicit durable-before-next-dispatch design; avoid claiming an ordinary best-effort batch save proves projected text/image output delivery. Preserve provider tool pairing when deciding where to save.",
+    "MCP private journal root comes from ai_computer_control.paths.logs_dir (not an arbitrary model-provided journal env/path);root must pin trusted ACC data location and actual worker identity for recovery/retention. Ordinary root runtime still has no worker/client coordination methods beyondprepare."
+  ],
+  "checksInProgress": {
+    "sourceReview": "root-authority-source-review-v2.json",
+    "freeze": "root-authority-freeze-v1.json",
+    "primaryRelated": "development/root-runtime-v5.log:64 pass",
+    "primaryRootE2E": "development/root-service-v5.log:10 pass",
+    "finalFullUnit": "development/full-unit-root-v3.log",
+    "independentReport": "independent-root-authority-v1/report.json"
+  },
+  "standingInstructions": {
+    "noNativeOrGUIConcurrency": true,
+    "noHeldFaultBeforeIndependentlyQualifiedRescue": true,
+    "noIntentionalUnattendedLockOrTCCRevoke": true,
+    "noRepeatPhysical你好DragOrFinder": true,
+    "restoreAutomaticLockOnlyAfter": "full_P5_acceptance",
+    "originalIdleTime": 300,
+    "currentIdleTime": 0,
+    "ownedCaffeinatePid": 31171,
+    "lastObservedElapsed": "08:01:21 of12h"
+  },
+  "engineeringRemaining": "Facts/README/live probe policy and full fast/final whole-feature tests remain open; no implementation commit/integration."
+}

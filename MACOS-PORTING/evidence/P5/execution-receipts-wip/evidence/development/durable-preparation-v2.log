@@ -1,0 +1,30 @@
+✔ bounded strict private file roundtrips using the shared store and exact canonical formatter (3.551583ms)
+✔ read/write capacity refuses while preserving the previously committed state (2.165291ms)
+✔ duplicate fields, alternate numeric tokens and discarded whitespace are rejected without normalization (2.336417ms)
+✔ invalid UTF-8 is rejected before JSON parsing can replace damaged bytes (0.605041ms)
+✔ symlinks, hardlinks and nonprivate leaf permissions are refused (1.291875ms)
+✔ non-regular files are refused without a blocking read (0.286625ms)
+✔ invalid byte bounds cannot accidentally enable an unbounded owned reader (0.146792ms)
+✔ strict read permits a missing initial file without writing, but rejects malformed/schema-less/unknown/invalid state without quarantine or fallback (4.434208ms)
+✔ strict read rejects transient failures and retries the real file next time; default stores retain their recovery behavior (1.414334ms)
+✔ a failed strict uncached write cannot become a committed inbox or dedupe record on the next read (1.518167ms)
+✔ Node matches shared cross-language argument identity vectors (0.941666ms)
+✔ JSON key insertion order and JSON.stringify zero agree without conflating string/number values (0.11875ms)
+✔ unsupported numbers, lone Unicode surrogates and cycles fail before dispatch (0.399167ms)
+✔ host transport metadata is separate, bounded and cloned; invalid serialization cannot drop context (0.390792ms)
+✔ integer identity follows exact JSON.stringify digits instead of rounded binary64 integers (0.075583ms)
+✔ real metadata probe fails closed on a shape flag, dropped nonce, altered values or bad worker identity (1.059667ms)
+✔ preparation owns a recursively frozen snapshot whose exact outgoing bytes and digests agree (1.952583ms)
+✔ accessors and toJSON are rejected without being executed, including arrays (0.559ms)
+✔ raw JSON, sparse arrays, nonfinite numbers, unsupported values and extra array fields fail before preparation (0.20425ms)
+✔ prototype-looking keys remain data without changing an outgoing object prototype (0.108375ms)
+✔ depth and byte limits refuse before returning a dispatchable preparation (29.971292ms)
+✔ copied arrays and objects cannot inherit toJSON hooks before or after an async boundary (0.267917ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 141.849375

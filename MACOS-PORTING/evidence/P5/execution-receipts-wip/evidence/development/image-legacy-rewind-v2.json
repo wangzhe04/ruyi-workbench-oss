@@ -1,0 +1,8 @@
+{
+  "test": "rewind",
+  "exitCode": 0,
+  "seconds": 3.238,
+  "isolation": "/tmp/ric-2fla8m42",
+  "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v2.log",
+  "reason": "v1 orchestrator incorrectly forced RUYI_HOME ahead of this legacy test-owned WIN_CLAUDE_WORKBENCH_HOME; v2 leaves data root to fixture while preserving unique TMPDIR/HOME/AppData isolation; no source or assertion change"
+}

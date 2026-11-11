@@ -1,0 +1,21 @@
+PASS 阶段 0 子代理跑完(succeeded)
+PASS 阶段 0 量到 4 发请求的估算 [10045,22746,27489,32231]
+PASS 阶段 0 蒸发大文件之后能压到 L1 低水位以下(32231 - 12701 + 3500 < 23948)
+PASS 阶段 1 子代理跑完(succeeded, window=39914)
+PASS A1 子代理的自动压缩走了 L1 蒸发,日志带 subagentId 与父会话 id(["evaporate"])
+PASS A1 observation_reduced 日志带 subagentId
+PASS A1 L1 已够,没有走 L2 摘要
+PASS A2 被蒸发的大文件换成带 rawRef 的观察缩减视图(不再是「[已省略:」占位)({"policy":"json_structured","rawRef":"history:0:7716cd6194477865:2:3b28bdbfc5538e69"})
+PASS A2 缩减视图里看不到中段事实(确实省掉了)
+PASS A3 快照写进父会话 checkpoints,只有带内容哈希的文件名(["history-0-7716cd6194477865.json.gz"])
+PASS A3 快照里是压缩前的原文
+PASS A4 子代理用 observation_recall 取回了原文中段的事实
+PASS A4 节点结论里带着取回的事实
+PASS A5 整个子回合只压一次(实 1 次)
+PASS F1 超窗 400 之后摘要重播种、重试成功(succeeded, 400 发了 1 次)
+PASS F1 forced_400 日志带 subagentId 与父会话 id
+PASS F2 重试成功 → 落了这个模型的窗口学习({"fake/sub-model":{"cap":1846,"at":"2026-11-11T21:51:20.144Z"}})
+PASS F2 重试仍是 400 → 子代理失败收场(failed, 400 发了 2 次)
+PASS F2 重试没成功 → 不落窗口学习({})
+
+SUBAGENT COMPACTION PARITY E2E: ALL PASS

@@ -1,0 +1,30 @@
+[
+  {
+    "test": "session-storage-v2",
+    "exitCode": 0,
+    "seconds": 0.816,
+    "isolation": "/tmp/ric-ip1tg737",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-session-storage-v2-v1.log"
+  },
+  {
+    "test": "provider-tool-history",
+    "exitCode": 0,
+    "seconds": 1.324,
+    "isolation": "/tmp/ric-awi1rf77",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-provider-tool-history-v1.log"
+  },
+  {
+    "test": "session-rewind-execution",
+    "exitCode": 0,
+    "seconds": 1.364,
+    "isolation": "/tmp/ric-v5gzgqzh",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-session-rewind-execution-v1.log"
+  },
+  {
+    "test": "rewind",
+    "exitCode": 1,
+    "seconds": 2.45,
+    "isolation": "/tmp/ric-06g8kh5j",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/image-legacy-rewind-v1.log"
+  }
+]

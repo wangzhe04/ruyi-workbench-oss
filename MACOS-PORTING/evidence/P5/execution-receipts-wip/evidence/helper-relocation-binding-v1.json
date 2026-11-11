@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "change": "Byte-preserving relocation of executionArgumentsDigest from02g to existing00-boot. No function body edit or new runtime activation.",
+  "movedBlockSha256": "353f07d64e704cf01fe0c8e1a68b544dfa131e251bff323666a676956476a226",
+  "movedBytes": 2940,
+  "bindings": [
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "currentSha256": "6ca0168bb4e8fed36074d93bff81a1f21c311a2df50620327ab69873aa3577ea",
+      "reconstructedPreviousSha256": "c6b8fffd816160a806b5bcb466da3eefbdda9f983dd596fb6f1679fa27c6a72b",
+      "frozenPreviousSha256": "c6b8fffd816160a806b5bcb466da3eefbdda9f983dd596fb6f1679fa27c6a72b",
+      "previousBytesReconstructedExactly": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "currentSha256": "d13e8e1273b7b5415431dc2920a6b28bb7becabc96f255f21d06ec06bc16e7be",
+      "reconstructedPreviousSha256": "653350f8ffdf3c17ee5e5dc9509f1be9a5c7b0121074b8d7b1df2538c1b01898",
+      "frozenPreviousSha256": "653350f8ffdf3c17ee5e5dc9509f1be9a5c7b0121074b8d7b1df2538c1b01898",
+      "previousBytesReconstructedExactly": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "currentSha256": "853bea624d05d4d0c7e3bcd3aae7e70ee9ec5b8f2815c701d3f270099fb09432",
+      "reconstructedPreviousSha256": "daacd1c9d0ab1641e7074e36018ed9ac0f73eacafee4b1882057b56e19c3a83a",
+      "frozenPreviousSha256": "daacd1c9d0ab1641e7074e36018ed9ac0f73eacafee4b1882057b56e19c3a83a",
+      "previousBytesReconstructedExactly": true
+    }
+  ],
+  "limit": "This verifies the listed source text transformation, not whole-feature/P5 or native runtime reacceptance."
+}

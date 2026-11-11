@@ -1,0 +1,20 @@
+{
+  "at": "2026-11-11T17:50:20.468167+00:00",
+  "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+  "sourcesChecked": 99,
+  "mismatches": [],
+  "fullUnit": {
+    "tests": 2603,
+    "pass": 2585,
+    "skip": 18,
+    "fail": 0,
+    "existingSkips": true,
+    "log": "development/full-unit-root-v3.log"
+  },
+  "syntax": {
+    "files": 1172,
+    "fail": 0,
+    "log": "development/syntax-root-v2.log"
+  },
+  "scope": "engineering/source binding for partial root authority, not whole P5 qualification"
+}

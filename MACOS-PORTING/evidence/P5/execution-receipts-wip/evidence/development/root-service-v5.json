@@ -1,0 +1,188 @@
+{
+  "scope": "actual root startup and HTTP driver hold; synthetic unfinished preparation; no native/delivery qualification",
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-root-MxQGt4",
+  "observations": [
+    {
+      "sessionId": "sess_0221190ed383158a",
+      "message": "ROOT_HELD_FIRST",
+      "events": [
+        {
+          "type": "error",
+          "error": "上次桌面操作的执行或结果保存尚未确认，已暂停本会话的自动继续，请先核实执行记录。",
+          "ts": "2026-11-11T17:46:25.470Z"
+        }
+      ]
+    },
+    {
+      "sessionId": "sess_0221190ed383158a",
+      "message": "ROOT_HELD_NEW_REQUEST_ID",
+      "events": [
+        {
+          "type": "error",
+          "error": "上次桌面操作的执行或结果保存尚未确认，已暂停本会话的自动继续，请先核实执行记录。",
+          "ts": "2026-11-11T17:46:25.475Z"
+        }
+      ]
+    },
+    {
+      "sessionId": "sess_86f764a95de394a7",
+      "message": "ROOT_HEALTHY_REQUEST",
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_86f764a95de394a7",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "healthy fixture",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-root-MxQGt4/work",
+            "createdAt": "2026-11-11T17:46:25.075Z",
+            "updatedAt": "2026-11-11T17:46:25.075Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_86f764a95de394a7",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "1fe035666628",
+            "driverRunId": "drun_a549b0c310dd036e",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T17:46:25.480Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:58039/v1",
+          "args": [],
+          "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-root-MxQGt4/work",
+          "model": "fake-model",
+          "permissionMode": "bypass",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 19,
+          "availableTools": 73,
+          "bridgedTools": 0,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core"
+          ],
+          "toolSchemaTokens": 4827,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.712Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.712Z"
+        },
+        {
+          "traceId": "trace_6e4791701e119f96",
+          "type": "context_estimate",
+          "contextTokens": 7567,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T17:46:25.715Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ROOT_HEALTHY_REPLY\"},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.720Z"
+        },
+        {
+          "type": "assistant_delta",
+          "text": "ROOT_HEALTHY_REPLY",
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.720Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+          "seq": 1,
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.720Z"
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "input_tokens": 2740,
+            "output_tokens": 5
+          },
+          "contextTokens": 2745,
+          "contextWindow": 1000000,
+          "calls": 0,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.720Z"
+        },
+        {
+          "type": "turn_summary",
+          "turnSeq": 1,
+          "filesChanged": [],
+          "commands": 0,
+          "artifacts": [],
+          "irreversible": [],
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.723Z"
+        },
+        {
+          "type": "process",
+          "state": "idle",
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.723Z"
+        },
+        {
+          "type": "result",
+          "ok": true,
+          "aborted": false,
+          "traceId": "trace_6e4791701e119f96",
+          "ts": "2026-11-11T17:46:25.723Z"
+        }
+      ]
+    }
+  ],
+  "output": "如意 Ruyi 3.0.1  (launch: node, overlay 921514cdae6c)\nUI: http://127.0.0.1:58040/\nData: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-root-MxQGt4/data\nServer source: /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js\n如意 Ruyi 3.0.1  (launch: node, overlay 1fe035666628)\nUI: http://127.0.0.1:58044/\nData: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-root-MxQGt4/data\nServer source: /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js\n"
+}

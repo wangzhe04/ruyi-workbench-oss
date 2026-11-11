@@ -1,0 +1,24 @@
+✔ candidate inserts every later tool reply before already persisted images and returns actual tool index (0.793ms)
+✔ batch anchor and requested call identity must remain current before inserting history (0.217167ms)
+✔ real stale metadata snapshot cannot overwrite an inserted tool result or its image (178.329584ms)
+✔ stamped disk remains protected after candidate flag off and rejects unstamped stale object (96.843667ms)
+✔ stamp zero is an existing protected revision, not absence (92.789291ms)
+✔ queued same-object writer takes revision/body/head from one chain-time snapshot (99.265458ms)
+✔ missing, null and malformed existing heads never reset an initialized revision (294.957958ms)
+✔ invalid or future revisions refuse before replacing body; rewrite overflow is bounded (107.973583ms)
+✔ head commit updates live revision even if a later body stat step fails (94.911458ms)
+✔ actual branded wrapper cannot use fabricated meta/checker as a private root dispatch permit (1.049292ms)
+✔ same-length protected rewrite rolls back both bodies when head commit fails (102.22ms)
+✔ cold reader restores simulated same-count interrupted rewrite by committed body hashes rather than line count (102.490333ms)
+✔ either surviving protection field refuses legacy downgrade with flag off (204.145333ms)
+✔ cached append and metadata saves refuse corrupted head commit or actual body (308.82925ms)
+✔ partial rollback copy failure preserves both snapshots for a later cold recovery (106.830083ms)
+✔ exception after real head publication does not roll committed bodies or live revision back (109.435667ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2010.401416

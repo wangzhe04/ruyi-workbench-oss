@@ -1,0 +1,44 @@
+{
+  "reports": [],
+  "cleanup": [
+    {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 1,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 3,
+        "observed": 3
+      }
+    },
+    {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 1,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 3,
+        "observed": 3
+      },
+      "code": null,
+      "signal": "SIGKILL",
+      "commandExitCode": null,
+      "commandSignal": 9,
+      "status": "terminated"
+    }
+  ],
+  "retained": true,
+  "retainedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-context-CFhI44"
+}

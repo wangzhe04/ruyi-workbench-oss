@@ -1,0 +1,24 @@
+{
+  "at": "2026-11-11T18:42:23.609428+00:00",
+  "freezeSha256": "0be4d5c38a8ef6f35cf6f2b0a14809607ec2e3cda118952754e983509aeb6bbb",
+  "sourcesChecked": 106,
+  "mismatches": [],
+  "fullUnit": {
+    "tests": 2609,
+    "pass": 2591,
+    "existingSkip": 18,
+    "fail": 0,
+    "log": "development/full-unit-dispatch-v3.log"
+  },
+  "syntax": {
+    "files": 1174,
+    "fail": 0,
+    "log": "development/syntax-dispatch-v2.log"
+  },
+  "build": {
+    "fresh": true,
+    "log": "development/build-dispatch-v2.log"
+  },
+  "independentReportSha256": "1c066bd86fa0ae4d6780b6926ed0ddad89238523dd692ec38f76d36d19f6144f",
+  "scope": "partial default-off candidate root direct/proxy text/read receipts and actual saved projected provider history; no full P5 acceptance"
+}

@@ -1,0 +1,89 @@
+{
+  "reports": [
+    {
+      "probe": true,
+      "params": [
+        "execution_receipt",
+        {
+          "invocation_id": "00000000000000000000000000000000",
+          "probe_values": {
+            "integer": 1000000000000000100,
+            "exponent": 1e+21,
+            "decimal": 1e-7,
+            "subnormal": 5e-324,
+            "zero": 0,
+            "unicode": "你好🚀"
+          }
+        },
+        8000,
+        {
+          "meta": {
+            "org.ruyi.workbench/execution-probe-v1": {
+              "schema": 1,
+              "nonce": "f7106f853da3f50676b0141983832284"
+            }
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "00000000000000000000000000000000",
+        "records": [],
+        "incomplete": true,
+        "request_terminal_observed": false,
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true,
+        "metadata_probe": {
+          "schema": 1,
+          "nonce": "f7106f853da3f50676b0141983832284",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "received_semantic_sha256": "02eaccf2211e1ff2ae542d7ff1776b7024860f7a59f0eab6f8ca0a960d91ff56",
+          "acc_worker_id": "59d40268d50d45b6b816d0f6dba98605",
+          "acc_pid": 32911
+        }
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 1,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 3,
+        "observed": 3
+      }
+    },
+    {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 1,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 3,
+        "observed": 3
+      },
+      "code": null,
+      "signal": "SIGKILL",
+      "commandExitCode": null,
+      "commandSignal": 9,
+      "status": "terminated"
+    }
+  ],
+  "retained": true,
+  "retainedRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-execution-context-qlQ4yc"
+}

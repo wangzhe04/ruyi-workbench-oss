@@ -1,0 +1,14 @@
+{
+  "at": "2026-11-11T17:52:04.589838+00:00",
+  "rootPid": 70531,
+  "observedIdentities": [
+    {
+      "pid": 70531,
+      "ppid": 70529,
+      "created": "1794419523998729"
+    }
+  ],
+  "allObservedIdentitiesExited": true,
+  "remaining": [],
+  "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+}

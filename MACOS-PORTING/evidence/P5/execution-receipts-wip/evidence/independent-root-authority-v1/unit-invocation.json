@@ -1,0 +1,43 @@
+{
+  "label": "unit",
+  "argv": [
+    "node",
+    "--test",
+    "dev-harness/unit/desktop-execution-runtime.test.js",
+    "dev-harness/unit/server-ownership.test.js",
+    "dev-harness/unit/desktop-execution-ledger.test.js",
+    "dev-harness/unit/credential-recovery.test.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/home",
+    "USERPROFILE": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/userprofile",
+    "APPDATA": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/appdata",
+    "LOCALAPPDATA": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/localappdata",
+    "RUYI_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/data",
+    "WCW_DATA_DIR": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/acc-data",
+    "TMPDIR": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp",
+    "XDG_CONFIG_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T17:49:49.666463+00:00",
+  "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64"
+  },
+  "finishedAt": "2026-11-11T17:49:50.974275+00:00",
+  "elapsedSeconds": 1.3075165000045672,
+  "exitCode": 1,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit.log",
+    "bytes": 14179,
+    "sha256": "c1442532e3fec2f339cf1e0789fa8f82065d61a70c1639189a62339fd71e344f"
+  }
+}

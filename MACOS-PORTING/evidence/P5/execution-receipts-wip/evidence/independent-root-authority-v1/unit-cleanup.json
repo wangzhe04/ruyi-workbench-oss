@@ -1,0 +1,69 @@
+{
+  "at": "2026-11-11T17:49:50.974059+00:00",
+  "rootPid": 69914,
+  "observedIdentities": [
+    {
+      "pid": 69914,
+      "ppid": 69910,
+      "created": "1794419389667021"
+    },
+    {
+      "pid": 69919,
+      "ppid": 69914,
+      "created": "1794419389698850"
+    },
+    {
+      "pid": 69918,
+      "ppid": 69914,
+      "created": "1794419389698377"
+    },
+    {
+      "pid": 69917,
+      "ppid": 69914,
+      "created": "1794419389697814"
+    },
+    {
+      "pid": 69916,
+      "ppid": 69914,
+      "created": "1794419389696361"
+    },
+    {
+      "pid": 69965,
+      "ppid": 69919,
+      "created": "1794419389881972"
+    },
+    {
+      "pid": 69983,
+      "ppid": 69918,
+      "created": "1794419389953659"
+    },
+    {
+      "pid": 69980,
+      "ppid": 69919,
+      "created": "1794419389929004"
+    },
+    {
+      "pid": 70019,
+      "ppid": 69919,
+      "created": "1794419390047542"
+    },
+    {
+      "pid": 70051,
+      "ppid": 69919,
+      "created": "1794419390154561"
+    },
+    {
+      "pid": 70077,
+      "ppid": 69918,
+      "created": "1794419390248481"
+    },
+    {
+      "pid": 70114,
+      "ppid": 69918,
+      "created": "1794419390441562"
+    }
+  ],
+  "allObservedIdentitiesExited": true,
+  "remaining": [],
+  "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+}

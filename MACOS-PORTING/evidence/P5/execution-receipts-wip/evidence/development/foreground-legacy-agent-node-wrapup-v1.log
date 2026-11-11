@@ -1,0 +1,15 @@
+PASS workbench starts
+PASS Provider node cooperates with automatic wrap-up and succeeds
+PASS Provider node records the soft wrap-up without forced termination
+PASS Provider receives the automatic wrap-up at its next iteration boundary
+PASS Provider node persists an automatic wrap-up milestone
+PASS an uncooperative node settles the workflow as partial instead of hanging
+PASS uncooperative Provider node is stopped after the wrap-up grace period
+PASS forced node failure explains the wrap-up deadline
+PASS forced wrap-up is node-local and does not cancel a sibling
+PASS Claude workflow node cooperates with automatic wrap-up and succeeds
+PASS Claude result proves the live wrap-up envelope reached the running node
+PASS Claude node records soft wrap-up without forced termination
+PASS Claude stdin capture contains the orchestrator wrap-up envelope
+
+AGENT NODE WRAP-UP E2E: ALL PASS

@@ -1930,6 +1930,50 @@
             "independentReport": "evidence/P5/tool-effect-audit/independent-report-v1.json",
             "commitBinding": "evidence/P5/tool-effect-audit/commit-binding.json",
             "remainingRequirementMapping": "evidence/P5/remaining-resolution-2026-11-11-effects.json"
+          },
+          "desktopExecutionReceiptsSlice": {
+            "date": "2026-11-12",
+            "status": "passed_default_off_core_and_positive_turn_foreground_provider_slice_full_P5_open",
+            "implementationCommit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+            "productionDefault": "off",
+            "scope": "Root-owned actual provider/foreground node ACC correlation, native input-worker entry/terminal, strict result/projected image-history delivery and uncertainty barriers. Synthetic PNG actual SDK chains; native screenshot/OCR and wider execution modes remain open.",
+            "sourceReview": "evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-review-v3.json",
+            "sourceCoverage": "evidence/P5/execution-receipts-wip/evidence/foreground-subagent-review-coverage-v1.json",
+            "independentReport": "evidence/P5/execution-receipts-wip/evidence/independent-foreground-subagent-v1/report.json",
+            "independentCommands": 13,
+            "independentFailure": 0,
+            "independentSkipped": 0,
+            "independentRetries": 0,
+            "independentCases": {
+              "foregroundNodes": 117,
+              "mainSyntheticImages": 26,
+              "mainDispatch": 32,
+              "requiredContext": 38,
+              "pythonControl": 4,
+              "targetedUnit": 78
+            },
+            "defaultOffCompatibility": {
+              "fixtures": 5,
+              "assertions": 85,
+              "failed": 0
+            },
+            "engineering": {
+              "fullUnitPassed": 2626,
+              "unitExistingSkipped": 18,
+              "syntax": 1178,
+              "staticPassed": 80,
+              "centralLiveSkipped": 12,
+              "buildFresh": true
+            },
+            "evidence": "evidence/P5/execution-receipts-wip/current-state.json",
+            "fullP5Accepted": false,
+            "open": [
+              "independent background/API0/resume workflow authority",
+              "authenticated CLI relay and manual API admission",
+              "native capture/OCR receipts; balanced input and reviewed held-state rescue",
+              "historical reconciliation/retention/global quotas/delete/rewind",
+              "original10 local+4external gates preserved"
+            ]
           }
         }
       ],

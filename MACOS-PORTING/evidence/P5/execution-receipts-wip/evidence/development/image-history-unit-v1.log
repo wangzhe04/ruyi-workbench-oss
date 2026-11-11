@@ -1,0 +1,37 @@
+✔ candidate inserts every later tool reply before already persisted images and returns actual tool index (0.78375ms)
+✔ batch anchor and requested call identity must remain current before inserting history (0.2455ms)
+✔ real stale metadata snapshot cannot overwrite an inserted tool result or its image (174.70825ms)
+✔ stamped disk remains protected after candidate flag off and rejects unstamped stale object (98.613625ms)
+✔ stamp zero is an existing protected revision, not absence (100.577709ms)
+✖ queued same-object writer takes revision/body/head from one chain-time snapshot (114.643417ms)
+✔ missing, null and malformed existing heads never reset an initialized revision (299.89025ms)
+✔ invalid or future revisions refuse before replacing body; rewrite overflow is bounded (106.292625ms)
+✔ head commit updates live revision even if a later body stat step fails (95.52975ms)
+✔ actual branded wrapper cannot use fabricated meta/checker as a private root dispatch permit (1.028334ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1092.745958
+
+✖ failing tests:
+
+test at dev-harness/unit/desktop-image-history.test.js:52:1
+✖ queued same-object writer takes revision/body/head from one chain-time snapshot (114.643417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 4
+  
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/desktop-image-history.test.js:56:79)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 4,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

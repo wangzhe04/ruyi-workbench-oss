@@ -1,0 +1,13 @@
+✔ preparation owns a recursively frozen snapshot whose exact outgoing bytes and digests agree (0.981083ms)
+✔ accessors and toJSON are rejected without being executed, including arrays (0.096292ms)
+✔ raw JSON, sparse arrays, nonfinite numbers, unsupported values and extra array fields fail before preparation (0.15625ms)
+✔ prototype-looking keys remain data without changing an outgoing object prototype (0.086584ms)
+✔ depth and byte limits refuse before returning a dispatchable preparation (27.709375ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122.948542

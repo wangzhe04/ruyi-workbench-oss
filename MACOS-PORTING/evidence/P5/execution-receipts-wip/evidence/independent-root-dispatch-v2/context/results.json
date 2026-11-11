@@ -1,0 +1,2764 @@
+{
+  "reports": [
+    {
+      "probe": true,
+      "params": [
+        "execution_receipt",
+        {
+          "invocation_id": "00000000000000000000000000000000",
+          "probe_values": {
+            "integer": 1000000000000000100,
+            "exponent": 1e+21,
+            "decimal": 1e-7,
+            "subnormal": 5e-324,
+            "zero": 0,
+            "unicode": "你好🚀"
+          }
+        },
+        8000,
+        {
+          "meta": {
+            "org.ruyi.workbench/execution-probe-v1": {
+              "schema": 1,
+              "nonce": "7521e5b50ae5b970bd11cb2c9a998705"
+            }
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "00000000000000000000000000000000",
+        "records": [],
+        "incomplete": true,
+        "request_terminal_observed": false,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "00000000000000000000000000000000",
+          "records_validated": 0,
+          "request_terminal_observed": false,
+          "request_transport_returned": null,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": false,
+          "lifecycle_unknown": true,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {}
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true,
+        "metadata_probe": {
+          "schema": 1,
+          "nonce": "7521e5b50ae5b970bd11cb2c9a998705",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "received_semantic_sha256": "02eaccf2211e1ff2ae542d7ff1776b7024860f7a59f0eab6f8ca0a960d91ff56",
+          "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+          "acc_pid": 90399,
+          "context_required": true
+        }
+      }
+    },
+    {
+      "probeResult": {
+        "ok": true,
+        "receiptVersion": 1,
+        "argumentsCodec": "ruyi-sdk-json-v1",
+        "accWorkerId": "855bdab689fb44ad967923342a325b8c",
+        "accPid": 90399,
+        "contextRequired": true
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "00000000000000000000000000000000",
+        "probe_values": {
+          "schema": 1,
+          "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "00000000000000000000000000000000",
+        "records": [],
+        "incomplete": true,
+        "request_terminal_observed": false,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "00000000000000000000000000000000",
+          "records_validated": 0,
+          "request_terminal_observed": false,
+          "request_transport_returned": null,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": false,
+          "lifecycle_unknown": true,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {}
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Host execution correlation is required before tool execution",
+        "code": "execution_metadata_required",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "macro_run",
+      "args": {
+        "steps": [
+          {
+            "tool": "wait",
+            "args": {
+              "seconds": 0
+            }
+          }
+        ]
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Host execution correlation is required before tool execution",
+        "code": "execution_metadata_required",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "get_mouse_position",
+      "args": {},
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Host execution correlation is required before tool execution",
+        "code": "execution_metadata_required",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "macro_run",
+      "args": {
+        "steps": [
+          {
+            "tool": "wait",
+            "args": {
+              "seconds": 0
+            }
+          },
+          {
+            "tool": "get_mouse_position",
+            "args": {}
+          }
+        ],
+        "delay_ms": 0
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "92211f67e046c56873d3e63a08248445fb3f3b11d76a7251d5effa82e5061ea8",
+          "args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "macro_run"
+        }
+      },
+      "result": {
+        "ok": true,
+        "step_invocation_schema": 1,
+        "success": true,
+        "completed": 2,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "wait",
+            "ok": true,
+            "invocation_attempted": true,
+            "result": {
+              "success": true,
+              "waited_seconds": 0,
+              "ok": true
+            }
+          },
+          {
+            "step": 1,
+            "tool": "get_mouse_position",
+            "ok": true,
+            "invocation_attempted": true,
+            "result": {
+              "coordinate_space": "macos_global_points",
+              "ok": true,
+              "protocolVersion": 1,
+              "x": 300,
+              "y": 890
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 101,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-8de87eb03988407cb0fd35c8cdf5fd6b.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "c6e0b4ed7d42de612c394e0e95bc7a7d19bcc21f5756985a1d5150765be968a0",
+            "at": "2026-11-11T18:36:33.679130+00:00",
+            "call_id_hash": "92211f67e046c56873d3e63a08248445fb3f3b11d76a7251d5effa82e5061ea8",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+            "caller_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "received_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "macro_run",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 150,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-44b7c02afb8f45c78701e67b6839a3ca.json",
+            "args_sha256": "97aa82ffe7735843149a75427577fb0e379abb89f3b63bf825a2951b8ac4b05b",
+            "at": "2026-11-11T18:36:33.679889+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "parent_operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 13,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3b8de749e5134cc7bc3bf97297c32229.json",
+            "args_sha256": "248b0933c5594061006f2614c501b473176b514de443d4adafbbd5554161b871",
+            "at": "2026-11-11T18:36:33.680446+00:00",
+            "batch_step": 0,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.680850+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 2,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-0ffb90bee1434086834a47bfd0a88b7a.json",
+            "args_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "at": "2026-11-11T18:36:33.681282+00:00",
+            "batch_step": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 5,
+            "stage": "tool_entered",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 49,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fdc9e123030942cfbbdc133150550651.json",
+            "args_sha256": "02b7155f87ae42409eb0d4b6b7a10a198fbed852d4bc9a6d6eaeb87c39ee604d",
+            "at": "2026-11-11T18:36:33.741329+00:00",
+            "frame_id": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fdc9e123030942cfbbdc133150550651",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "receipt_version": 1,
+            "schema": 1,
+            "sequence": 6,
+            "stage": "native_features",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 233,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fe254774d7794a1f8339e3d7aa74be8c.json",
+            "args_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "at": "2026-11-11T18:36:33.741886+00:00",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "helper_identity": [
+              "16777234",
+              "80508649",
+              "309344",
+              "1794403722517256104"
+            ],
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 7,
+            "stage": "native_prepared",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.742279+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 8,
+            "stage": "native_frame_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744175+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 9,
+            "stage": "native_entered",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744508+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 10,
+            "stage": "native_continue_intent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744889+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 11,
+            "stage": "native_continue_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748180+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 12,
+            "stage": "native_terminal",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748628+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 13,
+            "stage": "tool_terminal",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749273+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 14,
+            "stage": "tool_terminal",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749621+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 15,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+          "records_validated": 15,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "8de87eb03988407cb0fd35c8cdf5fd6b": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "44b7c02afb8f45c78701e67b6839a3ca": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3b8de749e5134cc7bc3bf97297c32229": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "0ffb90bee1434086834a47bfd0a88b7a": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "fe254774d7794a1f8339e3d7aa74be8c": {
+              "stage": "native_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": "0"
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "78972d6c8eb8f76cb13233e33766e4c670bb758cf4074685e908942055248d52",
+          "args_sha256": "7726f337a69b01192efa5e41df7753712c07bb96bbba71321362c02cea92dcf3",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "34c7fd3a1313528aff8b640eb629dde1ade72b2d42d1de55c875dc10be13d73a",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-e8d25b0bc3774d71b2c9cf1a735084fe.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "7726f337a69b01192efa5e41df7753712c07bb96bbba71321362c02cea92dcf3",
+            "at": "2026-11-11T18:36:33.754404+00:00",
+            "call_id_hash": "78972d6c8eb8f76cb13233e33766e4c670bb758cf4074685e908942055248d52",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "7726f337a69b01192efa5e41df7753712c07bb96bbba71321362c02cea92dcf3",
+            "caller_semantic_sha256": "34c7fd3a1313528aff8b640eb629dde1ade72b2d42d1de55c875dc10be13d73a",
+            "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+            "operation_id": "e8d25b0bc3774d71b2c9cf1a735084fe",
+            "received_semantic_sha256": "34c7fd3a1313528aff8b640eb629dde1ade72b2d42d1de55c875dc10be13d73a",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-fc22fade95e84024a0cdefa48f9daab7.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.754860+00:00",
+            "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+            "operation_id": "fc22fade95e84024a0cdefa48f9daab7",
+            "parent_operation_id": "e8d25b0bc3774d71b2c9cf1a735084fe",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.755195+00:00",
+            "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+            "ok": true,
+            "operation_id": "fc22fade95e84024a0cdefa48f9daab7",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.755490+00:00",
+            "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+            "ok": true,
+            "operation_id": "e8d25b0bc3774d71b2c9cf1a735084fe",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "7e4ff18b49e267b05476a45d0346fdf0",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "e8d25b0bc3774d71b2c9cf1a735084fe": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "fc22fade95e84024a0cdefa48f9daab7": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 101,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-8de87eb03988407cb0fd35c8cdf5fd6b.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "c6e0b4ed7d42de612c394e0e95bc7a7d19bcc21f5756985a1d5150765be968a0",
+            "at": "2026-11-11T18:36:33.679130+00:00",
+            "call_id_hash": "92211f67e046c56873d3e63a08248445fb3f3b11d76a7251d5effa82e5061ea8",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+            "caller_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "received_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "macro_run",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 150,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-44b7c02afb8f45c78701e67b6839a3ca.json",
+            "args_sha256": "97aa82ffe7735843149a75427577fb0e379abb89f3b63bf825a2951b8ac4b05b",
+            "at": "2026-11-11T18:36:33.679889+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "parent_operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 13,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3b8de749e5134cc7bc3bf97297c32229.json",
+            "args_sha256": "248b0933c5594061006f2614c501b473176b514de443d4adafbbd5554161b871",
+            "at": "2026-11-11T18:36:33.680446+00:00",
+            "batch_step": 0,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.680850+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 2,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-0ffb90bee1434086834a47bfd0a88b7a.json",
+            "args_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "at": "2026-11-11T18:36:33.681282+00:00",
+            "batch_step": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 5,
+            "stage": "tool_entered",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 49,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fdc9e123030942cfbbdc133150550651.json",
+            "args_sha256": "02b7155f87ae42409eb0d4b6b7a10a198fbed852d4bc9a6d6eaeb87c39ee604d",
+            "at": "2026-11-11T18:36:33.741329+00:00",
+            "frame_id": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fdc9e123030942cfbbdc133150550651",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "receipt_version": 1,
+            "schema": 1,
+            "sequence": 6,
+            "stage": "native_features",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 233,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fe254774d7794a1f8339e3d7aa74be8c.json",
+            "args_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "at": "2026-11-11T18:36:33.741886+00:00",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "helper_identity": [
+              "16777234",
+              "80508649",
+              "309344",
+              "1794403722517256104"
+            ],
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 7,
+            "stage": "native_prepared",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.742279+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 8,
+            "stage": "native_frame_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744175+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 9,
+            "stage": "native_entered",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744508+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 10,
+            "stage": "native_continue_intent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744889+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 11,
+            "stage": "native_continue_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748180+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 12,
+            "stage": "native_terminal",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748628+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 13,
+            "stage": "tool_terminal",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749273+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 14,
+            "stage": "tool_terminal",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749621+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 15,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+          "records_validated": 15,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "8de87eb03988407cb0fd35c8cdf5fd6b": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "44b7c02afb8f45c78701e67b6839a3ca": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3b8de749e5134cc7bc3bf97297c32229": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "0ffb90bee1434086834a47bfd0a88b7a": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "fe254774d7794a1f8339e3d7aa74be8c": {
+              "stage": "native_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "macro_run",
+      "args": {
+        "steps": [
+          {
+            "tool": "wait",
+            "args": {
+              "seconds": 0
+            }
+          },
+          {
+            "tool": "get_mouse_position",
+            "args": {}
+          }
+        ],
+        "delay_ms": 0
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "92211f67e046c56873d3e63a08248445fb3f3b11d76a7251d5effa82e5061ea8",
+          "args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "macro_run"
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Cannot preserve execution evidence",
+        "code": "execution_receipt_failed",
+        "outcome": "not_dispatched",
+        "action_sent": false
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 101,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-8de87eb03988407cb0fd35c8cdf5fd6b.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "c6e0b4ed7d42de612c394e0e95bc7a7d19bcc21f5756985a1d5150765be968a0",
+            "at": "2026-11-11T18:36:33.679130+00:00",
+            "call_id_hash": "92211f67e046c56873d3e63a08248445fb3f3b11d76a7251d5effa82e5061ea8",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+            "caller_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "received_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "macro_run",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 150,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-44b7c02afb8f45c78701e67b6839a3ca.json",
+            "args_sha256": "97aa82ffe7735843149a75427577fb0e379abb89f3b63bf825a2951b8ac4b05b",
+            "at": "2026-11-11T18:36:33.679889+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "parent_operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 13,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3b8de749e5134cc7bc3bf97297c32229.json",
+            "args_sha256": "248b0933c5594061006f2614c501b473176b514de443d4adafbbd5554161b871",
+            "at": "2026-11-11T18:36:33.680446+00:00",
+            "batch_step": 0,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.680850+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 2,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-0ffb90bee1434086834a47bfd0a88b7a.json",
+            "args_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "at": "2026-11-11T18:36:33.681282+00:00",
+            "batch_step": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 5,
+            "stage": "tool_entered",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 49,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fdc9e123030942cfbbdc133150550651.json",
+            "args_sha256": "02b7155f87ae42409eb0d4b6b7a10a198fbed852d4bc9a6d6eaeb87c39ee604d",
+            "at": "2026-11-11T18:36:33.741329+00:00",
+            "frame_id": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fdc9e123030942cfbbdc133150550651",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "receipt_version": 1,
+            "schema": 1,
+            "sequence": 6,
+            "stage": "native_features",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 233,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fe254774d7794a1f8339e3d7aa74be8c.json",
+            "args_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "at": "2026-11-11T18:36:33.741886+00:00",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "helper_identity": [
+              "16777234",
+              "80508649",
+              "309344",
+              "1794403722517256104"
+            ],
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 7,
+            "stage": "native_prepared",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.742279+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 8,
+            "stage": "native_frame_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744175+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 9,
+            "stage": "native_entered",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744508+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 10,
+            "stage": "native_continue_intent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744889+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 11,
+            "stage": "native_continue_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748180+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 12,
+            "stage": "native_terminal",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748628+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 13,
+            "stage": "tool_terminal",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749273+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 14,
+            "stage": "tool_terminal",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749621+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 15,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+          "records_validated": 15,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "8de87eb03988407cb0fd35c8cdf5fd6b": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "44b7c02afb8f45c78701e67b6839a3ca": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3b8de749e5134cc7bc3bf97297c32229": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "0ffb90bee1434086834a47bfd0a88b7a": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "fe254774d7794a1f8339e3d7aa74be8c": {
+              "stage": "native_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "macro_run",
+      "args": {
+        "steps": [
+          {
+            "tool": "wait",
+            "args": {
+              "seconds": 0
+            }
+          },
+          {
+            "tool": "get_mouse_position",
+            "args": {}
+          }
+        ],
+        "delay_ms": 0
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": true,
+          "invocation_id": "175a03bb5fa38edf2c2e60b30c3943a1",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "c1090fc61ae531eb9820cfdaf9a435d19a2189647431b2dbc7441e8eef2fb793",
+          "args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "macro_run"
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Invalid host execution correlation metadata",
+        "code": "execution_metadata_invalid",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "macro_run",
+      "args": {
+        "steps": [
+          {
+            "tool": "wait",
+            "args": {
+              "seconds": 0
+            }
+          },
+          {
+            "tool": "get_mouse_position",
+            "args": {}
+          }
+        ],
+        "delay_ms": 1
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "196bf9c01fd6318859f883b56b06c677",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "8e8a46edfa68809480314b0a1d0c493a88221ef2e3f7ce3ebcc3e21f4c140b76",
+          "args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "macro_run"
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Actual tool or arguments differ from host execution preparation",
+        "code": "execution_arguments_mismatch",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 9007199254740992
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "d302afdb339215b7655fc716f314ded1",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "e54bc77ff8976bcaba56ccda2b5e5ea49c6b6e84225542f73211ed5290037e54",
+          "args_sha256": "389e46f2072da29da939c48fb27c8f0c8683d4c22bb315e8117758978819105f",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "39340a601c13f729070ec1f903dc0f85ad6c0a077b6b2f829a38145d5fd26ad6",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "d302afdb339215b7655fc716f314ded1"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "d302afdb339215b7655fc716f314ded1",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 46,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-f455f497941448f4a823b964145ec63c.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "ee731420573ccbfe8e841620cd930556065636739a174b9944eca04e50f34f21",
+            "at": "2026-11-11T18:36:33.765459+00:00",
+            "call_id_hash": "e54bc77ff8976bcaba56ccda2b5e5ea49c6b6e84225542f73211ed5290037e54",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "389e46f2072da29da939c48fb27c8f0c8683d4c22bb315e8117758978819105f",
+            "caller_semantic_sha256": "39340a601c13f729070ec1f903dc0f85ad6c0a077b6b2f829a38145d5fd26ad6",
+            "invocation_id": "d302afdb339215b7655fc716f314ded1",
+            "operation_id": "f455f497941448f4a823b964145ec63c",
+            "received_semantic_sha256": "39340a601c13f729070ec1f903dc0f85ad6c0a077b6b2f829a38145d5fd26ad6",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-f0d0ee85dcb04333a1bc5543e667deee.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.765916+00:00",
+            "invocation_id": "d302afdb339215b7655fc716f314ded1",
+            "operation_id": "f0d0ee85dcb04333a1bc5543e667deee",
+            "parent_operation_id": "f455f497941448f4a823b964145ec63c",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.766235+00:00",
+            "invocation_id": "d302afdb339215b7655fc716f314ded1",
+            "ok": true,
+            "operation_id": "f0d0ee85dcb04333a1bc5543e667deee",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.766532+00:00",
+            "invocation_id": "d302afdb339215b7655fc716f314ded1",
+            "ok": true,
+            "operation_id": "f455f497941448f4a823b964145ec63c",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "d302afdb339215b7655fc716f314ded1",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "f455f497941448f4a823b964145ec63c": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "f0d0ee85dcb04333a1bc5543e667deee": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 1000000000000000100
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "58a74cf82342e07c886be7820a36863eaf452c35e9921270dd7645b7ca9507a4",
+          "args_sha256": "9cfb94b42efbc03b5d406ee7f2bf47f82017d49d1efec9f999f1cf5e837c5d59",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "71a1ebaec9885702501978cd2e4a9c6c0d7d2d73da682884015cb2b181b21939",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "9b73a27680fe0faace0a753ea7ce016b"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 49,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-40ae99d688594133bb578cd70eed1cdb.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "588729db3ee6d07a3a01a7870b53dc5a23fc2f650c470448874e528c282cf93a",
+            "at": "2026-11-11T18:36:33.769521+00:00",
+            "call_id_hash": "58a74cf82342e07c886be7820a36863eaf452c35e9921270dd7645b7ca9507a4",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "9cfb94b42efbc03b5d406ee7f2bf47f82017d49d1efec9f999f1cf5e837c5d59",
+            "caller_semantic_sha256": "71a1ebaec9885702501978cd2e4a9c6c0d7d2d73da682884015cb2b181b21939",
+            "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+            "operation_id": "40ae99d688594133bb578cd70eed1cdb",
+            "received_semantic_sha256": "71a1ebaec9885702501978cd2e4a9c6c0d7d2d73da682884015cb2b181b21939",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3daf746af2a44200bd8055d5afe03780.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.769938+00:00",
+            "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+            "operation_id": "3daf746af2a44200bd8055d5afe03780",
+            "parent_operation_id": "40ae99d688594133bb578cd70eed1cdb",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.770251+00:00",
+            "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+            "ok": true,
+            "operation_id": "3daf746af2a44200bd8055d5afe03780",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.770530+00:00",
+            "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+            "ok": true,
+            "operation_id": "40ae99d688594133bb578cd70eed1cdb",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "9b73a27680fe0faace0a753ea7ce016b",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "40ae99d688594133bb578cd70eed1cdb": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3daf746af2a44200bd8055d5afe03780": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 100000000000000000000
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "a4b67e675e9d0e680877791735844801",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "ab111d7bf7abe3d9e9ef8baafee7bf9eecf89c3c0f742bf7ad3205757727e66b",
+          "args_sha256": "5c1a8ca1f9ef099b089598dd7b3313b508e86a12aedc9ff16fcabe7627954336",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "c41932075a241dc25bacdd967313bd5188299684dad3d6aee37dc17ec080aa65",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "a4b67e675e9d0e680877791735844801"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "a4b67e675e9d0e680877791735844801",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 51,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-a1934a073f2f400a9ecdfa7b7a038a00.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "a27de272b8a83fc1d2c8b3f31594da65d32b8a0cd358919fa740bae5a29a3909",
+            "at": "2026-11-11T18:36:33.773280+00:00",
+            "call_id_hash": "ab111d7bf7abe3d9e9ef8baafee7bf9eecf89c3c0f742bf7ad3205757727e66b",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "5c1a8ca1f9ef099b089598dd7b3313b508e86a12aedc9ff16fcabe7627954336",
+            "caller_semantic_sha256": "c41932075a241dc25bacdd967313bd5188299684dad3d6aee37dc17ec080aa65",
+            "invocation_id": "a4b67e675e9d0e680877791735844801",
+            "operation_id": "a1934a073f2f400a9ecdfa7b7a038a00",
+            "received_semantic_sha256": "c41932075a241dc25bacdd967313bd5188299684dad3d6aee37dc17ec080aa65",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3b978247ecb14431af1e5754debe2b7b.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.773678+00:00",
+            "invocation_id": "a4b67e675e9d0e680877791735844801",
+            "operation_id": "3b978247ecb14431af1e5754debe2b7b",
+            "parent_operation_id": "a1934a073f2f400a9ecdfa7b7a038a00",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.773979+00:00",
+            "invocation_id": "a4b67e675e9d0e680877791735844801",
+            "ok": true,
+            "operation_id": "3b978247ecb14431af1e5754debe2b7b",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.774264+00:00",
+            "invocation_id": "a4b67e675e9d0e680877791735844801",
+            "ok": true,
+            "operation_id": "a1934a073f2f400a9ecdfa7b7a038a00",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "a4b67e675e9d0e680877791735844801",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "a1934a073f2f400a9ecdfa7b7a038a00": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3b978247ecb14431af1e5754debe2b7b": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 1e+21
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "e90159245563015681f4ceab02b640f7",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "9a1b1c9e26986c1d9c0d4dc8d9fe002e468aeae3ca3833a3d130158fa5fc5fbc",
+          "args_sha256": "79106f4be33318f2b7f1f7026f4d8c8bf2ee09ba5c0d22b571ae8621e6401e10",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "ff47d493e73f563acdd8021dc4881cb270ce7589c1048059bff1f4bc5c11742b",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "e90159245563015681f4ceab02b640f7"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "e90159245563015681f4ceab02b640f7",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 35,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-13698c850fc1425a9598480926ed439f.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "afb20bd27befecf478e17580ea7d2a089995adc99a7d3b5590070e31a0d7bc7a",
+            "at": "2026-11-11T18:36:33.777046+00:00",
+            "call_id_hash": "9a1b1c9e26986c1d9c0d4dc8d9fe002e468aeae3ca3833a3d130158fa5fc5fbc",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "79106f4be33318f2b7f1f7026f4d8c8bf2ee09ba5c0d22b571ae8621e6401e10",
+            "caller_semantic_sha256": "ff47d493e73f563acdd8021dc4881cb270ce7589c1048059bff1f4bc5c11742b",
+            "invocation_id": "e90159245563015681f4ceab02b640f7",
+            "operation_id": "13698c850fc1425a9598480926ed439f",
+            "received_semantic_sha256": "ff47d493e73f563acdd8021dc4881cb270ce7589c1048059bff1f4bc5c11742b",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3b6f8b9cbdfe4a8dac5fa80e7b73ff6b.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.777444+00:00",
+            "invocation_id": "e90159245563015681f4ceab02b640f7",
+            "operation_id": "3b6f8b9cbdfe4a8dac5fa80e7b73ff6b",
+            "parent_operation_id": "13698c850fc1425a9598480926ed439f",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.777798+00:00",
+            "invocation_id": "e90159245563015681f4ceab02b640f7",
+            "ok": true,
+            "operation_id": "3b6f8b9cbdfe4a8dac5fa80e7b73ff6b",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.778095+00:00",
+            "invocation_id": "e90159245563015681f4ceab02b640f7",
+            "ok": true,
+            "operation_id": "13698c850fc1425a9598480926ed439f",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "e90159245563015681f4ceab02b640f7",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "13698c850fc1425a9598480926ed439f": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3b6f8b9cbdfe4a8dac5fa80e7b73ff6b": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 5e-324
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "197961cad2683073e64da9d89ef8536a",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "923174c538341c0f08e059f5c35dda3b9a2069ea5939b8d4c66164e78ce60e66",
+          "args_sha256": "4438c3ac16279194e1d0ba5d80555be192b74d678015f7da3f1cd7cd9e608a1c",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "1da9813cfbfecd2c61b498bb18237e94b463cbfdcaee6ab01808db2ae7f44394",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "197961cad2683073e64da9d89ef8536a"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "197961cad2683073e64da9d89ef8536a",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 36,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-f1c84a96874d4fb4bc42ef9b2e378cd7.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "a087819ae6785a87d35dbafeae235ee0fd6fa2ac14e7c3c32a22f6e4023740b2",
+            "at": "2026-11-11T18:36:33.781170+00:00",
+            "call_id_hash": "923174c538341c0f08e059f5c35dda3b9a2069ea5939b8d4c66164e78ce60e66",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "4438c3ac16279194e1d0ba5d80555be192b74d678015f7da3f1cd7cd9e608a1c",
+            "caller_semantic_sha256": "1da9813cfbfecd2c61b498bb18237e94b463cbfdcaee6ab01808db2ae7f44394",
+            "invocation_id": "197961cad2683073e64da9d89ef8536a",
+            "operation_id": "f1c84a96874d4fb4bc42ef9b2e378cd7",
+            "received_semantic_sha256": "1da9813cfbfecd2c61b498bb18237e94b463cbfdcaee6ab01808db2ae7f44394",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-952e5924734940828a33ab2dc833507e.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.781564+00:00",
+            "invocation_id": "197961cad2683073e64da9d89ef8536a",
+            "operation_id": "952e5924734940828a33ab2dc833507e",
+            "parent_operation_id": "f1c84a96874d4fb4bc42ef9b2e378cd7",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.781905+00:00",
+            "invocation_id": "197961cad2683073e64da9d89ef8536a",
+            "ok": true,
+            "operation_id": "952e5924734940828a33ab2dc833507e",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.782223+00:00",
+            "invocation_id": "197961cad2683073e64da9d89ef8536a",
+            "ok": true,
+            "operation_id": "f1c84a96874d4fb4bc42ef9b2e378cd7",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "197961cad2683073e64da9d89ef8536a",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "f1c84a96874d4fb4bc42ef9b2e378cd7": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "952e5924734940828a33ab2dc833507e": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 1.7976931348623157e+308
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "17fdcae000637adb93216a43972eb4f68ac30aef723eed17df1a1ebe0302727b",
+          "args_sha256": "cf2c51035374ebfa10df760afd34c22889d72a06c291b825fc34ea54442a5e25",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "697f1b47538a874b8f9907c85bdc3cf84fda96cb1981438cc2ce8532bfc920b1",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": true,
+        "success": true,
+        "waited_seconds": 0
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 53,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-efbee046cecc4f2f8ba39a50729e72c8.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "a624a423e142c126ab9251f5e5b6642a05f67a81f17a674e2033a2faeebdeda0",
+            "at": "2026-11-11T18:36:33.785108+00:00",
+            "call_id_hash": "17fdcae000637adb93216a43972eb4f68ac30aef723eed17df1a1ebe0302727b",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "cf2c51035374ebfa10df760afd34c22889d72a06c291b825fc34ea54442a5e25",
+            "caller_semantic_sha256": "697f1b47538a874b8f9907c85bdc3cf84fda96cb1981438cc2ce8532bfc920b1",
+            "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+            "operation_id": "efbee046cecc4f2f8ba39a50729e72c8",
+            "received_semantic_sha256": "697f1b47538a874b8f9907c85bdc3cf84fda96cb1981438cc2ce8532bfc920b1",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "wait",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 15,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-b378059667ea4cbfa48b67ab07fce5ca.json",
+            "args_sha256": "41c0a04890aa092472fc65f14ab6f340ee53b280b2625ba39c6645c4e4f9395f",
+            "at": "2026-11-11T18:36:33.785538+00:00",
+            "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+            "operation_id": "b378059667ea4cbfa48b67ab07fce5ca",
+            "parent_operation_id": "efbee046cecc4f2f8ba39a50729e72c8",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.785851+00:00",
+            "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+            "ok": true,
+            "operation_id": "b378059667ea4cbfa48b67ab07fce5ca",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.786147+00:00",
+            "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+            "ok": true,
+            "operation_id": "efbee046cecc4f2f8ba39a50729e72c8",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "206fd789c0d0e4ea805d9a9500e6d34a",
+          "records_validated": 4,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "efbee046cecc4f2f8ba39a50729e72c8": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "b378059667ea4cbfa48b67ab07fce5ca": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 9007199254740993
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "a35f5f090adebd1cab74a1180b3ef2f3",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "ec79c2fba78136175237959cc297df1061082dcccd266a2593cacd01f4f5b668",
+          "args_sha256": "389e46f2072da29da939c48fb27c8f0c8683d4c22bb315e8117758978819105f",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "39340a601c13f729070ec1f903dc0f85ad6c0a077b6b2f829a38145d5fd26ad6",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Actual tool or arguments differ from host execution preparation",
+        "code": "execution_arguments_mismatch",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "wait",
+      "args": {
+        "seconds": 0,
+        "numeric_probe": 1000000000000000128
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "8ee1289f4e4388ef3825db03457a667c",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "7a8336ae7ff430ffa52e809b7b7620f4af3b133b8f373b7d45280e9ce5d8b9e7",
+          "args_sha256": "9cfb94b42efbc03b5d406ee7f2bf47f82017d49d1efec9f999f1cf5e837c5d59",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "71a1ebaec9885702501978cd2e4a9c6c0d7d2d73da682884015cb2b181b21939",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Actual tool or arguments differ from host execution preparation",
+        "code": "execution_arguments_mismatch",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "get_mouse_position",
+      "args": {
+        "seconds": 0
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "8c8290c99434eeb1236e688442442799",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "33aa49a27a70ca87ddf530734fbb20e1a89f70a8b4cce6d49b108868021e987a",
+          "args_sha256": "248b0933c5594061006f2614c501b473176b514de443d4adafbbd5554161b871",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "d08c15777083fe4dff2883c8aa0870c2d78c4063315c74674ad4355a3b716a25",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "wait"
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Actual tool or arguments differ from host execution preparation",
+        "code": "execution_arguments_mismatch",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "get_mouse_position",
+      "args": {
+        "_meta": {
+          "org.ruyi.workbench/execution-v1": {
+            "schema": 1,
+            "invocation_id": "da235c249fdafc73ca1a82d65a984780",
+            "session_id": "sess_transport_fixture",
+            "turn_seq": 1,
+            "call_id_hash": "737f8a3f7b7993739a0a3696b571319cefd1c6df7b5c7d8ce7b2fd5a7d13f35a",
+            "args_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "args_codec": "javascript-json-utf8-v1",
+            "args_semantic_sha256": "86c5a32df62aca75e3be1ae9961d38c8a04d5d241cdd2d76a07ce50ff00b4228",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "tool_name": "macro_run"
+          }
+        }
+      },
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Host execution correlation is required before tool execution",
+        "code": "execution_metadata_required",
+        "action_sent": false,
+        "outcome": "not_dispatched"
+      }
+    },
+    {
+      "name": "macro_run",
+      "args": {
+        "steps": [
+          {
+            "tool": "wait",
+            "args": {
+              "seconds": 0
+            }
+          },
+          {
+            "tool": "missing_fixture_tool"
+          }
+        ],
+        "delay_ms": 0
+      },
+      "meta": {
+        "org.ruyi.workbench/execution-v1": {
+          "schema": 1,
+          "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+          "session_id": "sess_transport_fixture",
+          "turn_seq": 1,
+          "call_id_hash": "25a7f4b87cfc2158e32090b06d01bda44d8d2e93ee9593f15f23c5cd096610d4",
+          "args_sha256": "84a681aafbb2342f6882d80906ad4698a080d76152e9639279c0e5ca9cbd1671",
+          "args_codec": "javascript-json-utf8-v1",
+          "args_semantic_sha256": "d32245bbea1b506674ccb76750ba3722d13192bb22401e405176540b8b302389",
+          "args_semantic_codec": "ruyi-sdk-json-v1",
+          "tool_name": "macro_run"
+        }
+      },
+      "result": {
+        "ok": false,
+        "step_invocation_schema": 1,
+        "success": false,
+        "completed": 1,
+        "failed": 1,
+        "results": [
+          {
+            "step": 0,
+            "tool": "wait",
+            "ok": true,
+            "invocation_attempted": true,
+            "result": {
+              "success": true,
+              "waited_seconds": 0,
+              "ok": true
+            }
+          },
+          {
+            "step": 1,
+            "tool": "missing_fixture_tool",
+            "ok": false,
+            "invocation_attempted": false,
+            "error": "unknown or non-batchable tool: missing_fixture_tool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "7513cfe63952585dccb01686ec194c0f"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 93,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-34bd88682e8b4c7e8cec7167a166b328.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "69baeee85cc2ffb5f3847696426d11549e758b92d8c458f9877723f14511497a",
+            "at": "2026-11-11T18:36:33.792273+00:00",
+            "call_id_hash": "25a7f4b87cfc2158e32090b06d01bda44d8d2e93ee9593f15f23c5cd096610d4",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "84a681aafbb2342f6882d80906ad4698a080d76152e9639279c0e5ca9cbd1671",
+            "caller_semantic_sha256": "d32245bbea1b506674ccb76750ba3722d13192bb22401e405176540b8b302389",
+            "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+            "operation_id": "34bd88682e8b4c7e8cec7167a166b328",
+            "received_semantic_sha256": "d32245bbea1b506674ccb76750ba3722d13192bb22401e405176540b8b302389",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "macro_run",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 142,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-8b83f811db0341fd9fc803a1a935a60b.json",
+            "args_sha256": "86b90c3733ded0285ced1bfa0245e764d61ee269a6c93e1f3d39150f19bcc261",
+            "at": "2026-11-11T18:36:33.792700+00:00",
+            "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+            "operation_id": "8b83f811db0341fd9fc803a1a935a60b",
+            "parent_operation_id": "34bd88682e8b4c7e8cec7167a166b328",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 13,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-939e88df361f49d1814016c504a717ba.json",
+            "args_sha256": "248b0933c5594061006f2614c501b473176b514de443d4adafbbd5554161b871",
+            "at": "2026-11-11T18:36:33.793112+00:00",
+            "batch_step": 0,
+            "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+            "operation_id": "939e88df361f49d1814016c504a717ba",
+            "parent_operation_id": "8b83f811db0341fd9fc803a1a935a60b",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.793446+00:00",
+            "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+            "ok": true,
+            "operation_id": "939e88df361f49d1814016c504a717ba",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.793859+00:00",
+            "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+            "ok": false,
+            "operation_id": "8b83f811db0341fd9fc803a1a935a60b",
+            "schema": 1,
+            "sequence": 5,
+            "stage": "tool_terminal",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.794163+00:00",
+            "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+            "ok": true,
+            "operation_id": "34bd88682e8b4c7e8cec7167a166b328",
+            "schema": 1,
+            "sequence": 6,
+            "stage": "acc_request_terminal"
+          }
+        ],
+        "incomplete": false,
+        "request_terminal_observed": true,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "7513cfe63952585dccb01686ec194c0f",
+          "records_validated": 6,
+          "request_terminal_observed": true,
+          "request_transport_returned": true,
+          "unresolved_operation_ids": [],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": false,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "34bd88682e8b4c7e8cec7167a166b328": {
+              "stage": "acc_request_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "8b83f811db0341fd9fc803a1a935a60b": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": false
+              }
+            },
+            "939e88df361f49d1814016c504a717ba": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "7513cfe63952585dccb01686ec194c0f"
+      },
+      "result": {
+        "ok": false,
+        "code": "execution_receipt_semantics",
+        "error": "Cannot validate committed execution evidence",
+        "outcome": "unknown",
+        "incomplete": true,
+        "request_terminal_observed": false
+      }
+    },
+    {
+      "name": "execution_receipt",
+      "args": {
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6"
+      },
+      "result": {
+        "ok": true,
+        "schema": 1,
+        "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+        "records": [
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 101,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-8de87eb03988407cb0fd35c8cdf5fd6b.json",
+            "args_semantic_codec": "ruyi-sdk-json-v1",
+            "args_sha256": "c6e0b4ed7d42de612c394e0e95bc7a7d19bcc21f5756985a1d5150765be968a0",
+            "at": "2026-11-11T18:36:33.679130+00:00",
+            "call_id_hash": "92211f67e046c56873d3e63a08248445fb3f3b11d76a7251d5effa82e5061ea8",
+            "caller_args_codec": "javascript-json-utf8-v1",
+            "caller_args_sha256": "edc25afc6987fa0cc40d2f186509a29574f6ba13de984399d5ee4baaadb4d5f7",
+            "caller_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "received_semantic_sha256": "b149d3f10a6163b65cd23c0f3c843445816d597e2ea57853b5a61c378b0555e0",
+            "schema": 1,
+            "sequence": 1,
+            "session_id": "sess_transport_fixture",
+            "stage": "acc_request_accepted",
+            "tool": "macro_run",
+            "turn_seq": 1
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 150,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-44b7c02afb8f45c78701e67b6839a3ca.json",
+            "args_sha256": "97aa82ffe7735843149a75427577fb0e379abb89f3b63bf825a2951b8ac4b05b",
+            "at": "2026-11-11T18:36:33.679889+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "parent_operation_id": "8de87eb03988407cb0fd35c8cdf5fd6b",
+            "schema": 1,
+            "sequence": 2,
+            "stage": "tool_entered",
+            "tool": "macro_run"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 13,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-3b8de749e5134cc7bc3bf97297c32229.json",
+            "args_sha256": "248b0933c5594061006f2614c501b473176b514de443d4adafbbd5554161b871",
+            "at": "2026-11-11T18:36:33.680446+00:00",
+            "batch_step": 0,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 3,
+            "stage": "tool_entered",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.680850+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "3b8de749e5134cc7bc3bf97297c32229",
+            "schema": 1,
+            "sequence": 4,
+            "stage": "tool_terminal",
+            "tool": "wait"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 2,
+            "args_codec": "python-json-sorted-utf8-v1",
+            "args_ref": "args-0ffb90bee1434086834a47bfd0a88b7a.json",
+            "args_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "at": "2026-11-11T18:36:33.681282+00:00",
+            "batch_step": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "parent_operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 5,
+            "stage": "tool_entered",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 49,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fdc9e123030942cfbbdc133150550651.json",
+            "args_sha256": "02b7155f87ae42409eb0d4b6b7a10a198fbed852d4bc9a6d6eaeb87c39ee604d",
+            "at": "2026-11-11T18:36:33.741329+00:00",
+            "frame_id": 1,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fdc9e123030942cfbbdc133150550651",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "receipt_version": 1,
+            "schema": 1,
+            "sequence": 6,
+            "stage": "native_features",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "args_bytes": 233,
+            "args_codec": "exact-native-frame",
+            "args_ref": "args-fe254774d7794a1f8339e3d7aa74be8c.json",
+            "args_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "at": "2026-11-11T18:36:33.741886+00:00",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "helper_identity": [
+              "16777234",
+              "80508649",
+              "309344",
+              "1794403722517256104"
+            ],
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 7,
+            "stage": "native_prepared",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.742279+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 8,
+            "stage": "native_frame_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744175+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "frame_sha256": "030d7da4919a24f28c7e8869634a7bf44bb5da6151e269007b4dc2126d68ebf9",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "op": "mouse.position",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 9,
+            "stage": "native_entered",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a",
+            "worker_pid": 90410
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744508+00:00",
+            "challenge": "68cb763770b244629ac9085dc6438bd6",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 10,
+            "stage": "native_continue_intent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.744889+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 11,
+            "stage": "native_continue_sent",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748180+00:00",
+            "frame_id": 2,
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "fe254774d7794a1f8339e3d7aa74be8c",
+            "parent_operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 12,
+            "stage": "native_terminal",
+            "worker_id": "af1a8478979d414ab0f4f124094c559a"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.748628+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "0ffb90bee1434086834a47bfd0a88b7a",
+            "schema": 1,
+            "sequence": 13,
+            "stage": "tool_terminal",
+            "tool": "get_mouse_position"
+          },
+          {
+            "acc_pid": 90399,
+            "acc_worker_id": "855bdab689fb44ad967923342a325b8c",
+            "at": "2026-11-11T18:36:33.749273+00:00",
+            "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+            "ok": true,
+            "operation_id": "44b7c02afb8f45c78701e67b6839a3ca",
+            "schema": 1,
+            "sequence": 14,
+            "stage": "tool_terminal",
+            "tool": "macro_run"
+          }
+        ],
+        "incomplete": true,
+        "request_terminal_observed": false,
+        "semantic_validation": {
+          "semantic_version": 1,
+          "invocation_id": "0b34087640edd061c649ff12f459ecf6",
+          "records_validated": 14,
+          "request_terminal_observed": false,
+          "request_transport_returned": null,
+          "unresolved_operation_ids": [
+            "8de87eb03988407cb0fd35c8cdf5fd6b"
+          ],
+          "top_level_tool_observed": true,
+          "lifecycle_unknown": true,
+          "reported_unknown_operation_ids": [],
+          "terminal_flags": {
+            "44b7c02afb8f45c78701e67b6839a3ca": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "3b8de749e5134cc7bc3bf97297c32229": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "0ffb90bee1434086834a47bfd0a88b7a": {
+              "stage": "tool_terminal",
+              "flags": {
+                "ok": true
+              }
+            },
+            "fe254774d7794a1f8339e3d7aa74be8c": {
+              "stage": "native_terminal",
+              "flags": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "execution_receipt_version": 1,
+        "metadata_transport_supported": true
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 2,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 4,
+        "observed": 4
+      }
+    },
+    {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 2,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 4,
+        "observed": 4
+      },
+      "code": null,
+      "signal": "SIGKILL",
+      "commandExitCode": null,
+      "commandSignal": 9,
+      "status": "terminated"
+    }
+  ],
+  "retained": false,
+  "retainedRoot": null
+}
