@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T10:59:39.153365+00:00",
+  "classification": "open_dispatch_wait_entry_and_macro_terminal_attribution_gap",
+  "snapshots": [
+    {
+      "stage": "pre-kill",
+      "crossFileNonAtomic": true,
+      "files": [
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.json",
+          "bytes": 925,
+          "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.messages.ndjson",
+          "bytes": 165,
+          "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.provider.ndjson",
+          "bytes": 137,
+          "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 2985,
+          "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1"
+        }
+      ],
+      "messagesRoles": [
+        "user"
+      ],
+      "providerRoles": [
+        "user"
+      ],
+      "sessionMessageCount": 1,
+      "sessionProviderHistoryCount": 1,
+      "persistedPermissionStates": [
+        "pending",
+        "applying",
+        "allowed"
+      ],
+      "persistedRequestedTool": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "permissionRequestId": "perm_e25fb06518803930",
+      "nodeLogKinds": [
+        "server_start",
+        "tool_schema_freeze",
+        "tool_schema_freeze",
+        "turn_start",
+        "session_notes_inject",
+        "model_call_started",
+        "layout_shadow",
+        "model_call_completed",
+        "assistant_tool_batch",
+        "intervention"
+      ],
+      "accAuditFiles": [],
+      "dispatchConfirmedInvocationRowPresent": false,
+      "macroTerminalOutcomeRowPresent": false,
+      "ACCWaitEntryAckPresent": false
+    },
+    {
+      "stage": "post-kill",
+      "crossFileNonAtomic": true,
+      "files": [
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.json",
+          "bytes": 925,
+          "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.messages.ndjson",
+          "bytes": 165,
+          "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.provider.ndjson",
+          "bytes": 137,
+          "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 2985,
+          "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1"
+        }
+      ],
+      "messagesRoles": [
+        "user"
+      ],
+      "providerRoles": [
+        "user"
+      ],
+      "sessionMessageCount": 1,
+      "sessionProviderHistoryCount": 1,
+      "persistedPermissionStates": [
+        "pending",
+        "applying",
+        "allowed"
+      ],
+      "persistedRequestedTool": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "permissionRequestId": "perm_e25fb06518803930",
+      "nodeLogKinds": [
+        "server_start",
+        "tool_schema_freeze",
+        "tool_schema_freeze",
+        "turn_start",
+        "session_notes_inject",
+        "model_call_started",
+        "layout_shadow",
+        "model_call_completed",
+        "assistant_tool_batch",
+        "intervention"
+      ],
+      "accAuditFiles": [],
+      "dispatchConfirmedInvocationRowPresent": false,
+      "macroTerminalOutcomeRowPresent": false,
+      "ACCWaitEntryAckPresent": false
+    },
+    {
+      "stage": "post-restart",
+      "crossFileNonAtomic": true,
+      "files": [
+        {
+          "path": "sessions/.pretender/projection-index.json",
+          "bytes": 2606,
+          "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.json",
+          "bytes": 925,
+          "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.messages.ndjson",
+          "bytes": 165,
+          "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.provider.ndjson",
+          "bytes": 137,
+          "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 3092,
+          "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4"
+        }
+      ],
+      "messagesRoles": [
+        "user"
+      ],
+      "providerRoles": [
+        "user"
+      ],
+      "sessionMessageCount": 1,
+      "sessionProviderHistoryCount": 1,
+      "persistedPermissionStates": [
+        "pending",
+        "applying",
+        "allowed"
+      ],
+      "persistedRequestedTool": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "permissionRequestId": "perm_e25fb06518803930",
+      "nodeLogKinds": [
+        "server_start",
+        "tool_schema_freeze",
+        "tool_schema_freeze",
+        "turn_start",
+        "session_notes_inject",
+        "model_call_started",
+        "layout_shadow",
+        "model_call_completed",
+        "assistant_tool_batch",
+        "intervention",
+        "server_start"
+      ],
+      "accAuditFiles": [],
+      "dispatchConfirmedInvocationRowPresent": false,
+      "macroTerminalOutcomeRowPresent": false,
+      "ACCWaitEntryAckPresent": false
+    },
+    {
+      "stage": "terminal",
+      "crossFileNonAtomic": true,
+      "files": [
+        {
+          "path": "sessions/.pretender/projection-index.json",
+          "bytes": 2606,
+          "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+          "bytes": 1454,
+          "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.json",
+          "bytes": 925,
+          "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.messages.ndjson",
+          "bytes": 165,
+          "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6"
+        },
+        {
+          "path": "sessions/sess_55064f9201c6c0aa.provider.ndjson",
+          "bytes": 137,
+          "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af"
+        },
+        {
+          "path": "node-logs/workbench-2026-11-11.ndjson",
+          "bytes": 3092,
+          "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4"
+        }
+      ],
+      "messagesRoles": [
+        "user"
+      ],
+      "providerRoles": [
+        "user"
+      ],
+      "sessionMessageCount": 1,
+      "sessionProviderHistoryCount": 1,
+      "persistedPermissionStates": [
+        "pending",
+        "applying",
+        "allowed"
+      ],
+      "persistedRequestedTool": {
+        "name": "ai_computer_control__macro_run",
+        "arguments": {
+          "delay_ms": 0,
+          "steps": [
+            {
+              "tool": "wait",
+              "args": {
+                "seconds": 30
+              }
+            }
+          ]
+        }
+      },
+      "permissionRequestId": "perm_e25fb06518803930",
+      "nodeLogKinds": [
+        "server_start",
+        "tool_schema_freeze",
+        "tool_schema_freeze",
+        "turn_start",
+        "session_notes_inject",
+        "model_call_started",
+        "layout_shadow",
+        "model_call_completed",
+        "assistant_tool_batch",
+        "intervention",
+        "server_start"
+      ],
+      "accAuditFiles": [],
+      "dispatchConfirmedInvocationRowPresent": false,
+      "macroTerminalOutcomeRowPresent": false,
+      "ACCWaitEntryAckPresent": false
+    }
+  ],
+  "preKillAndPostKillFilesByteIdentical": true,
+  "originalSessionBodiesAndPermissionBytesUnchangedByRestart": true,
+  "restartAdditionalEffects": "A projection-index cache is created and Node server_start appended. GET-only HTTP does not mean disk-write-free startup/read-model behavior. No macro replay/model request was observed in the measured interval.",
+  "restartResumable": {
+    "dangling": true,
+    "kind": "user",
+    "turnSeq": 1,
+    "historyLength": 1
+  },
+  "observedPositiveEvidence": [
+    "Permission pending row durably includes requested macro_run name and exact wait30 parameters; applying/allowed authorization rows survive.",
+    "Session/turn user request, model-call/tool-batch metadata and allow decision persist; external stream separately retains tool_use and permission events.",
+    "Root/guardian/primary/ACC/native observed process exits and zero-input receiver state are actually measured."
+  ],
+  "missingEvidence": [
+    "No actual ACC wait-entry acknowledgement was observed.",
+    "No dispatched/started macro invocation or terminal outcome survives in the session messages/provider body or ACC audit.",
+    "Generic dangling=user does not provide a correlated interrupted macro outcome."
+  ],
+  "interpretation": "Authorization/request intent is present and must not be erased from the account. It does not prove dispatch or entering asyncio wait. Empty ACC audit cannot prove not_dispatched. model_call_completed means LLM response completion, not macro success. External runner evidence cannot manufacture product durable dispatch/cleanup receipts.",
+  "gateStatus": "Hard-abort held/release/durable outcome gates remain open;12 neutral calibration assertions are not total hard-abort acceptance."
+}

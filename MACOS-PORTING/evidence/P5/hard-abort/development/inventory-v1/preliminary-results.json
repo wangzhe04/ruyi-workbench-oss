@@ -1,0 +1,17 @@
+{
+  "facts": {
+    "exitCode": 0,
+    "e2eCount": 593,
+    "accTools": "108 preserved because worktree venv absent"
+  },
+  "fixtureHome": {
+    "exitCode": 1,
+    "fail": 2,
+    "findings": [
+      "source 233 spawn places but constant232 needs +1 inventory update",
+      "new startService env uses ...env but static guard requires explicit ...process.env before isolated overrides"
+    ]
+  },
+  "processSafety": "not run: previous && stopped at fixtureHome",
+  "rawOutput": "Tool transcript only; no file redirection was enabled on this preliminary inventory run. No live GUI or fault run."
+}

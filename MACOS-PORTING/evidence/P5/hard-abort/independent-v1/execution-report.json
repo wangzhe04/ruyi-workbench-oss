@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:56:17.801529+00:00",
+  "status": "passed_independent_wait_only_neutral_calibration",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+    "bytes": 7579,
+    "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+  },
+  "counts": {
+    "pass": 12,
+    "fail": 0,
+    "skip": 0
+  },
+  "nativeInvocations": 1,
+  "manualRetries": 0,
+  "exitCode": 0,
+  "error": null,
+  "childStillRunning": false,
+  "sourceCount": 39,
+  "artifactCount": 2,
+  "observedOuterRootBirth": 1794394573238308,
+  "observedOuterIdentities": 17,
+  "remainingObservedOuterIdentities": [],
+  "remainingRecordedFixtureIdentities": [],
+  "GUIReleased": true,
+  "engineeringRerun": false,
+  "scope": "One approved/pending ordinary wait-only call root-only SIGKILL calibration, zero input. No ACC await-entry ACK or macro invocation/terminal durable-attribution guarantee, no held/release/durable hard-abort total-gate pass. GET-only restart observations only.",
+  "phaseStatus": "in_progress"
+}

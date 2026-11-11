@@ -191,3 +191,5 @@ P5-03 AX核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，56
 能力状态/嵌套策略测试切片229a9021独立40项通过，真实缺helper、registry隐藏、Node两总闸拒绝和产品生成CLI配置分别标明；没有产品实现变化，不计实际CLI运行/TCC撤权/锁屏。最终工程语法1154、单元2499/18既有skip、静态80/7实弹skip及构建通过，独立按hash复用。[记录](evidence/P5/readiness/README.md)。
 
 真实窗口移动捕获测试切片1b03da04独立18项通过：8次实际平移中capture全部window_changed/正常exit1，有独立own-CG数值位置见证；静止前后exact bounds/scale2/四颜色PNG由独立解码核验。未测resize、物理显示布局或移动成功帧的瞬时origin，未改变产品实现。[记录](evidence/P5/transition/README.md)。
+
+96db15f6新增零输入根进程强杀校准，主执行与独立各12项通过：原5个已观察身份退出、输入中性、GET重启不重放。权限请求名/参数及allow意图仍在；dispatch/ACC wait-entry与执行终局持久归属未确认，完整hard-abort门保持开放。仅测试/夹具/清册变化。[记录](evidence/P5/hard-abort/README.md)。

@@ -1,0 +1,21 @@
+{
+  "cwd": "/tmp/ruyi-p5-hard-abort-worktree",
+  "outerRoot": "/tmp/p5abouter-wia03bt0",
+  "mode": "live",
+  "env": {
+    "HOME": "/tmp/p5abouter-wia03bt0/h",
+    "TMPDIR": "/tmp/p5abouter-wia03bt0/t",
+    "USERPROFILE": "/tmp/p5abouter-wia03bt0/u",
+    "APPDATA": "/tmp/p5abouter-wia03bt0/a",
+    "LOCALAPPDATA": "/tmp/p5abouter-wia03bt0/l",
+    "WCW_DATA_DIR": "/tmp/p5abouter-wia03bt0/w",
+    "RUYI_HOME": "/tmp/p5abouter-wia03bt0/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5abouter-wia03bt0/c",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "RUYI_P5_ABORT_REQUIRED": "1",
+    "RUYI_P5_ABORT_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_ABORT_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1"
+  }
+}

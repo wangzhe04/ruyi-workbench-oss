@@ -1869,6 +1869,19 @@
               "Node launch only; no new App LaunchServices/signing acceptance",
               "Original display/OS/Windows/formal identity and other phase gates remain"
             ]
+          },
+          "neutralAbortCalibrationSlice": {
+            "status": "passed_current_host_zero_input_calibration_total_gate_open",
+            "date": "2026-11-11",
+            "testImplementationCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+            "productRuntimeSourceChanged": false,
+            "primaryAssertions": 12,
+            "independentAssertions": 12,
+            "independentRetries": 0,
+            "scope": "Approved/pending ordinary wait-only call root-only SIGKILL, observed process cleanup,zero input,GET-only restart. Permission intent persists; dispatch/wait-entry/terminal execution attribution unconfirmed. No held-state or full hard-abort gate pass.",
+            "evidence": "evidence/P5/hard-abort/README.md",
+            "independentReport": "evidence/P5/hard-abort/independent-v1/report.json",
+            "commitBinding": "evidence/P5/hard-abort/commit-binding.json"
           }
         }
       ],
