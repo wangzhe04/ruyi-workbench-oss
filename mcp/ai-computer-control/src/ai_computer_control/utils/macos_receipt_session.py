@@ -13,7 +13,7 @@ import uuid
 from ai_computer_control.utils import macos_session as native
 from ai_computer_control.utils.execution_journal import current_operation, ExecutionJournalError, _encoded
 from ai_computer_control.utils.macos import DesktopError, _request_bytes, _identity, _failure_details, _OUTPUT_LIMIT
-from ai_computer_control.utils.macos_receipts import ReceiptDecoder, validate_features, _json
+from ai_computer_control.utils.macos_receipts import ReceiptDecoder, validate_features, _json, GENERIC_OPERATIONS
 
 
 def _current(session, *, alive=True):
@@ -29,7 +29,9 @@ def _current(session, *, alive=True):
         raise DesktopError('dependency_changed', 'Native receipt helper changed')
 
 
-def _close_owned():
+def _close_owned(expected=None):
+    if expected is not None and native._SESSION is not expected:
+        return {'cleanup_unconfirmed': True}
     try:
         native._close_input_session()
         return {}
@@ -148,10 +150,16 @@ def _exchange(session, payload, deadline, cancel_event, cancel_lock, *, operatio
     return result, identifier, frame
 
 
-def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
+def request(payload, timeout=15, cancel_event=None, cancel_lock=None, *, generic=False):
     operation = current_operation()
     if operation is None:
         raise DesktopError('input_session_protocol', 'Missing execution context for receipt exchange')
+    if generic and payload.get('op') not in GENERIC_OPERATIONS:
+        raise DesktopError('execution_receipts_unsupported', 'Native operation has no negotiated receipt route',
+                           {'action_sent': False, 'outcome': 'not_dispatched'})
+    if generic and cancel_event is None:
+        from ai_computer_control.utils.execution_context import request_cancellation
+        cancel_event, cancel_lock = request_cancellation()
     if cancel_event is not None and cancel_lock is None:
         raise DesktopError('invalid_args', 'Cancellable receipt requests require their write lock',
                            {'action_sent': False, 'outcome': 'not_dispatched'})
@@ -194,6 +202,9 @@ def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
         if features is None:
             raise DesktopError('execution_receipts_unsupported', 'Update the native helper to use execution receipts',
                                {'action_sent': False, 'outcome': 'not_dispatched'})
+        if generic and payload['op'] not in features['request_operations']:
+            raise DesktopError('execution_receipts_unsupported', 'Update the native helper for this receipt operation',
+                               {'action_sent': False, 'outcome': 'not_dispatched'})
         result, _, _ = _exchange(session, payload, deadline, cancel_event, cancel_lock,
                                  operation=operation, features=features, progress=progress)
         if result['ok'] is not True:
@@ -225,8 +236,16 @@ def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
             if monitor_started:
                 try:
                     monitor.join(timeout=.25)
+                    observer_alive = monitor.is_alive()
                 except Exception as error:
                     cleanup = _close_owned()
                     raise DesktopError('input_session_failed', 'Native cancellation observer cleanup failed', {'outcome': 'unknown', **cleanup}) from error
+                if observer_alive:
+                    # A delayed observer may already be inside terminate().
+                    # Retire this exact Popen before releasing the request
+                    # lock; it must never observe a newly reused worker.
+                    cleanup = _close_owned(session)
+                    raise DesktopError('input_session_failed', 'Native cancellation observer did not stop',
+                                       {'outcome': 'unknown', **cleanup})
         finally:
             native._LOCK.release()

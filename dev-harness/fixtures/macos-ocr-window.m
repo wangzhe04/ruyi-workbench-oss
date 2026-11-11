@@ -6,6 +6,20 @@ static NSWindow *primary, *other;
 static NSMutableArray<NSButton *> *buttons;
 static NSMutableArray<NSNumber *> *counts;
 static NSTextField *counter;
+static NSImageView *noise;
+
+static NSImageView *NoiseView(void) {
+    NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:2000 pixelsHigh:1400
+        bitsPerSample:8 samplesPerPixel:3 hasAlpha:NO isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
+    if (!bitmap) return nil;
+    // Private generated pixels, never screen/user data. High entropy makes the
+    // actual PNG cross the transcript byte quota without an injected image.
+    arc4random_buf(bitmap.bitmapData, bitmap.bytesPerRow * bitmap.pixelsHigh);
+    NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize(1000,700)]; [image addRepresentation:bitmap];
+    NSImageView *view = [[NSImageView alloc] initWithFrame:NSMakeRect(0,0,1000,700)];
+    view.image = image; view.imageScaling = NSImageScaleAxesIndependently;
+    return view;
+}
 
 static NSDictionary *Bounds(NSView *view) {
     NSRect frame = [view.window convertRectToScreen:[view convertRect:view.bounds toView:nil]];
@@ -99,6 +113,19 @@ int main(int argc, const char *argv[]) {
             while (getline(&line, &capacity, stdin) > 0) {
                 NSString *command = [@(line) stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
                 dispatch_async(dispatch_get_main_queue(), ^{
+                    if ([command isEqual:@"noise"]) {
+                        [primary setContentSize:NSMakeSize(1000,700)];
+                        noise = NoiseView();
+                        if (!noise) { [NSApp terminate:nil]; return; }
+                        [primary.contentView addSubview:noise positioned:NSWindowAbove relativeTo:nil];
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ Report(command); });
+                        return;
+                    }
+                    if ([command isEqual:@"plain"]) {
+                        [noise removeFromSuperview]; noise = nil; [primary setContentSize:NSMakeSize(820,420)];
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ Report(command); });
+                        return;
+                    }
                     if ([command isEqual:@"change"]) buttons[2].title = @"CHANGED";
                     if ([command isEqual:@"other"]) {
                         if (!other) {

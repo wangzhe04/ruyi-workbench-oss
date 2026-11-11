@@ -9,6 +9,7 @@ from contextvars import ContextVar
 import functools
 import os
 import re
+import threading
 import uuid
 
 from ai_computer_control.utils.execution_journal import ReceiptJournal, ExecutionJournalError, current_operation, operation_scope, current_batch_step
@@ -28,6 +29,20 @@ _SAFE_CONTEXTLESS_TOOLS = frozenset({'execution_receipt'})
 
 def execution_context_required():
     return os.environ.get('RUYI_EXECUTION_CONTEXT_REQUIRED') == '1'
+
+
+def request_cancellation():
+    """Shared real SDK request lifetime, including copied contexts in to_thread workers."""
+    execution = _request.get()
+    return (execution.cancel_event, execution.cancel_lock) if execution else (None, None)
+
+
+def _cancel_request(execution=None):
+    execution = execution or _request.get()
+    if execution is not None:
+        # Serialize with the bounded nonblocking native write, never journal fsync.
+        with execution.cancel_lock:
+            execution.cancel_event.set()
 
 
 def require_execution_context(tool=None):
@@ -93,6 +108,8 @@ class RequestExecution:
         self.operation_id = uuid.uuid4().hex
         self.entered = False
         self.finished = False
+        self.cancel_event = threading.Event()
+        self.cancel_lock = threading.Lock()
         try:
             reference = self.journal.snapshot(self.operation_id, arguments)
             self.journal.append('acc_request_accepted', self.operation_id, tool=tool,
@@ -133,6 +150,10 @@ def request_scope(meta, tool, arguments):
     except ExecutionJournalError as error:
         raise _journal_failure(error, entered=bool(execution and execution.entered)) from error
     finally:
+        # Cancelling an await of to_thread does not stop that thread. Publish
+        # request closure before closing its journal so the independent observer
+        # can terminate the exact owned native worker without waiting for fsync.
+        _cancel_request(execution)
         if token is not None:
             _request.reset(token)
         if execution is not None:
@@ -188,6 +209,7 @@ def wrap_tool(fn, tool, signature, failure):
                     try:
                         result = await fn(*args, **kwargs)
                     except asyncio.CancelledError as error:
+                        _cancel_request()
                         result = error.result if isinstance(error, ToolCancelled) and error.tool_name == tool else {
                             'ok': False, 'cancelled': True, 'outcome': 'unknown'}
                         try:

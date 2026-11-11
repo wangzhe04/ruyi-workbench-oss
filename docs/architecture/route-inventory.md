@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 175(精确 152 / 前缀 11 / 正则 12),ROUTE_AUTH 161 条,生成于 2026-11-11T21:17:08.989Z。
+> 判定点 175(精确 152 / 前缀 11 / 正则 12),ROUTE_AUTH 161 条,生成于 2026-11-11T22:42:26.997Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -23,11 +23,11 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/agent-runs` | exact | token self | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 44 件 |
-| GET | `/api/agent-runs/…/events` | prefix | token self | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 25 件 |
-| POST | `/api/agent-runs/` | prefix | token | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 25 件 |
-| DELETE | `/api/agent-runs/` | prefix | token | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 25 件 |
-| GET | `/api/agent-runs/` | prefix | token self | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 25 件 |
+| GET | `/api/agent-runs` | exact | token self | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 45 件 |
+| GET | `/api/agent-runs/…/events` | prefix | token self | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 26 件 |
+| POST | `/api/agent-runs/` | prefix | token | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 26 件 |
+| DELETE | `/api/agent-runs/` | prefix | token | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 26 件 |
+| GET | `/api/agent-runs/` | prefix | token self | 13d-core-domain-routes.js · `handleAgentRunApiRoutes` | agent-coordination.e2e.js, agent-deadlock-watchdog.e2e.js, agent-mode-v2.e2e.js 等 26 件 |
 
 ## checkpoint-storage(4)
 
@@ -81,7 +81,7 @@
 | POST | `/api/memory/relations/confirm` | exact | token-browser | 13-http-router.js · `handleApi` | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/relations/` | prefix | token-browser | 13-http-router.js · `handleApi` | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/` | prefix | token-browser | 13-http-router.js · `handleApi` | action-feedback.static.e2e.js, agent-quality-workflow.e2e.js, auth-deny-default.e2e.js 等 11 件 |
-| POST | `/api/stop` | exact | token-browser | 13-http-router.js · `handleApi` | agent-resource-wait-stop.e2e.js, agent-run-lifecycle.e2e.js, agent-wake.e2e.js 等 25 件 |
+| POST | `/api/stop` | exact | token-browser | 13-http-router.js · `handleApi` | agent-resource-wait-stop.e2e.js, agent-run-lifecycle.e2e.js, agent-wake.e2e.js 等 26 件 |
 | POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js · `handleApi` | context-compact-v2.e2e.js, provider-compact-recall.e2e.js, provider-compact.e2e.js 等 6 件 |
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js · `handleApi` | agent-cli-registry.test.js |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js · `handleApi` | kimi-agent-cli.e2e.js, store-walkthrough-w1.e2e.js |
@@ -108,7 +108,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js · `handleApi` | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js · `handleApi` | chat-ux-wave1.browser.e2e.js, external-bots.browser.e2e.js, file-text-encoding.e2e.js 等 9 件 |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js · `handleApi` | tool-result-render.browser.e2e.js, tool-result-shrink.test.js, vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 207 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 208 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 25 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js · `startServerInner` | — |
 
@@ -216,12 +216,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 271 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 272 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-id-path-guard.e2e.js, session-search.e2e.js, steward-runner.e2e.js 等 4 件 |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 271 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 272 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | — |
-| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 154 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 155 件 |
 
 ## steer(2)
 

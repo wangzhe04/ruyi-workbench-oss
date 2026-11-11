@@ -288,7 +288,7 @@ static void CaptureDisplays(NSDictionary *request, SCShareableContent *content, 
     next();
 }
 
-static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
+void RuyiAutomationRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
     if (![request[@"version"] isKindOfClass:NSNumber.class]
         || CFGetTypeID((__bridge CFTypeRef)request[@"version"]) == CFBooleanGetTypeID()
         || ![request[@"version"] isEqual:@1] || ![request[@"op"] isKindOfClass:NSString.class]) {
@@ -376,7 +376,7 @@ int main(int argc, const char *argv[]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (ocr ? 60 : 12) * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             done(RuyiAutomationFailure(ocr ? @"ocr_timeout" : @"capture_timeout", @"Desktop request exceeded its deadline"));
         });
-        HandleRequest(request, done);
+        RuyiAutomationRequest(request, done);
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
         [NSApp run];
