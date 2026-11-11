@@ -1,0 +1,15 @@
+...........E.......
+======================================================================
+ERROR: test_old_helper_is_refused_before_the_receipt_business_request (__main__.NativeReceiptAdapter.test_old_helper_is_refused_before_the_receipt_business_request)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_macos_receipt_session.py", line 304, in test_old_helper_is_refused_before_the_receipt_business_request
+    legacy = os.environ['RUYI_RECEIPT_SESSION_LEGACY_HELPER']
+             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen os>", line 714, in __getitem__
+KeyError: 'RUYI_RECEIPT_SESSION_LEGACY_HELPER'
+
+----------------------------------------------------------------------
+Ran 19 tests in 1.849s
+
+FAILED (errors=1)

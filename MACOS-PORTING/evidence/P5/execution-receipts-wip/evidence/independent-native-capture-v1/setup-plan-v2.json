@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T22:59:50.188041+00:00",
+  "status": "explicit_GO_received_final_frozen_v2",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-freeze-v2.json",
+    "bytes": 32390,
+    "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b",
+    "sourceCount": 125,
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "bytes": 309968,
+        "sha256": "ec6b11c1e4ff7cb4bbeb1bc4ee138b0e1e49c6b003327937669e240fccdc7ff0"
+      }
+    ]
+  },
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "loaderEnv": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "plannedStrictSerialCommands": [
+    {
+      "label": "capture",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-capture.e2e.js"
+      ],
+      "expected": 87,
+      "env": {
+        "RUYI_EXECUTION_CAPTURE_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_CAPTURE_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/capture-results.json"
+      }
+    },
+    {
+      "label": "protocol",
+      "argv": [
+        "node",
+        "dev-harness/macos-native-receipts.e2e.js"
+      ],
+      "expected": 51,
+      "env": {
+        "RUYI_NATIVE_RECEIPT_REQUIRED": "1",
+        "RUYI_NATIVE_GENERIC_RECEIPT_REQUIRED": "1",
+        "RUYI_NATIVE_RECEIPT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_NATIVE_RECEIPT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/protocol"
+      }
+    },
+    {
+      "label": "adapter",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py"
+      ],
+      "expected": 23,
+      "env": {
+        "RUYI_RECEIPT_SESSION_REQUIRED": "1",
+        "RUYI_RECEIPT_SESSION_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_RECEIPT_LEGACY_HELPER": "/tmp/ruyi-p5-receipts-helper",
+        "RUYI_RECEIPT_SESSION_LEGACY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+      }
+    },
+    {
+      "label": "pure-native",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_native_receipts.py"
+      ],
+      "expected": 16,
+      "env": {}
+    },
+    {
+      "label": "pure-required",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_required.py"
+      ],
+      "expected": 12,
+      "env": {}
+    },
+    {
+      "label": "pure-journal",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py"
+      ],
+      "expected": 18,
+      "env": {}
+    },
+    {
+      "label": "pure-control",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_control.py"
+      ],
+      "expected": 4,
+      "env": {}
+    },
+    {
+      "label": "context",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-context.e2e.js"
+      ],
+      "expected": 38,
+      "env": {
+        "RUYI_EXECUTION_CONTEXT_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_CONTEXT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/context"
+      }
+    },
+    {
+      "label": "images",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-images.e2e.js"
+      ],
+      "expected": 26,
+      "env": {
+        "RUYI_EXECUTION_IMAGES_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_IMAGES_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/images-results.json"
+      }
+    },
+    {
+      "label": "dispatch",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-dispatch.e2e.js"
+      ],
+      "expected": 32,
+      "env": {
+        "RUYI_EXECUTION_DISPATCH_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_DISPATCH_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-results.json"
+      }
+    },
+    {
+      "label": "subagents",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-subagents.e2e.js"
+      ],
+      "expected": 117,
+      "env": {
+        "RUYI_EXECUTION_SUBAGENT_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_SUBAGENT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/subagents-results.json"
+      }
+    },
+    {
+      "label": "module-graph",
+      "argv": [
+        "node",
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    },
+    {
+      "label": "routes",
+      "argv": [
+        "node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    },
+    {
+      "label": "durable",
+      "argv": [
+        "node",
+        "dev-harness/durable-state-inventory.js",
+        "--check"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    },
+    {
+      "label": "facts",
+      "argv": [
+        "node",
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    },
+    {
+      "label": "process-safety",
+      "argv": [
+        "node",
+        "dev-harness/process-safety.static.e2e.js"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    },
+    {
+      "label": "session-save-census",
+      "argv": [
+        "node",
+        "dev-harness/session-save-census.static.e2e.js"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    },
+    {
+      "label": "build",
+      "argv": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "env": {},
+      "reuseAlternative": "May explicitly read/hash reuse current final primary static/syntax/fullunit if parent GO scope selects it; no duplicate fullunit just for report."
+    }
+  ],
+  "executionPolicy": {
+    "start": "Parent explicit GO received after final gates terminal0; execute only this v2 plan, not invalidated old v1 setup.",
+    "binding": "All125 sources sha256/Gitblob bytes and4actual artifacts before/after each executed command. No rebuilding or re-signing any existing helper or App.",
+    "isolation": "Unique short/tmp/rd-* home/userprofile/twoAppData/data/TMP per command; own-process birth identity monitor and cleanup receipts; all emitted raw/logs retained.",
+    "failure": "Stop after unexpected failure, retain original output/exit/bindings; no automatic native repetition or assertion/source edits.",
+    "review": "Final native-capture-source-review-v2.json hash8442608650b46ee7173406bbe61d7dddca4d45b4dd2348a5b987eb1149579e65 no confirmed blocking findings.",
+    "GUI": "Capture harness alone launches/cleans its owned OCR/window fixture strictly serially. No unrelated Finder/entity or input/clipboard/TCC/lock action."
+  },
+  "knownScope": [
+    "Native generic exactly capture/status/ocr.image/ocr.languages; active context shares input _LOCK",
+    "New ec6helper is capture/generic capable; old955 is input-receipt-only compatibility negative; oldmain1cc is no-receipt legacy negative",
+    "Root Stop before continue/after continue before terminal observation proves exact observed worker exit and durable unknown, not native body interruption",
+    "Late/duplicate completion has source guarded-once proof/pure decoder rejection/real one-terminal observations, not deliberately forced dual platform callbacks",
+    "Large owned native canvas tests actualPNG16MiB snapshot capacity refusal, not fabricated/truncated payload or performance/large-image success",
+    "Legacy contextless one-shot retains two slots; business background/API0/CLI/resume/retention and original10+4/fullP5 gates remain open"
+  ],
+  "testsStarted": 0,
+  "nativeOrGuiStarted": 0,
+  "automaticLockSettingsChanged": false,
+  "fullP5Acceptance": false,
+  "previousSetupPlan": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/setup-plan.json",
+    "sha256": "bcf5777c9fba28f36ab4f92d8d61e3ae46ba56d2f621f6e164eab2614d63a43c"
+  }
+}

@@ -1,0 +1,23 @@
+feat(macos): preserve capture and Vision native execution receipts
+
+Host-correlated capture/status/ocr.image/ocr.languages now require explicit
+native operation negotiation and use the receipt worker without untraced
+fallback. Publish async completion once on the main run loop under the exact
+captured frame, preserving native 60/12s and caller 65/15/3s deadlines.
+
+Propagate actual SDK cancellation through copied thread contexts. Retire the
+exact worker if its old cancellation observer outlives bounded join, preserving
+unknown instead of allowing the observer to affect a successor request.
+
+Legacy contextless one-shot behavior stays unchanged. Active generic calls
+share the input worker lock. The receipt feature remains default-off. Native
+input/held faults, background/API0/resume/CLI/manual admissions, reconciliation
+and retention, original environment gates and full P5 acceptance remain open.
+
+Independent source review native-capture-source-review-v2 has no blockers and
+binds freeze-v2 8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b.
+18 independent commands exit0: actual capture87, protocol51, adapter23,
+pure16/12/18/4, context38, images26, dispatch32, subagents117 and inventories/build.
+36 before/after125-source+4-artifact bindings match and observed owned processes
+exit. Frozen engineering: units2626 pass/18 existing skips, static80 pass/13 live
+skips, syntax1179/0, build fresh. Keep all earlier development failures intact.

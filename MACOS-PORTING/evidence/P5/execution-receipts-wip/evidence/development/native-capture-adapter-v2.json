@@ -1,0 +1,6 @@
+{
+  "exitCode": 0,
+  "elapsed": 1.4070655420073308,
+  "isolation": "/tmp/rc-tbd8pzdu",
+  "previousAttempt": "v1 original existing old-no-receipt-helper environment absent, oneKeyError; new tests had run. v2 sets both distinct old helper fixtures; no assertion/source change."
+}

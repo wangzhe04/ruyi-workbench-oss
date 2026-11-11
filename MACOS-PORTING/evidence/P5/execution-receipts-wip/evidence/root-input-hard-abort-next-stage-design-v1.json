@@ -1,0 +1,445 @@
+{
+  "schemaVersion": 1,
+  "kind": "read_only_next_stage_owned_root_input_and_hard_abort_design",
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-11T23:07:48.089734+00:00",
+  "status": "balanced_normal_chain_design_ready_for_fixture_implementation_and_independent_source_review_rescue_capability_unproved_held_fault_not_authorized_by_this_plan",
+  "actions": "Read source/docs only;no tests,build,native helper,GUI,event posting,process sampling,kill,permission probe,TCC/lock/keepawake change or source edit.Only this requested design JSON created exclusively0600.",
+  "sourceState": "Current native capture source remains frozen at native-capture-freeze-v2;independent capture runner has exclusive native/GUI use.Any later input fixture changes belong to a separate candidate after current qualification;this design does not mutate that freeze.",
+  "decision": {
+    "canPrepareNext": "A separate opt-in ordinary foreground root/provider->realACC->production native balanced input chain,using a private noninteractive owned pad and a new middle/button2 pair;first implement fixture/harness only and independently source-review,freeze,then run serially.",
+    "cannotStart": "No held-state root abort and no active rescue qualification in this planning task.No current reviewed/qualified out-of-tree rescue exists.",
+    "criticalUnknown": "Current APIs/source do not prove that a mouse-up posted by an independent rescue process cannot release or misrepresent a concurrently held user hardware button;aggregation and cross-source semantics remain unproved.",
+    "noImpliedWaiver": "Successful ordinary pair or one successful rescue demonstration cannot by itself establish hardware noninterference,product automatic release,all hard-abort cases or fullP5."
+  },
+  "reviewedReusableMechanisms": [
+    {
+      "path": "dev-harness/fixtures/macos-abort-window.m",
+      "lines": [
+        11,
+        22,
+        46,
+        65,
+        78
+      ],
+      "use": "Owned plain blue pad swallows left down/up,reports actual TIS id/type,CG window owner/frame,frontmost,CG sourcePID/timestamp/location,HID+combined left/modifier states;identity mode reports PGID/SID.",
+      "gap": "Only left button counted;other buttons/up/noise insufficient;stdout evidence not independent fsynced receiver journal,no arm nonce/birth/single-case bounds;stdin EOF exits immediately.Cannot use unchanged as independent rescue."
+    },
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "lines": [
+        77,
+        84,
+        195,
+        205,
+        210,
+        215
+      ],
+      "use": "Actual default-mode provider permission decision endpoint and ordinary macro/input path,real receiver state plus audit/effect-summary checks.",
+      "gap": "Historical left fixture and manual tool target lookup must not be copied as current candidate admission bypass.New receipt-mode target must come from actual provider-admitted list_windows on the same live ACC/native session."
+    },
+    {
+      "path": "dev-harness/macos-neutral-abort.e2e.js",
+      "lines": [
+        26,
+        35,
+        43,
+        61,
+        110,
+        128,
+        243,
+        254
+      ],
+      "use": "Isolated home/data,all raw service output,exact birth snapshots/topology,root-only SIGKILL fault primitive,distinct cleanup bookkeeping,raw restart archive.",
+      "gap": "Wait-only neutral calibration is not native input dispatch/held-release proof.killOwnTree belongs only to neutral final cleanup,never the injected hard fault."
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "lines": [
+        46,
+        75,
+        150,
+        174,
+        828
+      ],
+      "use": "Retained target ref tied to handle/PID/process_start/bounds;native receipt hook before handler effects;exact target/AX member/foreground checks;no new native protocol needed for ordinary input."
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "lines": [
+        15,
+        26
+      ],
+      "use": "Actual current TIS id/type acquisition and equality guard;do not hardcode ABC/type or switch current input source."
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "lines": [
+        245,
+        273,
+        734,
+        750,
+        762,
+        781,
+        813,
+        851,
+        873,
+        903
+      ],
+      "use": "Full balanced suffix validated and allocated before first post,per-event focus/source/target/hit/permission checks,bounded8s request,private source,held sets,finally cleanup and physical-input baseline rejection.",
+      "gap": "Success events_posted means post success;receiver/application consumption and actual neutral state remain separate witnesses."
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "lines": [
+        145,
+        169,
+        185,
+        192
+      ],
+      "use": "Production input_sequence own event/lock,copy_context worker,async cancellation signals and shields until native request thread settles;typed ToolCancelled evidence.",
+      "gap": "Runnable cooperative cancellation only;SIGKILL skips this logic."
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "lines": [
+        168,
+        222,
+        258,
+        283,
+        304,
+        314
+      ],
+      "use": "Exact admitted frame receipt,TERM/INT stop observer,independent EOF observation and frame watchdog call StopEvents.",
+      "gap": "Cannot run cleanup after supervisor SIGSTOP/SIGKILL;process exit is not neutral-state proof."
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "lines": [
+        106,
+        117,
+        134,
+        150,
+        169
+      ],
+      "use": "Existing same-process ReleaseEvents/StopEvents track only own held set and preserve independent modifier bits as coded.",
+      "gap": "No exported authenticated per-invocation external rescue protocol;held sets/source refs are process-local.New linked process starts empty and ReleaseEvents could returnYES without releasing original input.Mouse-up is global kCGHIDEventTap,not target-bound.Keyboard release targets stored PID/birth but that does not supply a cross-process mouse rescue guarantee."
+    }
+  ],
+  "oldPlanReassessment": [
+    {
+      "id": "HA-S1",
+      "status": "still_material",
+      "assessment": "macos-process-helper cleanup_supervised freezes known/newly observed descendants using SIGSTOP,then SIGKILL;there is no guaranteed native/Python drain interval.Root-only kill therefore races native EOF/TERM release.No actual stuck-state conclusion inferred."
+    },
+    {
+      "id": "HA-S2",
+      "status": "partially_improved_correlation_terminal_release_still_not_guaranteed",
+      "assessment": "Current candidate ACC journals independently persist accepted/tool/native frames with invocation+worker identity and Node ledger stores the invocation.Supervisor output to dead root is still not durable release receipt;missing native/ACC terminal after kill stays unknown.External receiver is a witness,not fabricated product terminal."
+    },
+    {
+      "id": "HA-S3",
+      "status": "old_missing_intent_statement_superseded_for_admitted_schema1_scope",
+      "assessment": "13ac invoke prepares durable invocation and marks dispatch before actual client.callTool;02h open turns unACKed prepared/dispatching/returned into unknown(host_restarted).This solves original absent durable intent for supported admitted path,not background/API0/CLI/manual.No new hard-abort input runtime proved here."
+    },
+    {
+      "id": "HA-S4",
+      "status": "current_ledger_holds_unresolved_but_UI_effect_and_history_must_be_measured",
+      "assessment": "Restart guard blocks unknown/missing delivery before model/tool replay.Ordinary successful macro effect summary already records bounded returned steps.Hard abort must retain unknown incomplete macro/no false not_dispatched or success;do not reconstruct unreturned inner effect as confirmed merely from receiver down."
+    }
+  ],
+  "stageA_balancedNormalChain": {
+    "candidateChanges": {
+      "proposedHarness": "dev-harness/macos-execution-input.e2e.js",
+      "fixture": "Extend existing macos-abort-window.m or add a separately named input-only receiver;keep old neutral-abort behavior/profile intact.Only new explicit profile handles middle/button2.",
+      "production": "No production change assumed;receipt/cancel/target functions are reused as-is.Any production delta is separately reviewed/frozen."
+    },
+    "exclusiveRunGate": "After capture independent run releases exclusive native/GUI ownership and new fixture/harness independent review passes;explicit darwin+RUYI_EXECUTION_INPUT_REQUIRED=1 and explicit frozen helper/Python paths.New balanced-only profile must reject held/rescue/fault options and contain no injected fault signal.",
+    "fixtureDeltaContract": [
+      "Own uniquely titled stationary plain blue window,no text fields,links,context menu,OS notification/Finder/user content.Override otherMouseDown/otherMouseUp for button2 to consume them without side effects.Record own-window events in bounded arrays and bounded0600 append-only evidence with flush/fsync;retain stdout and evidence errors.",
+      "Fresh case nonce arms one acceptance interval,with exact receiver PID/birth/window/frame/content-interior point.Because native event has no case nonce,this nonce is observer bookkeeping,not event authenticity.Record raw sourcePID,event timestamp,button,type,flags,location and receiver counters;record all unexpected own-window input as noise without text capture.",
+      "State reports both HID and combined-session states for buttons0..2,full relevant modifier/device mask,any keyboard-key-down boolean,input source id/type,foreground+owner/frame/hit;do not record user text or globally inject/read clipboard.No input-source change.",
+      "Use new middle button2 to avoid all historical Shift/left recovery state.No modifier/key injection,drag,paste,pressure phase or physical input demonstration.All old profiles/receipts remain intact."
+    ],
+    "preconditions": [
+      "Freeze source+helper+process-helper+fixture compile artifact hashes and actual interpreter/config;private HOME/USERPROFILE/APPDATA/LOCALAPPDATA/TMPDIR/data/work/evidence paths;disable unrelated MCP auto-import,scheduler/steward/background/CLI.",
+      "External runner owns receiver outside Workbench supervised tree/group/session;prove exact PID/birth/PPID/PGID/SID and executable identity.A future rescue must additionally survive runner/control loss;ordinary receiver does not claim that capability.",
+      "Read-only readiness must already be available;no TCC prompt/revoke or deliberate lock.If helper not ready/unlocked or source/geometry/front/hit/neutral baseline fails,do not dispatch.No historical cleanup script to force baseline.",
+      "Require buttons0..2 false in both state domains,all keyboard state false,modifiers neutral,counters0/no noise and current input source intact.Stable point well inside own content,never titlebar/edge/other application."
+    ],
+    "providerSequence": [
+      {
+        "step": 1,
+        "action": "Create actual positive-turn foreground root provider session with receipt candidate enabled and genuine permissionMode default.Fake offline provider only supplies tool proposals;real ACC/native body unchanged.Record EVERY provider handler entry before result pairing logic."
+      },
+      {
+        "step": 2,
+        "action": "First actual model tool proposal uses tool_invoke_read(ai_computer_control__list_windows).Same admitted real ACC/native worker must return exact target.ref,handle,pid,process_start,bounds matching receiver birth/window.Receiver TIS id/type is observed metadata;do not call business /api/tools without admission or fabricate a parent turn."
+      },
+      {
+        "step": 3,
+        "action": "Next proposal is actual tool_invoke_exec(ai_computer_control__macro_run) with on_error stop,delay_ms0,steps=[input_sequence(two-event40ms pair),wait(seconds.02)].Fixture self-foregrounding avoids extra focus mutation;check real target/source/hit again immediately before allow.No synthetic native packet or tool replacement."
+      },
+      {
+        "step": 4,
+        "action": "Process actual permission_request once for exact known macro call and allow through /api/missions/{sid}/interventions/{requestId}/decision with expectedVersion/idempotencyKey;capture permission and real dispatch separately.No bypass claim.All native operations must be negotiated receipt frames."
+      },
+      {
+        "step": 5,
+        "action": "On model continuation verify both actual list and macro tool replies paired and persisted after strict receipt/history ACK;all root invocation IDs+native worker identities match original prepared args and receiver emitted sourcePID/birth.No later input call is returned by provider."
+      },
+      {
+        "step": 6,
+        "action": "After normal completion observe one middle down+one middle up at same planned point,both sourcePID attributable to actual native worker,flags0,no other input,neutral HID/combined states and unchanged source/window.Then inspect ACC audit,root effects and saved history;cold service reopen while neutral must retain ACKs and never replay input."
+      }
+    ],
+    "exactProspectiveSequence": {
+      "pointer_profile": "exact",
+      "target": "verbatim actual same-worker list_windows target",
+      "input_source": "actual observed {id,type},unchanged",
+      "events": [
+        {
+          "type": "mouse_down",
+          "at_us": 0,
+          "flags": 0,
+          "button": 2,
+          "click_state": 1,
+          "pressure": 0,
+          "delta_x": 0,
+          "delta_y": 0,
+          "x": "own interior X",
+          "y": "own interior Y"
+        },
+        {
+          "type": "mouse_up",
+          "at_us": 40000,
+          "flags": 0,
+          "button": 2,
+          "click_state": 1,
+          "pressure": 0,
+          "delta_x": 0,
+          "delta_y": 0,
+          "x": "same X",
+          "y": "same Y"
+        }
+      ],
+      "validation": "Exact permits pressure0 here;do not silently switch standard_mouse (which requires binary down pressure1).No native unsupported field or invented nonce added to production row."
+    },
+    "requiredAssertions": [
+      "Native operation receipt for actual input.sequence has one prepared/entered/continue/terminal and success action_sent=true/event_count2;all frame hashes/challenge/PID/incarnation/operation parent chain strict;ACC enclosing macro terminal returned.",
+      "Receiver event sourcePID must empirically match birth-verified actual native worker from committed frame trace;do not use time proximity or root/ACC PID as substitute.If source field is unavailable or does not identify actual emitter,mark source attribution unqualified and stop before claiming this predicate.",
+      "Exactly one own middle down/up,no Shift/left/key/drag or unrelated input;actual neutral state independently observed after terminal.Nonzero noise/focus/source/geometry transitions invalidate controlled scenario;do not blanket release.",
+      "Root ledger returned+deliverySha for each admitted call;strict saved paired provider history before next model continuation;provider attempts exact expected sequence;no receiver/native-only success passed as root success.",
+      "ACC audit rows macro_run and input_sequence carry actual success;turn_summary irreversible contains exactly reported input_sequence at macro step0 under actual top-level call/turn,parentTool macro_run;wait not effect.Cross-turn fold/API/read model retains attribution without declaring rollback or stronger consumption than receiver measured.",
+      "Archive raw provider requests/events,unmodified tool results,ACC event journals+snapshots/audits,Node ledger/state/history/effects,receiver independent records and process identity manifests before deleting roots.Valid cold reopen keeps same native input invocation/result ACK and permits read-only model continuation without new input."
+    ],
+    "failureCleanup": "No injected cancel/kill while any own input may be pending.Allow scheduled40ms up and runnable production finally/watchdog to settle;keep root/receiver alive and stop new dispatch.If neutral is confirmed,normal owned graceful shutdown then birth-verified cleanup allowed.If not neutral after frozen observation bound,do not auto-tree-kill or emit unqualified global rescue;preserve evidence and explicit unresolved state.No automatic retry."
+  },
+  "stageB_rescueReadOnlyDesign": {
+    "implementationStatus": "No independent rescue implementation found in reviewed fixtures.Existing clipboard/native watchdog fixtures are not per-invocation held-input rescue;normal native worker cannot survive supervisor group freeze/kill.",
+    "mustNotAssume": [
+      "CGEventSourceButtonState HID/combined is aggregate state,not a reliable owner map of physical versus each injected source.",
+      "NSEvent/CGEvent sourcePID identifies a received event issuer where present;not proof no hardware down happened later and not an ownership token embedded in the production frame.",
+      "New process cannot inherit original heldKeys/heldButtons/private CGEventSourceRef by reading its PID or linking ReleaseEvents;its empty held set returningYES is not recovery.",
+      "Target/window checks constrain receiver selection but CGEventPost(kCGHIDEventTap) mouse-up is global;current helper releases at current pointer,not guaranteed owned stationary pad.A targeted PostToPid mouse-up alternative is not qualified to neutralize original global source.",
+      "Even successful cross-source rescue of one controlled pair would not prove it never releases same-button hardware concurrently.No unattended-exclusive-physical-input guarantee exists in these sources."
+    ],
+    "requiredExternalWatchdogContract": [
+      "New independently reviewed native process with own session/group and exact executable/PID/birth,spawned by external runner before root,never child/descendant/member of Workbench supervisor set;private0600 evidence channel separate from root FD3.Do not duplicate/retain Workbench private control writer and suppress actual owner-EOF.",
+      "One-use arm token+nonce binds actual receiver identity/window/point/button2,actual helper worker PID/birth/incarnation/invocation/frame hash,input source,monotonic bounds and maximum single release action.No legacy Shift/left/global key/button sweep,retries or user notification center.",
+      "Autonomous deadline and owner/control EOF handling tested without input;rescue process cannot immediately exit with runner pipe EOF before its armed decision settles.Explicit states unarmed/armed/down-observed/product-neutral/rescue-attempted/settled;append fsynced monotonic evidence before decisions.",
+      "Down witness must be actual attributable native event and held state;refuse stale/replayed nonce,wrong PID/birth/window/button/source/time or any unexpected input.Attribution,permission and hardware-interference protections must be proven before any original held fault.",
+      "Release selection must preserve unowned flags/state and prove cross-source original hold can be neutralized without releasing user hardware.No current known implementation here satisfies this last condition.If no supported mechanism/isolation can establish it,keep held fault blocked and report capability/resource gap;never turn imagination into launch authorization."
+    ],
+    "qualificationOrder": [
+      "Independent source review of watchdog/receiver/harness architecture and failure paths before native qualification.No held-root fault in qualification profile.",
+      "No-posting arming/disarming/nonce/deadline/control-loss/self-survival/evidence/permissions checks on private fixtures;no TCC request.If readiness unavailable stop.",
+      "Only after source safety case is accepted,a separately scoped controlled cross-source release qualification may use a short complete production down/up pair with planned production up as backup;external watchdog emits its one identified up while original source still held.Qualify actual receiver delivery+HID/combined neutral and source correlation without root/group kill.Original scheduled up can later be an expected second up:record it honestly rather than claiming one-to-one pair counts or using rescue to manufacture product automatic pass.",
+      "Qualification success is bounded current-host behavior only.The same-button physical overlap ambiguity must still be resolved by a supported ownership/isolation mechanism or an explicitly recorded scope/resource decision,not timing assumptions.Only then can an independent reviewer qualify rescue for a held fault."
+    ],
+    "currentConclusion": "Held fault prerequisites are not met by present source and evidence.No executable held-fault authorization follows from this design."
+  },
+  "stageC_originalHardAbortConditionalPlan": {
+    "entryCondition": "Only after stageA independent source+runtime passes and stageB independent source review plus actual rescue qualification prove all agreed safety predicates.Capture runner must release exclusive access;never run concurrently.",
+    "scenario": "Fresh valid complete middle pair with up scheduled4000000us,unmodified production input_sequence inside actual root/provider macro followed by never-reached benign suffix;actual prefix down observed and old worker alive,up absent and held state witnessed.Root-only exact PID+birth SIGKILL within frozen100ms down-observation budget;never kill group/tree or API-stop as injected fault.",
+    "frozenBoundsProposal": {
+      "nativePlannedUpMs": 4000,
+      "latestRootKillAfterActualDownMs": 100,
+      "automaticProductNeutralByMs": 1000,
+      "independentRescueByMs": 1500,
+      "originalObservedChildrenExitByMs": 5000,
+      "status": "Prospective bounds inherited as proposal,not product SLA.Cross-process clocks must be explicitly calibrated or use same-boot monotonic native timestamps;wallclock-only comparisons insufficient.If instrumentation cannot meet bounds,do not inject fault."
+    },
+    "automaticPass": "Actual attributed down before kill and original up pending;receiver actual up plus HID/combined neutral before any external release;all observed original children gone;no late scheduled up/extra event;current invocation unknown/interrupted durable across cold restart and blocks model/input replay.Confirmed prefix can be observed,but whole macro never success/not_dispatched/rolled_back after down.",
+    "rescueIntervention": "If watchdog posts,record intervention=true/productAutomaticRelease=false,and gate fails/incomplete regardless of eventual neutral.Before any restart keep receiver/rescue alive until settled;do not falsify product release receipt from external witness.",
+    "inconclusive": "No attributed down,late kill,missing sampler,scheduled up already occurred,source mismatch or unsafe interference is no hard-held pass.No automatic retries.",
+    "restart": "Only after neutral+original identities gone,preserve raw evidence then cold reopen same private root with auto-resume disabled;guard unknown before every model/tool,provider global attempt count unchanged and no input replay.Compare durable history/effect/audit to native/receiver prefix without inventing missing terminal."
+  },
+  "remainingOriginalScope": {
+    "mappingSource": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-effects.json",
+    "localIDs": [
+      "live_input_recording",
+      "cancelled_action_audit",
+      "approval_and_native_audit",
+      "file_checkpoints",
+      "actual_ime",
+      "live_revoke_and_lock",
+      "layout_transition",
+      "catalog_readiness_and_hidden_tools",
+      "selected_application_candidate_scope",
+      "status_and_bindings"
+    ],
+    "externalIDs": [
+      "physical_displays",
+      "minimum_os",
+      "windows_candidate",
+      "release_identity"
+    ],
+    "carryForward": "All10local+4external IDs retain their recorded status/scope;this plan neither resets closed scoped work nor drops open predicates.",
+    "stillOpen": [
+      "Actual independently admitted background/API0(real turn0)/persisted resume workflows with explicit versioned schema2/lifetime and durable consumer history;no fabricated foreground parent turn or relaxed schema1.",
+      "Authenticated root-owned CLI MCP relay/main+subagent actual response persistence;manual API/MCP/standalone actual user request admission and transcript lifecycle.",
+      "Root restart reconciliation with historical peer/arguments/trusted connector-data-root locator,strict receipt reader;terminal without output/history cannot recreate result or prove consumption.",
+      "ACC/private-history retention ACK/trusted history,global bytes/file quotas,session delete/rewind;no unknown eviction to fit bounded storage.",
+      "Actual TCC revoke/denied/regrant and action-time lock held/conditional clipboard gates remain;no deliberate unattended lock/TCC revoke.",
+      "Actual display topology/nonRetina/mixedscale/negative origin/macOS14,same-final-candidateWindows,formal App/release identity/credentials/clean-install.",
+      "Exact/schema2 manual supported subset and historical physical strict failures remain preserved;standard_mouse/schema3 selected scope does not waive them.No repeat physical你好/drag/Finder demonstration."
+    ],
+    "restoration": "WholeP5 remains in_progress.No lock/TCC/keepawake restoration or new automation in this read-only task;original restoration only after fullP5."
+  },
+  "requiredReviewAndExecutionSequence": [
+    "Finish current native-capture frozen independent acceptance without modifying sources.",
+    "Implement only stageA test/receiver delta;independent source review,freeze source+artifacts,then owner serial runtime and independent acceptance.",
+    "Separately design/implement stageB watchdog and establish actual ownership/noninterference capability;independent source review BEFORE active qualification.",
+    "Do not enter stageC unless every rescue prerequisite actually qualified;otherwise continue other authorized original P5 work and report precise remaining capability gap."
+  ],
+  "reviewedSourceManifest": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/plan-review-v1.json",
+      "bytes": 25434,
+      "sha256": "c531a47463c9a1f0e064157fa2f60c0479f573ee011d471b5ff377abda782779"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-effects.json",
+      "bytes": 17089,
+      "sha256": "d81fe75fdd5f7514f37bc20023bbb848329f73cf8536223346ca89b7fae84d2e"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json",
+      "bytes": 51090,
+      "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 12246,
+      "sha256": "cef7dc656d39df5d6bc6243250be553e6779913424ccd599fd69fa264bb1c40c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state.json",
+      "bytes": 52151,
+      "sha256": "8ef31090927d8c36627c7bd694a037705125808535d85e833aab6bc922e958e4"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/macos-abort-window.m",
+      "bytes": 6395,
+      "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-neutral-abort.e2e.js",
+      "bytes": 25436,
+      "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-native-entry.e2e.js",
+      "bytes": 23040,
+      "sha256": "0ff3118106addde25b2c10fdda8c88756e48c755ddab39254c550a934c2517a7"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-audit-cancellation.e2e.js",
+      "bytes": 10208,
+      "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-input-events.e2e.js",
+      "bytes": 23780,
+      "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 18470,
+      "sha256": "d647510e88323cdba786022147adf0beb3bc921ed96e001dd45fa2560a0aa7c3"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/resources/macos-automation-record-events.m",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/resources/macos-process-helper.c",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9269,
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 14931,
+      "sha256": "fa87007f33587a73f1b4a3508515da264fea3d82f0ed5088fc20f84540daf472"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12994,
+      "sha256": "2c9ea109d227d2483c50df2606787b2ad521b9299164f56ee63bf425c5796de3"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 36479,
+      "sha256": "f402d9f45cf7cba5eb3541f2fd4ac2c3fc448705eb3cf7cf135438ff61daf965"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 28740,
+      "sha256": "e2c4076371c118d67db6aed6ed92a80fbe88a1f4dbe92c8f71209d92c344ad27"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 433480,
+      "sha256": "301ba64028ee3c499f9296f9453b63bee099aaf06e39b051e9127714e2152bee"
+    }
+  ],
+  "priorNativeReview": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/native-capture-source-review-v2.json",
+    "bytes": 74447,
+    "sha256": "8442608650b46ee7173406bbe61d7dddca4d45b4dd2348a5b987eb1149579e65"
+  },
+  "priorHardAbortPlanPreserved": true,
+  "noRuntimeAcceptanceClaim": true
+}

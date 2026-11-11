@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "kind": "independent_read_only_native_capture_ocr_initial_production_source_review",
+  "createdAt": "2026-11-11T22:14:28.549363+00:00",
+  "workspace": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "baseCommit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "status": "initial_source_findings_repaired_no_new_confirmed_blocker_in_seven_reviewed_production_files_not_final_acceptance",
+  "boundary": {
+    "sourceEdits": false,
+    "testsRun": false,
+    "nativeOrHelperOrGuiRun": false,
+    "isFreeze": false,
+    "isFinalSourceReview": false,
+    "isIndependentRuntimeQualification": false,
+    "fullP5Accepted": false,
+    "defaultActivation": "off",
+    "scope": "Seven production generic receipt/cancellation/native dispatcher files and three changed smoke test sources only. New capture e2e/census/docs changes and later source/test additions require their own final snapshot review."
+  },
+  "findings": [
+    {
+      "id": "NC1",
+      "priority": "P2",
+      "title": "Canceled observer may outlive join and terminate reused worker",
+      "originalLocation": "macos_receipt_session.request finally: monitor.join(timeout=.25) then unconditional native._LOCK.release",
+      "reproductionBySource": "Observer has seen cancel/current session and entered delayed child.terminate; request completes normal exchange while observer remains alive beyond250ms; finally releases lock and successor can reuse same Popen; delayed observer then terminates successor request worker. No native execution required to establish this interleaving.",
+      "impact": "False native failure and worker-lifetime crossover; not identified as admission or unsafe-promotion bypass. Reused input infrastructure predated generic integration, but new real SDK cancellation exposes it to capture/OCR.",
+      "repairObserved": "Finally now calls monitor.is_alive after bounded join and, while still holding request lock, closes/quarantines only expected exact session and raises typed unknown if observer survives. _close_owned(expected) refuses to close a different _SESSION. A delayed observer can only later signal its retired old Popen.",
+      "repairLocation": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py:233",
+      "testSource": "test_delayed_old_cancel_observer_cannot_reuse_or_terminate_successor_worker uses actual thread/lock and mocked exchange/Popen/session cleanup; gates old terminate beyond join interval and verifies unknown,old retirement,new worker completion,and only old termination.",
+      "state": "closed_by_static_rereview_runtime_validation_pending_parent"
+    }
+  ],
+  "sourceAssessment": [
+    {
+      "area": "exact generic feature protocol",
+      "result": "GENERIC_OPERATIONS is capture/status/ocr.image/ocr.languages. validate_features validates bounded known unique string list, absent field means no generic support. Actual helper advertises four literals; generic request requires supported operation before semantic exchange. Old input-only helper refuses explicitly; no legacy one-shot fallback."
+    },
+    {
+      "area": "routing/legacy compatibility",
+      "result": "macos.request active operation routes to receipt_request with original payload/timeout and generic=True before legacy child/2slot path. Contextless exactstatus exception and no-operation one-shot route remain original. Required mode lost context for other ops still refuses. New active route deliberately shares single input worker and nonblocking_LOCK."
+    },
+    {
+      "area": "real SDK lifetime/cancellation",
+      "result": "RequestExecution holds real Event+write Lock; copied _request context observes same object. Async cancellation signals before tool_terminal persistence; scopefinally signals before journal close. Generic adapter picks up these actual handles and existing independent observer can terminate exact worker without waiting for journal fsync. This does not make asyncio.to_thread itself cancelable; late worker/journal/Stop behavior still needs actual acceptance."
+    },
+    {
+      "area": "native async frame ownership",
+      "result": "Only fully valid control plus four literals selects generic dispatcher. ownedFrame captures exact current receipt object identity; challenge is filled once by existing entry handshake before business dispatch. Finish/publish accesses completion and global frame state only on main runloop, checks exact active frame pointer, ignores duplicate completion, writes one terminal, then resets/signals once. Input route retains original single handler-entry hook; no reentrant-enter weakening."
+    },
+    {
+      "area": "dispatcher/body reuse",
+      "result": "Static HandleRequest was exported as RuyiAutomationRequest and existing one-shot main calls same body. Session generic entry invokes hook once before same body, input family still calls InputRequest once. Unknown generic operation rejects in Python before worker creation; no-control persistent session does not gain generic surface."
+    },
+    {
+      "area": "timeouts and output",
+      "result": "Caller65/15/3 forwarded unchanged; native session watchdog60 for negotiated generic OCR and12otherwise; entry/continue2seconds unchanged. Existing aggregate native output bound68MiB and own cleanup remain. No performance or deadline runtime qualification inferred from static code."
+    }
+  ],
+  "confirmedRemainingBlockingSourceFindings": [],
+  "requiredBeforeFinalReviewOrQualification": [
+    "Run observer20 suite on exact repaired bytes; prior19pass and pre-fix capture success cannot transfer as final-byte qualification.",
+    "Actual root/SDK Stop during entry fsync,after continue and asynccapture/OCR; verify canceled task background thread cannot publish a false completed tool or keep native worker reusable after uncertainty.",
+    "EOF,worker exit,output blockage,terminal journal EIO,callback delays/duplicates and native60/12 deadlines under exact source/helper binding.",
+    "Actual main and genuine foreground-node required native screenshot image bytes saved/reloaded before delivered and next SDK/model call; current private node snapshot16MiB overflow must hold without image dropping or replay.",
+    "Default-off no-context2slot legacy capture/status/OCR compatibility; old helper/input protocol regressions and explicit active-context serial/busy behavior.",
+    "Final source/helper freeze and independent serial native qualification; no GUI/input/held/rescue scope expansion from basic screenshot/OCR results."
+  ],
+  "parentDevelopmentEvidenceBoundary": {
+    "reportedBeforeRepair": "Pure feature/route/copiedcancel/earlycancel tests pass; actual adapter19pass and initial real capture/OCR development success were reported by parent, not executed/log-qualified here.",
+    "failureHistory": "Parent reports preserved initial legacy-helper missing-env KeyError corrected by environment only; capture-v1 missing OCR toolset corrected in isolated fixture config. No finding is waived by this report and no failed run is relabeled accepted.",
+    "afterRepair": "Parent preparing20adapter and full final-byte reruns; this report does not claim those results."
+  },
+  "sourceManifest": [
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12994,
+      "sha256": "2c9ea109d227d2483c50df2606787b2ad521b9299164f56ee63bf425c5796de3",
+      "kind": "production"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 14189,
+      "sha256": "e117594fa5bb6f8ce59a2a3a184c3cb42ce2a4bed46fd0c7dd9f1f0fc5b6f08b",
+      "kind": "production"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 14931,
+      "sha256": "fa87007f33587a73f1b4a3508515da264fea3d82f0ed5088fc20f84540daf472",
+      "kind": "production"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 8546,
+      "sha256": "371287a8644b9746d5e6b1559997e9e5ad80f10e7bce0e55de51fa3d41c40987",
+      "kind": "production"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23092,
+      "sha256": "78309aa3e36a7d4d75f2aa1788e896b182b2773e90e3b1c931ce40ca352f6ad4",
+      "kind": "production"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 18470,
+      "sha256": "d647510e88323cdba786022147adf0beb3bc921ed96e001dd45fa2560a0aa7c3",
+      "kind": "production"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4717,
+      "sha256": "5eb063a03f058272a7f59335a0dbfc46f69cc7166b67cae78a63ec9ecfae5cf2",
+      "kind": "production"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "bytes": 8451,
+      "sha256": "9ea60cb41aefbd4088d281cd97446dfa080774f496e6de5a27a1b0a660687b7b",
+      "kind": "test_source_inspected_not_executed"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 20563,
+      "sha256": "b6e5769e17d1a696660b89228fb65310558e8251eabc098b330862ecb8f9a174",
+      "kind": "test_source_inspected_not_executed"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 8388,
+      "sha256": "af55dff1f9b61e1051e0f915a2acd18df200a6ed057c99030bcddfa47b5c3be4",
+      "kind": "test_source_inspected_not_executed"
+    }
+  ],
+  "proofLimits": [
+    "Basic real ScreenCaptureKit/real Vision success is narrower than complete Stop/EOF/capacity/restart qualification.",
+    "No native screenshot correctness across all applications,OCR semantic accuracy,provider/application consumption,background/API0/CLI/resume support or fullP5 claim.",
+    "Unchanged single native._LOCK shared with input is an intentional opt-in concurrency behavior change,not unchanged legacy capture parallelism.",
+    "Unknown evidence remains conservative; no native replay,default activation,lock/TCC/held/rescue changes authorized."
+  ]
+}

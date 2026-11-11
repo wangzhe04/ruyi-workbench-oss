@@ -1974,6 +1974,56 @@
               "historical reconciliation/retention/global quotas/delete/rewind",
               "original10 local+4external gates preserved"
             ]
+          },
+          "nativeCaptureReceiptsSlice": {
+            "date": "2026-11-12",
+            "status": "passed_default_off_selected_native_capture_Vision_receipt_scope_full_P5_open",
+            "implementationCommit": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+            "candidateSourceCommit": "56c970cf885de4a249c637fe10d3419115ffa979",
+            "productionDefault": "off",
+            "scope": "Node serve plus exact frozen helper: explicit generic4 feature negotiation, async captured-frame native completion, real owned-window screenshot and local/captured Vision, actual node small PNG delivery/model request/cold reopen, selected rootStop/terminalEIO/historyEIO and16MiB real native node-image quota refusal. No posted input or held root fault, not App/release identity acceptance.",
+            "sourceReview": "evidence/P5/execution-receipts-wip/evidence/native-capture-source-review-v2.json",
+            "freeze": "evidence/P5/execution-receipts-wip/evidence/native-capture-freeze-v2.json",
+            "independentReport": "evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/report.json",
+            "independentCommands": 18,
+            "failures": 0,
+            "skips": 0,
+            "retries": 0,
+            "bindings": {
+              "sourceFiles": 125,
+              "artifacts": 4,
+              "beforeAfterSnapshots": 36,
+              "allMatched": true
+            },
+            "cases": {
+              "actualNativeCaptureVisionAndFaults": 87,
+              "nativeProtocol": 51,
+              "adapter": 23,
+              "pureNative": 16,
+              "pureRequired": 12,
+              "journal": 18,
+              "control": 4,
+              "contextRegression": 38,
+              "mainImageRegression": 26,
+              "mainDispatchRegression": 32,
+              "foregroundSubagentRegression": 117
+            },
+            "engineering": {
+              "unitPassed": 2626,
+              "unitExistingSkipped": 18,
+              "unitFailed": 0,
+              "staticPassed": 80,
+              "centralLiveSkipped": 13,
+              "syntax": 1179,
+              "buildFresh": true
+            },
+            "sourceOnlyBoundaries": [
+              "forced native duplicate/old-frame callback safety",
+              "native OCR watchdog >12s and <60s timing branch; actual shorter caller deadline separately tested"
+            ],
+            "interpretation": "Root Stop proves cleanup and unknown before terminal observation, not interruption of capture body. Active generic shares input lock; legacy contextless one-shot2slots unchanged.",
+            "originalRequirementMapping": "evidence/P5/execution-receipts-wip/../remaining-resolution-2026-11-11-effects.json",
+            "fullP5Accepted": false
           }
         }
       ],
