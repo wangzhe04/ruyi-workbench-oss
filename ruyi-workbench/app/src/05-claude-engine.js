@@ -217,6 +217,9 @@ async function runClaudeTurn({
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
   assertSessionExecutionOwner(session.id, executionOwner);
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 会话，请使用工作台原生引擎。'), { code: 'execution_cli_unavailable' });
+  await DesktopExecutionHooks.guard(session.id);
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
@@ -310,6 +313,7 @@ async function runClaudeTurn({
   // v0.8-S0: bump the session-level monotonic turn counter at turn start (see runOpenAiTurn).
   if (!_resumeRecoveryAttempt) {
     session.turnSeq = (Number(session.turnSeq) || 0) + 1;
+    DesktopExecutionHooks.admit(session, executionOwner);
     session.messages.push({
       role: 'user',
       content: message,

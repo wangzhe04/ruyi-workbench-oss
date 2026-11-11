@@ -75,6 +75,35 @@ async def _tool_lifespan(_server):
 
 
 class PlatformMCP(FastMCP):
+    async def call_tool(self, name, arguments):
+        from ai_computer_control.utils.execution_context import request_scope
+        from ai_computer_control.utils.macos import DesktopError
+        # The SDK owns this context. Model arguments are never merged into transport metadata.
+        try:
+            factory = getattr(self, 'get_context', None)
+            context = factory() if callable(factory) else None
+            request = getattr(context, 'request_context', None)
+            meta = getattr(request, 'meta', None)
+        except (ValueError, LookupError, AttributeError):
+            meta = None
+        try:
+            with request_scope(meta, name, arguments) as execution:
+                try:
+                    result = await super().call_tool(name, arguments)
+                except BaseException as error:
+                    if execution:
+                        try:
+                            execution.finish(returned=False)
+                        except Exception:
+                            if not isinstance(error, asyncio.CancelledError):
+                                raise
+                    raise
+                if execution:
+                    execution.finish(returned=True)
+                return result
+        except DesktopError as error:
+            return _fail_envelope(error, name)
+
     async def list_tools(self):
         tools = await super().list_tools()
         if sys.platform != "darwin":
@@ -300,7 +329,9 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
                 _record(out, args, kwargs, t0)
                 return out
 
-        registered = _raw_tool(*d_args, **d_kwargs)(wrapper)
+        from ai_computer_control.utils.execution_context import wrap_tool
+        receipt_wrapper = wrap_tool(wrapper, tool_name, sig, _fail_envelope)
+        registered = _raw_tool(*d_args, **d_kwargs)(receipt_wrapper)
         _slim_registered_schema(d_kwargs.get("name") or (d_args[0] if d_args and isinstance(d_args[0], str)
                                                          else tool_name))
         return registered

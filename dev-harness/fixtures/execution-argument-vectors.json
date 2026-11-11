@@ -1,0 +1,166 @@
+{
+  "codec": "ruyi-sdk-json-v1",
+  "description": "Expected SDK-decoded values from exact JSON.stringify tokens: arbitrary precision decimal integer versus binary64 float, UTF8 key order. This does not bind original wire spelling or authorize calls.",
+  "vectors": [
+    {
+      "wire": "null",
+      "sha256": "5ac96f3432d1480efda814543919893b8f4d7ea9b93d486fd995c45747a8cb57"
+    },
+    {
+      "wire": "true",
+      "sha256": "742a56eca6902186d98b8bde35813d164b308b18a4355b25c71f4617b98fa001"
+    },
+    {
+      "wire": "false",
+      "sha256": "da08489727d9c2684349f546d961d17e0ff1958e0cf3ebe8332c97f1a1ed6197"
+    },
+    {
+      "wire": "0",
+      "sha256": "c5ce8b2fb67a0f18088d8c0e9e716f1f2d6914fcc3273ac8e35d9921cfe0838c",
+      "numeric": {
+        "type": "int",
+        "decimal": "0"
+      }
+    },
+    {
+      "wire": "0",
+      "sha256": "c5ce8b2fb67a0f18088d8c0e9e716f1f2d6914fcc3273ac8e35d9921cfe0838c",
+      "numeric": {
+        "type": "int",
+        "decimal": "0"
+      }
+    },
+    {
+      "wire": "1",
+      "sha256": "32bb1b4e9dc5132c51498bb26ad4ea3587e1330a167fb44e789a2353059b5290",
+      "numeric": {
+        "type": "int",
+        "decimal": "1"
+      }
+    },
+    {
+      "wire": "-1",
+      "sha256": "55029b9fea5049e06260c99837a29a02713a8c14511f69c710683de2f3d31b69",
+      "numeric": {
+        "type": "int",
+        "decimal": "-1"
+      }
+    },
+    {
+      "wire": "0.000001",
+      "sha256": "0a255eed1ddad8fbde7a3a809750d9857be56eb041a371a5c3fbaaa2695a86fc",
+      "numeric": {
+        "type": "float",
+        "bits": "3eb0c6f7a0b5ed8d"
+      }
+    },
+    {
+      "wire": "100000000000000000000",
+      "sha256": "e1c7e0886e3c3a3bb07c018687af1e277d10e47643632d57474a46c3fd792b2d",
+      "numeric": {
+        "type": "int",
+        "decimal": "100000000000000000000"
+      }
+    },
+    {
+      "wire": "1e+21",
+      "sha256": "7fcd0758961b04dbf0445809462c1d2b0c0abafc2551923dc10343109edb5e58",
+      "numeric": {
+        "type": "float",
+        "bits": "444b1ae4d6e2ef50"
+      }
+    },
+    {
+      "wire": "5e-324",
+      "sha256": "77abfa82898c7ea7f9cc7608dfe67647051d08dd46788c2855acf774c863a91e",
+      "numeric": {
+        "type": "float",
+        "bits": "0000000000000001"
+      }
+    },
+    {
+      "wire": "1.7976931348623157e+308",
+      "sha256": "2bb1b59a47c67dc36f69fe44021ac0eb07a232e93b7c4eb32c83804b5c3c1a6a",
+      "numeric": {
+        "type": "float",
+        "bits": "7fefffffffffffff"
+      }
+    },
+    {
+      "wire": "\"你好🚀\\u0000\\\"\\n\"",
+      "sha256": "f014a061dc35ee1f8d64fcdf37ff9853af10416250d47b43e01fecd8c5fc3eec"
+    },
+    {
+      "wire": "[]",
+      "sha256": "09747e6a625c7a0c1951d51bfdb7ba6344f2b56da6cc21e57bb365026bd3aa63"
+    },
+    {
+      "wire": "{}",
+      "sha256": "86c5a32df62aca75e3be1ae9961d38c8a04d5d241cdd2d76a07ce50ff00b4228"
+    },
+    {
+      "wire": "[1,\"1\",true,null]",
+      "sha256": "0f184a2f7b35bc191da3027a5d36f42b67c33842036d457d1f2b719d3bc951bc"
+    },
+    {
+      "wire": "{\"b\":2,\"a\":1}",
+      "sha256": "0f18e4b3d2851f5154505a082f0fac8b157a7b2d86118e98d771a6c595c485b9"
+    },
+    {
+      "wire": "{\"𐀀\":1,\"\":2}",
+      "sha256": "9c46bf4ed589deb864b9aa67ffd354faec01615f8cc65cb79a1772a5fe9438f2"
+    },
+    {
+      "wire": "{\"text\":\"é\"}",
+      "sha256": "26941b50ef83528c1d2fd9c9e171fc305aaf064efe40cd2267aaa59309ae28f5"
+    },
+    {
+      "wire": "{\"text\":\"é\"}",
+      "sha256": "34794a48ac9d2ad3533e45cff2008a0a16587be1ce78d7258dfb39f83a29cdf9"
+    },
+    {
+      "wire": "{\"__proto__\":{\"prototype\":\"value\"}}",
+      "sha256": "9517b82bcb323c5665c098ef2ff60548fe5de8b61a9b3c6058fe93416da5a748"
+    },
+    {
+      "wire": "9007199254740992",
+      "sha256": "26a39da863957bfea069c3b91840be51cd61bc743249082ec706b5badfa647c2",
+      "numeric": {
+        "type": "int",
+        "decimal": "9007199254740992"
+      }
+    },
+    {
+      "wire": "1000000000000000100",
+      "sha256": "f2bd54959232f30b10d82fbc6440a9b17054fbcf4ec2ddf21311305fe0ec985e",
+      "numeric": {
+        "type": "int",
+        "decimal": "1000000000000000100"
+      }
+    },
+    {
+      "wire": "-1000000000000000100",
+      "sha256": "f0d06415166b873270007a5056c897da2fc4a3215a632139582ca2f1e878e56a",
+      "numeric": {
+        "type": "int",
+        "decimal": "-1000000000000000100"
+      }
+    },
+    {
+      "wire": "999999999999999900000",
+      "sha256": "f47831d9df061b407cb62c38836a369952002a9a386d7fefaa3bef0bc256f4af",
+      "numeric": {
+        "type": "int",
+        "decimal": "999999999999999900000"
+      }
+    },
+    {
+      "wire": "1e-7",
+      "sha256": "7bec6894f1ec54334651d0c68c0938e5774bcc31b03f05a6d19cbce313d7fbb9",
+      "numeric": {
+        "type": "float",
+        "bits": "3e7ad7f29abcaf48"
+      }
+    }
+  ]
+}

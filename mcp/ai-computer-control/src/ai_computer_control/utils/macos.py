@@ -86,6 +86,11 @@ def _failure_details(result):
 
 def request(payload, timeout=15):
     """Run a child with bounded input, output, concurrency and lifetime. Never return native stderr."""
+    # Exact status is the only contextless native readiness probe. Other native routes must
+    # not silently regain legacy behavior if a raw thread/task lost the host operation context.
+    if payload != {'op': 'status'}:
+        from ai_computer_control.utils.execution_context import require_execution_context
+        require_execution_context()
     path = helper_path()
     try:
         identity = _identity(path)

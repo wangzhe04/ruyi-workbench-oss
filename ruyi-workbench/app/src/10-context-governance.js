@@ -2119,6 +2119,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       : (extraSignal || undefined);
     try {
       const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(bodyObj) : bodyObj;
+      await DesktopExecutionHooks.beforeModelRequest(econCtx?.sessionId);
       if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
       const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: mergedSignal });
       if (!res || !res.ok) {
@@ -3814,6 +3815,8 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
+    await DesktopExecutionHooks.guard(session.id);
+    assertSessionExecutionOwner(session.id, settleEntry);
     // Keep the admission check→owner registration synchronous. Legacy-history I/O happens only
     // after this turn owns the session, under the existing cancellation and finally cleanup.
     if (typeof PrivacyGateway !== 'undefined') {
@@ -3874,6 +3877,8 @@ async function runSessionTurn(input) {
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       assertSessionExecutionOwner(session.id, settleEntry);
+      await DesktopExecutionHooks.guard(session.id);
+      assertSessionExecutionOwner(session.id, settleEntry);
       lastTurnTokens = 0;
       const atts = driverAuto ? [] : attachments;
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
@@ -3884,8 +3889,10 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
+        await DesktopExecutionHooks.run(session, async () => {
         if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
         else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -3948,6 +3955,7 @@ async function runSessionTurn(input) {
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
+    DesktopExecutionHooks.release(session.id, settleEntry);
     const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
     if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     if (session.kind === 'steward' && typeof PrivacyCore.configHooks.settleStewardPrivacy === 'function') {

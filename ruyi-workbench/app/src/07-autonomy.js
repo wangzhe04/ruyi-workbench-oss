@@ -511,7 +511,7 @@ const BRIDGED_READ_TOOLS = new Set([
   // 不弹窗)。它落回默认 'exec':read/edit 子代理拿不到,非 bypass 模式点击前弹窗。纯只读文本定位仍可用 ocr_screen/
   // ocr_image(返回全部词+坐标)或 find_on_screen/find_template(模板匹配,无 click、均无 audit → 仍是 read)。
   'find_template', 'find_all_templates', 'find_on_screen',
-  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail',
+  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail', 'execution_receipt',
   'read_file', 'file_info', 'clipboard_get', 'clipboard_read', 'get_clipboard',
   // 审计 A10:ACC 里其余【纯读、不点不敲不写】的工具(逐个对过 tools/*.py 的签名)。修前它们落到默认 exec,default 模式下
   // 每次调用都弹窗 —— 而 screenshot 不弹,推荐的「一步感知」observe(截图+UIA+OCR)反而每次弹。
@@ -1917,6 +1917,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = async b => {
     const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
+    await DesktopExecutionHooks.beforeModelRequest();
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
   };
@@ -2554,6 +2555,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 子代理，需要经过根服务转发的执行身份。'), { code: 'execution_cli_unavailable' });
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();

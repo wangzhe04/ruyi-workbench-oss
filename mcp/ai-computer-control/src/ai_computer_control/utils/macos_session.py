@@ -23,29 +23,37 @@ def close_input_session():
 def _close_input_session():
     global _SESSION
     session = _SESSION
-    _SESSION = None
     if session is None:
         return
-    session["closing"] = True
-    child = session["child"]
+    session['closing'] = True
+    child = session['child']
     try:
-        child.stdin.close()
-    except OSError:
-        pass
-    try:
-        child.wait(timeout=0.3)
-    except subprocess.TimeoutExpired:
-        child.terminate()
         try:
-            child.wait(timeout=0.5)
+            child.stdin.close()
+        except OSError:
+            pass
+        try:
+            child.wait(timeout=0.3)
         except subprocess.TimeoutExpired:
-            child.kill()
-            child.wait()
-    child.stdout.close()
+            child.terminate()
+            try:
+                child.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait()
+        child.stdout.close()
+    except Exception as error:
+        # Retain the exact owned Popen object in quarantine. Clearing it here would
+        # let a new worker act while cleanup of its predecessor remained unknown.
+        raise DesktopError('input_cleanup_unconfirmed', 'Native input worker cleanup is unconfirmed',
+                           {'outcome': 'unknown', 'cleanup_unconfirmed': True}) from error
+    _SESSION = None
 
 
 def _session():
     global _SESSION
+    if _SESSION is not None and _SESSION.get('closing'):
+        _close_input_session()
     path = helper_path()
     try:
         identity = _identity(path)
@@ -61,13 +69,26 @@ def _session():
                                      stderr=subprocess.DEVNULL, env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"}, bufsize=0)
         except OSError:
             raise DesktopError("input_session_failed", "Cannot start the native input session") from None
-        os.set_blocking(child.stdin.fileno(), False)
-        _SESSION = {"child": child, "path": path, "identity": identity, "next_id": 0, "closing": False}
+        # Register ownership before any fallible descriptor setup. Failed initialization
+        # follows the same quarantine path as failed ordinary cleanup.
+        _SESSION = {"child": child, "path": path, "identity": identity, "next_id": 0, "closing": True}
+        try:
+            os.set_blocking(child.stdin.fileno(), False)
+        except Exception as error:
+            _close_input_session()
+            raise DesktopError('input_session_failed', 'Cannot initialize the native input session') from error
+        _SESSION['closing'] = False
     return _SESSION
 
 
 def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
     """Send one frame, close an uncertain worker, and return a typed result without retrying a mutation."""
+    from ai_computer_control.utils.execution_context import require_execution_context
+    require_execution_context()
+    from ai_computer_control.utils.execution_journal import current_operation
+    if current_operation() is not None:
+        from ai_computer_control.utils.macos_receipt_session import request as receipt_request
+        return receipt_request(payload, timeout, cancel_event, cancel_lock)
     if cancel_event is not None and cancel_lock is None:
         raise DesktopError("invalid_args", "Cancellable requests require their cancellation write lock",
                            {"action_sent": False, "outcome": "not_dispatched"})
@@ -152,9 +173,11 @@ def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
                 error.details.update(action_sent=True, outcome="unknown")
         raise error
     finally:
-        if cancel_requested:
-            _close_input_session()
-        _LOCK.release()
+        try:
+            if cancel_requested:
+                _close_input_session()
+        finally:
+            _LOCK.release()
 
 
 atexit.register(close_input_session)

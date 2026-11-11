@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 90 | 3903 | 3509 | 645 | 67 | 0 | 1 |
+| 93 | 3915 | 3557 | 656 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -16,7 +16,7 @@
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
 | 0 | `00-platform-runtime.js` | bootstrap | 3 | 0 | 0 |
-| 1 | `00-boot.js` | bootstrap | 140 | 8 | 5 |
+| 1 | `00-boot.js` | bootstrap | 143 | 8 | 5 |
 | 2 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 3 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 4 | `01c-runtime-flags.js` | foundation | 37 | 0 | 0 |
@@ -30,81 +30,84 @@
 | 12 | `01h-privacy-core.js` | foundation | 1 | 1 | 1 |
 | 13 | `01m-privacy-regex.js` | foundation | 1 | 1 | 1 |
 | 14 | `01j-local-crypto.js` | foundation | 2 | 1 | 1 |
-| 15 | `01-config.js` | foundation | 201 | 61 | 14 |
+| 15 | `01-config.js` | foundation | 201 | 62 | 14 |
 | 16 | `01k-credential-vault.js` | foundation | 1 | 8 | 4 |
 | 17 | `01l-credential-recovery.js` | foundation | 2 | 13 | 3 |
 | 18 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 19 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 20 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 21 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 22 | `02-session-store.js` | foundation | 345 | 77 | 17 |
-| 23 | `03-bridge-guard.js` | foundation | 112 | 32 | 8 |
-| 24 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
-| 25 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
-| 26 | `04-permission-runtime.js` | foundation | 166 | 43 | 10 |
-| 27 | `04-desktop-shell.js` | foundation | 1 | 14 | 5 |
-| 28 | `04f-toolbox-services.js` | foundation | 27 | 14 | 4 |
-| 29 | `04h-provider-http.js` | foundation | 15 | 1 | 1 |
-| 30 | `04i-provider-anthropic.js` | foundation | 59 | 1 | 1 |
-| 31 | `04i-provider-wire.js` | foundation | 37 | 17 | 2 |
-| 32 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
-| 33 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
-| 34 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
-| 35 | `05-claude-engine.js` | engine | 76 | 141 | 26 |
-| 36 | `05b-kimi-bridge.js` | engine | 129 | 76 | 14 |
-| 37 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
-| 38 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 39 | `06-provider-engine.js` | engine | 142 | 62 | 18 |
-| 40 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
-| 41 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 42 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
-| 43 | `06i-steward-core.js` | engine | 167 | 1 | 1 |
-| 44 | `06d-memory-domain.js` | engine | 178 | 39 | 10 |
-| 45 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
-| 46 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 47 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
-| 48 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 49 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 50 | `07-autonomy.js` | orchestration | 156 | 85 | 21 |
-| 51 | `08-agent-runs.js` | orchestration | 127 | 118 | 22 |
-| 52 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 53 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 54 | `09-workflow.js` | orchestration | 32 | 270 | 28 |
-| 55 | `10-context-governance.js` | orchestration | 228 | 105 | 20 |
-| 56 | `11-native-tools.js` | tools | 152 | 51 | 9 |
-| 57 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 58 | `11c-file-visual-io.js` | tools | 1 | 3 | 2 |
-| 59 | `11d-media-inspection.js` | tools | 1 | 2 | 2 |
-| 60 | `12-tool-dispatch.js` | tools | 74 | 141 | 24 |
-| 61 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 62 | `13-http-router.js` | transport | 70 | 276 | 36 |
-| 63 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
-| 64 | `13c-overlay-routes.js` | transport | 11 | 14 | 3 |
-| 65 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
-| 66 | `13e-pretender-index.js` | transport | 57 | 39 | 8 |
-| 67 | `13i-steward-inbox.js` | transport | 88 | 29 | 8 |
-| 68 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
-| 69 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
-| 70 | `13k-steward-threads.js` | transport | 60 | 127 | 17 |
-| 71 | `13l-steward-ops.js` | transport | 54 | 129 | 21 |
-| 72 | `13g-steward.js` | transport | 20 | 74 | 12 |
-| 73 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
-| 74 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
-| 75 | `13o-steward-runner-prompt.js` | transport | 22 | 66 | 16 |
-| 76 | `13p-steward-runner-actions.js` | transport | 35 | 63 | 12 |
-| 77 | `13q-steward-runner-turn.js` | transport | 45 | 86 | 20 |
-| 78 | `13h-steward-runner.js` | transport | 7 | 49 | 13 |
-| 79 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
-| 80 | `13s-scheduler.js` | transport | 53 | 38 | 9 |
-| 81 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
-| 82 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
-| 83 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
-| 84 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
-| 85 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
-| 86 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
-| 87 | `13ab-privacy-api.js` | unclassified | 1 | 18 | 12 |
-| 88 | `13w-external-bots.js` | transport | 67 | 23 | 8 |
-| 89 | `14-main.js` | entrypoint | 1 | 591 | 49 |
+| 22 | `02g-desktop-executions.js` | foundation | 1 | 4 | 1 |
+| 23 | `02h-desktop-ledger.js` | foundation | 1 | 9 | 3 |
+| 24 | `02-session-store.js` | foundation | 348 | 78 | 17 |
+| 25 | `03-bridge-guard.js` | foundation | 112 | 32 | 8 |
+| 26 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
+| 27 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
+| 28 | `04-permission-runtime.js` | foundation | 168 | 46 | 10 |
+| 29 | `04-desktop-shell.js` | foundation | 1 | 14 | 5 |
+| 30 | `04f-toolbox-services.js` | foundation | 27 | 14 | 4 |
+| 31 | `04h-provider-http.js` | foundation | 16 | 1 | 1 |
+| 32 | `04i-provider-anthropic.js` | foundation | 59 | 1 | 1 |
+| 33 | `04i-provider-wire.js` | foundation | 37 | 17 | 2 |
+| 34 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
+| 35 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
+| 36 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
+| 37 | `05-claude-engine.js` | engine | 76 | 142 | 26 |
+| 38 | `05b-kimi-bridge.js` | engine | 129 | 76 | 14 |
+| 39 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
+| 40 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 41 | `06-provider-engine.js` | engine | 142 | 63 | 18 |
+| 42 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
+| 43 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 44 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
+| 45 | `06i-steward-core.js` | engine | 167 | 1 | 1 |
+| 46 | `06d-memory-domain.js` | engine | 178 | 39 | 10 |
+| 47 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
+| 48 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
+| 49 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
+| 50 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
+| 51 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
+| 52 | `07-autonomy.js` | orchestration | 156 | 86 | 21 |
+| 53 | `08-agent-runs.js` | orchestration | 127 | 119 | 22 |
+| 54 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
+| 55 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
+| 56 | `09-workflow.js` | orchestration | 32 | 271 | 28 |
+| 57 | `10-context-governance.js` | orchestration | 228 | 106 | 20 |
+| 58 | `11-native-tools.js` | tools | 152 | 51 | 9 |
+| 59 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
+| 60 | `11c-file-visual-io.js` | tools | 1 | 3 | 2 |
+| 61 | `11d-media-inspection.js` | tools | 1 | 2 | 2 |
+| 62 | `12-tool-dispatch.js` | tools | 74 | 142 | 24 |
+| 63 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
+| 64 | `13-http-router.js` | transport | 70 | 277 | 36 |
+| 65 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
+| 66 | `13c-overlay-routes.js` | transport | 11 | 14 | 3 |
+| 67 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
+| 68 | `13e-pretender-index.js` | transport | 57 | 39 | 8 |
+| 69 | `13i-steward-inbox.js` | transport | 88 | 29 | 8 |
+| 70 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
+| 71 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
+| 72 | `13k-steward-threads.js` | transport | 60 | 127 | 17 |
+| 73 | `13l-steward-ops.js` | transport | 54 | 129 | 21 |
+| 74 | `13g-steward.js` | transport | 20 | 74 | 12 |
+| 75 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
+| 76 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
+| 77 | `13o-steward-runner-prompt.js` | transport | 22 | 66 | 16 |
+| 78 | `13p-steward-runner-actions.js` | transport | 35 | 63 | 12 |
+| 79 | `13q-steward-runner-turn.js` | transport | 45 | 86 | 20 |
+| 80 | `13h-steward-runner.js` | transport | 7 | 49 | 13 |
+| 81 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
+| 82 | `13s-scheduler.js` | transport | 53 | 38 | 9 |
+| 83 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
+| 84 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
+| 85 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
+| 86 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
+| 87 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
+| 88 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
+| 89 | `13ab-privacy-api.js` | unclassified | 1 | 18 | 12 |
+| 90 | `13w-external-bots.js` | transport | 67 | 23 | 8 |
+| 91 | `13ac-desktop-execution-runtime.js` | unclassified | 1 | 22 | 7 |
+| 92 | `14-main.js` | entrypoint | 1 | 591 | 49 |
 
 ## 模块边
 
@@ -115,7 +118,7 @@
 | `00-boot.js` | `02-session-store.js` | forward | `bumpMissionChangeSeq`, `overlayUnflushedSessionIndex`, `readSessionIndex` |
 | `00-boot.js` | `05-claude-engine.js` | forward | `CLAUDE_ENDPOINT_PRESETS` |
 | `00-boot.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
-| `01-config.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `DEFAULT_PORT`, `MAX_BODY_BYTES`, `RUYI_EVENTS`, `SKILL_ID_RE`, `StringDecoder`, `URL`, `VERSION`, `agentCliHomes`, `apiFailure`, `cp`, `crypto`, `ensureDirs`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `isPkg`, `normalizePricing`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `samePathKey`, `text` |
+| `01-config.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `DEFAULT_PORT`, `MAX_BODY_BYTES`, `RUYI_EVENTS`, `SKILL_ID_RE`, `StringDecoder`, `URL`, `VERSION`, `agentCliHomes`, `apiFailure`, `copyOrdinaryJsonData`, `cp`, `crypto`, `ensureDirs`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `isPkg`, `normalizePricing`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `samePathKey`, `text` |
 | `01-config.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID`, `canonicalRuyiMcpServerId`, `isRuyiMcpServerId` |
 | `01-config.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `01-config.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn`, `isBatchLauncher` |
@@ -142,7 +145,7 @@
 | `01l-credential-recovery.js` | `01-config.js` | backward | `DurableJsonStore`, `atomicWriteJson`, `configEmitWritten`, `configReadCache`, `lastGoodConfig`, `mutateConfig`, `normalizeConfig`, `readConfig` |
 | `01l-credential-recovery.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `01m-privacy-regex.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
-| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
+| `02-session-store.js` | `00-boot.js` | backward | `DesktopExecutionHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `02-session-store.js` | `01-config.js` | backward | `DurableJsonStore`, `assertSessionIdForPath`, `atomicWriteJson`, `mutateConfig`, `noteSessionsDirOwnWrite`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
 | `02-session-store.js` | `01c-runtime-flags.js` | backward | `MEMORY_FIXED_SELECTION_HARD_MAX` |
 | `02-session-store.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
@@ -161,6 +164,10 @@
 | `02-session-store.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
 | `02d-session-overrides.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
 | `02e-session-engine-route.js` | `01f-agent-cli-types.js` | backward | `normalizeAgentCliType` |
+| `02g-desktop-executions.js` | `00-boot.js` | backward | `copyOrdinaryJsonData`, `crypto`, `executionArgumentsDigest`, `json` |
+| `02h-desktop-ledger.js` | `00-boot.js` | backward | `copyOrdinaryJsonData`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `runKeyedChain` |
+| `02h-desktop-ledger.js` | `01-config.js` | backward | `DurableJsonStore` |
+| `02h-desktop-ledger.js` | `02g-desktop-executions.js` | backward | `prepareDesktopExecutionArguments` |
 | `03-bridge-guard.js` | `00-boot.js` | backward | `URL`, `agentCliHomes`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `decodeTextFileBytes`, `externalRoot`, `fs`, `fsp`, `os`, `path`, `samePathKey`, `spawnDetachedChecked`, `zlib` |
 | `03-bridge-guard.js` | `00-platform-runtime.js` | backward | `platformOpenSpawn` |
 | `03-bridge-guard.js` | `01-config.js` | backward | `readConfig`, `spawnProbeAsync`, `spawnProbeSync` |
@@ -176,7 +183,7 @@
 | `04-desktop-shell.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `04-desktop-shell.js` | `01h-process-runtime.js` | backward | `ProcessRuntime` |
 | `04-desktop-shell.js` | `04-permission-runtime.js` | backward | `killChildTree` |
-| `04-permission-runtime.js` | `00-boot.js` | backward | `OVERLAY_ID`, `SessionExecutionHooks`, `URL`, `VERSION`, `cp`, `crypto`, `dataRoot`, `decodeTextFileBytes`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `04-permission-runtime.js` | `00-boot.js` | backward | `DesktopExecutionHooks`, `OVERLAY_ID`, `SessionExecutionHooks`, `URL`, `VERSION`, `copyOrdinaryJsonData`, `cp`, `crypto`, `dataRoot`, `decodeTextFileBytes`, `ensureDirs`, `executionArgumentsDigest`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `04-permission-runtime.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID`, `isRuyiMcpServerId` |
 | `04-permission-runtime.js` | `01-config.js` | backward | `BROWSER_AUTOMATION_MODES`, `bridgedEnvKeyStripped`, `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
 | `04-permission-runtime.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
@@ -196,7 +203,7 @@
 | `04i-provider-wire.js` | `04i-provider-anthropic.js` | backward | `anthropicApiBase`, `anthropicMessagesUrl`, `anthropicModelsUrl`, `anthropicRequestHeaders`, `anthropicRetryBodyOn400`, `applyAnthropicEffort`, `applyAnthropicTemperature`, `applyAnthropicTools`, `createAnthropicStreamDecoder`, `decodeAnthropicCompletion`, `encodeAnthropicMessages`, `encodeAnthropicQuick`, `normalizeAnthropicUsage` |
 | `04j-voice-learn.js` | `04j-hanzi-pinyin.js` | backward | `HanziPinyin` |
 | `04j-voice-learn.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
-| `05-claude-engine.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
+| `05-claude-engine.js` | `00-boot.js` | backward | `DeliveryHooks`, `DesktopExecutionHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
 | `05-claude-engine.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `05-claude-engine.js` | `01-config.js` | backward | `DurableJsonStore`, `agentCliLauncherUsable`, `buildUserEnvelope`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `prepareAgentCliSpawn`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi`, `writeToChild` |
 | `05-claude-engine.js` | `01d-win-cmdline.js` | backward | `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `isBatchLauncher`, `quoteWinArg`, `spawnCmdLineLength` |
@@ -240,7 +247,7 @@
 | `05c-kimi-search-policy.js` | `03-bridge-guard.js` | backward | `fileAllowedRoots`, `guardFileToolPath`, `isSensitiveDataPath`, `pathWithinRoot`, `realpathForContainment` |
 | `05d-kimi-prompt-parts.js` | `00-boot.js` | backward | `fsp`, `path` |
 | `05d-kimi-prompt-parts.js` | `03-bridge-guard.js` | backward | `guardFileToolPath`, `realpathForContainment` |
-| `06-provider-engine.js` | `00-boot.js` | backward | `APP_NAME`, `DEFAULT_PORT`, `OVERLAY_ID`, `RUYI_EVENTS`, `VERSION`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `cp`, `crypto`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `isPkg`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
+| `06-provider-engine.js` | `00-boot.js` | backward | `APP_NAME`, `DEFAULT_PORT`, `DesktopExecutionHooks`, `OVERLAY_ID`, `RUYI_EVENTS`, `VERSION`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `cp`, `crypto`, `dataRoot`, `externalRoot`, `fs`, `fsp`, `isPkg`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text`, `zlib` |
 | `06-provider-engine.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `06-provider-engine.js` | `01-config.js` | backward | `RUNTIME`, `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `06-provider-engine.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
@@ -293,7 +300,7 @@
 | `06k-config-patch.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `invalidateMcpRuntime`, `logEvent` |
 | `06k-config-patch.js` | `05-claude-engine.js` | backward | `maskedSecretConflictMessage`, `maskedSecretConflicts`, `unmaskSecrets` |
 | `06k-config-patch.js` | `06i-steward-core.js` | backward | `StewardHooks` |
-| `07-autonomy.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `URL`, `apiFailure`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
+| `07-autonomy.js` | `00-boot.js` | backward | `DesktopExecutionHooks`, `TOOL_TIER_RANK`, `URL`, `apiFailure`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
 | `07-autonomy.js` | `01-config.js` | backward | `atomicWriteJson`, `buildUserEnvelope`, `decodeClaudeCliText`, `detectClaudePath`, `effectiveAnthropicEnv`, `generateAgentNodeMcpConfig`, `readConfig`, `safeSessionId` |
 | `07-autonomy.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `observationRecallEnabled` |
 | `07-autonomy.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn`, `cmdLineBudgetFor`, `spawnCmdLineLength` |
@@ -314,7 +321,7 @@
 | `07-autonomy.js` | `09d-token-estimation.js` | forward | `estimateTextTokensMemo` |
 | `07-autonomy.js` | `10-context-governance.js` | forward | `CONTEXT_OVERFLOW_PATTERNS`, `cacheContextLength`, `extractContextLength`, `isContextOverflowError` |
 | `07-autonomy.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS`, `PROVIDER_SESSION_TOOL_SCHEMAS` |
-| `08-agent-runs.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `samePathKey`, `text`, `zlib` |
+| `08-agent-runs.js` | `00-boot.js` | backward | `DesktopExecutionHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `samePathKey`, `text`, `zlib` |
 | `08-agent-runs.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readFileTail`, `safeSessionId` |
 | `08-agent-runs.js` | `01c-runtime-flags.js` | backward | `estimateBucketsEnabled` |
 | `08-agent-runs.js` | `01e-permission-modes.js` | backward | `clampAgentRoleToParent`, `resolvePermissionMode` |
@@ -336,7 +343,7 @@
 | `08-agent-runs.js` | `10-context-governance.js` | forward | `boundToolResultForDisplay`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `estimateFactor`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `recordCompactUsage`, `runForcedOverflowCompaction`, `truncateToolResult`, `writeHistorySnapshot` |
 | `08-agent-runs.js` | `13-http-router.js` | forward | `resolveNodeModel` |
 | `08-agent-runs.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
-| `09-workflow.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `localTurnTimeParts`, `makeId`, `neutralizeFenceTag`, `nowIso`, `safeJsonParse`, `text` |
+| `09-workflow.js` | `00-boot.js` | backward | `DeliveryHooks`, `DesktopExecutionHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `localTurnTimeParts`, `makeId`, `neutralizeFenceTag`, `nowIso`, `safeJsonParse`, `text` |
 | `09-workflow.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `09-workflow.js` | `01c-runtime-flags.js` | backward | `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `sessionNotesInjectEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
 | `09-workflow.js` | `01e-permission-modes.js` | backward | `agentRoleIsUntrusted`, `clampAgentRoleToParent`, `resolvePermissionMode` |
@@ -367,7 +374,7 @@
 | `09b-replan-ledger.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `hashArgs`, `makeId`, `nowIso` |
 | `09d-token-estimation.js` | `07-autonomy.js` | backward | `estimateToolSchemaTokens` |
 | `09d-token-estimation.js` | `10-context-governance.js` | forward | `ESTIMATION_RULES` |
-| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `SessionExecutionHooks`, `URL`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
+| `10-context-governance.js` | `00-boot.js` | backward | `DesktopExecutionHooks`, `EventStreamHooks`, `SessionExecutionHooks`, `URL`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `readConfig`, `readJsonBody`, `safeSessionId`, `send` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `evaporateBudgetBoundaryEnabled`, `historyReadDedupEnabled`, `observationRecallEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
@@ -401,7 +408,7 @@
 | `11c-file-visual-io.js` | `01h-process-runtime.js` | backward | `ProcessRuntime` |
 | `11d-media-inspection.js` | `00-boot.js` | backward | `StringDecoder` |
 | `11d-media-inspection.js` | `01h-process-runtime.js` | backward | `ProcessRuntime` |
-| `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
+| `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `DesktopExecutionHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `readConfig`, `safeSessionId`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `01c-runtime-flags.js` | backward | `execResultCacheEnabled`, `execResultCacheMaxEntries`, `observationRecallEnabled` |
 | `12-tool-dispatch.js` | `01h-process-runtime.js` | backward | `ProcessRuntime` |
@@ -425,7 +432,7 @@
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
 | `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `12-tool-dispatch.js` | `11d-media-inspection.js` | backward | `MediaInspection` |
-| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `EventStreamHooks`, `ExternalBotHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRootAliases`, `decodeConsoleText`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `makeId`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `readline`, `recordInstallLaunch`, `safeJsonParse`, `spawnDetachedChecked`, `text`, `zlib` |
+| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `DesktopExecutionHooks`, `EventStreamHooks`, `ExternalBotHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRootAliases`, `decodeConsoleText`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `makeId`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `readline`, `recordInstallLaunch`, `safeJsonParse`, `spawnDetachedChecked`, `text`, `zlib` |
 | `13-http-router.js` | `00-platform-runtime.js` | backward | `platformOpenSpawn` |
 | `13-http-router.js` | `00b-ruyi-names.js` | backward | `LEGACY_RUYI_MCP_SERVER_IDS`, `RUYI_MCP_SERVER_ID` |
 | `13-http-router.js` | `01-config.js` | backward | `ConfigPatchHooks`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `beginBootCliPathProbes`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `finishBootCliPathProbes`, `generateMcpConfig`, `hostAllowed`, `isLoopbackBindHost`, `mcpConfigFilePath`, `mutateConfig`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `requestIsLoopback`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `tokenMatches`, `tokenOk`, `waitForBootCliPathProbes` |
@@ -480,6 +487,13 @@
 | `13ab-privacy-api.js` | `04-permission-runtime.js` | backward | `activeChildren`, `turnSettlers` |
 | `13ab-privacy-api.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13ab-privacy-api.js` | `13j-steward-tool-base.js` | backward | `stewardAppendDecision` |
+| `13ac-desktop-execution-runtime.js` | `00-boot.js` | backward | `DesktopExecutionHooks`, `copyOrdinaryJsonData`, `crypto`, `fs`, `fsp`, `json`, `path`, `paths` |
+| `13ac-desktop-execution-runtime.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
+| `13ac-desktop-execution-runtime.js` | `02-session-store.js` | backward | `loadSession`, `saveSession`, `sessionObjectIsStale`, `sessionRewindGenHighWater`, `sessionSaveIsTombstoned` |
+| `13ac-desktop-execution-runtime.js` | `02h-desktop-ledger.js` | backward | `DesktopExecutionLedger` |
+| `13ac-desktop-execution-runtime.js` | `04-permission-runtime.js` | backward | `McpStdioClient`, `isEquivalentDesktopAccServer`, `mcpClients`, `probeDesktopExecutionReceipts`, `turnSettlers` |
+| `13ac-desktop-execution-runtime.js` | `04h-provider-http.js` | backward | `ProviderHttpHooks` |
+| `13ac-desktop-execution-runtime.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |

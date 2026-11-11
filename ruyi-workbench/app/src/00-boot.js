@@ -28,6 +28,8 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 // Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
 const SessionExecutionHooks = {};
+// Root desktop authority is registered by a late module, outside the existing SCC.
+const DesktopExecutionHooks = {};
 const DeliveryHooks = {};
 const ExternalBotHooks = {};
 const DEFAULT_PORT = 8765;
@@ -361,6 +363,107 @@ function safeDecodeURIComponent(segment) {
 
 // 开头的 UTF-8 BOM(U+FEFF)先剥掉再解析:Windows 记事本/PowerShell 5.1 另存的 JSON 常带 BOM,JSON.parse 对它抛 SyntaxError,
 // 修前 config.json、各类用户手改的清单被当成「损坏」(config 还会因此回滚到 .prev 覆盖用户的编辑)。只处理字符串入参。
+// Expected SDK-decoded JSON value fingerprint shared with ACC execution_arguments.py.
+// Integer JSON.stringify tokens retain every decimal digit; decimal/exponent tokens use binary64.
+// The caller must pass its immutable JSON snapshot, not a mutable pre-serialization object.
+// This binds decoded values, not original wire spelling, and never authorizes an action.
+function executionArgumentsDigest(value) {
+  const digest = crypto.createHash('sha256');
+  const ancestors = new Set();
+  let nodes = 0, bytes = 0;
+  const put = data => {
+    bytes += typeof data === 'string' ? Buffer.byteLength(data, 'utf8') : data.length;
+    if (bytes > 64 * 1024 * 1024) throw new Error('execution argument fingerprint exceeds capacity');
+    digest.update(data);
+  };
+  const utf8 = value => {
+    for (let i = 0; i < value.length; i += 1) {
+      const code = value.charCodeAt(i);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        const next = value.charCodeAt(++i);
+        if (!(next >= 0xdc00 && next <= 0xdfff)) throw new Error('execution arguments contain invalid Unicode');
+      } else if (code >= 0xdc00 && code <= 0xdfff) throw new Error('execution arguments contain invalid Unicode');
+    }
+    return Buffer.from(value, 'utf8');
+  };
+  const visit = (item, depth) => {
+    nodes += 1;
+    if (nodes > 1000000 || depth > 128) throw new Error('execution argument fingerprint exceeds capacity');
+    if (item === null) { put('n;'); return; }
+    if (typeof item === 'boolean') { put(item ? 't;' : 'f;'); return; }
+    if (typeof item === 'number') {
+      if (!Number.isFinite(item)) throw new Error('execution arguments require finite numbers');
+      const token = JSON.stringify(item);
+      if (/^-?\d+$/.test(token)) { put('i' + token + ';'); return; }
+      const number = Buffer.allocUnsafe(8); number.writeDoubleBE(item === 0 ? 0 : item);
+      put('d'); put(number); put(';'); return;
+    }
+    if (typeof item === 'string') { const text = utf8(item); put('s' + text.length + ':'); put(text); put(';'); return; }
+    if (!item || typeof item !== 'object' || (!Array.isArray(item) && Object.getPrototypeOf(item) !== Object.prototype && Object.getPrototypeOf(item) !== null))
+      throw new Error('execution arguments require JSON values');
+    if (ancestors.has(item)) throw new Error('execution arguments cannot be cyclic');
+    ancestors.add(item);
+    if (Array.isArray(item)) {
+      put('a' + item.length + ':');
+      for (let index = 0; index < item.length; index += 1) visit(item[index], depth + 1);
+    } else {
+      const keys = Object.keys(item).map(key => ({ key, bytes: utf8(key) })).sort((a, b) => Buffer.compare(a.bytes, b.bytes));
+      put('o' + keys.length + ':');
+      for (const { key } of keys) { visit(key, depth + 1); visit(item[key], depth + 1); }
+    }
+    ancestors.delete(item); put(';');
+  };
+  put(Buffer.from('ruyi-sdk-json-v1\0', 'utf8'));
+  visit(value, 0);
+  return digest.digest('hex');
+}
+
+// Copy only ordinary JSON data properties; no getters, toJSON or inherited serialization hooks.
+// Null prototypes make a prepared value stable across asynchronous serialization boundaries.
+function copyOrdinaryJsonData(value, freeze = true) {
+  const ancestors = new Set();
+  let nodes = 0;
+  const copy = (item, depth) => {
+    if (++nodes > 1000000 || depth > 128) throw new Error('execution argument snapshot exceeds capacity');
+    if (item === null || typeof item === 'boolean' || typeof item === 'string') return item;
+    if (typeof item === 'number') {
+      if (!Number.isFinite(item)) throw new Error('execution arguments require finite numbers');
+      return item === 0 ? 0 : item;
+    }
+    if (!item || typeof item !== 'object' || (typeof JSON.isRawJSON === 'function' && JSON.isRawJSON(item)))
+      throw new Error('execution arguments require ordinary JSON values');
+    const array = Array.isArray(item), prototype = Object.getPrototypeOf(item);
+    if (array ? prototype !== Array.prototype && prototype !== null : prototype !== Object.prototype && prototype !== null)
+      throw new Error('execution arguments require ordinary JSON objects');
+    if (ancestors.has(item)) throw new Error('execution arguments cannot be cyclic');
+    ancestors.add(item);
+    const descriptors = Object.getOwnPropertyDescriptors(item);
+    const keys = Reflect.ownKeys(descriptors);
+    const result = array ? Object.setPrototypeOf([], null) : Object.create(null);
+    if (array) {
+      const length = descriptors.length?.value;
+      if (!Number.isSafeInteger(length) || length < 0 || length > 1000000 || keys.length !== length + 1)
+        throw new Error('execution arguments require dense ordinary JSON arrays');
+      for (let index = 0; index < length; index += 1) {
+        const descriptor = descriptors[index];
+        if (!descriptor || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
+          throw new Error('execution arguments cannot contain accessors or array holes');
+        result[index] = copy(descriptor.value, depth + 1);
+      }
+    } else {
+      for (const key of keys) {
+        const descriptor = descriptors[key];
+        if (typeof key !== 'string' || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
+          throw new Error('execution arguments require enumerable JSON data properties');
+        result[key] = copy(descriptor.value, depth + 1);
+      }
+    }
+    ancestors.delete(item);
+    return freeze ? Object.freeze(result) : result;
+  };
+  return copy(value, 0);
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse((typeof raw === 'string' && raw.charCodeAt(0) === 0xFEFF) ? raw.slice(1) : raw);

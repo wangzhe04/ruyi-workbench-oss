@@ -950,6 +950,7 @@ async function recoverSessionBodyState(id, bp) {
   const whole = (body, count) => body && !body.corrupt && !body.unreadable && body.tornAt == null
     && Number.isInteger(count) && body.entries.length === count;
   if (!whole(msg, head.messageCount) || !whole(prov, head.providerHistoryCount)) return null;
+  if (!sessionBodiesMatchCommit(head, msg, prov)) return null;
   const state = {
     msg: sessionBodyRecordFromRead(msg, null),
     prov: sessionBodyRecordFromRead(prov, null, { dangling: danglingTurnState(prov.entries.length, i => prov.entries[i]) }),
@@ -1067,6 +1068,28 @@ function serializeSessionBody(entries) {
   return lines;
 }
 function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
+function sessionBodyDigest(lines) {
+  const hash = crypto.createHash('sha256');
+  for (const line of lines) hash.update(line, 'utf8').update('\n');
+  return hash.digest('hex');
+}
+function sessionBodyCommitValid(head) {
+  const commit = head.providerHistoryCommit;
+  return Number.isSafeInteger(head.providerHistoryRevision) && head.providerHistoryRevision >= 0
+    && commit?.schema === 1 && commit.revision === head.providerHistoryRevision
+    && /^[a-f0-9]{64}$/.test(commit.messagesSha256 || '') && /^[a-f0-9]{64}$/.test(commit.providerSha256 || '');
+}
+function sessionBodiesMatchCommit(head, msg, prov) {
+  if (!Object.hasOwn(head, 'providerHistoryRevision') && !Object.hasOwn(head, 'providerHistoryCommit')) return true;
+  if (!sessionBodyCommitValid(head)) return false;
+  const commit = head.providerHistoryCommit;
+  const matches = (body, count, digest) => {
+    if (!body || body.corrupt || body.unreadable || !Number.isSafeInteger(count) || count < 0 || body.entries.length < count) return false;
+    const end = count ? body.lineEndBytes[count - 1] : 0;
+    return crypto.createHash('sha256').update(body.buf.subarray(0, end)).digest('hex') === digest;
+  };
+  return matches(msg, head.messageCount, commit.messagesSha256) && matches(prov, head.providerHistoryCount, commit.providerSha256);
+}
 // entries 是否为 record 所记盘上正文的【严格】前缀(更短且逐行相同)。
 function isStrictSessionBodyPrefix(entries, record) {
   if (!record || entries.length >= record.count) return false;
@@ -3521,6 +3544,8 @@ function sessionProviderHistoryLength(session) {
   return session && Array.isArray(session.providerHistory) ? session.providerHistory.length : 0;
 }
 async function readSessionBodiesOmittingProvider(id, parsed, bp, writeSeqAtRead) {
+  // Protected transcripts must verify the committed body hashes, including same-count rewrites.
+  if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) return null;
   const state = sessionBodyState.get(id);
   const provRec = state && state.bodiesOk ? state.prov : null;
   if (!provRec || !provRec.stamp || !provRec.dangling || sessionWriteChains.has(id)) return null;
@@ -3558,7 +3583,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
     return null;
   }
-  if (Array.isArray(parsed)) return null; // sessions/index.json is an array, not a session; never load it as one
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null; // Never normalize a non-object head into a fresh empty session.
+  if ((Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit'))
+      && parsed.storageVersion !== SESSION_STORAGE_VERSION) return null;
   let legacy = true;
   const omitView = view === SESSION_LOAD_OMIT_PROVIDER;
   const lite = omitView && parsed && parsed.storageVersion === SESSION_STORAGE_VERSION
@@ -3587,7 +3614,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
     const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
     const bodyBad = () => !msg || !prov || msg.corrupt || prov.corrupt
-      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount);
+      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount)
+      || !sessionBodiesMatchCommit(parsed, msg, prov);
     const countsDiffer = () => (Number.isInteger(parsed.messageCount) && msg && !msg.corrupt && msg.entries.length !== parsed.messageCount)
       || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
@@ -3614,7 +3642,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
         || String(again.updatedAt || '') !== String(parsed.updatedAt || '')
         || again.messageCount !== parsed.messageCount
         || again.providerHistoryCount !== parsed.providerHistoryCount;
-      if (moved) {
+      const commitMoved = JSON.stringify(again?.providerHistoryCommit) !== JSON.stringify(parsed.providerHistoryCommit)
+        || again?.providerHistoryRevision !== parsed.providerHistoryRevision;
+      if (moved || commitMoved) {
         if (reloadDepth >= 1) return null;   // 有界：连着两次都在写，这一趟就诚实地不给结果
         return loadSession(id, reloadDepth + 1);
       }
@@ -3626,9 +3656,20 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     const hasPrev = await fsp.stat(pm).then(() => true).catch(() => false)
       && await fsp.stat(pp).then(() => true).catch(() => false);
     if (hasPrev && (bodyBad() || countsDiffer())) {
+      if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) {
+        const [previousMessages, previousProvider] = await Promise.all([readSessionBodyFile(pm), readSessionBodyFile(pp)]);
+        if (!sessionBodiesMatchCommit(parsed, previousMessages, previousProvider)) return null;
+      }
       dropSessionBodyState(id);
-      await fsp.rename(pm, bp.messages).catch(() => {});
-      await fsp.rename(pp, bp.provider).catch(() => {});
+      if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) {
+        // Keep both verified snapshots until both copies are restored. A partial
+        // restore or process death must leave the complete recoverable pair.
+        try { await fsp.copyFile(pm, bp.messages); await fsp.copyFile(pp, bp.provider); }
+        catch { return null; }
+      } else {
+        await fsp.rename(pm, bp.messages).catch(() => {});
+        await fsp.rename(pp, bp.provider).catch(() => {});
+      }
       msg = await readSessionBodyFile(bp.messages);
       prov = await readSessionBodyFile(bp.provider);
       if (unreadable(msg) || unreadable(prov)) return null;   // hunt2-P3:同上,读不出来就不动手
@@ -3637,7 +3678,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
       dropSessionBodyState(id);
       // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
-      const bak = await loadSessionV1Backup(id);
+      const bak = Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit') ? null : await loadSessionV1Backup(id);
       if (bak) return bak;
       // 无备份可退:坏正文隔离(不删,留取证),头按损坏处理。
       for (const p of [bp.messages, bp.provider]) await fsp.rename(p, p + '.corrupt').catch(() => {});
@@ -3810,10 +3851,14 @@ async function saveSession(session, opts) {
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   const finalPath = sessionPath(id);
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  let messages = Array.isArray(session.messages) ? session.messages : [];
+  let providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  let protectedHead = null, providerRevision = null, protectedCommit = null;
   // 头 = 运行时对象剥掉两个大数组 + 存储标记 + 计数(计数供 listSessions 兜底扫描/sessionMeta 不读正文)。
   const buildHeadPayload = () => {
+    if (protectedHead) return JSON.stringify({ ...protectedHead,
+      messageCount: messages.length, providerHistoryCount: providerHistory.length,
+      providerHistoryRevision: providerRevision, providerHistoryCommit: protectedCommit }, null, 2);
     const head = { ...session };
     const recentUserRequest = sessionRecentUserRequest(session);
     if (recentUserRequest) head.recentUserRequest = recentUserRequest;
@@ -3844,7 +3889,61 @@ async function saveSession(session, opts) {
   // 按 saveAgentRun 同款 per-id 写链串行化:链内按提交顺序落盘,窗口归零;链错误吞掉(下一写自愈)。
   // v2:整个「正文 append/重写 + 头写」都在链内 —— 进程内状态表与磁盘正文的一致性靠同一条链保证。
   const prevWrite = sessionWriteChains.get(id) || Promise.resolve();
+  let preserveRewindOnFailure = false;
   const writeSessionToDisk = async () => {
+    // A revision belongs to one body/head snapshot. In protected sessions take all of
+    // them together INSIDE the write chain, after earlier same-object saves committed.
+    // Stale copies must reload and reapply their explicit edit; never merge old heads.
+    let diskHead = null, diskHeadText = null, headExists = false;
+    try { diskHeadText = await fsp.readFile(finalPath, 'utf8'); diskHead = JSON.parse(diskHeadText); headExists = true; }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (headExists && (!diskHead || typeof diskHead !== 'object' || Array.isArray(diskHead))) {
+      throw Object.assign(new Error('session head is not an object'), { code: 'SESSION_HEAD_UNREADABLE' });
+    }
+    const stamped = Object.hasOwn(session, 'providerHistoryRevision') || Object.hasOwn(session, 'providerHistoryCommit');
+    const diskStamped = headExists && (Object.hasOwn(diskHead, 'providerHistoryRevision') || Object.hasOwn(diskHead, 'providerHistoryCommit'));
+    const protectedBody = DesktopExecutionHooks.enabled() || stamped || diskStamped;
+    if (protectedBody) {
+      const validRevision = value => Number.isSafeInteger(value) && value >= 0;
+      const incomingRevision = stamped ? session.providerHistoryRevision : 0;
+      const currentRevision = diskStamped ? diskHead.providerHistoryRevision : 0;
+      if (stamped && !headExists || !validRevision(incomingRevision) || !validRevision(currentRevision)
+          || incomingRevision !== currentRevision || stamped !== diskStamped
+          || diskStamped && diskHead.storageVersion !== SESSION_STORAGE_VERSION
+          || stamped && (!sessionBodyCommitValid(session) || !sessionBodyCommitValid(diskHead)
+            || JSON.stringify(session.providerHistoryCommit) !== JSON.stringify(diskHead.providerHistoryCommit))
+          || (Number(session.rewindGen) || 0) !== saveGen
+          || diskHead && ((Number(diskHead.turnSeq) || 0) > (Number(session.turnSeq) || 0)
+            || (Number(diskHead.rewindGen) || 0) > saveGen)) {
+        throw Object.assign(new Error('session provider history changed; reload before applying this edit'), { code: 'SESSION_PROVIDER_HISTORY_CONFLICT' });
+      }
+      providerRevision = currentRevision;
+      // Validate the committed body on both append and rewrite paths. A cached
+      // append plan cannot bless a corrupted on-disk head/body as a new commit.
+      if (headExists && diskHead.storageVersion === SESSION_STORAGE_VERSION) {
+        const [committedMessages, committedProvider] = await Promise.all([
+          readSessionBodyFile(sessionBodyPaths(id).messages), readSessionBodyFile(sessionBodyPaths(id).provider)]);
+        if (!committedMessages || !committedProvider || committedMessages.corrupt || committedProvider.corrupt
+            || committedMessages.unreadable || committedProvider.unreadable
+            || committedMessages.entries.length < diskHead.messageCount
+            || committedProvider.entries.length < diskHead.providerHistoryCount
+            || !sessionBodiesMatchCommit(diskHead, committedMessages, committedProvider)) {
+          throw Object.assign(new Error('committed session body must be recovered before saving'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        // An unchanged stamped head plus its verified byte prefixes identifies an
+        // uncommitted append tail. Recover it inside this write chain before planning
+        // the next save, including a stopped turn's final pairing after an IO error.
+        for (const [body, count, file] of [[committedMessages, diskHead.messageCount, sessionBodyPaths(id).messages],
+          [committedProvider, diskHead.providerHistoryCount, sessionBodyPaths(id).provider]]) {
+          if (body.entries.length !== count || body.tornAt != null) {
+            if (!diskStamped || !await truncateSessionBody(file, count ? body.lineEndBytes[count - 1] : 0)) {
+              throw Object.assign(new Error('uncommitted session tail could not be recovered'), { code: 'SESSION_BODY_UNVERIFIED' });
+            }
+            dropSessionBodyState(id);
+          }
+        }
+      }
+    }
     // 122-§2.4:链内落盘前合并 mission(见本函数头注与 mergeMissionBeforeSave)。只读【头文件】就够 ——
     // mission/kind 都在头上;读不到/解析不了(首存、损坏)一律当「磁盘没有账本」,与不传旗子逐字节等价。
     if (opts && opts.mergeMissionFromDisk) {
@@ -3854,6 +3953,25 @@ async function saveSession(session, opts) {
         payload = buildHeadPayload();
         metaSnapshot = sessionMeta(session);
       }
+    }
+    if (protectedBody) {
+      // Re-read the LIVE object's arrays, revision and head in one synchronous section;
+      // then sever every array/entry reference before doing further asynchronous IO.
+      if ((Object.hasOwn(session, 'providerHistoryRevision') || Object.hasOwn(session, 'providerHistoryCommit')) !== stamped
+          || (stamped ? session.providerHistoryRevision : 0) !== providerRevision
+          || stamped && (!sessionBodyCommitValid(session)
+            || JSON.stringify(session.providerHistoryCommit) !== JSON.stringify(diskHead.providerHistoryCommit))
+          || (Number(session.rewindGen) || 0) !== saveGen) {
+        throw Object.assign(new Error('session changed while preparing its protected snapshot'), { code: 'SESSION_PROVIDER_HISTORY_CONFLICT' });
+      }
+      messages = Array.isArray(session.messages) ? session.messages : [];
+      providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+      const msgSnapshot = serializeSessionBody(messages), provSnapshot = serializeSessionBody(providerHistory);
+      if (!msgSnapshot || !provSnapshot) throw new Error('session body not serializable');
+      messages = msgSnapshot.map(line => JSON.parse(line));
+      providerHistory = provSnapshot.map(line => JSON.parse(line));
+      protectedHead = JSON.parse(buildHeadPayload());
+      payload = buildHeadPayload(); metaSnapshot = sessionMeta(JSON.parse(payload));
     }
     const bp = sessionBodyPaths(id);
     // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
@@ -3867,13 +3985,23 @@ async function saveSession(session, opts) {
     // 旧副本补齐：调用方手里的消息是盘上正文的【严格前缀】（更短、逐行相同）= 它装载之后别的写者又追加过，
     // 它自己并没有删消息（有意删的只有撤回 rewindBump 与管家归档 opts.shrinkBody）。以前这里走慢路径，用旧数组
     // 整份重写 —— 别人刚追加的消息全丢。现在先把盘上多出来的尾巴补进它的数组再写：两边的改动都留下。
-    if (state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
+    if (!protectedBody && state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
       payload = buildHeadPayload();
-      metaSnapshot = sessionMeta(session);
+      metaSnapshot = sessionMeta(protectedBody ? JSON.parse(payload) : session);
     }
     const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msg) : null;
     const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.prov) : null;
-    let nextMsgLines, nextProvLines;
+    if (protectedBody) {
+      if (!headExists || !msgPlan || msgPlan.appendLines.length || !provPlan || provPlan.appendLines.length) {
+        if (providerRevision === Number.MAX_SAFE_INTEGER) throw Object.assign(new Error('provider history revision capacity exhausted'), { code: 'SESSION_PROVIDER_HISTORY_CAPACITY' });
+        providerRevision += 1;
+      }
+      protectedCommit = { schema: 1, revision: providerRevision,
+        messagesSha256: sessionBodyDigest(serializeSessionBody(messages)), providerSha256: sessionBodyDigest(serializeSessionBody(providerHistory)) };
+      payload = buildHeadPayload();
+      metaSnapshot = sessionMeta(JSON.parse(payload));
+    }
+    let nextMsgLines, nextProvLines, protectedRewrite = false;
     if (msgPlan && provPlan) {
       // 快路径:只 append 增量行(0 增量 = 不动正文文件,仅更新头)。
       if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, msgPlan.appendLines.join('\n') + '\n', 'utf8');
@@ -3888,22 +4016,70 @@ async function saveSession(session, opts) {
       const msgSer = serializeSessionBody(messages);
       const provSer = serializeSessionBody(providerHistory);
       if (!msgSer || !provSer) throw new Error('session body not serializable');
-      await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
-      await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      if (protectedBody && headExists) {
+        const [currentMessages, currentProvider] = await Promise.all([readSessionBodyFile(bp.messages), readSessionBodyFile(bp.provider)]);
+        if (diskHead.storageVersion === SESSION_STORAGE_VERSION && (!currentMessages || !currentProvider
+            || currentMessages.corrupt || currentProvider.corrupt || currentMessages.unreadable || currentProvider.unreadable
+            || currentMessages.entries.length !== diskHead.messageCount || currentProvider.entries.length !== diskHead.providerHistoryCount)) {
+          throw Object.assign(new Error('session bodies must be recovered before rewriting'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        if (Object.hasOwn(diskHead, 'providerHistoryCommit') && !sessionBodiesMatchCommit(diskHead, currentMessages, currentProvider)) {
+          throw Object.assign(new Error('committed session body must be recovered before rewriting'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        // A verified current body makes any previous snapshot stale. Never use an older
+        // EXCL snapshot as rollback for this new rewrite if prior cleanup had failed.
+        await fsp.unlink(bp.messages + '.prevbody').catch(error => { if (error.code !== 'ENOENT') throw error; });
+        await fsp.unlink(bp.provider + '.prevbody').catch(error => { if (error.code !== 'ENOENT') throw error; });
+      }
+      if (protectedBody && headExists && diskHead.storageVersion === SESSION_STORAGE_VERSION) {
+        await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL);
+        await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL);
+      } else {
+        await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+        await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      }
+      protectedRewrite = protectedBody;
       try {
         await atomicWriteJson(bp.messages, sessionBodyText(msgSer));
         await atomicWriteJson(bp.provider, sessionBodyText(provSer));
       } catch (werr) {
         // 进程内写失败(非崩溃)→ 立即回滚快照,磁盘回到重写前的一致态;bodiesOk=false 由外层标。
-        await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
-        await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        if (protectedBody) {
+          await fsp.copyFile(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.copyFile(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        } else {
+          await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        }
         throw werr;
       }
       nextMsgLines = msgSer;
       nextProvLines = provSer;
     }
     // 头最后写:头指向的正文状态必须先于头落盘(头=「正文有效」的声明)。
-    await atomicWriteJson(finalPath, payload);
+    // Once publication is attempted, only a confirmed unchanged old head permits
+    // rolling the rewind watermark back. Lost acknowledgements may have committed.
+    if (protectedBody) preserveRewindOnFailure = true;
+    try { await atomicWriteJson(finalPath, payload); }
+    catch (error) {
+      let published = null;
+      if (protectedBody) { try { published = await fsp.readFile(finalPath, 'utf8'); } catch { /* unknown commit: preserve both bodies and snapshots */ } }
+      if (protectedBody && published === payload) {
+        session.providerHistoryRevision = providerRevision; session.providerHistoryCommit = protectedCommit;
+      } else if (protectedBody && published === diskHeadText) {
+        preserveRewindOnFailure = false;
+        if (protectedRewrite) {
+          await fsp.copyFile(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.copyFile(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        }
+      }
+      throw error;
+    }
+    // The head is the commit point. Cleanup/stat failures must not roll back this fact.
+    if (protectedBody) {
+      session.providerHistoryRevision = providerRevision;
+      session.providerHistoryCommit = protectedCommit;
+    }
     // 头已提交 → prevbody 快照使命完成(崩溃于清理前也无妨:下次读取按「头计数==正文行数」判其为陈旧快照,
     // 顺带清除,见 loadSession)。
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -3970,7 +4146,7 @@ async function saveSession(session, opts) {
     catch (werr) {
       // 撤回那一存自己没落上:盘上仍是旧代数,把水位退回去(只退自己抬的那一格;期间又有更新的撤回
       // 抬过就不动)。在链内退、先于这条链 reject —— 等这条链的 loadSession 自愈醒来时水位已经对了。
-      if (rewindBump && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
+      if (rewindBump && !preserveRewindOnFailure && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
         if (rewindBump.prevHighWater > 0) sessionRewindGenHighWater.set(id, rewindBump.prevHighWater);
         else sessionRewindGenHighWater.delete(id);
       }

@@ -1,6 +1,7 @@
 """Target-bound Mac keyboard and pointer tools."""
 import asyncio
 import threading
+from contextvars import copy_context
 import anyio
 from typing import Literal
 
@@ -177,7 +178,8 @@ async def input_sequence(events: list[dict], target: dict, input_source: dict,
         finally:
             finished.set()
 
-    worker = threading.Thread(target=execute, name='ruyi-macos-input-sequence', daemon=True)
+    context = copy_context()
+    worker = threading.Thread(target=context.run, args=(execute,), name='ruyi-macos-input-sequence', daemon=True)
     worker.start()
     try:
         while not finished.is_set():

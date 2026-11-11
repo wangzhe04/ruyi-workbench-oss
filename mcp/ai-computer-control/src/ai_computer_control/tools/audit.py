@@ -245,3 +245,31 @@ def audit_tail(n: int = 50) -> dict:
         return {"ok": True, "count": len(records), "records": records, "log_dir": d}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": exc_text(e)}
+
+
+@mcp.tool()
+def execution_receipt(invocation_id: str, probe_values: dict | None = None, control: str | None = None) -> dict:
+    """Read the committed execution-evidence prefix for one opaque invocation identity.
+
+    This read never replays an action and does not return private argument-blob contents.
+    Missing, partial or uncommitted evidence remains incomplete/unknown.
+    """
+    from ai_computer_control.utils.execution_journal import ExecutionJournalError
+    from ai_computer_control.utils.execution_receipt_validation import read_validated_receipts
+    from ai_computer_control.utils.execution_context import metadata_transport_supported, metadata_transport_probe
+    if control not in (None, 'readiness'):
+        return {'ok': False, 'code': 'execution_control_invalid', 'incomplete': True,
+                'outcome': 'not_dispatched', 'request_terminal_observed': False}
+    probe = metadata_transport_probe(mcp, probe_values)
+    try:
+        value = read_validated_receipts(invocation_id)
+    except ExecutionJournalError as error:
+        return {'ok': False, 'code': error.code, 'error': 'Cannot validate committed execution evidence',
+                'outcome': 'unknown', 'incomplete': True, 'request_terminal_observed': False}
+    readiness = {}
+    if control == 'readiness':
+        from ai_computer_control.tools.diagnostics import execution_readiness_snapshot
+        readiness['readiness'] = execution_readiness_snapshot()
+    return {**value, **readiness, 'execution_receipt_version': 1,
+            'metadata_transport_supported': metadata_transport_supported(mcp),
+            **({'metadata_probe': probe} if probe is not None else {})}

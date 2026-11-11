@@ -17,6 +17,7 @@ void RuyiAutomationRefreshAXBindings(void);
 void RuyiAutomationRefreshInputBindings(void);
 void RuyiAutomationResetInputBindings(void);
 int RuyiAutomationRunInputSession(void);
+BOOL RuyiAutomationEnterExecutionReceipt(void);
 NSString *RuyiAutomationProcessIdentity(pid_t pid);
 CFTypeRef RuyiAutomationCopyAttribute(AXUIElementRef element, CFStringRef attribute);
 NSDictionary *RuyiAutomationCheckTarget(NSDictionary *target);

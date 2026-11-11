@@ -254,6 +254,13 @@ const SKIP = new Set([
   'compact-quality-live.e2e.js',
   // 22号线#1 Prompt Cache 纪律验证(真实 DeepSeek API,argv 传 key,固定多轮冷/热对照;手工直跑)
   'prompt-cache-discipline-live.e2e.js',
+  // P5 receipts: require explicit current Mac helper/Python/SDK and opt-in env.
+  // These are independent live qualifications; an absent opt-in must not count as a pass.
+  'macos-native-receipts.e2e.js',
+  'macos-execution-context.e2e.js',
+  'macos-execution-dispatch.e2e.js',
+  'macos-execution-images.e2e.js',
+  'macos-execution-subagents.e2e.js',
 ]);
 
 // 已知失败件(积压回归,CI 全量暴露,后续波修)。失败不计红(不挂 CI),但报告标 [known-fail];

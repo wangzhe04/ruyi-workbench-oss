@@ -24,6 +24,7 @@
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "DeliveryHooks",
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
@@ -70,6 +71,7 @@
         "computeCostFromPricing",
         "computeProviderCost",
         "consoleIncompleteTail",
+        "copyOrdinaryJsonData",
         "cp",
         "createCappedDiagnosticText",
         "createConsoleLineDecoder",
@@ -84,6 +86,7 @@
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
+        "executionArgumentsDigest",
         "exposeBundledPythonRuntime",
         "exposeVendorBinOnPath",
         "externalRoot",
@@ -669,6 +672,13 @@
           "symbol": "CONFIG_SCHEMA",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1326,6 +1336,115 @@
       "requires": []
     },
     {
+      "file": "02g-desktop-executions.js",
+      "layer": "foundation",
+      "provides": [
+        "prepareDesktopExecutionArguments"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "executionArgumentsDigest",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "02h-desktop-ledger.js",
+      "layer": "foundation",
+      "provides": [
+        "DesktopExecutionLedger"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02g-desktop-executions.js",
+          "symbol": "prepareDesktopExecutionArguments",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02-session-store.js",
       "layer": "foundation",
       "provides": [
@@ -1584,7 +1703,10 @@
         "scratchpadTotalChars",
         "serializeSessionBody",
         "sessionAssociatedSaveIsTombstoned",
+        "sessionBodiesMatchCommit",
+        "sessionBodyCommitValid",
         "sessionBodyDanglingFromLines",
+        "sessionBodyDigest",
         "sessionBodyFileStamp",
         "sessionBodyLineCache",
         "sessionBodyLineCacheChars",
@@ -1679,6 +1801,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -2694,6 +2823,7 @@
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
         "mcpBridgeError",
+        "mcpCallToolParams",
         "mcpChildExitResult",
         "mcpClientFailures",
         "mcpClientFingerprints",
@@ -2727,6 +2857,7 @@
         "pendingPlans",
         "pendingQuestions",
         "permissionWaitMs",
+        "probeDesktopExecutionReceipts",
         "probeMcpConnector",
         "promptDeadlineIsReal",
         "promptWaitMs",
@@ -2766,6 +2897,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "cp",
           "kinds": [
             "read"
@@ -2794,7 +2932,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "executionArgumentsDigest",
           "kinds": [
             "call"
           ]
@@ -3315,6 +3467,7 @@
       "layer": "foundation",
       "provides": [
         "PROVIDER_LAN_HOST_SUFFIXES",
+        "ProviderHttpHooks",
         "abortableDelay",
         "providerApiBase",
         "providerBaseIsLocalOrLan",
@@ -3744,6 +3897,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -5755,6 +5915,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "externalRoot",
           "kinds": [
             "call"
@@ -7554,6 +7721,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -8266,6 +8440,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -9230,6 +9411,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -11364,6 +11552,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -12770,6 +12965,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "externalRoot",
           "kinds": [
             "call"
@@ -13913,6 +14115,13 @@
           "symbol": "defaultDataRoots",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -25056,6 +25265,169 @@
         {
           "provider": "13z-external-bot-discovery.js",
           "symbol": "ExternalBotDiscovery",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ac-desktop-execution-runtime.js",
+      "layer": "unclassified",
+      "provides": [
+        "DesktopExecutionRuntime"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionRewindGenHighWater",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02h-desktop-ledger.js",
+          "symbol": "DesktopExecutionLedger",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "isEquivalentDesktopAccServer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "mcpClients",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "McpStdioClient",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "probeDesktopExecutionReceipts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "ProviderHttpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
           "kinds": [
             "read"
           ]

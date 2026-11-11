@@ -782,7 +782,7 @@ NSDictionary *RuyiAutomationInputStatus(void) {
     BOOL trusted = AXIsProcessTrusted();
     BOOL locked = RuyiAutomationLocked();
     NSMutableDictionary *status = [@{@"windowAuthorization":trusted ? @"granted" : @"denied", @"windowReady":@(trusted && !locked),
-        @"windowListReady":@(!locked), @"clipboardReady":@(!locked),
+        @"windowListReady":@(!locked), @"clipboardReady":@(!locked), @"executionReceiptVersion":@1,
         @"inputReady":@(trusted && CGPreflightPostEventAccess() && !locked),
         @"eventAuthorization":CGPreflightPostEventAccess() ? @"granted" : @"denied",
         @"pointerQueryReady":@(!locked), @"applicationReady":@(!locked),
@@ -825,6 +825,13 @@ static NSDictionary *HandleInputRequest(NSDictionary *request) {
 }
 
 NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
+    // The hook is inert outside an explicitly negotiated session receipt. It runs at the
+    // actual handler entry, before cleanup, recording, validation or desktop effects.
+    if (!RuyiAutomationEnterExecutionReceipt()) {
+        NSMutableDictionary *failure = [RuyiAutomationFailure(@"execution_receipt_failed", @"Execution receipt was not committed") mutableCopy];
+        failure[@"acted"] = @NO; failure[@"action_sent"] = @NO; failure[@"outcome"] = @"not_dispatched";
+        return failure;
+    }
     NSString *operation = request[@"op"];
     BOOL mutation = [@[@"record.start", @"input.sequence", @"keyboard.text", @"keyboard.chord",
         @"mouse.click", @"mouse.move", @"mouse.drag", @"mouse.scroll", @"ax.invoke", @"application.launch",

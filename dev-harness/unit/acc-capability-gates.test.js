@@ -47,8 +47,11 @@ function accRegisteredToolNames() {
 
 test('[G1] 名单里的每个名字都是 ACC 真实注册的工具;三族互不相交', () => {
   const real = accRegisteredToolNames();
-  assert.equal(real.size, 109, `ACC 工具总数变了(got ${real.size}):先核对能力总闸名单要不要跟着增删`);
+  assert.equal(real.size, 110, `ACC 工具总数变了(got ${real.size}):先核对能力总闸名单要不要跟着增删`);
+  assert.ok(real.has('execution_receipt'), '新增工具必须是实际注册的严格回执只读工具');
+  assert.equal(srv.bridgedToolTier('execution_receipt', {}, {}), 'read');
   const all = [...F.command, ...F.desktop, ...F.dispatcher];
+  assert.ok(!all.includes('execution_receipt'), '读取历史回执不应被桌面/命令动作总闸隐藏');
   assert.equal(new Set(all).size, all.length, '名单里有重复名字');
   assert.equal(all.length, 56);
   const missing = all.filter(n => !real.has(n));

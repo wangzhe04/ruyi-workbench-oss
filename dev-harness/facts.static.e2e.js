@@ -81,7 +81,10 @@ ok(built.includes('__WCW_TOKEN__') && built.includes("browserNav ? ''"), "serveS
 // (防 SKIP 混入非 live 件如已知 flaky,使 liveProbes 语义失真)。deepseek-tools 文件名不含 live 但属 live probe(真 API 调用)。
 ok(facts.liveProbes === skipped, `facts.liveProbes(${facts.liveProbes}) == SKIP 集大小(${skipped})`);
 const skipFiles = (skipBlock.match(/'[^']+\.e2e\.js'/g) || []).map(s => s.slice(1, -1));
-const LIVE_WHITELIST = new Set(['deepseek-tools.e2e.js']);
+const LIVE_WHITELIST = new Set(['deepseek-tools.e2e.js',
+  // Require an explicitly bound candidate Mac helper and the installed ACC SDK/Python runtime.
+  'macos-native-receipts.e2e.js', 'macos-execution-context.e2e.js',
+  'macos-execution-dispatch.e2e.js', 'macos-execution-images.e2e.js', 'macos-execution-subagents.e2e.js']);
 const nonLiveInSkip = skipFiles.filter(f => !/live/i.test(f) && !LIVE_WHITELIST.has(f));
 ok(nonLiveInSkip.length === 0, `SKIP 集每条都是 live probe(非 live 混入: ${nonLiveInSkip.join(', ') || '无'})`);
 

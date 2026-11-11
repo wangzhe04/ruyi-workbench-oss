@@ -109,6 +109,18 @@ def diagnostics() -> dict:
         booleans that the workbench probe reads), optional_modules (full import-level map), tool_count, and
         load_errors ({module: error} for tool modules that failed to import — their tools are missing).
     """
+    return _diagnostics_snapshot(include_monitors=True)
+
+
+def execution_readiness_snapshot() -> dict:
+    """Contextless control read: exact native status and import flags, never tool dispatch.
+
+    Monitor/DPI tool wrappers and browser driver probing are deliberately excluded.
+    """
+    return _diagnostics_snapshot(include_monitors=False)
+
+
+def _diagnostics_snapshot(*, include_monitors: bool) -> dict:
     try:
         tool_count = len(mcp._tool_manager.list_tools())
     except Exception:
@@ -170,8 +182,8 @@ def diagnostics() -> dict:
         "python_full": sys.version,
         "platform": platform.platform(),
         "is_admin": _is_admin(),
-        "monitors": _monitors_summary(),
-        "dpi": _dpi_summary(),
+        "monitors": _monitors_summary() if include_monitors else {"count": None, "monitors": []},
+        "dpi": _dpi_summary() if include_monitors else {"awareness": None, "primary_scale": None},
         # Compact, probe-aligned availability (top-level, boolean) — read by workbench probeDesktopMcp.
         "optional": _optional(desktop.get("desktop.capture")),
         # Fuller import-level map kept for humans / debugging.

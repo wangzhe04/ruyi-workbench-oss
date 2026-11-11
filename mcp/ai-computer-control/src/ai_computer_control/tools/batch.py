@@ -8,6 +8,7 @@ the real tool set; steps are isolated with per-step try/except.
 import asyncio
 import math
 import sys
+from ai_computer_control.utils.execution_journal import batch_step
 from ai_computer_control.server import mcp
 
 # Tools that must never be invoked from inside a batch (prevents recursion / round-trip storms).
@@ -132,7 +133,8 @@ async def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
             await asyncio.sleep(0)
             # This is a Python invocation attempt, not a native dispatch/entry receipt.
             invocation_attempted = True
-            res = await _invoke(tools[name], args)
+            with batch_step(i):
+                res = await _invoke(tools[name], args)
             # Prefer the tool's own normalized 'ok'; fall back to absence of an 'error' key.
             if isinstance(res, dict) and "ok" in res:
                 ok = bool(res["ok"])

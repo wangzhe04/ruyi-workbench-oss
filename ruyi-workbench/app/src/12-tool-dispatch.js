@@ -298,7 +298,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     // Provider audit observes only the local MCP invocation attempt. Never treat this as
     // acknowledgement from ACC/the native helper. Local policy/argument refusals never reach it.
     if (typeof ctx?.onBridgedInvocationAttempt === 'function') ctx.onBridgedInvocationAttempt();
-    const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    const res = await DesktopExecutionHooks.invoke(client, bridge.toolName, targetArgs || {}, ctx && ctx.signal ? { signal: ctx.signal } : {}, ctx?.desktopExecution);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
     return withToolArgsGuide({ ok: false, error: (e && e.message) || String(e) }, targetSchema, true);
@@ -3382,6 +3382,8 @@ function validateNativeToolArgs(name, args) {
 }
 
 async function toolCall(name, args = {}, ctx = null) {
+  const executionSessionId = ctx?.sessionId || process.env.WCW_SESSION_ID;
+  if (DesktopExecutionHooks.enabled() && executionSessionId) await DesktopExecutionHooks.guard(executionSessionId);
   if (typeof PrivacyGateway !== 'undefined') {
     // MCP processes can outlive a settings change; consult persisted policy before every unscoped call.
     if (!PrivacyGateway.active() && typeof readConfig === 'function') PrivacyGateway.assertSupported((ctx && ctx.config) || await readConfig(), 'external-tool');

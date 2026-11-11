@@ -84,9 +84,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 90 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 70 framework-free ES modules with no build step. |
-| **121 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **595 e2e cases** (588 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 281 unit suites and 37 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 93 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 70 framework-free ES modules with no build step. |
+| **121 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). This is the Windows catalog count; macOS tools depend on implemented backends and current permissions. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **601 e2e cases** (589 selected for default regression; 12 live probes need real APIs, a desktop or a specified Mac runtime and are opt-in; inventory counts do not imply every case passed on this host), plus 289 unit suites and 44 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -536,7 +536,7 @@ A signed Mac offline installer is still pending. macOS 14, signing and clean-mac
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            Backend source: 90 ordered modules (edit here, then run build.js)
+│   ├── app/src/            Backend source: 93 ordered modules (edit here, then run build.js)
 │   ├── app/server.js       Backend runtime artifact (concatenated by app/build.js; zero npm runtime deps)
 │   ├── app/public/         Frontend: index.html + 70 native ES modules + layered CSS + zh/en locales
 │   ├── desktop/            WinForms + WebView2 desktop shell

@@ -68,6 +68,8 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 // Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
 const SessionExecutionHooks = {};
+// Root desktop authority is registered by a late module, outside the existing SCC.
+const DesktopExecutionHooks = {};
 const DeliveryHooks = {};
 const ExternalBotHooks = {};
 const DEFAULT_PORT = 8765;
@@ -401,6 +403,107 @@ function safeDecodeURIComponent(segment) {
 
 // 开头的 UTF-8 BOM(U+FEFF)先剥掉再解析:Windows 记事本/PowerShell 5.1 另存的 JSON 常带 BOM,JSON.parse 对它抛 SyntaxError,
 // 修前 config.json、各类用户手改的清单被当成「损坏」(config 还会因此回滚到 .prev 覆盖用户的编辑)。只处理字符串入参。
+// Expected SDK-decoded JSON value fingerprint shared with ACC execution_arguments.py.
+// Integer JSON.stringify tokens retain every decimal digit; decimal/exponent tokens use binary64.
+// The caller must pass its immutable JSON snapshot, not a mutable pre-serialization object.
+// This binds decoded values, not original wire spelling, and never authorizes an action.
+function executionArgumentsDigest(value) {
+  const digest = crypto.createHash('sha256');
+  const ancestors = new Set();
+  let nodes = 0, bytes = 0;
+  const put = data => {
+    bytes += typeof data === 'string' ? Buffer.byteLength(data, 'utf8') : data.length;
+    if (bytes > 64 * 1024 * 1024) throw new Error('execution argument fingerprint exceeds capacity');
+    digest.update(data);
+  };
+  const utf8 = value => {
+    for (let i = 0; i < value.length; i += 1) {
+      const code = value.charCodeAt(i);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        const next = value.charCodeAt(++i);
+        if (!(next >= 0xdc00 && next <= 0xdfff)) throw new Error('execution arguments contain invalid Unicode');
+      } else if (code >= 0xdc00 && code <= 0xdfff) throw new Error('execution arguments contain invalid Unicode');
+    }
+    return Buffer.from(value, 'utf8');
+  };
+  const visit = (item, depth) => {
+    nodes += 1;
+    if (nodes > 1000000 || depth > 128) throw new Error('execution argument fingerprint exceeds capacity');
+    if (item === null) { put('n;'); return; }
+    if (typeof item === 'boolean') { put(item ? 't;' : 'f;'); return; }
+    if (typeof item === 'number') {
+      if (!Number.isFinite(item)) throw new Error('execution arguments require finite numbers');
+      const token = JSON.stringify(item);
+      if (/^-?\d+$/.test(token)) { put('i' + token + ';'); return; }
+      const number = Buffer.allocUnsafe(8); number.writeDoubleBE(item === 0 ? 0 : item);
+      put('d'); put(number); put(';'); return;
+    }
+    if (typeof item === 'string') { const text = utf8(item); put('s' + text.length + ':'); put(text); put(';'); return; }
+    if (!item || typeof item !== 'object' || (!Array.isArray(item) && Object.getPrototypeOf(item) !== Object.prototype && Object.getPrototypeOf(item) !== null))
+      throw new Error('execution arguments require JSON values');
+    if (ancestors.has(item)) throw new Error('execution arguments cannot be cyclic');
+    ancestors.add(item);
+    if (Array.isArray(item)) {
+      put('a' + item.length + ':');
+      for (let index = 0; index < item.length; index += 1) visit(item[index], depth + 1);
+    } else {
+      const keys = Object.keys(item).map(key => ({ key, bytes: utf8(key) })).sort((a, b) => Buffer.compare(a.bytes, b.bytes));
+      put('o' + keys.length + ':');
+      for (const { key } of keys) { visit(key, depth + 1); visit(item[key], depth + 1); }
+    }
+    ancestors.delete(item); put(';');
+  };
+  put(Buffer.from('ruyi-sdk-json-v1\0', 'utf8'));
+  visit(value, 0);
+  return digest.digest('hex');
+}
+
+// Copy only ordinary JSON data properties; no getters, toJSON or inherited serialization hooks.
+// Null prototypes make a prepared value stable across asynchronous serialization boundaries.
+function copyOrdinaryJsonData(value, freeze = true) {
+  const ancestors = new Set();
+  let nodes = 0;
+  const copy = (item, depth) => {
+    if (++nodes > 1000000 || depth > 128) throw new Error('execution argument snapshot exceeds capacity');
+    if (item === null || typeof item === 'boolean' || typeof item === 'string') return item;
+    if (typeof item === 'number') {
+      if (!Number.isFinite(item)) throw new Error('execution arguments require finite numbers');
+      return item === 0 ? 0 : item;
+    }
+    if (!item || typeof item !== 'object' || (typeof JSON.isRawJSON === 'function' && JSON.isRawJSON(item)))
+      throw new Error('execution arguments require ordinary JSON values');
+    const array = Array.isArray(item), prototype = Object.getPrototypeOf(item);
+    if (array ? prototype !== Array.prototype && prototype !== null : prototype !== Object.prototype && prototype !== null)
+      throw new Error('execution arguments require ordinary JSON objects');
+    if (ancestors.has(item)) throw new Error('execution arguments cannot be cyclic');
+    ancestors.add(item);
+    const descriptors = Object.getOwnPropertyDescriptors(item);
+    const keys = Reflect.ownKeys(descriptors);
+    const result = array ? Object.setPrototypeOf([], null) : Object.create(null);
+    if (array) {
+      const length = descriptors.length?.value;
+      if (!Number.isSafeInteger(length) || length < 0 || length > 1000000 || keys.length !== length + 1)
+        throw new Error('execution arguments require dense ordinary JSON arrays');
+      for (let index = 0; index < length; index += 1) {
+        const descriptor = descriptors[index];
+        if (!descriptor || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
+          throw new Error('execution arguments cannot contain accessors or array holes');
+        result[index] = copy(descriptor.value, depth + 1);
+      }
+    } else {
+      for (const key of keys) {
+        const descriptor = descriptors[key];
+        if (typeof key !== 'string' || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
+          throw new Error('execution arguments require enumerable JSON data properties');
+        result[key] = copy(descriptor.value, depth + 1);
+      }
+    }
+    ancestors.delete(item);
+    return freeze ? Object.freeze(result) : result;
+  };
+  return copy(value, 0);
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse((typeof raw === 'string' && raw.charCodeAt(0) === 0xFEFF) ? raw.slice(1) : raw);
@@ -2391,6 +2494,7 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     let released = false;
     return {
       canonical, endpoint,
+      isHeld() { return !released && server.listening; },
       release() {
         if (released) return Promise.resolve();
         released = true; // A delayed/repeated old release can only close this captured handle.
@@ -2519,8 +2623,17 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
       try { await Promise.all(legacy.map(handle => handle.release())); } finally { fsModule.closeSync(fd); }
       throw error;
     }
+    const identity = fsModule.fstatSync(fd);
     let releasePromise;
-    return { canonical, endpoint, release() {
+    return { canonical, endpoint, isHeld() {
+      if (releasePromise || !legacy.every(handle => handle.isHeld())) return false;
+      try {
+        const current = fsModule.fstatSync(fd), named = fsModule.lstatSync(endpoint);
+        return current.isFile() && named.isFile() && !named.isSymbolicLink()
+          && current.nlink === 1 && current.uid === process.getuid() && !(current.mode & 0o077)
+          && sameFile(identity, current) && sameFile(current, named);
+      } catch { return false; }
+    }, release() {
       if (!releasePromise) releasePromise = Promise.resolve().then(async () => {
         try { await Promise.all(legacy.map(handle => handle.release())); } finally { fsModule.closeSync(fd); }
       });
@@ -2561,16 +2674,33 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     const startupFds = [];
     const closeStartup = () => { for (const fd of startupFds.splice(0)) fsModule.closeSync(fd); };
     const handles = [];
+    const identities = new Map();
+    const rootAliases = new Map();
+    const retiredRoots = new Set();
     let canonical;
+    const rootMatches = root => {
+      if (retiredRoots.has(root)) return false;
+      const expected = identities.get(root);
+      if (!expected) return identities.has(root); // absent leaf is protected by startup + canonical gates
+      try { const stat = fsModule.statSync(root, { bigint: true });
+        return stat.isDirectory() && stat.dev === expected.dev && stat.ino === expected.ino && stat.birthtimeNs === expected.birthtimeNs;
+      } catch { return false; }
+    };
     try {
       // Every Mac startup respects this gate, including roots that appeared during another
       // startup's recursive mkdir. Missing names have no stable filesystem spelling yet.
       if (process.platform === 'darwin') startupFds.push(await acquireMacStartupLock());
       const resolved = await Promise.all(roots.map(resolveRoot));
+      for (let index = 0; index < roots.length; index++) rootAliases.set(pathModule.resolve(roots[index]), resolved[index].canonical);
       canonical = [...new Set(resolved.map(root => root.canonical))].sort();
+      for (const root of canonical) {
+        identities.set(root, resolved.some(item => item.canonical === root && !item.missing)
+          ? await fsModule.promises.stat(root, { bigint: true }) : null);
+      }
       for (const root of canonical) {
         handles.push(await bind(root, resolved.filter(item => item.canonical === root).map(item => item.legacy)));
       }
+      if (!canonical.every(rootMatches)) throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '取得启动锁时数据目录发生变化。 / Data directory changed during ownership acquisition.');
       // Old releases have no kernel file gate. A live or uncertain PID blocks recovery.
       for (const root of canonical) await checkLegacyRuntime(root);
       if (!resolved.some(root => root.missing)) closeStartup();
@@ -2582,10 +2712,41 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     return Object.freeze({
       roots: Object.freeze(canonical),
       portable: handles.some(handle => handle.endpoint.endsWith('.sock')),
+      isHeld() { return !releasePromise && handles.length > 0 && handles.every(handle => handle.isHeld()); },
+      isRootCurrent(root) { return !releasePromise && handles.every(handle => handle.isHeld()) && rootMatches(root); },
+      async confirmRoot(root, migratedFrom) {
+        if (releasePromise || !handles.every(handle => handle.isHeld())) {
+          throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '服务所有权或数据目录身份已经失效。 / Ownership or data directory identity changed.');
+        }
+        const resolved = await resolveRoot(root);
+        if (resolved.missing || !identities.has(resolved.canonical) || retiredRoots.has(resolved.canonical)) {
+          throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '初始化的数据目录不属于当前服务。 / Initialized root is not owned.');
+        }
+        if (!identities.get(resolved.canonical)) {
+          if (process.platform !== 'darwin' || !startupFds.length) throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '创建目录的启动锁已经释放。 / Root creation startup gate is no longer held.');
+          const actual = await fsModule.promises.stat(resolved.canonical, { bigint: true });
+          if (migratedFrom !== undefined) {
+            // Migration can leave a legacy junction pointing at the destination. Use the
+            // pre-move alias captured at acquisition, not today's symlink resolution.
+            const source = rootAliases.get(pathModule.resolve(migratedFrom)), expected = identities.get(source);
+            if (!expected || retiredRoots.has(source) || actual.dev !== expected.dev || actual.ino !== expected.ino || actual.birthtimeNs !== expected.birthtimeNs) {
+              throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '迁移后的目录不是原服务持有的数据目录。 / Migrated directory identity changed.');
+            }
+            retiredRoots.add(source);
+          }
+          identities.set(resolved.canonical, actual);
+        }
+        if (releasePromise || !handles.every(handle => handle.isHeld()) || !rootMatches(resolved.canonical)) {
+          throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '确认时数据目录身份发生变化。 / Data directory changed during confirmation.');
+        }
+      },
       async releaseStartup() {
         if (!startupFds.length) return;
-        const finalRoots = await Promise.all(roots.map(resolveRoot));
-        if (finalRoots.some(root => root.missing || !canonical.includes(root.canonical))) {
+        // A confirmed rename may intentionally leave no legacy junction. Only source roots
+        // whose original inode was verified at the destination may be omitted here.
+        const retained = roots.filter(root => !retiredRoots.has(rootAliases.get(pathModule.resolve(root))));
+        const finalRoots = await Promise.all(retained.map(resolveRoot));
+        if (finalRoots.some(root => root.missing || !canonical.includes(root.canonical) || !rootMatches(root.canonical))) {
           throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '初始化后的数据目录身份发生变化，请重新启动。 / Initialized data directory identity changed.');
         }
         closeStartup();
@@ -5825,8 +5986,22 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
-    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    if (opts.exclusiveTemp === true) {
+      let file, created = false;
+      try {
+        file = await fsp.open(tmpPath, 'wx', Number.isInteger(opts.mode) ? opts.mode : 0o600);
+        created = true;
+        try { await file.writeFile(payload, 'utf8'); } finally { await file.close(); file = null; }
+      } catch (error) {
+        if (file) { try { await file.close(); } catch { /* preserve the failed write */ } }
+        // EEXIST is someone else's inode. Never unlink it while recovering our own attempt.
+        if (created) { try { await fsp.unlink(tmpPath); } catch { /* best effort; no publication */ } }
+        throw error;
+      }
+    } else {
+      try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
+      catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
       try { await fsp.rename(tmpPath, finalPath); return; }
@@ -5904,7 +6079,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       const target = resolvePath(value, rule && rule.path);
       const max = Math.max(0, Math.floor(Number(rule && rule.max) || 0));
       if (!target || !max) continue;
-      if (Array.isArray(target) && target.length > max) target.splice(0, target.length - max);
+      if (Array.isArray(target) && target.length > max) Array.prototype.splice.call(target, 0, target.length - max);
       else if (typeof target === 'object') {
         const keys = Object.keys(target);
         for (const key of keys.slice(0, Math.max(0, keys.length - max))) delete target[key];
@@ -5920,32 +6095,39 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
     const cacheEnabled = options.cache !== false;
     const quarantineEnabled = options.quarantine !== false;
+    const maxBytes = options.maxBytes;
+    if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024 * 1024)) throw new TypeError('invalid durable JSON byte bound');
+    if (options.ownedRegular === true && maxBytes === undefined) throw new TypeError('owned durable JSON reads require a byte bound');
+    if (options.ownedRegular === true && options.mode !== undefined && options.mode !== 0o600) throw new TypeError('owned durable JSON files require mode 0600');
     let cached = null;
     let hasCache = false;
     let writeChain = Promise.resolve();
 
     const filePath = () => String(typeof options.file === 'function' ? options.file() : options.file);
-    const fallback = () => cloneJson(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
+    const copyValue = value => options.ordinaryJson === true && value !== undefined ? copyOrdinaryJsonData(value, false) : cloneJson(value);
+    const fallback = () => copyValue(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
 
     function prepare(raw, forWrite) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
       }
-      const actualSchema = raw[schemaKey];
+      const sourceValue = options.ordinaryJson === true ? copyOrdinaryJsonData(raw, false) : raw;
+      const actualSchema = sourceValue[schemaKey];
       if (schemaVersion !== null && actualSchema !== schemaVersion && (options.strictRead === true || actualSchema !== undefined)) {
         throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
       }
-      let value = cloneJson(raw);
+      let value = options.ordinaryJson === true ? sourceValue : cloneJson(raw);
       if (typeof options.sanitize === 'function') value = options.sanitize(value);
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw storeError('EDURABLE_SANITIZE', id + ': sanitizer returned a non-object');
       }
+      if (options.ordinaryJson === true) value = copyOrdinaryJsonData(value, false);
       if (schemaVersion !== null) value[schemaKey] = schemaVersion;
       applyCapacity(value, options.capacity);
       if (typeof options.validate === 'function' && options.validate(value) !== true) {
         throw storeError('EDURABLE_VALIDATE', id + ': validation failed');
       }
-      return value;
+      return options.ordinaryJson === true ? copyOrdinaryJsonData(value) : value;
     }
 
     function freshDefault() {
@@ -5962,11 +6144,81 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       }
     }
 
+    function parseText(text) {
+      const value = JSON.parse(text);
+      // Opt-in stores own this exact formatter. Equality rejects duplicate keys, alternate
+      // numeric lexemes and discarded bytes without maintaining a second JSON parser.
+      if (options.canonicalRead === true && JSON.stringify(options.ordinaryJson === true ? copyOrdinaryJsonData(value) : value, null, 2) !== text) {
+        throw storeError('EDURABLE_CANONICAL', id + ': noncanonical JSON evidence');
+      }
+      return prepare(value, false);
+    }
+
+    function readFlags() {
+      let flags = fsModule.constants.O_RDONLY | (fsModule.constants.O_NONBLOCK || 0);
+      if (options.ownedRegular === true) {
+        if (!fsModule.constants.O_NOFOLLOW || typeof process.getuid !== 'function') {
+          throw storeError('EDURABLE_PLATFORM', id + ': owned descriptor reads unavailable');
+        }
+        flags |= fsModule.constants.O_NOFOLLOW;
+      }
+      return flags;
+    }
+    function checkReadStat(stat) {
+      if (!stat.isFile() || stat.size > BigInt(maxBytes)) throw storeError('EDURABLE_CAPACITY', id + ': invalid or oversized JSON file');
+      if (options.ownedRegular === true && (stat.uid !== BigInt(process.getuid()) || stat.nlink !== 1n || (stat.mode & 0o077n))) {
+        throw storeError('EDURABLE_OWNER', id + ': JSON file is not private and owned');
+      }
+    }
+    function unchangedRead(before, after) {
+      if (['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].some(key => before[key] !== after[key])) {
+        throw storeError('EDURABLE_CHANGED', id + ': JSON file changed during read');
+      }
+    }
+    function boundedText(buffer, used) {
+      if (used > maxBytes) throw storeError('EDURABLE_CAPACITY', id + ': JSON read exceeds byte bound');
+      const data = buffer.subarray(0, used), text = data.toString('utf8');
+      if (!Buffer.from(text, 'utf8').equals(data)) throw storeError('EDURABLE_ENCODING', id + ': invalid UTF-8 JSON');
+      return text;
+    }
+    function readTextSync() {
+      if (maxBytes === undefined) return fsModule.readFileSync(filePath(), 'utf8');
+      const fd = fsModule.openSync(filePath(), readFlags());
+      try {
+        const before = fsModule.fstatSync(fd, { bigint: true }); checkReadStat(before);
+        const buffer = Buffer.alloc(maxBytes + 1); let used = 0;
+        while (used < buffer.length) {
+          const count = fsModule.readSync(fd, buffer, used, buffer.length - used, null);
+          if (!count) break;
+          used += count;
+        }
+        if (BigInt(used) !== before.size) throw storeError('EDURABLE_CHANGED', id + ': incomplete JSON read');
+        unchangedRead(before, fsModule.fstatSync(fd, { bigint: true }));
+        return boundedText(buffer, used);
+      } finally { fsModule.closeSync(fd); }
+    }
+    async function readText() {
+      if (maxBytes === undefined) return fspModule.readFile(filePath(), 'utf8');
+      const file = await fspModule.open(filePath(), readFlags());
+      try {
+        const before = await file.stat({ bigint: true }); checkReadStat(before);
+        const buffer = Buffer.alloc(maxBytes + 1); let used = 0;
+        while (used < buffer.length) {
+          const { bytesRead } = await file.read(buffer, used, buffer.length - used, null);
+          if (!bytesRead) break;
+          used += bytesRead;
+        }
+        if (BigInt(used) !== before.size) throw storeError('EDURABLE_CHANGED', id + ': incomplete JSON read');
+        unchangedRead(before, await file.stat({ bigint: true }));
+        return boundedText(buffer, used);
+      } finally { await file.close(); }
+    }
+
     function readSync() {
       if (cacheEnabled && hasCache) return cached;
       let value;
       try {
-        value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
+        value = parseText(readTextSync());
       } catch (error) {
         if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
@@ -5994,7 +6246,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       if (cacheEnabled && hasCache) return cached;
       let value;
       try {
-        value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
+        value = parseText(await readText());
       } catch (error) {
         if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
@@ -6009,8 +6261,14 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     }
 
     function write(value) {
-      let snapshot;
-      try { snapshot = prepare(value, true); }
+      let snapshot, serialized;
+      try {
+        snapshot = prepare(value, true);
+        if (maxBytes !== undefined) serialized = JSON.stringify(snapshot, null, 2);
+        if (maxBytes !== undefined && Buffer.byteLength(serialized, 'utf8') > maxBytes) {
+          throw storeError('EDURABLE_CAPACITY', id + ': JSON write exceeds byte bound');
+        }
+      }
       catch (error) { return Promise.reject(error); }
       // Advance the write-through cache at enqueue time. Updating it on I/O completion lets an older queued
       // write temporarily replace newer in-memory state while the next atomic write is still awaiting disk.
@@ -6018,7 +6276,10 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       const pending = writeChain.catch(() => {}).then(async () => {
         const file = filePath();
         await fspModule.mkdir(pathModule.dirname(file), { recursive: true });
-        await atomicWriteFn(file, snapshot);
+        const payload = maxBytes === undefined ? snapshot : serialized;
+        if (options.ownedRegular === true) await atomicWriteFn(file, payload, { mode: 0o600, exclusiveTemp: true });
+        else if (Number.isInteger(options.mode)) await atomicWriteFn(file, payload, { mode: options.mode });
+        else await atomicWriteFn(file, payload);
         return snapshot;
       });
       writeChain = pending;
@@ -9378,6 +9639,484 @@ function irreversibleDetail(input) {
   return '';
 }
 
+// Prepare once at the final host dispatch boundary. Reject values whose implicit JSON conversion
+// could change approved data; copy property descriptors without invoking getters or toJSON hooks.
+// The returned bytes, decoded-value fingerprint and frozen outgoing object describe the same JSON.
+function prepareDesktopExecutionArguments(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('tool arguments must be a JSON object');
+  const snapshot = copyOrdinaryJsonData(value);
+  const semanticSha256 = executionArgumentsDigest(snapshot);
+  const json = JSON.stringify(snapshot);
+  const bytes = Buffer.byteLength(json, 'utf8');
+  if (bytes > 8 * 1024 * 1024) throw new Error('execution argument snapshot exceeds capacity');
+  return Object.freeze(Object.assign(Object.create(null), { snapshot, json, bytes, sha256: crypto.createHash('sha256').update(json, 'utf8').digest('hex'),
+    codec: 'javascript-json-utf8-v1', semanticSha256, semanticCodec: 'ruyi-sdk-json-v1' }));
+}
+
+// Root-owned execution preparation/result ledger; this factory itself performs no MCP/native IO.
+// The default-off root/provider candidate supplies actual OS ownership and live turn assertions.
+// The state file holds identity fields, digests and flags. Explicit delivery snapshots are private, bounded,
+// immutable files containing the actual projected consumer history, not raw ACC results.
+const DesktopExecutionLedger = (() => {
+  const TOKEN = /^[a-f0-9]{32}$/, HASH = /^[a-f0-9]{64}$/;
+  const NAME = /^[A-Za-z_][A-Za-z0-9_.-]{0,99}$/, SESSION = /^[A-Za-z0-9_-]{1,128}$/;
+  const MAX_ENTRIES = 256, MAX_CLOSED_SESSIONS = 4096, MAX_BYTES = 4 * 1024 * 1024;
+  const MAX_DELIVERY_BYTES = 16 * 1024 * 1024;
+  const owners = new Map(); // One authority per canonical directory in this process; the host owns the OS gate.
+  const PHASES = new Set(['prepared', 'dispatching', 'returned', 'unknown']);
+  const FLAGS = ['ok', 'action_sent', 'acted', 'cancelled', 'confirmed', 'outcome', 'code'];
+  const OUTCOMES = new Set(['unknown', 'unconfirmed', 'not_dispatched', 'rolled_back']);
+  const ROW_KEYS = ['invocationId','sessionId','turnSeq','rewindGen','admissionId','callIdHash','toolName','argsSha256','argsSemanticSha256','argsBytes',
+    'ownerEpoch','clientId','accWorkerId','accPid','phase','createdAt','updatedAt','observed','deliverySha256','holdReason'];
+  const RECEIPT_KEYS = ['sha256','requestOperationId','sequence','requestReturned'];
+  const OBSERVED_KEYS = ['sha256','bytes','flags','receipt'];
+  const NODE_SCOPE_KEYS = ['kind','runId','nodeId','attempt','subagentId','batchId','toolCallId'];
+  const ownKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value,key));
+  const match = (pattern,value) => typeof value === 'string' && pattern.test(value);
+  const integer = (value,min=1,max=Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value>=min && value<=max;
+  const stamp = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value));
+  const digest = value => crypto.createHash('sha256').update(value,'utf8').digest('hex');
+  function error(code,message) { return Object.assign(new Error(message),{code}); }
+  function need(condition,code,message) { if (!condition) throw error(code,message); }
+  function flags(value) {
+    need(value && typeof value==='object' && !Array.isArray(value),'execution_result_invalid','Tool result must be an object');
+    // Match ACC's receipt flag projection. A business numeric exit code or structured outcome
+    // is ordinary result data, not a typed native/receipt flag and never proves non-dispatch.
+    const out=Object.create(null);
+    for(const key of ['ok','action_sent','acted','cancelled'])if(typeof value[key]==='boolean')out[key]=value[key];
+    if(Object.hasOwn(value,'confirmed')&&(value.confirmed===null||typeof value.confirmed==='boolean'))out.confirmed=value.confirmed;
+    if(OUTCOMES.has(value.outcome))out.outcome=value.outcome;
+    if(typeof value.code==='string')out.code=Array.from(value.code).slice(0,100).join('');
+    need(typeof out.ok==='boolean','execution_result_invalid','Tool result lacks typed ok');
+    return out;
+  }
+
+  function validObserved(value) {
+    if (!ownKeys(value,OBSERVED_KEYS) || !match(HASH,value.sha256) || !integer(value.bytes,0,128*1024*1024)) return false;
+    try {
+      if(Object.keys(value.flags).some(key=>!FLAGS.includes(key)))return false;
+      const normalized=flags(value.flags);
+      if(Object.keys(normalized).length!==Object.keys(value.flags).length || Object.keys(normalized).some(key=>normalized[key]!==value.flags[key]))return false;
+    } catch {return false;}
+    const receipt=value.receipt;
+    return receipt===null || ownKeys(receipt,RECEIPT_KEYS) && match(HASH,receipt.sha256)
+      && match(TOKEN,receipt.requestOperationId) && integer(receipt.sequence,1,4096) && typeof receipt.requestReturned==='boolean';
+  }
+  function validRow(row) {
+    const hasNode=!!row&&typeof row==='object'&&Object.hasOwn(row,'nodeDelivery');
+    if (!ownKeys(row,hasNode?[...ROW_KEYS,'nodeDelivery']:ROW_KEYS) || !match(TOKEN,row.invocationId) || !match(SESSION,row.sessionId)
+        || !integer(row.turnSeq) || !integer(row.rewindGen,0) || !match(NAME,row.toolName) || !integer(row.argsBytes,0,8*1024*1024)
+        || !['admissionId','callIdHash','argsSha256','argsSemanticSha256'].every(key=>match(HASH,row[key]))
+        || !['ownerEpoch','clientId','accWorkerId'].every(key=>match(TOKEN,row[key])) || !integer(row.accPid)
+        || !PHASES.has(row.phase) || !stamp(row.createdAt) || !stamp(row.updatedAt)
+        || !(row.observed===null || validObserved(row.observed))
+        || !(row.deliverySha256===null || match(HASH,row.deliverySha256))
+        || !(row.holdReason===null || match(NAME,row.holdReason))) return false;
+    if(hasNode) {
+      const node=row.nodeDelivery;
+      if(!ownKeys(node,['schema','file','scope','historySha256','bindingSha256']) || node.schema!==1
+          || node.file!=='delivery-'+row.invocationId+'.json' || !validNodeScope(node.scope)
+          || !(node.historySha256===null&&node.bindingSha256===null || match(HASH,node.historySha256)&&match(HASH,node.bindingSha256))
+          || row.deliverySha256!==null&&node.historySha256!==row.deliverySha256
+          || row.deliverySha256===null&&node.historySha256!==null&&row.phase!=='unknown')return false;
+    }
+    if (row.phase==='prepared' || row.phase==='dispatching') return row.observed===null && row.deliverySha256===null && row.holdReason===null;
+    if (row.phase==='unknown') return row.holdReason!==null && row.deliverySha256===null;
+    return row.observed!==null && row.observed.receipt!==null && row.holdReason===null
+      && row.observed.flags.outcome!=='unknown' && (row.observed.receipt.requestReturned ||
+        row.observed.flags.ok===false && row.observed.flags.action_sent!==true && row.observed.flags.acted!==true
+        && row.observed.flags.confirmed!==true && (row.observed.flags.outcome===undefined || row.observed.flags.outcome==='not_dispatched'));
+  }
+  function validNodeScope(scope) {
+    return ownKeys(scope,NODE_SCOPE_KEYS) && scope.kind==='foreground_workflow_node' && integer(scope.attempt)
+      && [scope.runId,scope.nodeId,scope.subagentId,scope.batchId].every(value=>match(SESSION,value))
+      && typeof scope.toolCallId==='string'&&scope.toolCallId.length>0&&scope.toolCallId.length<=1024;
+  }
+  function metadata(row) {
+    return Object.freeze(Object.assign(Object.create(null),{schema:1,invocation_id:row.invocationId,
+      session_id:row.sessionId,turn_seq:row.turnSeq,call_id_hash:row.callIdHash,tool_name:row.toolName,
+      args_sha256:row.argsSha256,args_codec:'javascript-json-utf8-v1',args_semantic_sha256:row.argsSemanticSha256,
+      args_semantic_codec:'ruyi-sdk-json-v1'}));
+  }
+  function inspectReceipt(value,row,resultFlags) {
+    const bad='execution_receipt_unverified';
+    need(value?.ok===true && value.execution_receipt_version===1 && value.schema===1
+      && value.invocation_id===row.invocationId && value.incomplete===false && value.request_terminal_observed===true,bad,'Incomplete execution receipt');
+    const summary=value.semantic_validation, rows=Array.isArray(value.records)?Array.from(value.records):null;
+    need(summary?.semantic_version===1 && summary.invocation_id===row.invocationId && summary.lifecycle_unknown===false
+      && summary.request_terminal_observed===true && Array.isArray(summary.reported_unknown_operation_ids)
+      && summary.reported_unknown_operation_ids.length===0 && Array.isArray(summary.unresolved_operation_ids)
+      && summary.unresolved_operation_ids.length===0 && Array.isArray(rows) && rows.length>1 && rows.length<=4096
+      && summary.records_validated===rows.length,bad,'Receipt semantics are incomplete');
+    for (let index=0;index<rows.length;index++) {
+      const record=rows[index];
+      need(record?.schema===1 && record.invocation_id===row.invocationId && record.sequence===index+1
+        && record.acc_worker_id===row.accWorkerId && record.acc_pid===row.accPid && match(TOKEN,record.operation_id) && record.outcome!=='unknown',bad,'Receipt worker or sequence changed');
+    }
+    const accepted=rows[0], terminal=rows[rows.length-1];
+    const expected=metadata(row);
+    const binding={session_id:'session_id',turn_seq:'turn_seq',call_id_hash:'call_id_hash',tool_name:'tool',
+      args_sha256:'caller_args_sha256',args_codec:'caller_args_codec',args_semantic_sha256:'received_semantic_sha256',args_semantic_codec:'args_semantic_codec'};
+    need(accepted.stage==='acc_request_accepted' && Object.entries(binding).every(([key,target])=>accepted[target]===expected[key])
+      && accepted.caller_semantic_sha256===row.argsSemanticSha256 && terminal.stage==='acc_request_terminal'
+      && terminal.operation_id===accepted.operation_id && typeof terminal.ok==='boolean'
+      && summary.request_transport_returned===terminal.ok,bad,'Receipt does not match immutable preparation');
+    const tops=rows.filter(record=>record.stage==='tool_entered' && record.parent_operation_id===accepted.operation_id);
+    if (terminal.ok) {
+      need(tops.length===1 && tops[0].tool===row.toolName,bad,'Top-level wrapper is missing');
+      const ends=rows.filter(record=>record.stage==='tool_terminal' && record.operation_id===tops[0].operation_id);
+      need(ends.length===1 && ends[0].tool===row.toolName,bad,'Top-level wrapper terminal is missing');
+      const reported=flags(ends[0]);
+      need(FLAGS.every(key=>Object.hasOwn(reported,key)===Object.hasOwn(resultFlags,key) && reported[key]===resultFlags[key]),bad,'Returned result flags differ from actual wrapper terminal');
+    } else {
+      need(terminal.outcome==='not_dispatched' && tops.length===0 && resultFlags.ok===false
+        && resultFlags.action_sent!==true && resultFlags.acted!==true && resultFlags.confirmed!==true
+        && (resultFlags.outcome===undefined || resultFlags.outcome==='not_dispatched')
+        && !rows.some(record=>record.stage==='tool_entered' || record.stage.startsWith('native_')),bad,'Failed SDK request does not prove non-dispatch');
+    }
+    return Object.freeze({sha256:digest(JSON.stringify(copyOrdinaryJsonData(rows))),requestOperationId:accepted.operation_id,
+      sequence:rows.length,requestReturned:terminal.ok});
+  }
+  function create({directory,isOwner,isTurnCurrent,confirmRetirement,makeStore=options=>DurableJsonStore.create(options)}={}) {
+    need(typeof directory==='string' && path.isAbsolute(directory) && typeof isOwner==='function' && typeof isTurnCurrent==='function',
+      'execution_owner_required','Execution ledger requires a trusted directory plus root ownership and live-turn assertions');
+    const epoch=crypto.randomBytes(16).toString('hex'), chains=new Map(), live=new Set();
+    const activity={epoch,isOwner,pending:0};
+    const file=path.join(directory,'state.json');
+    let opened=false, directoryIdentity=null, canonicalDirectory=null, rootId=null, store=null;
+    const assertOwner=()=>need(isOwner()===true && (!canonicalDirectory || owners.get(canonicalDirectory)?.epoch===epoch),
+      'execution_owner_lost','Root execution authority is unavailable');
+    const sameFile=(a,b)=>a.dev===b.dev && a.ino===b.ino && a.birthtimeNs===b.birthtimeNs;
+    async function checkDirectory() {
+      assertOwner();
+      const stat=await fsp.lstat(directory,{bigint:true});
+      need(stat.isDirectory() && !stat.isSymbolicLink() && typeof process.getuid==='function'
+        && stat.uid===BigInt(process.getuid()) && !(stat.mode&0o077n)
+        && (!directoryIdentity || sameFile(stat,directoryIdentity)),'execution_storage_changed','Execution ledger directory changed');
+      assertOwner();return stat;
+    }
+    async function read() {
+      need(opened,'execution_ledger_unavailable','Execution ledger has not been opened');
+      await checkDirectory();
+      const before=await fsp.lstat(file,{bigint:true});
+      need(before.isFile() && !before.isSymbolicLink(),'execution_storage_changed','Execution ledger file is not regular');
+      const value=await store.read();
+      const after=await fsp.lstat(file,{bigint:true});
+      need(sameFile(before,after) && before.size===after.size && before.mtimeNs===after.mtimeNs && before.ctimeNs===after.ctimeNs,
+        'execution_storage_changed','Execution ledger file changed during read');
+      await checkDirectory();
+      const snapshot=copyOrdinaryJsonData(value,false);let changed=false;
+      for(const row of Array.from(snapshot.entries))if(row.nodeDelivery&&row.phase==='returned'&&row.deliverySha256!==null) {
+        try {await readNodeDelivery(row,snapshot.rootId,row.deliverySha256,row.nodeDelivery.bindingSha256);}
+        catch {
+          // Preserve the original committed hashes/locator for reconciliation. A
+          // missing consumer transcript cannot remain an acknowledged delivery.
+          row.phase='unknown';row.holdReason='node_history_unverified';row.deliverySha256=null;row.updatedAt=nowIso();
+          live.delete(row.invocationId);changed=true;
+        }
+      }
+      if(changed){assertOwner();await store.write(snapshot);await checkDirectory();}
+      return snapshot;
+    }
+    function enqueue(work) {
+      activity.pending++;
+      return runKeyedChain(chains,'ledger',async()=>{assertOwner();return work();}).finally(()=>{activity.pending--;});
+    }
+    async function update(id,work,committed) {
+      return enqueue(async()=>{
+        try {
+          const value=await read(), row=id ? Array.from(value.entries).find(entry=>entry.invocationId===id) : null;
+          if (id) need(row,'execution_identity_missing','Execution invocation is not in this ledger');
+          const result=await work(value,row);
+          assertOwner();await checkDirectory();await store.write(value);await checkDirectory();
+          if(committed)committed(result);
+          return result;
+        } catch (cause) {if(id)live.delete(id);throw cause;}
+      });
+    }
+    function reservationSnapshot(row) {
+      return {schema:1,kind:'node_delivery_reservation',rootId,invocationId:row.invocationId,
+        admissionId:row.admissionId,ownerEpoch:row.ownerEpoch};
+    }
+    function nodeStore(target,validate) {
+      return makeStore({id:'desktop-node-history',file:target,schemaVersion:1,cache:false,
+        strictRead:true,quarantine:false,maxBytes:MAX_DELIVERY_BYTES,canonicalRead:true,ownedRegular:true,
+        ordinaryJson:true,mode:0o600,defaultValue:()=>null,validate});
+    }
+    async function readNodeDelivery(row,expectedRoot,historySha256,bindingSha256) {
+      const scope=row.nodeDelivery.scope;
+      const valid=value=>{
+        if(!ownKeys(value,['schema','rootId','invocationId','sessionId','turnSeq','rewindGen','admissionId','historySha256','binding','history'])
+            || value.schema!==1 || value.rootId!==expectedRoot || value.invocationId!==row.invocationId
+            || value.sessionId!==row.sessionId || value.turnSeq!==row.turnSeq || value.rewindGen!==row.rewindGen
+            || value.admissionId!==row.admissionId || !Array.isArray(value.history)
+            || value.historySha256!==historySha256 || digest(JSON.stringify(value.history))!==historySha256
+            || !ownKeys(value.binding,[...NODE_SCOPE_KEYS,'index','images','imageIndices'])
+            || NODE_SCOPE_KEYS.some(key=>value.binding[key]!==scope[key])
+            || digest(JSON.stringify(value.binding))!==bindingSha256)return false;
+        const binding=value.binding;
+        return integer(binding.index,0)&&value.history[binding.index]?.role==='tool'
+          &&value.history[binding.index].tool_call_id===scope.toolCallId && Array.isArray(binding.images)&&Array.isArray(binding.imageIndices)
+          &&binding.images.length===binding.imageIndices.length&&new Set(Array.from(binding.imageIndices)).size===binding.images.length
+          &&Array.from(binding.images).every((image,offset)=>{const index=binding.imageIndices[offset],message=value.history[index];
+            return typeof image==='string'&&integer(index,0)&&index>binding.index&&message?.role==='user'&&JSON.stringify(message.content)===image;});
+      };
+      await checkDirectory();
+      const value=await nodeStore(path.join(directory,row.nodeDelivery.file),valid).read();
+      need(valid(value),'execution_delivery_unverified','Stored node delivery is missing or inconsistent');
+      await checkDirectory();return value;
+    }
+    async function saveImmutableNodeSnapshot(name,snapshot,verifyScope,reservation=null) {
+      const actual=copyOrdinaryJsonData(snapshot),expected=JSON.stringify(actual),target=path.join(directory,name);
+      need(Buffer.byteLength(JSON.stringify(actual,null,2),'utf8')<=MAX_DELIVERY_BYTES,
+        'execution_delivery_capacity','Actual node history exceeds the bounded snapshot');
+      await checkDirectory();
+      // Explicit bounded refusal until the retention/ACK protocol is implemented.
+      if(reservation) {
+        const prior=await nodeStore(target,value=>JSON.stringify(value)===JSON.stringify(reservation)).read();
+        need(JSON.stringify(prior)===JSON.stringify(reservation),'execution_delivery_exists','Node delivery reservation changed');
+      } else {
+        need((await fsp.readdir(directory)).length<1024,'execution_delivery_capacity','Node history file capacity exhausted');
+        try {await fsp.lstat(target);throw error('execution_delivery_exists','Immutable node history evidence already exists');}
+        catch(cause){if(cause.code!=='ENOENT')throw cause;}
+      }
+      const delivery=nodeStore(target,value=>JSON.stringify(value)===expected);
+      need(verifyScope()===true,'execution_admission_lost','Node changed before history publication');
+      await delivery.write(actual);await checkDirectory();
+      const saved=await delivery.read();
+      need(JSON.stringify(saved)===expected && verifyScope()===true,
+        'execution_delivery_unverified','Cannot verify actual node history and owner after publication');
+      return Object.freeze({historySha256:snapshot.historySha256,bindingSha256:snapshot.binding?digest(JSON.stringify(snapshot.binding)):null,file:name});
+    }
+    function held(entries,sessionId) {
+      return Array.from(entries).filter(row=>row.sessionId===sessionId && (row.phase==='unknown'
+        || row.phase==='returned' && row.deliverySha256===null
+        || (row.phase==='prepared' || row.phase==='dispatching') && !(row.ownerEpoch===epoch && live.has(row.invocationId)
+          && isTurnCurrent(scopeOf(row))===true)));
+    }
+    function closed(value,sessionId,turnSeq,rewindGen) {
+      const mark=Array.from(value.closedTurns).find(entry=>entry.sessionId===sessionId);
+      return !!mark && (rewindGen<mark.rewindGen || rewindGen===mark.rewindGen && turnSeq<=mark.turnSeq);
+    }
+    const scopeOf=({sessionId,turnSeq,rewindGen,admissionId})=>Object.freeze(Object.assign(Object.create(null),{sessionId,turnSeq,rewindGen,admissionId}));
+    const requireAdmission=scope=>need(isTurnCurrent(scope)===true,'execution_admission_lost','Actual host turn admission is no longer current');
+    const view=row=>copyOrdinaryJsonData(row);
+    return Object.freeze({
+      epoch,
+      async open() {
+        return enqueue(async()=>{
+          if(opened){await read();return;}
+          let created=false;
+          try {await fsp.mkdir(directory,{mode:0o700});created=true;} catch(cause){if(cause.code!=='EEXIST')throw cause;}
+          directoryIdentity=await checkDirectory();
+          const canonical=await fsp.realpath(directory), previous=owners.get(canonical);
+          need(!previous || previous.epoch===epoch || previous.pending===0,'execution_owner_draining','Previous authority still has pending IO');
+          need(!previous || previous.epoch===epoch || previous.isOwner()===false,'execution_owner_conflict','Another execution authority owns this directory');
+          owners.set(canonical,activity);canonicalDirectory=canonical;
+          rootId=created?crypto.randomBytes(32).toString('hex'):null;
+          store=makeStore({id:'desktop-executions-v1',file,schemaVersion:1,cache:false,strictRead:true,quarantine:false,
+            maxBytes:MAX_BYTES,canonicalRead:true,ownedRegular:true,ordinaryJson:true,mode:0o600,
+            defaultValue:()=>({schema:1,rootId,entries:[],closedTurns:[]}),validate:value=>{
+              if(!ownKeys(value,['schema','rootId','entries','closedTurns']) || value.schema!==1 || !match(HASH,value.rootId) || (rootId!==null && value.rootId!==rootId)
+                || !Array.isArray(value.entries) || value.entries.length>MAX_ENTRIES
+                || !Array.isArray(value.closedTurns) || value.closedTurns.length>MAX_CLOSED_SESSIONS) return false;
+              const ids=new Set(),calls=new Set();
+              for(let i=0;i<value.entries.length;i++) {
+                const row=value.entries[i];if(!validRow(row))return false;
+                const call=row.sessionId+':'+row.rewindGen+':'+row.turnSeq+':'+row.callIdHash;
+                if(ids.has(row.invocationId)||calls.has(call))return false;ids.add(row.invocationId);calls.add(call);
+              }
+              const sessions=new Set();
+              for(let i=0;i<value.closedTurns.length;i++){const mark=value.closedTurns[i];
+                if(!ownKeys(mark,['sessionId','rewindGen','turnSeq']) || !match(SESSION,mark.sessionId)
+                  || !integer(mark.rewindGen,0) || !integer(mark.turnSeq) || sessions.has(mark.sessionId))return false;
+                sessions.add(mark.sessionId);
+              }
+              return true;
+            }});
+          if(created) {await store.write({schema:1,rootId,entries:[],closedTurns:[]});await checkDirectory();}
+          // A directory which already existed is evidence of initialization. Missing state is
+          // not virgin empty state, including a failed/crashed initialization; require recovery.
+          opened=true;
+          try {
+            const value=await read();rootId=value.rootId;let changed=false;
+            for(let i=0;i<value.entries.length;i++) {
+              const row=value.entries[i];
+              if(row.phase!=='unknown' && !(row.phase==='returned' && row.deliverySha256!==null)) {
+                row.phase='unknown';row.holdReason='host_restarted';row.updatedAt=nowIso();changed=true;
+              }
+            }
+            if(changed){await store.write(value);await checkDirectory();}
+          } catch(cause){opened=false;throw cause;}
+        });
+      },
+      async prepare({sessionId,turnSeq,rewindGen=0,admissionId,callIdHash,toolName,args,client,nodeDelivery}={}) {
+        assertOwner();
+        need(match(SESSION,sessionId)&&integer(turnSeq)&&integer(rewindGen,0)&&match(HASH,admissionId)&&match(HASH,callIdHash)&&match(NAME,toolName),
+          'execution_preparation_invalid','Invalid host execution identity');
+        const admission=scopeOf({sessionId,turnSeq,rewindGen,admissionId});requireAdmission(admission);
+        const nodeScope=nodeDelivery===undefined?null:copyOrdinaryJsonData(nodeDelivery);
+        need(nodeScope===null||validNodeScope(nodeScope),'execution_preparation_invalid','Invalid node consumer identity');
+        let peer;
+        try {peer=copyOrdinaryJsonData(client);} catch {throw error('execution_client_unverified','Invalid host client facts');}
+        need(peer?.contextRequired===true && match(TOKEN,peer.clientId)&&match(TOKEN,peer.accWorkerId)&&integer(peer.accPid),
+          'execution_client_unverified','Required-context ACC worker has not been established');
+        let prepared;try{prepared=prepareDesktopExecutionArguments(args);}catch{throw error('execution_arguments_invalid','Cannot prepare immutable JSON arguments');}
+        const id=crypto.randomBytes(16).toString('hex'), at=nowIso();
+        const result=await update(null,async value=>{
+          requireAdmission(admission);
+          need(!closed(value,sessionId,turnSeq,rewindGen),'execution_turn_closed','This host turn is already closed');
+          need(held(value.entries,sessionId).length===0,'execution_reconciliation_required','Earlier execution evidence needs reconciliation');
+          need(!Array.from(value.entries).some(row=>row.sessionId===sessionId&&row.rewindGen===rewindGen&&row.turnSeq===turnSeq&&row.callIdHash===callIdHash),
+            'execution_duplicate_call','This call identity already has execution evidence');
+          need(value.entries.length<MAX_ENTRIES,'execution_ledger_capacity','Execution ledger capacity is exhausted');
+          const row={invocationId:id,sessionId,turnSeq,rewindGen,admissionId,callIdHash,toolName,argsSha256:prepared.sha256,
+            argsSemanticSha256:prepared.semanticSha256,argsBytes:prepared.bytes,ownerEpoch:epoch,
+            clientId:peer.clientId,accWorkerId:peer.accWorkerId,accPid:peer.accPid,phase:'prepared',createdAt:at,
+            updatedAt:at,observed:null,deliverySha256:null,holdReason:null};
+          if(nodeScope) {
+            row.nodeDelivery={schema:1,file:'delivery-'+id+'.json',scope:nodeScope,historySha256:null,bindingSha256:null};
+            // Claim a durable file slot before preparation/dispatch, so a known-full
+            // snapshot namespace refuses before ACC can execute.
+            await saveImmutableNodeSnapshot(row.nodeDelivery.file,reservationSnapshot(row),()=>isTurnCurrent(admission)===true);
+          }
+          value.entries[value.entries.length]=row;
+          return Object.freeze({invocationId:id,metadata:metadata(row),snapshot:prepared.snapshot,json:prepared.json});
+        },()=>{requireAdmission(admission);live.add(id);});
+        return result;
+      },
+      async markDispatch(id,verifyClient) {
+        need(typeof verifyClient==='function','execution_client_unverified','Missing actual client-incarnation check');
+        let dispatchScope;
+        const result=await update(id,async(value,row)=>{
+          dispatchScope=scopeOf(row);requireAdmission(dispatchScope);
+          need(!closed(value,row.sessionId,row.turnSeq,row.rewindGen),'execution_turn_closed','This host turn closed before dispatch');
+          need(held(value.entries,row.sessionId).length===0,'execution_reconciliation_required','Earlier execution became uncertain before dispatch');
+          need(live.has(id)&&row.ownerEpoch===epoch&&row.phase==='prepared'&&verifyClient()===true,
+            'execution_dispatch_refused','Preparation or actual client is no longer current');
+          if(row.nodeDelivery) {
+            const reserved=reservationSnapshot(row),saved=await nodeStore(path.join(directory,row.nodeDelivery.file),
+              value=>JSON.stringify(value)===JSON.stringify(reserved)).read();
+            need(JSON.stringify(saved)===JSON.stringify(reserved),'execution_delivery_unverified','Node delivery reservation changed before dispatch');
+            requireAdmission(dispatchScope);need(verifyClient()===true,'execution_client_changed','Client changed while verifying reserved delivery slot');
+          }
+          row.phase='dispatching';row.updatedAt=nowIso();return metadata(row);
+        },()=>{const rowScope=dispatchScope;requireAdmission(rowScope);if(verifyClient()!==true)throw error('execution_client_changed','Actual client changed while recording dispatch');});
+        return result;
+      },
+      async recordResult(id,result,receipt) {
+        let observed=null, receiptSnapshot=null, invalidResult=false;
+        try {receiptSnapshot=copyOrdinaryJsonData(receipt);} catch { /* missing/unreadable evidence stays unknown */ }
+        try {
+          const snapshot=copyOrdinaryJsonData(result), json=JSON.stringify(snapshot), bytes=Buffer.byteLength(json,'utf8');
+          need(bytes<=128*1024*1024,'execution_result_invalid','Result exceeds evidence hashing capacity');
+          observed={sha256:digest(json),bytes,flags:flags(snapshot),receipt:null};
+        } catch {invalidResult=true;}
+        const outcome=await update(id,async(_value,row)=>{
+          need(live.has(id)&&row.ownerEpoch===epoch&&row.phase==='dispatching','execution_result_refused','No current dispatched invocation');
+          let reason=invalidResult?'result_invalid':null;
+          if(!reason) {try{observed.receipt=inspectReceipt(receiptSnapshot,row,observed.flags);}catch{reason='receipt_unverified';}}
+          row.observed=observed;row.phase=reason?'unknown':'returned';row.holdReason=reason;row.updatedAt=nowIso();return view(row);
+        });
+        if(outcome.phase==='unknown')live.delete(id);return outcome;
+      },
+      async recordUnknown(id,reason='transport_lost') {
+        need(match(NAME,reason),'execution_reason_invalid','Invalid host uncertainty reason');
+        const outcome=await update(id,async(_value,row)=>{
+          // A failed state transition may have removed the live dispatch permit.
+          // The same root epoch may still preserve uncertainty; it cannot promote
+          // a result or alter an acknowledged invocation through this path.
+          need(row.ownerEpoch===epoch&&row.deliverySha256===null,'execution_result_refused','Invocation belongs to another owner or is already delivered');
+          if(row.phase==='unknown')return view(row);
+          row.phase='unknown';row.holdReason=reason;row.updatedAt=nowIso();return view(row);
+        });
+        live.delete(id);return outcome;
+      },
+      async markDelivered(id,deliverySha256) {
+        need(match(HASH,deliverySha256),'execution_delivery_invalid','Missing actual durable-history digest');
+        const outcome=await update(id,async(_value,row)=>{
+          need(!row.nodeDelivery&&live.has(id)&&row.ownerEpoch===epoch&&row.phase==='returned'&&row.observed?.receipt,
+            'execution_delivery_refused','No verified returned invocation awaiting delivery');
+          row.deliverySha256=deliverySha256;row.updatedAt=nowIso();return view(row);
+        });
+        live.delete(id);return outcome;
+      },
+      async markNodeDelivered(id,proof) {
+        need(proof&&match(HASH,proof.historySha256)&&match(HASH,proof.bindingSha256),'execution_delivery_invalid','Missing node delivery proof');
+        const outcome=await update(id,async(_value,row)=>{
+          need(row.nodeDelivery&&live.has(id)&&row.ownerEpoch===epoch&&row.phase==='returned'&&row.deliverySha256===null,
+            'execution_delivery_refused','No node result awaiting actual history proof');
+          need(proof.file===row.nodeDelivery.file,'execution_delivery_invalid','Node delivery locator changed');
+          await readNodeDelivery(row,rootId,proof.historySha256,proof.bindingSha256);
+          row.nodeDelivery.historySha256=proof.historySha256;row.nodeDelivery.bindingSha256=proof.bindingSha256;
+          row.deliverySha256=proof.historySha256;row.updatedAt=nowIso();return view(row);
+        });
+        live.delete(id);return outcome;
+      },
+      async saveNodeDelivery(id, history, binding, verifyScope) {
+        need(match(TOKEN,id) && Array.isArray(history) && typeof verifyScope==='function',
+          'execution_delivery_invalid','Missing actual node delivery scope');
+        // Copy all consumer bytes at the barrier. A later model projection/compaction
+        // must not change this historical snapshot or borrow its delivery identity.
+        const messages=copyOrdinaryJsonData(history), scope=copyOrdinaryJsonData(binding);
+        need(ownKeys(scope,['kind','runId','nodeId','attempt','subagentId','batchId','toolCallId','index','images','imageIndices'])
+          && scope.kind==='foreground_workflow_node' && [scope.runId,scope.nodeId,scope.subagentId,scope.batchId,scope.toolCallId].every(x=>typeof x==='string'&&x.length>0&&x.length<=1024)
+          && integer(scope.attempt) && integer(scope.index,0) && Array.isArray(scope.images)&&Array.isArray(scope.imageIndices)
+          && scope.images.length===scope.imageIndices.length&&new Set(Array.from(scope.imageIndices)).size===scope.images.length
+          && messages[scope.index]?.role==='tool' && messages[scope.index].tool_call_id===scope.toolCallId
+          && Array.from(scope.images).every((image,offset)=>{const index=scope.imageIndices[offset],message=messages[index];
+            return typeof image==='string'&&integer(index,0)&&index>scope.index&&message?.role==='user'&&JSON.stringify(message.content)===image;}),
+          'execution_delivery_invalid','Invalid node delivery binding');
+        const historySha256=digest(JSON.stringify(messages));
+        return enqueue(async()=>{
+          const entries=(await read()).entries,row=Array.from(entries).find(entry=>entry.invocationId===id);
+          need(row?.nodeDelivery && live.has(id) && row.ownerEpoch===epoch && row.phase==='returned' && row.deliverySha256===null
+            && NODE_SCOPE_KEYS.every(key=>scope[key]===row.nodeDelivery.scope[key]),
+            'execution_delivery_refused','No current verified result awaiting node history');
+          need(verifyScope()===true,'execution_admission_lost','Actual node history owner changed');
+          const snapshot={schema:1,rootId,invocationId:id,sessionId:row.sessionId,turnSeq:row.turnSeq,
+            rewindGen:row.rewindGen,admissionId:row.admissionId,historySha256,binding:scope,history:messages};
+          return saveImmutableNodeSnapshot(row.nodeDelivery.file,snapshot,verifyScope,reservationSnapshot(row));
+        });
+      },
+      async saveNodeIntent(history,binding,verifyScope) {
+        const messages=copyOrdinaryJsonData(history),scope=copyOrdinaryJsonData(binding);
+        need(Array.isArray(messages) && ownKeys(scope,['sessionId','turnSeq','rewindGen','admissionId','runId','nodeId','attempt','subagentId','batchId'])
+          && match(SESSION,scope.sessionId) && integer(scope.turnSeq) && integer(scope.rewindGen,0)
+          && match(HASH,scope.admissionId) && integer(scope.attempt) && [scope.runId,scope.nodeId,scope.subagentId,scope.batchId].every(value=>match(SESSION,value))
+          && typeof verifyScope==='function','execution_delivery_invalid','Invalid actual node intent history');
+        return enqueue(async()=>{
+          await read();requireAdmission(scope);
+          const snapshot={schema:1,rootId,kind:'foreground_node_intent',...scope,historySha256:digest(JSON.stringify(messages)),history:messages};
+          return saveImmutableNodeSnapshot('intent-'+digest(scope.admissionId+'\0'+scope.batchId)+'.json',snapshot,verifyScope);
+        });
+      },
+      async guard(sessionId) {
+        need(match(SESSION,sessionId),'execution_preparation_invalid','Invalid host session identity');
+        return enqueue(async()=>{const rows=held((await read()).entries,sessionId);
+          return Object.freeze({ok:rows.length===0,pending:Object.freeze(rows.map(row=>row.invocationId))});});
+      },
+      async entries() {return enqueue(async()=>copyOrdinaryJsonData((await read()).entries));},
+      async retireTurn(sessionId,turnSeq,rewindGen=0) {
+        need(match(SESSION,sessionId)&&integer(turnSeq)&&integer(rewindGen,0),'execution_preparation_invalid','Invalid retirement turn identity');
+        return update(null,async value=>{
+          const entries=Array.from(value.entries), retiring=entries.filter(row=>row.sessionId===sessionId&&row.turnSeq===turnSeq&&row.rewindGen===rewindGen);
+          need(retiring.every(row=>row.phase==='returned'&&row.deliverySha256!==null),'execution_retirement_refused','Unresolved execution evidence cannot be retired');
+          need(typeof confirmRetirement==='function' && await confirmRetirement(copyOrdinaryJsonData(retiring),copyOrdinaryJsonData({sessionId,turnSeq,rewindGen}))===true,
+            'execution_retirement_refused','Closed-turn history and ACC retention have not been confirmed');
+          assertOwner();
+          const marks=Array.from(value.closedTurns), old=marks.find(mark=>mark.sessionId===sessionId);
+          if(!old){need(marks.length<MAX_CLOSED_SESSIONS,'execution_ledger_capacity','Closed session watermark capacity is exhausted');marks.push({sessionId,rewindGen,turnSeq});}
+          else if(rewindGen>old.rewindGen || rewindGen===old.rewindGen&&turnSeq>old.turnSeq){old.rewindGen=rewindGen;old.turnSeq=turnSeq;}
+          value.closedTurns=marks;value.entries=entries.filter(row=>!retiring.includes(row));return retiring.length;
+        });
+      },
+    });
+  }
+  return Object.freeze({create,metadata,inspectReceipt,limits:Object.freeze({maxEntries:MAX_ENTRIES,maxBytes:MAX_BYTES})});
+})();
+
 // ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
 // 背景:旧格式把整个 messages+providerHistory 塞进单个 <id>.json,saveSession 每轮全量序列化+原子重写
 // —— 写放大 O(会话总历史)/轮:5MB 会话 = 每轮重写 5MB。v2 拆分为:
@@ -10330,6 +11069,7 @@ async function recoverSessionBodyState(id, bp) {
   const whole = (body, count) => body && !body.corrupt && !body.unreadable && body.tornAt == null
     && Number.isInteger(count) && body.entries.length === count;
   if (!whole(msg, head.messageCount) || !whole(prov, head.providerHistoryCount)) return null;
+  if (!sessionBodiesMatchCommit(head, msg, prov)) return null;
   const state = {
     msg: sessionBodyRecordFromRead(msg, null),
     prov: sessionBodyRecordFromRead(prov, null, { dangling: danglingTurnState(prov.entries.length, i => prov.entries[i]) }),
@@ -10447,6 +11187,28 @@ function serializeSessionBody(entries) {
   return lines;
 }
 function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
+function sessionBodyDigest(lines) {
+  const hash = crypto.createHash('sha256');
+  for (const line of lines) hash.update(line, 'utf8').update('\n');
+  return hash.digest('hex');
+}
+function sessionBodyCommitValid(head) {
+  const commit = head.providerHistoryCommit;
+  return Number.isSafeInteger(head.providerHistoryRevision) && head.providerHistoryRevision >= 0
+    && commit?.schema === 1 && commit.revision === head.providerHistoryRevision
+    && /^[a-f0-9]{64}$/.test(commit.messagesSha256 || '') && /^[a-f0-9]{64}$/.test(commit.providerSha256 || '');
+}
+function sessionBodiesMatchCommit(head, msg, prov) {
+  if (!Object.hasOwn(head, 'providerHistoryRevision') && !Object.hasOwn(head, 'providerHistoryCommit')) return true;
+  if (!sessionBodyCommitValid(head)) return false;
+  const commit = head.providerHistoryCommit;
+  const matches = (body, count, digest) => {
+    if (!body || body.corrupt || body.unreadable || !Number.isSafeInteger(count) || count < 0 || body.entries.length < count) return false;
+    const end = count ? body.lineEndBytes[count - 1] : 0;
+    return crypto.createHash('sha256').update(body.buf.subarray(0, end)).digest('hex') === digest;
+  };
+  return matches(msg, head.messageCount, commit.messagesSha256) && matches(prov, head.providerHistoryCount, commit.providerSha256);
+}
 // entries 是否为 record 所记盘上正文的【严格】前缀(更短且逐行相同)。
 function isStrictSessionBodyPrefix(entries, record) {
   if (!record || entries.length >= record.count) return false;
@@ -12901,6 +13663,8 @@ function sessionProviderHistoryLength(session) {
   return session && Array.isArray(session.providerHistory) ? session.providerHistory.length : 0;
 }
 async function readSessionBodiesOmittingProvider(id, parsed, bp, writeSeqAtRead) {
+  // Protected transcripts must verify the committed body hashes, including same-count rewrites.
+  if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) return null;
   const state = sessionBodyState.get(id);
   const provRec = state && state.bodiesOk ? state.prov : null;
   if (!provRec || !provRec.stamp || !provRec.dangling || sessionWriteChains.has(id)) return null;
@@ -12938,7 +13702,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
     return null;
   }
-  if (Array.isArray(parsed)) return null; // sessions/index.json is an array, not a session; never load it as one
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null; // Never normalize a non-object head into a fresh empty session.
+  if ((Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit'))
+      && parsed.storageVersion !== SESSION_STORAGE_VERSION) return null;
   let legacy = true;
   const omitView = view === SESSION_LOAD_OMIT_PROVIDER;
   const lite = omitView && parsed && parsed.storageVersion === SESSION_STORAGE_VERSION
@@ -12967,7 +13733,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
     const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
     const bodyBad = () => !msg || !prov || msg.corrupt || prov.corrupt
-      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount);
+      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount)
+      || !sessionBodiesMatchCommit(parsed, msg, prov);
     const countsDiffer = () => (Number.isInteger(parsed.messageCount) && msg && !msg.corrupt && msg.entries.length !== parsed.messageCount)
       || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
@@ -12994,7 +13761,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
         || String(again.updatedAt || '') !== String(parsed.updatedAt || '')
         || again.messageCount !== parsed.messageCount
         || again.providerHistoryCount !== parsed.providerHistoryCount;
-      if (moved) {
+      const commitMoved = JSON.stringify(again?.providerHistoryCommit) !== JSON.stringify(parsed.providerHistoryCommit)
+        || again?.providerHistoryRevision !== parsed.providerHistoryRevision;
+      if (moved || commitMoved) {
         if (reloadDepth >= 1) return null;   // 有界：连着两次都在写，这一趟就诚实地不给结果
         return loadSession(id, reloadDepth + 1);
       }
@@ -13006,9 +13775,20 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     const hasPrev = await fsp.stat(pm).then(() => true).catch(() => false)
       && await fsp.stat(pp).then(() => true).catch(() => false);
     if (hasPrev && (bodyBad() || countsDiffer())) {
+      if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) {
+        const [previousMessages, previousProvider] = await Promise.all([readSessionBodyFile(pm), readSessionBodyFile(pp)]);
+        if (!sessionBodiesMatchCommit(parsed, previousMessages, previousProvider)) return null;
+      }
       dropSessionBodyState(id);
-      await fsp.rename(pm, bp.messages).catch(() => {});
-      await fsp.rename(pp, bp.provider).catch(() => {});
+      if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) {
+        // Keep both verified snapshots until both copies are restored. A partial
+        // restore or process death must leave the complete recoverable pair.
+        try { await fsp.copyFile(pm, bp.messages); await fsp.copyFile(pp, bp.provider); }
+        catch { return null; }
+      } else {
+        await fsp.rename(pm, bp.messages).catch(() => {});
+        await fsp.rename(pp, bp.provider).catch(() => {});
+      }
       msg = await readSessionBodyFile(bp.messages);
       prov = await readSessionBodyFile(bp.provider);
       if (unreadable(msg) || unreadable(prov)) return null;   // hunt2-P3:同上,读不出来就不动手
@@ -13017,7 +13797,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
       dropSessionBodyState(id);
       // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
-      const bak = await loadSessionV1Backup(id);
+      const bak = Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit') ? null : await loadSessionV1Backup(id);
       if (bak) return bak;
       // 无备份可退:坏正文隔离(不删,留取证),头按损坏处理。
       for (const p of [bp.messages, bp.provider]) await fsp.rename(p, p + '.corrupt').catch(() => {});
@@ -13190,10 +13970,14 @@ async function saveSession(session, opts) {
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   const finalPath = sessionPath(id);
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  let messages = Array.isArray(session.messages) ? session.messages : [];
+  let providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  let protectedHead = null, providerRevision = null, protectedCommit = null;
   // 头 = 运行时对象剥掉两个大数组 + 存储标记 + 计数(计数供 listSessions 兜底扫描/sessionMeta 不读正文)。
   const buildHeadPayload = () => {
+    if (protectedHead) return JSON.stringify({ ...protectedHead,
+      messageCount: messages.length, providerHistoryCount: providerHistory.length,
+      providerHistoryRevision: providerRevision, providerHistoryCommit: protectedCommit }, null, 2);
     const head = { ...session };
     const recentUserRequest = sessionRecentUserRequest(session);
     if (recentUserRequest) head.recentUserRequest = recentUserRequest;
@@ -13224,7 +14008,61 @@ async function saveSession(session, opts) {
   // 按 saveAgentRun 同款 per-id 写链串行化:链内按提交顺序落盘,窗口归零;链错误吞掉(下一写自愈)。
   // v2:整个「正文 append/重写 + 头写」都在链内 —— 进程内状态表与磁盘正文的一致性靠同一条链保证。
   const prevWrite = sessionWriteChains.get(id) || Promise.resolve();
+  let preserveRewindOnFailure = false;
   const writeSessionToDisk = async () => {
+    // A revision belongs to one body/head snapshot. In protected sessions take all of
+    // them together INSIDE the write chain, after earlier same-object saves committed.
+    // Stale copies must reload and reapply their explicit edit; never merge old heads.
+    let diskHead = null, diskHeadText = null, headExists = false;
+    try { diskHeadText = await fsp.readFile(finalPath, 'utf8'); diskHead = JSON.parse(diskHeadText); headExists = true; }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (headExists && (!diskHead || typeof diskHead !== 'object' || Array.isArray(diskHead))) {
+      throw Object.assign(new Error('session head is not an object'), { code: 'SESSION_HEAD_UNREADABLE' });
+    }
+    const stamped = Object.hasOwn(session, 'providerHistoryRevision') || Object.hasOwn(session, 'providerHistoryCommit');
+    const diskStamped = headExists && (Object.hasOwn(diskHead, 'providerHistoryRevision') || Object.hasOwn(diskHead, 'providerHistoryCommit'));
+    const protectedBody = DesktopExecutionHooks.enabled() || stamped || diskStamped;
+    if (protectedBody) {
+      const validRevision = value => Number.isSafeInteger(value) && value >= 0;
+      const incomingRevision = stamped ? session.providerHistoryRevision : 0;
+      const currentRevision = diskStamped ? diskHead.providerHistoryRevision : 0;
+      if (stamped && !headExists || !validRevision(incomingRevision) || !validRevision(currentRevision)
+          || incomingRevision !== currentRevision || stamped !== diskStamped
+          || diskStamped && diskHead.storageVersion !== SESSION_STORAGE_VERSION
+          || stamped && (!sessionBodyCommitValid(session) || !sessionBodyCommitValid(diskHead)
+            || JSON.stringify(session.providerHistoryCommit) !== JSON.stringify(diskHead.providerHistoryCommit))
+          || (Number(session.rewindGen) || 0) !== saveGen
+          || diskHead && ((Number(diskHead.turnSeq) || 0) > (Number(session.turnSeq) || 0)
+            || (Number(diskHead.rewindGen) || 0) > saveGen)) {
+        throw Object.assign(new Error('session provider history changed; reload before applying this edit'), { code: 'SESSION_PROVIDER_HISTORY_CONFLICT' });
+      }
+      providerRevision = currentRevision;
+      // Validate the committed body on both append and rewrite paths. A cached
+      // append plan cannot bless a corrupted on-disk head/body as a new commit.
+      if (headExists && diskHead.storageVersion === SESSION_STORAGE_VERSION) {
+        const [committedMessages, committedProvider] = await Promise.all([
+          readSessionBodyFile(sessionBodyPaths(id).messages), readSessionBodyFile(sessionBodyPaths(id).provider)]);
+        if (!committedMessages || !committedProvider || committedMessages.corrupt || committedProvider.corrupt
+            || committedMessages.unreadable || committedProvider.unreadable
+            || committedMessages.entries.length < diskHead.messageCount
+            || committedProvider.entries.length < diskHead.providerHistoryCount
+            || !sessionBodiesMatchCommit(diskHead, committedMessages, committedProvider)) {
+          throw Object.assign(new Error('committed session body must be recovered before saving'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        // An unchanged stamped head plus its verified byte prefixes identifies an
+        // uncommitted append tail. Recover it inside this write chain before planning
+        // the next save, including a stopped turn's final pairing after an IO error.
+        for (const [body, count, file] of [[committedMessages, diskHead.messageCount, sessionBodyPaths(id).messages],
+          [committedProvider, diskHead.providerHistoryCount, sessionBodyPaths(id).provider]]) {
+          if (body.entries.length !== count || body.tornAt != null) {
+            if (!diskStamped || !await truncateSessionBody(file, count ? body.lineEndBytes[count - 1] : 0)) {
+              throw Object.assign(new Error('uncommitted session tail could not be recovered'), { code: 'SESSION_BODY_UNVERIFIED' });
+            }
+            dropSessionBodyState(id);
+          }
+        }
+      }
+    }
     // 122-§2.4:链内落盘前合并 mission(见本函数头注与 mergeMissionBeforeSave)。只读【头文件】就够 ——
     // mission/kind 都在头上;读不到/解析不了(首存、损坏)一律当「磁盘没有账本」,与不传旗子逐字节等价。
     if (opts && opts.mergeMissionFromDisk) {
@@ -13234,6 +14072,25 @@ async function saveSession(session, opts) {
         payload = buildHeadPayload();
         metaSnapshot = sessionMeta(session);
       }
+    }
+    if (protectedBody) {
+      // Re-read the LIVE object's arrays, revision and head in one synchronous section;
+      // then sever every array/entry reference before doing further asynchronous IO.
+      if ((Object.hasOwn(session, 'providerHistoryRevision') || Object.hasOwn(session, 'providerHistoryCommit')) !== stamped
+          || (stamped ? session.providerHistoryRevision : 0) !== providerRevision
+          || stamped && (!sessionBodyCommitValid(session)
+            || JSON.stringify(session.providerHistoryCommit) !== JSON.stringify(diskHead.providerHistoryCommit))
+          || (Number(session.rewindGen) || 0) !== saveGen) {
+        throw Object.assign(new Error('session changed while preparing its protected snapshot'), { code: 'SESSION_PROVIDER_HISTORY_CONFLICT' });
+      }
+      messages = Array.isArray(session.messages) ? session.messages : [];
+      providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+      const msgSnapshot = serializeSessionBody(messages), provSnapshot = serializeSessionBody(providerHistory);
+      if (!msgSnapshot || !provSnapshot) throw new Error('session body not serializable');
+      messages = msgSnapshot.map(line => JSON.parse(line));
+      providerHistory = provSnapshot.map(line => JSON.parse(line));
+      protectedHead = JSON.parse(buildHeadPayload());
+      payload = buildHeadPayload(); metaSnapshot = sessionMeta(JSON.parse(payload));
     }
     const bp = sessionBodyPaths(id);
     // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
@@ -13247,13 +14104,23 @@ async function saveSession(session, opts) {
     // 旧副本补齐：调用方手里的消息是盘上正文的【严格前缀】（更短、逐行相同）= 它装载之后别的写者又追加过，
     // 它自己并没有删消息（有意删的只有撤回 rewindBump 与管家归档 opts.shrinkBody）。以前这里走慢路径，用旧数组
     // 整份重写 —— 别人刚追加的消息全丢。现在先把盘上多出来的尾巴补进它的数组再写：两边的改动都留下。
-    if (state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
+    if (!protectedBody && state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
       payload = buildHeadPayload();
-      metaSnapshot = sessionMeta(session);
+      metaSnapshot = sessionMeta(protectedBody ? JSON.parse(payload) : session);
     }
     const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msg) : null;
     const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.prov) : null;
-    let nextMsgLines, nextProvLines;
+    if (protectedBody) {
+      if (!headExists || !msgPlan || msgPlan.appendLines.length || !provPlan || provPlan.appendLines.length) {
+        if (providerRevision === Number.MAX_SAFE_INTEGER) throw Object.assign(new Error('provider history revision capacity exhausted'), { code: 'SESSION_PROVIDER_HISTORY_CAPACITY' });
+        providerRevision += 1;
+      }
+      protectedCommit = { schema: 1, revision: providerRevision,
+        messagesSha256: sessionBodyDigest(serializeSessionBody(messages)), providerSha256: sessionBodyDigest(serializeSessionBody(providerHistory)) };
+      payload = buildHeadPayload();
+      metaSnapshot = sessionMeta(JSON.parse(payload));
+    }
+    let nextMsgLines, nextProvLines, protectedRewrite = false;
     if (msgPlan && provPlan) {
       // 快路径:只 append 增量行(0 增量 = 不动正文文件,仅更新头)。
       if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, msgPlan.appendLines.join('\n') + '\n', 'utf8');
@@ -13268,22 +14135,70 @@ async function saveSession(session, opts) {
       const msgSer = serializeSessionBody(messages);
       const provSer = serializeSessionBody(providerHistory);
       if (!msgSer || !provSer) throw new Error('session body not serializable');
-      await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
-      await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      if (protectedBody && headExists) {
+        const [currentMessages, currentProvider] = await Promise.all([readSessionBodyFile(bp.messages), readSessionBodyFile(bp.provider)]);
+        if (diskHead.storageVersion === SESSION_STORAGE_VERSION && (!currentMessages || !currentProvider
+            || currentMessages.corrupt || currentProvider.corrupt || currentMessages.unreadable || currentProvider.unreadable
+            || currentMessages.entries.length !== diskHead.messageCount || currentProvider.entries.length !== diskHead.providerHistoryCount)) {
+          throw Object.assign(new Error('session bodies must be recovered before rewriting'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        if (Object.hasOwn(diskHead, 'providerHistoryCommit') && !sessionBodiesMatchCommit(diskHead, currentMessages, currentProvider)) {
+          throw Object.assign(new Error('committed session body must be recovered before rewriting'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        // A verified current body makes any previous snapshot stale. Never use an older
+        // EXCL snapshot as rollback for this new rewrite if prior cleanup had failed.
+        await fsp.unlink(bp.messages + '.prevbody').catch(error => { if (error.code !== 'ENOENT') throw error; });
+        await fsp.unlink(bp.provider + '.prevbody').catch(error => { if (error.code !== 'ENOENT') throw error; });
+      }
+      if (protectedBody && headExists && diskHead.storageVersion === SESSION_STORAGE_VERSION) {
+        await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL);
+        await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL);
+      } else {
+        await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+        await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      }
+      protectedRewrite = protectedBody;
       try {
         await atomicWriteJson(bp.messages, sessionBodyText(msgSer));
         await atomicWriteJson(bp.provider, sessionBodyText(provSer));
       } catch (werr) {
         // 进程内写失败(非崩溃)→ 立即回滚快照,磁盘回到重写前的一致态;bodiesOk=false 由外层标。
-        await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
-        await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        if (protectedBody) {
+          await fsp.copyFile(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.copyFile(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        } else {
+          await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        }
         throw werr;
       }
       nextMsgLines = msgSer;
       nextProvLines = provSer;
     }
     // 头最后写:头指向的正文状态必须先于头落盘(头=「正文有效」的声明)。
-    await atomicWriteJson(finalPath, payload);
+    // Once publication is attempted, only a confirmed unchanged old head permits
+    // rolling the rewind watermark back. Lost acknowledgements may have committed.
+    if (protectedBody) preserveRewindOnFailure = true;
+    try { await atomicWriteJson(finalPath, payload); }
+    catch (error) {
+      let published = null;
+      if (protectedBody) { try { published = await fsp.readFile(finalPath, 'utf8'); } catch { /* unknown commit: preserve both bodies and snapshots */ } }
+      if (protectedBody && published === payload) {
+        session.providerHistoryRevision = providerRevision; session.providerHistoryCommit = protectedCommit;
+      } else if (protectedBody && published === diskHeadText) {
+        preserveRewindOnFailure = false;
+        if (protectedRewrite) {
+          await fsp.copyFile(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.copyFile(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        }
+      }
+      throw error;
+    }
+    // The head is the commit point. Cleanup/stat failures must not roll back this fact.
+    if (protectedBody) {
+      session.providerHistoryRevision = providerRevision;
+      session.providerHistoryCommit = protectedCommit;
+    }
     // 头已提交 → prevbody 快照使命完成(崩溃于清理前也无妨:下次读取按「头计数==正文行数」判其为陈旧快照,
     // 顺带清除,见 loadSession)。
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -13350,7 +14265,7 @@ async function saveSession(session, opts) {
     catch (werr) {
       // 撤回那一存自己没落上:盘上仍是旧代数,把水位退回去(只退自己抬的那一格;期间又有更新的撤回
       // 抬过就不动)。在链内退、先于这条链 reject —— 等这条链的 loadSession 自愈醒来时水位已经对了。
-      if (rewindBump && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
+      if (rewindBump && !preserveRewindOnFailure && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
         if (rewindBump.prevHighWater > 0) sessionRewindGenHighWater.set(id, rewindBump.prevHighWater);
         else sessionRewindGenHighWater.delete(id);
       }
@@ -19318,6 +20233,41 @@ function mcpBridgeError(message, kind) {
   return e;
 }
 
+// MCP transport metadata belongs to the host call context, outside model arguments.
+// Clone a small JSON object so an awaited send cannot observe later metadata mutation.
+function mcpCallToolParams(name, args, options) {
+  const params = { name, arguments: args || {} };
+  if (options && Object.prototype.hasOwnProperty.call(options, 'meta')) {
+    const meta = options.meta;
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('mcp metadata must be an object');
+    const encoded = options.executionCheck ? JSON.stringify(copyOrdinaryJsonData(meta)) : JSON.stringify(meta);
+    if (Buffer.byteLength(encoded, 'utf8') > 4096) throw new Error('mcp metadata exceeds 4096 bytes');
+    const copied = JSON.parse(encoded);
+    if (!copied || typeof copied !== 'object' || Array.isArray(copied)) throw new Error('mcp metadata must serialize to an object');
+    params._meta = copied;
+  }
+  return params;
+}
+
+// A real, safe tools/call roundtrip must preserve both reserved metadata and SDK numeric types.
+// The schema-shape flag alone is insufficient. Never cache this across an MCP child replacement.
+async function probeDesktopExecutionReceipts(client, options = {}) {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const probeValues = { integer: 1000000000000000100, exponent: 1e21, decimal: 0.0000001,
+    subnormal: Number.MIN_VALUE, zero: 0, unicode: '你好🚀' };
+  const expected = executionArgumentsDigest(probeValues);
+  const result = await client.callTool('execution_receipt', { invocation_id: '0'.repeat(32), probe_values: probeValues },
+    8000, { ...options, meta: { 'org.ruyi.workbench/execution-probe-v1': { schema: 1, nonce } } });
+  const probe = result?.metadata_probe;
+  if (result?.ok !== true || result.execution_receipt_version !== 1 || result.semantic_validation?.semantic_version !== 1 || !probe || probe.schema !== 1 || probe.nonce !== nonce
+      || probe.context_required !== true || probe.args_semantic_codec !== 'ruyi-sdk-json-v1' || probe.received_semantic_sha256 !== expected
+      || !/^[a-f0-9]{32}$/.test(probe.acc_worker_id || '') || !Number.isSafeInteger(probe.acc_pid) || probe.acc_pid <= 0) {
+    return { ok: false, code: 'execution_receipts_unavailable', outcome: 'not_dispatched', action_sent: false };
+  }
+  return { ok: true, receiptVersion: 1, argumentsCodec: probe.args_semantic_codec,
+    accWorkerId: probe.acc_worker_id, accPid: probe.acc_pid, contextRequired: true };
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -19346,6 +20296,10 @@ class McpStdioClient {
   // Send one JSON-RPC request and await its result (by id). Rejects on timeout/child death.
   _rpc(method, params, timeoutMs = 8000, options = {}) {
     return new Promise((resolve, reject) => {
+      if (method === 'tools/call') {
+        const refusal = DesktopExecutionHooks.callRefusal(this, params?.name, params?.arguments, options);
+        if (refusal) return reject(Object.assign(new Error(refusal.error), { code: refusal.code }));
+      }
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) {
         return reject(new Error('mcp client not running'));
       }
@@ -19377,7 +20331,11 @@ class McpStdioClient {
         if (signal.aborted) { abortHandler(); return; }
       }
       try {
-        this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n', 'utf8');
+        const packet = { jsonrpc: '2.0', id, method, params: params || {} };
+        const safePacket = options.executionCheck ? copyOrdinaryJsonData(packet) : packet;
+        const encoded = JSON.stringify(safePacket);
+        if (options.executionCheck) options.executionCheck(safePacket);
+        this.child.stdin.write(encoded + '\n', 'utf8');
       } catch (e) {
         cleanup(); this._pending.delete(id); reject(e);
       }
@@ -19447,11 +20405,13 @@ class McpStdioClient {
     if (this.started) return;
     this.started = true;
     const s = batchSafeSpawn(this.command, this.args);   // transparently wrap .cmd/.bat
+    const spawnEnv = DesktopExecutionHooks.clientEnvironment(this.id, bridgedServerSpawnEnv(process.env, this.env), this);
+    this.executionContextRequired = spawnEnv.RUYI_EXECUTION_CONTEXT_REQUIRED === '1';
     let child;
     try {
       child = ProcessRuntime.spawn(s.command, s.args, {
         cwd: this.cwd,
-        env: bridgedServerSpawnEnv(process.env, this.env),
+        env: spawnEnv,
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         ...s.opts,
@@ -19506,12 +20466,14 @@ class McpStdioClient {
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs, options = {}) {
+    const refusal = DesktopExecutionHooks.callRefusal(this, name, args, options);
+    if (refusal) return refusal;
     // 条目 disabledTools/enabledTools 在调用时再挡一道(目录里已经滤掉;这里防裸名容错路由或旧目录缓存绕过)。
     if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
     // 超时:调用方显式给的优先,其次条目的 toolTimeoutMs,最后按工具名的内置表。
     const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
+      const res = await this._rpc('tools/call', mcpCallToolParams(name, args, options), limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
@@ -19873,10 +20835,12 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs, options = {}) {
+    const refusal = DesktopExecutionHooks.callRefusal(this, name, args, options);
+    if (refusal) return refusal;
     if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
     const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
+      const res = await this._rpc('tools/call', mcpCallToolParams(name, args, options), limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
@@ -22561,7 +23525,8 @@ function providerSseAsCompletion(raw) {
 // 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
 // (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
 // sseFallback:回体不是 JSON 但像 SSE 时拼成 chat 形回体(只有 05 的改字开这个口,06 修前就不认 SSE)。
-async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback }) {
+const ProviderHttpHooks = { beforeModelRequest: async () => {} };
+async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback, executionSessionId }) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
@@ -22569,6 +23534,7 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
       body = await PrivacyGateway.beforeModelRequest(body);
       PrivacyGateway.assertPolicyAvailable();
     }
+    await ProviderHttpHooks.beforeModelRequest(executionSessionId);
     const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
     let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
     let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }
@@ -25995,6 +26961,9 @@ async function runClaudeTurn({
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
   assertSessionExecutionOwner(session.id, executionOwner);
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 会话，请使用工作台原生引擎。'), { code: 'execution_cli_unavailable' });
+  await DesktopExecutionHooks.guard(session.id);
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
@@ -26088,6 +27057,7 @@ async function runClaudeTurn({
   // v0.8-S0: bump the session-level monotonic turn counter at turn start (see runOpenAiTurn).
   if (!_resumeRecoveryAttempt) {
     session.turnSeq = (Number(session.turnSeq) || 0) + 1;
+    DesktopExecutionHooks.admit(session, executionOwner);
     session.messages.push({
       role: 'user',
       content: message,
@@ -32292,7 +33262,7 @@ async function probeDesktopMcp(config) {
     const client = mcpClients.get(accEntry.id);
     if (!client || client.dead) return out;
     let diag;
-    try { diag = await client.callTool('diagnostics', {}); } catch { return out; }
+    try { diag = DesktopExecutionHooks.enabled() ? await DesktopExecutionHooks.readiness(client) : await client.callTool('diagnostics', {}); } catch { return out; }
     // diagnostics shape is best-effort — scan for boolean-ish availability of each optional module. Accept
     // several likely shapes: {optional:{ocr:true}}, {modules:{ocr:{available:true}}}, flat {ocr:true}, etc.
     const truthy = v => v === true || v === 'ok' || v === 'available' || (v && typeof v === 'object' && (v.available === true || v.ok === true));
@@ -32304,7 +33274,7 @@ async function probeDesktopMcp(config) {
     };
     out.optional = { ocr: pick('ocr'), uia: pick('uia'), cv2: pick('cv2'), playwright: pick('playwright') };
     out.ocr.installed = has('ocr_image') && out.optional.ocr;
-    if (has('browser_backend_status')) {
+    if (has('browser_backend_status') && !DesktopExecutionHooks.enabled()) {
       out.browser = { ...out.browser, supported: out.browser.mode !== 'system', installed: out.optional.playwright };
       try {
         const status = await client.callTool('browser_backend_status', {}, 20000);
@@ -33340,7 +34310,7 @@ async function draftPlaybookFromSession(sessionId, options = {}) {
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
 // 线协议(58 号批 1)问 04i 的登记表:端点、请求头、请求体(Responses 把调用方后插的 system 规则折进 instructions ——
 // 否则 JSON 修复器/记忆审稿人的严格协议会被丢掉)、回体取字。URL/请求头/一次 POST 的原语在 04h。
-async function providerRawCompletion(provider, history) {
+async function providerRawCompletion(provider, history, executionSessionId) {
   const wire = providerWireProtocol(provider);
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
@@ -33354,7 +34324,7 @@ async function providerRawCompletion(provider, history) {
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   wire.applyTemperature(bodyObj, temp);
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
-  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000, executionSessionId });
   if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
   if (!r.res || !r.ok) {
     const d = r.raw;
@@ -33568,7 +34538,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
     const tries = stage === 'settled' ? THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1 : THREAD_BRIEF_FIRST_TURN_TRIES;
     for (let attempt = 0; attempt < tries; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, THREAD_BRIEF_RETRY_BACKOFF_MS[attempt - 1]));
-      const sc = await providerRawCompletion(provider, messages);
+      const sc = await providerRawCompletion(provider, messages, sid);
       // 记账:与 playbook-draft / json-repair 逐条同款(kind:'aux' + note)。usage 缺失直接跳过不估算。
       // **不计入 stewardMaxCostPerDay**(note 不是 'steward')—— 它不是管家回合,混进去会让管家因为
       // 用户开了几条新线程而提前停机。防御式:记账绝不可影响摘要,更不可影响回合。
@@ -33625,7 +34595,7 @@ async function repairNodeJsonViaProvider(provider, config, session, node, schema
     const rawStr = String(rawOutput || '');
     const rawSlice = rawStr.length <= 12000 ? rawStr : (rawStr.slice(0, 2000) + '\n…(中段省略)…\n' + rawStr.slice(-10000));
     const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + rawSlice;
-    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }], session?.id);
     // v1.4-OSS 用量看板(补): 每次实际发出的修复补全记一行 aux(note:'json-repair')。usage 缺失直接跳过不估算。
     // 防御式 —— 记账绝不可影响修复流程。
     try {
@@ -42618,7 +43588,7 @@ const BRIDGED_READ_TOOLS = new Set([
   // 不弹窗)。它落回默认 'exec':read/edit 子代理拿不到,非 bypass 模式点击前弹窗。纯只读文本定位仍可用 ocr_screen/
   // ocr_image(返回全部词+坐标)或 find_on_screen/find_template(模板匹配,无 click、均无 audit → 仍是 read)。
   'find_template', 'find_all_templates', 'find_on_screen',
-  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail',
+  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail', 'execution_receipt',
   'read_file', 'file_info', 'clipboard_get', 'clipboard_read', 'get_clipboard',
   // 审计 A10:ACC 里其余【纯读、不点不敲不写】的工具(逐个对过 tools/*.py 的签名)。修前它们落到默认 exec,default 模式下
   // 每次调用都弹窗 —— 而 screenshot 不弹,推荐的「一步感知」observe(截图+UIA+OCR)反而每次弹。
@@ -44024,6 +44994,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = async b => {
     const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
+    await DesktopExecutionHooks.beforeModelRequest();
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
   };
@@ -44661,6 +45632,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 子代理，需要经过根服务转发的执行身份。'), { code: 'execution_cli_unavailable' });
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
@@ -45586,7 +46558,7 @@ async function markInterruptedAgentRuns() {
 async function runSubAgentCore(opts) {
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(opts.config) && !PrivacyGateway.active()) return PrivacyGateway.run(String(opts.parentSession?.id || 'workflow') + ':' + String(opts.subagentId || opts.agentKey || 'agent'), opts.config, () => runSubAgentCore(opts));
   const lifecycle = { stopBeats: null };
-  try { return await runSubAgentCoreBody(opts, lifecycle); }
+  try { return await DesktopExecutionHooks.runNode(opts.desktopNode, () => runSubAgentCoreBody(opts, lifecycle)); }
   finally {
     if (typeof opts.closeInbox === 'function') opts.closeInbox(opts.ctrl && opts.ctrl.signal.aborted ? 'aborted' : 'node_finished');
     if (typeof lifecycle.stopBeats === 'function') lifecycle.stopBeats();
@@ -45610,7 +46582,8 @@ async function requestDelegationPermission(session, config, name, args, tier, on
   if (signal) { signal.addEventListener('abort', cancel, { once: true }); if (signal.aborted) cancel(); }
   try { return await decision; } finally { if (signal) signal.removeEventListener('abort', cancel); }
 }
-async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait }, lifecycle) {
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait, desktopNode }, lifecycle) {
+  await DesktopExecutionHooks.guard(parentSession.id);
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -45740,6 +46713,21 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
+  DesktopExecutionHooks.nodeHistory(desktopNode, subHistory);
+  let activeSubBatch = null, pendingSubCalls = new Map();
+  const appendSubTool = row => DesktopExecutionHooks.appendMainTool(subHistory, activeSubBatch, row);
+  const acquireSubToolLease = async (tc,args,bridge,tier) => {
+    const resources=inferToolResources(tc.name,args,bridge,workingDir,tier);let waited=false,lease='';
+    DesktopExecutionHooks.nodeWaiting(desktopNode,true);
+    try {
+      lease=await acquireResourceLease(resourceGroup||subagentId,resources,ctrl&&ctrl.signal,blockers=>{
+        waited=true;onEvent({type:'agent_resource',state:'waiting',subagentId,agentKey,resources:resources.map(r=>r.label),blockers});
+      });
+      if(waited)onEvent({type:'agent_resource',state:'acquired',subagentId,agentKey,resources:resources.map(r=>r.label)});
+      return lease;
+    } catch(error) {if(lease)releaseResourceLease(lease);throw error;
+    } finally {DesktopExecutionHooks.nodeWaiting(desktopNode,false);}
+  };
   const privacyHistoryOwner = {};
   // The delegated task and later steers are new inputs, never historical user data.
   if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.bindHostHistory(privacyHistoryOwner, []);
@@ -45875,6 +46863,8 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   try {
     let iter = 0;
     for (; iter < budget; iter++) {
+      await DesktopExecutionHooks.guard(parentSession.id);
+      DesktopExecutionHooks.assertNode(desktopNode);
       // `iters` is user-visible node telemetry, so count the provider call we are
       // about to make even when this iteration exits via `break` without tools.
       iters = iter + 1;
@@ -46008,6 +46998,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         let localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
         for (const stc of serverToolCalls) subSurfaceServerSearch(stc, call.serverSearchInline !== true);
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
+        activeSubBatch = localToolCalls.length ? { assistant: subHistory.at(-1), start: subHistory.length } : null;
+        pendingSubCalls = new Map(localToolCalls.map(tc => [String(tc.id), { processing: false }]));
+        const desktopBatchId = makeId('dbatch');
+        if (localToolCalls.length) await DesktopExecutionHooks.nodeBatch(desktopNode, desktopBatchId);
         // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
         // 不能让本批还没答的 call_1 漏补配对。
         if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
@@ -46015,6 +47009,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         const subOutputLimited = providerWireOutputLimited(call.finishReason);
         const subToolImages = [];
         for (const tc of localToolCalls) {
+          await DesktopExecutionHooks.guard(parentSession.id);
+          DesktopExecutionHooks.assertNode(desktopNode);
+          const desktopExecution = DesktopExecutionHooks.nodeContext(desktopNode, desktopBatchId, tc.id);
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
@@ -46027,7 +47024,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             const resultObj = { ok: false, error: `连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用，已停止子任务以避免死循环`, loopAborted: true };
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            appendSubTool({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             // v1.x (B3-fix): seed the pairing dedup with EVERY tool_call already answered in this sub-turn
             // (derived from the role:'tool' entries in subHistory, which now includes this abort tc pushed just
             // above). Mirrors the parent turn's `answeredIds = new Set(toolCalls.map(...))`. Without this, an
@@ -46040,7 +47037,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               const skip = { ok: false, error: '子任务已因重复调用停止，该调用未执行' };
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs, subagentId });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true, subagentId });
-              subHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
+              appendSubTool({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
             }
             // v2.7.1 (opt#2): 5x 中止后自主恢复(与主回合对称) -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)
             // 到 subHistory,重置签名连击,仅 break 内层 for(不设 subOk=false)-> 907 行 if(!subOk) 不触发 -> 930 continue 续跑。
@@ -46057,19 +47054,20 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             break;
           }
           toolCallCount += 1;
+          pendingSubCalls.get(String(tc.id)).processing = true;
           // Forward the sub-turn's tool_use TAGGED with subagentId so the UI nests it (additive field).
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
           let resultObj, delegationBlocked = false;
           // 参数不是完整的 JSON 对象(多半是输出触顶被截断):不按 {} 执行,回配对的失败结果让子代理重来(与主回合同)。
           if (tc.privacyError) {
             onEvent({ type: 'tool_result', id: tc.id, content: tc.privacyError, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(tc.privacyError) });
+            appendSubTool({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(tc.privacyError) });
             continue;
           }
           if (!isProviderToolArgsObject(tc.rawArgs)) {
             resultObj = { ok: false, argsInvalid: true, error: subOutputLimited ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小后重试' : '工具调用参数不是完整的 JSON 对象,该调用未执行;请给出完整参数后重试' };
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            appendSubTool({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             continue;
           }
           // 压缩后重取守卫(与主回合同):同一调用本回合被压缩省略后反复重取,第 2 次提醒、第 3 次起不执行。
@@ -46078,7 +47076,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           if (refetch && refetch.action === 'refuse') {
             resultObj = compactionRefetchRefusal(refetch.count);
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            appendSubTool({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             continue;
           }
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
@@ -46105,7 +47103,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             if (!allows(tc.name, bridge)) {
               resultObj = { ok: false, error: `Agent 角色 '${role && role.id || ''}' 未授权工具 ${tc.name}` };
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+              appendSubTool({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
               continue;
             }
             // v0.9-S6 tierFilter enforcement (defense-in-depth): the tool set was already filtered to `tier`,
@@ -46119,7 +47117,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
               const isErr0 = true;
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr0, subagentId });
-              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+              appendSubTool({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
               continue;
             }
             // Sub-turns run under the parent's permissionMode. In bypass (the common provider default) all
@@ -46194,12 +47192,11 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                   let toolLease = '';
                   try {
                     startToolBeat();
-                    const toolResources = inferToolResources(tc.name, args, bridge, workingDir, ntier);
-                    toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
+                    toolLease = await acquireSubToolLease(tc,args,bridge,ntier);
                     recheckDelegationPermission();
                     await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
                     recheckDelegationPermission();
-                    resultObj = await client.callTool(bridge.toolName, args);
+                    resultObj = await DesktopExecutionHooks.invoke(client, bridge.toolName, args, { executionSessionId: parentSession.id, signal: ctrl && ctrl.signal }, desktopExecution);
                   } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                   finally { stopToolBeat(); releaseResourceLease(toolLease); }
                 }
@@ -46210,11 +47207,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               let toolLease = '';
               try {
                 startToolBeat();
-                const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
-                toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
+                toolLease = await acquireSubToolLease(tc,args,null,ntier);
                 recheckDelegationPermission();
                 // 代理模式 v2:把节点的 abort 信号交给工具 —— 显式停止(后台任务条/stop 动作)能中断在跑的长命令,而不是等它自然结束。
-                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
+                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal, desktopExecution }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
               catch (e) { resultObj = toolFailureResult(e); } // 审计 N5:未知工具附 did-you-mean(N4 的命令/桌面开关由 toolCall 按 ctx.config 拒绝)
               finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -46244,24 +47240,30 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
+          pendingSubCalls.get(String(tc.id)).result = resultObj;
           if (interactivePermissions && delegationBlocked) { subOk = false; subErr = 'delegation permission denied: ' + String(resultObj.error || 'capability unavailable'); }
           // N3: 子代理的 tool_result 事件同样只发有界的展示副本(大图落附件);subHistory 那份仍按模型预算截断。
           onEvent({ type: 'tool_result', id: tc.id, content: await boundToolResultForDisplay(tc.name, resultObj, { sessionId: parentSession && parentSession.id }), isError: isErr, subagentId });
           const imgs = VisualPipeline.extractToolImages(resultObj);
+          const imageOffset = subToolImages.length;
           const modelResult = imgs.length ? VisualPipeline.stripToolImageFields(resultObj, provider.vision === true ? undefined : 'no-vision') : resultObj;
           if (imgs.length && provider.vision === true) {
             subToolImages.push({ role: 'user', content: [{ type: 'text', text: `[工具 ${tc.name} 返回的图像，来源与页码见工具结果]` },
               ...imgs.map(uri => ({ type: 'image_url', image_url: { url: uri } }))] });
           }
-          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(modelResult) : modelResult)) });
+          const toolIndex = appendSubTool({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(modelResult) : modelResult)) });
+          const currentImages = subToolImages.slice(imageOffset);
+          if (desktopNode) subHistory.push(...currentImages);
+          DesktopExecutionHooks.stageNode(desktopExecution, toolIndex, currentImages.map(image => image.content));
+          await DesktopExecutionHooks.flushNode(desktopNode);
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
           if (!subOk) break; // a denied delegation step cannot execute the rest of this tool batch
         }
         if (!subOk) break;
         if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           const imageBatchStart = subHistory.length;
-          subHistory.push(...subToolImages);
-          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory, imageBatchStart);
+          if (!desktopNode) subHistory.push(...subToolImages);
+          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory, desktopNode ? activeSubBatch.start : imageBatchStart);
         }
         if (iter + 1 >= budget && budget < adaptiveBudgetLimit && shouldExtendToolIterationBudget({
           currentLimit: budget,
@@ -46283,6 +47285,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           subHistory: subHistory.map(m => JSON.parse(JSON.stringify(m))),
           resultText, iter, iters, toolCallCount,
         };
+        activeSubBatch = null;
         continue; // let the sub-agent react to its tool results
       }
       // No tool calls → final conclusion for the sub-turn.
@@ -46311,6 +47314,18 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   } catch (e) {
     subOk = false; subErr = (e && e.message) ? e.message : String(e);
   } finally {
+    if (DesktopExecutionHooks.enabled() && activeSubBatch && subHistory[activeSubBatch.start - 1] === activeSubBatch.assistant) {
+      const answered = new Set(subHistory.slice(activeSubBatch.start).filter(row => row.role === 'tool').map(row => String(row.tool_call_id)));
+      for (const call of activeSubBatch.assistant.tool_calls) {
+        if (answered.has(String(call.id))) continue;
+        const state = pendingSubCalls.get(String(call.id));
+        const result = state && Object.hasOwn(state, 'result') ? state.result
+          : state?.processing || !state ? { ok: false, outcome: 'unknown', action_sent: null, error: '子代理异常结束，调用结果与影响未确认，请勿自动重放' }
+            : { ok: false, outcome: 'not_dispatched', action_sent: false, error: '子代理已停止，该调用未派发' };
+        const safe = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(result) : result;
+        appendSubTool({ role: 'tool', tool_call_id: call.id, content: truncateToolResult(call.function?.name || '', JSON.stringify(VisualPipeline.stripToolImageFields(safe))) });
+      }
+    }
     if (typeof closeInbox === 'function') closeInbox(ctrl && ctrl.signal && ctrl.signal.aborted ? 'aborted' : subOk ? 'completed' : 'provider_error');
   }
   const finalText = resultText.trim();
@@ -47633,9 +48648,10 @@ function recordAgentNodeProgress(run, node, evt) {
   // v1.x (B10): keep node.status honest about TOOL-level resource waits. runSubAgentCore acquires a per-tool
   // lease that can block on another node's resource; node-LEVEL waits already flip status via onResourceWait,
   // but the tool level has no node handle, so without this the polling UI shows 运行中 while the node is parked.
-  // A 'waiting' agent_resource event parks the node; the next non-resource progress event means it resumed.
+  // Heartbeats, mail and streamed text are not proof that a blocked lease resumed.
+  // Resume on the actual acquired event, or a tool result after the waiting call ended.
   if (evt.type === 'agent_resource' && evt.state === 'waiting') { node.status = 'waiting_resource'; node.waitingForResources = Array.isArray(evt.resources) ? evt.resources.slice() : []; }
-  else if (node.status === 'waiting_resource' && evt.type !== 'agent_resource') { node.status = 'running'; node.waitingForResources = []; }
+  else if (node.status === 'waiting_resource' && (evt.type === 'tool_result' || evt.type === 'agent_resource' && evt.state === 'acquired')) { node.status = 'running'; node.waitingForResources = []; }
   if (!text) return;
   if (!Array.isArray(node.progressLog)) node.progressLog = [];
   const last = node.progressLog[node.progressLog.length - 1];
@@ -48335,7 +49351,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
   return 'none';
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, originTurnAgentCap, followup }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, originTurnAgentCap, followup, desktopOrigin }) {
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
@@ -49173,14 +50189,19 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           node.lastActivityAt = Date.now(); // A3: 节点级看门狗时钟起点(派发即活跃)
           runtime.nodeControls.set(node.id, nodeCtrl);
+          const subagentId = makeId('sub');
+          let desktopNode = null;
           let sub;
           try {
+            if ((node.engine || 'openai') === 'openai' && !isBackgroundRun) {
+              desktopNode = DesktopExecutionHooks.admitNode(desktopOrigin, runtime, node, nodeCtrl, subagentId);
+            }
             sub = await runSubAgent({
               parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
               task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
               displayTask: node.task, agentKey: node.id,
               dependsOn: (Array.isArray(node.reportedDependsOn) && node.reportedDependsOn.length) ? node.reportedDependsOn : node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
-              onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride, runId,
+              onEvent: nodeEvent, subagentId, depth: 1, ctrl: nodeCtrl, permModeOverride, runId, desktopNode,
               // 116-2b:节点的工具迭代预算耗尽 → run_budget_tripped(收件箱的 budget 类)。
               onBudgetTripped: info => recordRunBudgetTrippedEvent(run, { ...info, nodeId: node.id }),
               interactivePermissions: run.kind === 'steward_delegation',
@@ -49212,6 +50233,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               onResourceAcquired: resources => { node.status = 'running'; node.waitingForResources = []; node.resourceBlockers = []; node.acquiredResources = resources.map(r => r.label); saveAgentRun(run).catch(() => {}); },
             });
           } finally {
+            DesktopExecutionHooks.releaseNode(desktopNode);
             if (runtime.nodeControls.get(node.id) === nodeCtrl) runtime.nodeControls.delete(node.id);
             if (nodeCtrl && nodeCtrl !== localCtrl && localCtrl && localCtrl.signal) localCtrl.signal.removeEventListener('abort', abortNodeFromRun);
           }
@@ -49836,6 +50858,8 @@ function emptyReplyNotice(locale, afterText) {
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta, executionOwner, delegationPlan }) {
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(config) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, config, () => runOpenAiTurn(arguments[0]));
   assertSessionExecutionOwner(session.id, executionOwner);
+  await DesktopExecutionHooks.guard(session.id);
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
   const turnSegments = createTurnSegmentBuilder();
@@ -49940,6 +50964,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = plannedTurnSeq;
+  DesktopExecutionHooks.admit(session, executionOwner);
   // 回合中途的存盘都带回合代数闸(02 saveSession 的 dropIfTurnSuperseded):本回合若已被同会话更新的回合顶替
   // (卡在不理会中止的工具里、新回合先跑完),这份旧对象的存盘静默丢掉,不把新回合的消息与历史盖回去。
   const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn', executionOwner };
@@ -49981,6 +51006,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   } else {
     session.providerHistory.push({ role: 'user', content: historyPrompt, ...(messageMeta ? { meta: messageMeta } : {}) });
   }
+  const turnPromptRecord = session.providerHistory[session.providerHistory.length - 1];
+  let promptAttempted = false;
   // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
   // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
@@ -50396,6 +51423,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   // Turn-local knowledge for honest pairing on errors. Processing is NOT target dispatch proof.
   let pendingProviderCalls = new Map();
+  let activeToolBatch = null;
   // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
   // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
   // 新到的调用 id 撞了就规范成唯一(id + '_' + 迭代序号):下游 —— providerHistory 的 assistant.tool_calls[].id、role:'tool' 的
@@ -50884,6 +51912,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     subagentTotal += nodeCount; // Admit each initial node once; retries do not create agents.
     const common = {
       parentSession: session, provider, config, nodes: resolved.nodes, parentEngine: 'openai', parentModel: model,
+      desktopOrigin: background ? null : DesktopExecutionHooks.workflowOrigin(session, executionOwner),
       permModeOverride: subPermMode,
       // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限);每回合累计预算见上面 subagentTurnCap。
       maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(args.context || '').trim(),
@@ -50966,6 +51995,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       await refreshMemoryPromptScope();
       const requestBody = buildRequestBody();
+      promptAttempted = true; // Conservative request intent; never remove it as a definitely unsent prompt.
       const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: requestBody, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
@@ -51019,6 +52049,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       await saveSession(session, turnSaveOpts);
     }
     for (let iter = 0; ; iter++) {
+      await DesktopExecutionHooks.guard(session.id);
+      assertSessionExecutionOwner(session.id, executionOwner);
       if (reg.state !== 'running' || ctrl.signal.aborted) { aborted = true; ok = false; break; }
       if (iter >= maxIters) {
         if (shouldExtendToolIterationBudget({
@@ -51392,6 +52424,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         for (const stc of serverToolCalls) await surfaceServerSearchCall(stc, call.serverSearchInline !== true);
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
         if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
+        // Anchor the new batch before its first async save; a failed intent save must
+        // pair this batch's IDs, including after an earlier image-bearing batch.
+        activeToolBatch = localToolCalls.length ? { assistant: session.providerHistory[session.providerHistory.length - 1], start: session.providerHistory.length } : null;
         // Persist requested call IDs/names/model arguments before any local execution or permission wait.
         // This is intent, not a receipt that the target accepted or executed a call.
         pendingProviderCalls = new Map(localToolCalls.map(tc => [String(tc.id), { processing: false }]));
@@ -51405,6 +52440,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
         // image messages here and FLUSH them after the for-loop, once every role:'tool' reply has been pushed.
         if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
+        const appendToolHistory = row => DesktopExecutionHooks.appendMainTool(session.providerHistory, activeToolBatch, row);
         const pendingToolImages = []; // [{ toolCallId, note, parts:[{text},{image_url}…] }]
         // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
         // 交互类)时入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行循环走到通用
@@ -51421,6 +52457,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt', 'scratchpad_write']);
           const isSafeRead = tc => Boolean(tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
+            && (!DesktopExecutionHooks.enabled() || !tc.name.startsWith('tool_invoke_'))
             && unwrapProxiedControlCall(tc) === tc   // 代理到引擎特判工具的调用不预执行(串行循环里会被解开成直调)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
             && !toolArgsRefusal(tc)); // 参数坏了的调用不预执行(串行路径会拒绝它,见 toolArgsRefusal)
@@ -51495,12 +52532,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const batchToolCallsStart = toolCalls.length;
         const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
         for (const tc0 of localToolCalls) {
+          await DesktopExecutionHooks.guard(session.id);
+          assertSessionExecutionOwner(session.id, executionOwner);
           pendingProviderCalls.get(String(tc0.id)).processing = true;
           try {
           const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           let bridgedInvocationAttempted = false;
           const onBridgedInvocationAttempt = () => { bridgedInvocationAttempted = true; };
+          const desktopExecution = DesktopExecutionHooks.context(session, executionOwner, activeProviderBatchId + ':' + tc.id,tc.id);
           await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
@@ -51515,7 +52555,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true });
             recordToolCall({ id: tc.id, name: tc.name, input: args, result: resultObj });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            appendToolHistory({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             await notifyToolHookEnd(tc, resultObj, iter, 'loop_refused');
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
@@ -51532,7 +52572,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'tool_result', id: rem.id, content: shownSkip, isError: !returned || skip?.ok === false });
               recordToolCall({ id: rem.id, name: rem.name, input: rargs, result: shownSkip });
               const historySkip = returned ? VisualPipeline.stripToolImageFields(skip, 'interrupted-batch') : skip;
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(historySkip) : historySkip)) });
+              appendToolHistory({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(historySkip) : historySkip)) });
               await notifyToolHookEnd(rem, skip, iter, returned ? 'executed' : 'loop_skipped');
             }
             // v2.7.1 (opt#2): 5x 中止后自主恢复 -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)要求模型换策略,
@@ -51567,7 +52607,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (argsRefused) {
             onEvent({ type: 'tool_result', id: tc.id, content: argsRefused, isError: true });
             recordToolCall({ id: tc.id, name: tc.name, input: args, result: argsRefused });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(argsRefused) : argsRefused)) });
+            appendToolHistory({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(argsRefused) : argsRefused)) });
             await notifyToolHookEnd(tc, argsRefused, iter, 'args_invalid');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -51581,7 +52621,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const refused = compactionRefetchRefusal(refetch.count);
             onEvent({ type: 'tool_result', id: tc.id, content: refused, isError: true });
             recordToolCall({ id: tc.id, name: tc.name, input: args, result: refused });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(refused) : refused)) });
+            appendToolHistory({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(refused) : refused)) });
             await notifyToolHookEnd(tc, refused, iter, 'compaction_refetch_refused');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -51611,7 +52651,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               } catch { /* shadow comparison must never affect the legacy tool result */ }
             }
             recordToolCall({ id: tc.id, name: tc.name, input: args, result: resultObj });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            appendToolHistory({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'control_plane');
             touch();
@@ -51679,7 +52719,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id }); // N3: 展示副本(agent_result 等可能很大)
             onEvent({ type: 'tool_result', id: tc.id, content: shownAgentResult, isError: isErr });
             recordToolCall({ id: tc.id, name: tc.name, input: args, result: shownAgentResult });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            appendToolHistory({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
             touch();
@@ -51773,7 +52813,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                         signal => {
                           // Local MCP boundary only; this is not a native dispatch receipt.
                           onBridgedInvocationAttempt();
-                          return client.callTool(bridge.toolName, args, undefined, { signal });
+                          return DesktopExecutionHooks.invoke(client, bridge.toolName, args, { signal }, desktopExecution);
                         },
                         true,
                       );
@@ -51841,7 +52881,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true, toolCallId: tc.id, onBridgedInvocationAttempt }),
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true, toolCallId: tc.id, onBridgedInvocationAttempt, desktopExecution }),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
@@ -51917,6 +52957,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // tool result as compact no-vision placeholders instead of base64 text. Native file/document images
           // use this same channel. extractToolImages ignores non-image results.
           let toolResultForHistory = resultObj;
+          const imageOffset = pendingToolImages.length;
           if (visionOn) {
             const imgs = VisualPipeline.extractToolImages(resultObj);
             if (imgs.length) {
@@ -51929,7 +52970,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
-          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(toolResultForHistory) : toolResultForHistory)) });
+          const toolHistoryIndex = appendToolHistory({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(toolResultForHistory) : toolResultForHistory)) });
+          const currentImages = pendingToolImages.slice(imageOffset);
+          if (DesktopExecutionHooks.enabled()) {
+            for (const image of currentImages) session.providerHistory.push({ role: 'user', content: image.parts });
+          }
+          DesktopExecutionHooks.stageMain(desktopExecution, toolHistoryIndex, currentImages.map(image => image.parts));
+          if (DesktopExecutionHooks.enabled() || !pendingToolImages.length) await DesktopExecutionHooks.flushMain(session, turnSaveOpts);
+          if (DesktopExecutionHooks.enabled()) for (const image of currentImages) onEvent({ type: 'tool_image', toolCallId: image.toolCallId, note: image.note });
           markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -51952,7 +53000,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'tool_result', id: rem.id, content: shownSkip, isError: !returned || skip?.ok === false });
               recordToolCall({ id: rem.id, name: rem.name, input: rargs, result: shownSkip });
               const historySkip = returned ? VisualPipeline.stripToolImageFields(skip, 'interrupted-batch') : skip;
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(historySkip) : historySkip)) });
+              appendToolHistory({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(historySkip) : historySkip)) });
               await notifyToolHookEnd(rem, skip, iter, returned ? 'executed' : 'steer_skipped');
             }
             steerAborted = true;
@@ -51969,7 +53017,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // note + image_url part(s); a `tool_image` event lets the UI show a thumbnail (加法, optional). After
         // the batch is sent once, pruneOldImages enforces 保图≤2. Unsent images stay protected. Skipped when
         // aborted (a partial/broken batch must not gain a trailing user message that could dangle).
-        if (!aborted && !steerAborted && pendingToolImages.length) {
+        if (!aborted && !steerAborted && pendingToolImages.length && DesktopExecutionHooks.enabled()) {
+          VisualPipeline.pruneOldImages(session.providerHistory, activeToolBatch.start);
+        }
+        if (!aborted && !steerAborted && pendingToolImages.length && !DesktopExecutionHooks.enabled()) {
           const imageBatchStart = session.providerHistory.length;
           for (const pim of pendingToolImages) {
             session.providerHistory.push({ role: 'user', content: pim.parts });
@@ -52002,7 +53053,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             queueWaitMs: poolQueueWaitMs || 0, // 21-E2: pool 内资源锁排队总时长
           })) econTotals.phasesLogged += 1;
         }
+        await DesktopExecutionHooks.flushMain(session, turnSaveOpts);
         await saveSession(session, turnSaveOpts);   // persist the growing tool trace
+        activeToolBatch = null;
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
@@ -52151,8 +53204,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const finalText = assistantText.trim();
   // The loop already pushed assistant/tool messages into providerHistory. Only guard against a dangling
   // user turn if we aborted before any assistant reply (keeps the next request valid).
-  if (wasStopped && session.providerHistory.length &&
-      session.providerHistory[session.providerHistory.length - 1].role === 'user') {
+  if (wasStopped && session.providerHistory.length && (DesktopExecutionHooks.enabled()
+      ? !promptAttempted && session.providerHistory[session.providerHistory.length - 1] === turnPromptRecord
+      : session.providerHistory[session.providerHistory.length - 1].role === 'user')) {
     session.providerHistory.pop();
   }
   // Pair missing replies without turning a returned parallel result or an uncertain in-flight call
@@ -52161,9 +53215,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const hist = session.providerHistory;
     let blockEnd = hist.length;
     while (blockEnd > 0 && hist[blockEnd - 1] && hist[blockEnd - 1].role === 'tool') blockEnd -= 1;
+    if (DesktopExecutionHooks.enabled() && activeToolBatch && hist.indexOf(activeToolBatch.assistant) === activeToolBatch.start - 1) blockEnd = activeToolBatch.start;
     const lastAsst = hist[blockEnd - 1];
     if (lastAsst && lastAsst.role === 'assistant' && Array.isArray(lastAsst.tool_calls) && lastAsst.tool_calls.length) {
-      const answered = new Set(hist.slice(blockEnd).map(m => String(m.tool_call_id)));
+      const answered = new Set(hist.slice(blockEnd).filter(m => m?.role === 'tool').map(m => String(m.tool_call_id)));
       for (const tcall of lastAsst.tool_calls) {
         if (!tcall || tcall.id == null || answered.has(String(tcall.id))) continue;
         const state = pendingProviderCalls.get(String(tcall.id));
@@ -52174,7 +53229,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             ? { ok: false, outcome: 'unknown', action_sent: null, error: prefix + ',调用结果未保存,是否执行及影响未确认;请勿自动重放' }
             : { ok: false, outcome: 'not_dispatched', action_sent: false, error: prefix + ',该调用未执行' };
         const safe = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip;
-        hist.push({ role: 'tool', tool_call_id: tcall.id, content: truncateToolResult(tcall.function?.name || '', JSON.stringify(VisualPipeline.stripToolImageFields(safe))) });
+        const reply = { role: 'tool', tool_call_id: tcall.id, content: truncateToolResult(tcall.function?.name || '', JSON.stringify(VisualPipeline.stripToolImageFields(safe))) };
+        if (DesktopExecutionHooks.enabled() && activeToolBatch) DesktopExecutionHooks.appendMainTool(hist, activeToolBatch, reply);
+        else hist.push(reply);
       }
     }
   }
@@ -54415,6 +55472,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       : (extraSignal || undefined);
     try {
       const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(bodyObj) : bodyObj;
+      await DesktopExecutionHooks.beforeModelRequest(econCtx?.sessionId);
       if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
       const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: mergedSignal });
       if (!res || !res.ok) {
@@ -56110,6 +57168,8 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
+    await DesktopExecutionHooks.guard(session.id);
+    assertSessionExecutionOwner(session.id, settleEntry);
     // Keep the admission check→owner registration synchronous. Legacy-history I/O happens only
     // after this turn owns the session, under the existing cancellation and finally cleanup.
     if (typeof PrivacyGateway !== 'undefined') {
@@ -56170,6 +57230,8 @@ async function runSessionTurn(input) {
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       assertSessionExecutionOwner(session.id, settleEntry);
+      await DesktopExecutionHooks.guard(session.id);
+      assertSessionExecutionOwner(session.id, settleEntry);
       lastTurnTokens = 0;
       const atts = driverAuto ? [] : attachments;
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
@@ -56180,8 +57242,10 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
+        await DesktopExecutionHooks.run(session, async () => {
         if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
         else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -56244,6 +57308,7 @@ async function runSessionTurn(input) {
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
+    DesktopExecutionHooks.release(session.id, settleEntry);
     const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
     if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     if (session.kind === 'steward' && typeof PrivacyCore.configHooks.settleStewardPrivacy === 'function') {
@@ -64051,7 +65116,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     // Provider audit observes only the local MCP invocation attempt. Never treat this as
     // acknowledgement from ACC/the native helper. Local policy/argument refusals never reach it.
     if (typeof ctx?.onBridgedInvocationAttempt === 'function') ctx.onBridgedInvocationAttempt();
-    const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    const res = await DesktopExecutionHooks.invoke(client, bridge.toolName, targetArgs || {}, ctx && ctx.signal ? { signal: ctx.signal } : {}, ctx?.desktopExecution);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
     return withToolArgsGuide({ ok: false, error: (e && e.message) || String(e) }, targetSchema, true);
@@ -67135,6 +68200,8 @@ function validateNativeToolArgs(name, args) {
 }
 
 async function toolCall(name, args = {}, ctx = null) {
+  const executionSessionId = ctx?.sessionId || process.env.WCW_SESSION_ID;
+  if (DesktopExecutionHooks.enabled() && executionSessionId) await DesktopExecutionHooks.guard(executionSessionId);
   if (typeof PrivacyGateway !== 'undefined') {
     // MCP processes can outlive a settings change; consult persisted policy before every unscoped call.
     if (!PrivacyGateway.active() && typeof readConfig === 'function') PrivacyGateway.assertSupported((ctx && ctx.config) || await readConfig(), 'external-tool');
@@ -69329,7 +70396,9 @@ function startErrorNextText(kind) {
 async function writeStartError(kind, message) {
   const safeKind = START_ERROR_KINDS.includes(kind) ? kind : 'startup-failed';
   try {
+    if (!DesktopExecutionHooks.canWriteStartupError()) return;
     await fsp.mkdir(paths.data, { recursive: true });
+    if (!DesktopExecutionHooks.canWriteStartupError()) return;
     await atomicWriteJson(path.join(paths.data, LAST_START_ERROR_FILE), {
       at: nowIso(),
       kind: safeKind,
@@ -71197,8 +72266,11 @@ async function startServer(opts) {
         const from = paths.data;
         const to = DATA_ROOT_MIGRATION.to;
         for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
+        if (process.platform === 'darwin') await ownership.confirmRoot(to, DATA_ROOT_MIGRATION.from);
       }
     }
+    // Initialize execution recovery under the OS gate, before any engine/client or startup recovery.
+    await DesktopExecutionHooks.initialize(ownership);
     const result = await startServerInner(opts, bindHost);
     await ownership.releaseStartup();
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
@@ -92022,6 +93094,460 @@ Object.assign(ExternalBotHooks, {
   start: () => { externalBotWorkerStopped = false; externalBotWakeWorker(); },
   stop: () => { externalBotWorkerStopped = true; externalBotPairings.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
 });
+
+// Root execution authority. MCP children never open this ledger; they need the root service.
+const DesktopExecutionRuntime = (() => {
+  let state = null;
+  const admissions = new Map();
+  const contexts = new WeakMap(), peers = new WeakMap(), pendingMain = new Map();
+  const sendPermits = new WeakMap();
+  const workflowOrigins = new WeakMap(), nodeKeys = new WeakMap(), nodeAdmissions = new Map();
+  const dispatchTails = new Map();
+  const modelScope = new (require('async_hooks').AsyncLocalStorage)();
+  const enabled = () => process.platform === 'darwin' && process.env.RUYI_DESKTOP_EXECUTION_RECEIPTS === '1';
+  const fail = (code, message) => Object.assign(new Error(message), { code, status: 409 });
+  const generation = session => session.rewindGen === undefined ? 0 : session.rewindGen;
+  function rootOwned() {
+    if (!state || !state.dataIdentity || !state.ownership.isHeld() || !state.ownership.isRootCurrent(state.canonicalRoot)) return false;
+    try {
+      const named = fs.statSync(paths.data, { bigint: true }), canonical = fs.statSync(state.canonicalRoot, { bigint: true });
+      return [named, canonical].every(stat => stat.isDirectory() && stat.dev === state.dataIdentity.dev
+        && stat.ino === state.dataIdentity.ino && stat.birthtimeNs === state.dataIdentity.birthtimeNs);
+    } catch { return false; }
+  }
+  function authority() {
+    if (!state || state.phase !== 'ready' || !rootOwned()) {
+      throw fail('execution_owner_lost', '桌面执行记录的服务所有权不可用，已停止继续执行。');
+    }
+    return state;
+  }
+  function current(scope) {
+    const node = nodeAdmissions.get(scope.admissionId);
+    if (node) return scope.sessionId === node.session.id && scope.turnSeq === node.turnSeq
+      && scope.rewindGen === node.rewindGen && nodeCurrent(node);
+    const admitted = admissions.get(scope.sessionId);
+    return !!admitted && !!state && state.phase === 'ready' && rootOwned()
+      && admitted.id === scope.admissionId && admitted.turnSeq === scope.turnSeq && admitted.rewindGen === scope.rewindGen
+      && admitted.session.turnSeq === scope.turnSeq && generation(admitted.session) === scope.rewindGen
+      && turnSettlers.get(scope.sessionId) === admitted.owner && !admitted.owner.cancelRequested
+      && admitted.owner.driverRunId === admitted.driverRunId;
+  }
+  async function initialize(ownership) {
+    if (process.platform !== 'darwin') return;
+    if (state) throw fail('execution_runtime_initialized', '桌面执行记录已经初始化；本进程不能再次接管。');
+    if (!ownership || typeof ownership.isHeld !== 'function' || !ownership.isHeld()) {
+      throw fail('execution_owner_required', '桌面执行记录需要实际的服务所有权。');
+    }
+    state = { phase: 'opening', ownership, ledger: null, dataIdentity: null, canonicalRoot: null };
+    try {
+      state.canonicalRoot = await ServerOwnership.canonicalRoot(paths.data);
+      if (!ownership.isHeld() || !ownership.roots.includes(state.canonicalRoot) || !ownership.isRootCurrent(state.canonicalRoot)) {
+        throw fail('execution_owner_lost', '服务没有持有当前数据目录的实际所有权。');
+      }
+      await fsp.mkdir(paths.data, { recursive: true });
+      await ownership.confirmRoot(paths.data);
+      state.dataIdentity = await fsp.stat(paths.data, { bigint: true });
+      if (!rootOwned()) throw fail('execution_owner_lost', '数据目录在初始化期间发生变化。');
+      const ledger = DesktopExecutionLedger.create({ directory: path.join(paths.data, 'desktop-executions-v1'),
+        isOwner: rootOwned, isTurnCurrent: current });
+      await ledger.open();
+      if (!rootOwned()) throw fail('execution_owner_lost', '服务所有权在恢复期间失效。');
+      state.ledger = ledger;
+      state.phase = 'ready';
+    } catch (error) { state.phase = 'failed'; throw error; }
+  }
+  async function guard(sessionId) {
+    // Non-serve consumers do not acquire or mutate shared execution state.
+    if (!state) return;
+    const root = authority();
+    let observed = await root.ledger.guard(sessionId);
+    const deadline=Date.now()+10000;
+    while (!observed.ok && Date.now()<deadline) {
+      const calls = [...Array.from(pendingMain.values()).flatMap(list => Array.from(list)),
+        ...Array.from(nodeAdmissions.values()).flatMap(node => Array.from(node.pending))];
+      const waiting = calls.filter(call => call.session.id === sessionId && call.deliveryWait
+        && observed.pending.includes(call.invocationId) && (call.node ? nodeCurrent(call.node)
+          : current({sessionId,turnSeq:call.turnSeq,rewindGen:call.rewindGen,admissionId:call.admissionId})));
+      if (waiting.length) {
+        // A current sibling is publishing an actual result. Wait outside the ledger
+        // queue so its strict history barrier can complete; never waive an unknown.
+        let timer;
+        try { await Promise.race([Promise.all(waiting.map(call => call.deliveryWait.promise)),
+          new Promise(resolve => { timer = setTimeout(resolve, Math.max(1,deadline-Date.now())); })]); }
+        finally { clearTimeout(timer); }
+        observed = await root.ledger.guard(sessionId);
+      } else break;
+    }
+    authority();
+    if (!observed.ok) throw fail('execution_reconciliation_required',
+      '上次桌面操作的执行或结果保存尚未确认，已暂停本会话的自动继续，请先核实执行记录。');
+  }
+  function admit(session, owner) {
+    if (!state) return null;
+    authority();
+    if (!owner || turnSettlers.get(session.id) !== owner || owner.cancelRequested
+        || typeof owner.driverRunId !== 'string' || !owner.driverRunId
+        || !Number.isSafeInteger(session.turnSeq) || session.turnSeq < 1
+        || !Number.isSafeInteger(generation(session)) || generation(session) < 0) {
+      throw fail('execution_admission_lost', '桌面执行需要当前服务实际持有的回合身份。');
+    }
+    const old = admissions.get(session.id), rewindGen = generation(session);
+    if (old && old.session === session && old.owner === owner && old.turnSeq === session.turnSeq && old.rewindGen === rewindGen) return old.id;
+    const entry = { id: crypto.randomBytes(32).toString('hex'), session, owner,
+      driverRunId: owner.driverRunId, turnSeq: session.turnSeq, rewindGen };
+    admissions.set(session.id, entry);
+    return entry.id;
+  }
+  function release(sessionId, owner) {
+    if (admissions.get(sessionId)?.owner === owner) admissions.delete(sessionId);
+    for (const [session, calls] of pendingMain) {
+      for (const call of calls) if (session.id === sessionId && call.owner === owner) { calls.delete(call); call.deliveryWait?.resolve(); call.releaseDispatch?.(); }
+      if (!calls.size) pendingMain.delete(session);
+    }
+    for (const node of nodeAdmissions.values()) if (node.session.id === sessionId && node.owner === owner) releaseNode(node.key);
+  }
+  function workflowOrigin(session, owner) {
+    if (!enabled()) return null;
+    const parentId = admit(session, owner), parent = admissions.get(session.id);
+    const key = Object.freeze(Object.create(null));
+    workflowOrigins.set(key, { session, owner, parentId, turnSeq: parent.turnSeq, rewindGen: parent.rewindGen });
+    return key;
+  }
+  function nodeCurrent(node) {
+    if (!node) return false;
+    const parent = admissions.get(node.session.id);
+    return !!parent && parent.session === node.session && parent.owner === node.owner && parent.id === node.parentId
+      && current({ sessionId: node.session.id, turnSeq: node.turnSeq, rewindGen: node.rewindGen, admissionId: node.parentId })
+      && !sessionSaveIsTombstoned(node.session) && !sessionObjectIsStale(node.session)
+      && (sessionRewindGenHighWater.get(node.session.id) || 0) <= node.rewindGen
+      && activeAgentRuns.get(node.run.id) === node.runtime && node.runtime.run === node.run
+      && node.run.sessionId === node.session.id && node.run.turnSeq === node.turnSeq && node.run.status === 'running'
+      && node.run.background !== true && !node.runtime.closing && !node.runtime.paused && !node.runtime.stopRequested
+      && !node.waitingResource && !node.runtime.permissionWaits?.has(node.nodeId)
+      && !!node.runtime.ctrl && !node.runtime.ctrl.signal.aborted
+      && node.run.nodes.includes(node.node) && node.node.id === node.nodeId && node.node.attempts === node.attempt
+      && node.node.status === 'running' && node.runtime.nodeControls.get(node.nodeId) === node.ctrl && !node.ctrl.signal.aborted;
+  }
+  function admitNode(originKey, runtime, node, ctrl, subagentId) {
+    if (!enabled() || !originKey) return null;
+    authority();
+    const origin = workflowOrigins.get(originKey);
+    if (!origin || !runtime || !node || !ctrl || !Number.isSafeInteger(node.attempts) || node.attempts < 1
+        || typeof subagentId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(subagentId)) {
+      throw fail('execution_admission_lost', '子代理没有真实前台工作流身份。');
+    }
+    const key = Object.freeze(Object.create(null)), id = crypto.randomBytes(32).toString('hex');
+    const entry = { ...origin, id, key, runtime, run: runtime.run, node, nodeId: node.id, attempt: node.attempts,
+      ctrl, subagentId, history: null, pending: new Set() };
+    if (!nodeCurrent(entry)) throw fail('execution_admission_lost', '子代理的主回合、节点或控制器已失效。');
+    nodeKeys.set(key, entry); nodeAdmissions.set(id, entry);
+    return key;
+  }
+  function releaseNode(key) {
+    const node = nodeKeys.get(key);
+    if (node) { nodeAdmissions.delete(node.id); nodeKeys.delete(key); for (const call of node.pending) {call.deliveryWait?.resolve();call.releaseDispatch?.();} node.pending.clear(); }
+  }
+  function nodeHistory(key, history) {
+    if (!key) return;
+    const node = nodeKeys.get(key);
+    if (!node || !nodeCurrent(node) || !Array.isArray(history) || node.history && node.history !== history) {
+      throw fail('execution_admission_lost', '子代理历史没有当前实际节点身份。');
+    }
+    node.history = history;
+  }
+  function nodeWaiting(key,waiting) {
+    const node=nodeKeys.get(key);if(node)node.waitingResource=waiting===true;
+  }
+  function nodeContext(key, batchId, callId) {
+    if (!enabled() || !key) return null;
+    const node = nodeKeys.get(key);
+    if (!node || !nodeCurrent(node) || !node.history || node.batchId !== batchId
+        || !node.batch?.tool_calls?.some(call => call.id === callId)
+        || ![batchId, callId].every(value => typeof value === 'string' && value.length > 0 && value.length <= 1024)) {
+      throw fail('execution_admission_lost', '子代理调用没有当前批次身份。');
+    }
+    const contextKey = Object.freeze(Object.create(null));
+    contexts.set(contextKey, { session: node.session, owner: node.owner, admissionId: node.id, node,
+      batchId, callId, invocationId: null, staged: null });
+    return contextKey;
+  }
+  async function nodeBatch(key,batchId) {
+    if (!enabled() || !key) return;
+    const node=nodeKeys.get(key);
+    if (!node || !nodeCurrent(node) || !/^[A-Za-z0-9_-]{1,128}$/.test(batchId)
+        || node.history?.at(-1)?.role!=='assistant' || !node.history.at(-1).tool_calls?.length) {
+      throw fail('execution_admission_lost','子代理工具意图没有实际节点历史。');
+    }
+    node.batchId=batchId;node.batch=node.history.at(-1);
+    await authority().ledger.saveNodeIntent(node.history,{sessionId:node.session.id,turnSeq:node.turnSeq,
+      rewindGen:node.rewindGen,admissionId:node.id,runId:node.run.id,nodeId:node.nodeId,attempt:node.attempt,
+      subagentId:node.subagentId,batchId},()=>nodeCurrent(node));
+  }
+  function canWriteStartupError() {
+    return process.platform !== 'darwin' || rootOwned();
+  }
+  // Preparation uses this exact admitted session object, never caller-provided turn numbers.
+  async function prepare({ session, owner, callId, toolName, args, client }) {
+    const root = authority(), admitted = admissions.get(session.id);
+    if (!admitted || admitted.session !== session || admitted.owner !== owner || typeof callId !== 'string' || !callId) {
+      throw fail('execution_admission_lost', '工具调用没有当前回合的实际准入身份。');
+    }
+    return root.ledger.prepare({ sessionId: session.id, turnSeq: admitted.turnSeq, rewindGen: admitted.rewindGen,
+      admissionId: admitted.id, callIdHash: crypto.createHash('sha256').update(admitted.driverRunId + '\0' + callId).digest('hex'),
+      toolName, args, client });
+  }
+  function desktopClient(client) {
+    return client?.id === 'ai-computer-control' || isEquivalentDesktopAccServer(client)
+      || typeof client?.serverInfo?.name === 'string'
+        && client.serverInfo.name.toLowerCase().replace(/[\s_-]/g, '') === 'aicomputercontrol';
+  }
+  function callRefusal(client, toolName, args, options = {}) {
+    if (!enabled() || !desktopClient(client) || toolName === 'execution_receipt') return null;
+    const permit = sendPermits.get(options.executionCheck);
+    if (client instanceof McpStdioClient && permit && !permit.used && permit.client === client
+        && permit.toolName === toolName && permit.args === args && permit.meta === options.meta && permit.verify()) return null;
+    return { ok: false, code: 'execution_metadata_required', outcome: 'not_dispatched', action_sent: false,
+      error: '桌面组件业务调用需要当前服务已保存的派发许可，未派发。' };
+  }
+  function clientEnvironment(id, env, descriptor = { id }) {
+    if (!enabled() || !desktopClient(descriptor)) return env;
+    authority();
+    return { ...env, RUYI_EXECUTION_CONTEXT_REQUIRED: '1' };
+  }
+  function liveClient(client, child) {
+    return rootOwned() && client instanceof McpStdioClient && desktopClient(client)
+      && mcpClients.get(client.id) === client && !client.dead && !!child && client.child === child
+      && client.executionContextRequired === true;
+  }
+  async function peerFor(client) {
+    authority();
+    const child = client?.child;
+    if (!liveClient(client, child)) throw fail('execution_client_unverified', '桌面组件不是当前服务持有的必要上下文实例。');
+    let pending = peers.get(client);
+    if (!pending) {
+      pending = (async () => {
+        const probe = await probeDesktopExecutionReceipts(client);
+        if (!probe.ok || !liveClient(client, child)) throw fail('execution_client_unverified', '桌面组件未确认执行回执协议。');
+        return Object.freeze({ clientId: crypto.randomBytes(16).toString('hex'), accWorkerId: probe.accWorkerId,
+          accPid: probe.accPid, contextRequired: true, child });
+      })();
+      peers.set(client, pending);
+    }
+    try { const peer = await pending;
+      if (!liveClient(client, peer.child)) throw fail('execution_client_changed', '桌面组件实例已更换。');
+      return peer;
+    } catch (error) { if (peers.get(client) === pending) peers.delete(client); throw error; }
+  }
+  async function readiness(client) {
+    const peer = await peerFor(client);
+    const result = await client.callTool('execution_receipt', { invocation_id: '0'.repeat(32), control: 'readiness' });
+    if (!liveClient(client, peer.child) || result?.ok !== true || result.readiness?.ok !== true) {
+      throw fail('execution_control_unavailable', '桌面组件的只读状态检查失败。');
+    }
+    return result.readiness;
+  }
+  function context(session, owner, callId, toolCallId=callId) {
+    if (!enabled()) return null;
+    const id = admit(session, owner);
+    if (!id || ![callId,toolCallId].every(value=>typeof value==='string'&&value.length>0&&value.length<=1024)) throw fail('execution_admission_lost', '工具调用缺少实际回合身份。');
+    const key = Object.freeze(Object.create(null));
+    contexts.set(key, { session, owner, callId,toolCallId, admissionId: id, turnSeq:session.turnSeq,rewindGen:generation(session),invocationId: null, staged: null });
+    return key;
+  }
+  async function takeDispatch(call,signal) {
+    // This ticket deliberately spans invoke's return and the later strict history
+    // barrier. Waiting occurs outside the ledger queue, so its holder can commit.
+    const id=call.session.id,previous=dispatchTails.get(id)||Promise.resolve();
+    let unlock,released=false;
+    const held=new Promise(resolve=>{unlock=resolve;}),tail=previous.then(()=>held);
+    dispatchTails.set(id,tail);
+    const release=()=>{if(!released){released=true;unlock();}};
+    tail.then(()=>{if(dispatchTails.get(id)===tail)dispatchTails.delete(id);});
+    let abort;
+    try {
+      await Promise.race([previous,new Promise((_resolve,reject)=>{
+        abort=()=>reject(fail('execution_admission_lost','等待桌面结果保存时，当前调用已取消。'));
+        signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
+      })]);
+      return release;
+    } catch(error){release();throw error;}
+    finally{if(abort)signal?.removeEventListener('abort',abort);}
+  }
+  async function invoke(client, toolName, args, options = {}, key = null) {
+    const guardedSession = contexts.get(key)?.session.id || options.executionSessionId;
+    if (enabled() && guardedSession) await guard(guardedSession);
+    if (!enabled() || !desktopClient(client)) return client.callTool(toolName, args, undefined, options);
+    // The existing exact contextless control reports historical uncertainty. It is
+    // not a new desktop action and must not turn a missing queried receipt into a
+    // freshly prepared unknown business invocation.
+    if (toolName === 'execution_receipt') return client.callTool(toolName,args,undefined,options);
+    const call = contexts.get(key);
+    if (!call || call.invocationId || (call.node ? !nodeCurrent(call.node) : admissions.get(call.session.id)?.id !== call.admissionId)) {
+      throw fail('execution_admission_lost', '桌面调用没有当前主回合的执行身份，未派发。');
+    }
+    const releaseDispatch=await takeDispatch(call,call.node?.ctrl.signal||options.signal);
+    let retained=false;
+    try {
+    await guard(call.session.id);
+    if (call.node ? !nodeCurrent(call.node) : admissions.get(call.session.id)?.id!==call.admissionId) {
+      throw fail('execution_admission_lost','等待桌面结果保存后，调用身份已失效。');
+    }
+    const root = authority(), peer = await peerFor(client);
+    const facts = { clientId: peer.clientId, accWorkerId: peer.accWorkerId, accPid: peer.accPid, contextRequired: true };
+    const prepared = call.node
+      ? await root.ledger.prepare({ sessionId: call.session.id, turnSeq: call.node.turnSeq, rewindGen: call.node.rewindGen,
+        admissionId: call.admissionId, callIdHash: crypto.createHash('sha256').update('workflow-node-v1\0' + call.node.id + '\0' + call.batchId + '\0' + call.callId).digest('hex'),
+        toolName, args, client: facts, nodeDelivery: {kind:'foreground_workflow_node',runId:call.node.run.id,nodeId:call.node.nodeId,
+          attempt:call.node.attempt,subagentId:call.node.subagentId,batchId:call.batchId,toolCallId:call.callId} })
+      : await prepare({ session: call.session, owner: call.owner, callId: call.callId, toolName, args, client: facts });
+    call.invocationId = prepared.invocationId;
+    let list = call.node ? call.node.pending : pendingMain.get(call.session);
+    if (!list) { list = new Set(); pendingMain.set(call.session, list); }
+    let delivered;
+    call.deliveryWait = { promise: new Promise(resolve => { delivered = resolve; }), resolve: () => delivered() };
+    call.releaseDispatch=releaseDispatch;retained=true;
+    list.add(call);
+    const verify = () => liveClient(client, peer.child) && current({ sessionId: call.session.id,
+      turnSeq: prepared.metadata.turn_seq, rewindGen: generation(call.session), admissionId: call.admissionId });
+    try {
+      await root.ledger.markDispatch(prepared.invocationId, verify);
+      const meta = copyOrdinaryJsonData({ 'org.ruyi.workbench/execution-v1': prepared.metadata });
+      const metaJson = JSON.stringify(meta);
+      const permit = { client, toolName, args: prepared.snapshot, meta, verify, used: false };
+      const executionCheck = packet => {
+          if (sendPermits.get(executionCheck) !== permit || permit.used) throw fail('execution_permit_invalid', '派发许可已失效。');
+          if (!verify() || packet.method !== 'tools/call' || packet.params?.name !== toolName
+              || JSON.stringify(packet.params.arguments) !== prepared.json
+              || JSON.stringify(packet.params._meta) !== metaJson) {
+            throw fail('execution_packet_changed', '实际发送的参数、元数据或执行身份发生变化，未发送。');
+          }
+          permit.used = true;
+      };
+      sendPermits.set(executionCheck, permit);
+      let result;
+      try { result = await client.callTool(toolName, prepared.snapshot, undefined, { ...options, meta, executionCheck }); }
+      finally { sendPermits.delete(executionCheck); }
+      const receipt = await client.callTool('execution_receipt', { invocation_id: prepared.invocationId });
+      const observed = await root.ledger.recordResult(prepared.invocationId, result, receipt);
+      if (observed.phase !== 'returned') throw fail('execution_reconciliation_required', '桌面结果的执行回执未确认，已停止自动继续。');
+      return result;
+    } catch (error) {
+      try { await root.ledger.recordUnknown(prepared.invocationId, 'host_call_incomplete'); } catch { /* durable gate already holds on storage/result failure */ }
+      list.delete(call);call.deliveryWait.resolve();releaseDispatch();retained=false;
+      if (!call.node && !list.size) pendingMain.delete(call.session);
+      throw error;
+    }
+    } finally {if(!retained)releaseDispatch();}
+  }
+  function stageMain(key, index, images = []) {
+    if (!enabled() || !key) return;
+    const call = contexts.get(key);
+    if (!call?.invocationId || !pendingMain.get(call.session)?.has(call)) return;
+    if(call.session.providerHistory[index]?.tool_call_id!==call.toolCallId)throw fail('execution_delivery_invalid','主回合工具结果的调用身份发生变化。');
+    call.staged = stageHistory(call.session.providerHistory,index,images);
+  }
+  function stageHistory(history,index,images) {
+    const row=history[index];
+    if(!Number.isSafeInteger(index)||row?.role!=='tool')throw fail('execution_delivery_invalid','工具结果没有进入实际历史。');
+    const imageIndices=images.map((parts,offset)=>{
+      const position=history.length-images.length+offset;
+      // The actual newly appended parts must be this call's object, not an older
+      // screenshot whose pixels and note happen to be identical.
+      if(position<=index||history[position]?.role!=='user'||history[position].content!==parts) {
+        throw fail('execution_delivery_invalid','当前调用的实际图片行未进入历史。');
+      }
+      return position;
+    });
+    return {index,row:JSON.stringify(copyOrdinaryJsonData(row)),images:images.map(parts=>JSON.stringify(copyOrdinaryJsonData(parts))),imageIndices};
+  }
+  function stageNode(key, index, images = []) {
+    if (!enabled() || !key) return;
+    const call = contexts.get(key), node = call?.node;
+    if (!call?.invocationId || !node?.pending.has(call)) return;
+    const row = node.history[index];
+    if (!Number.isSafeInteger(index) || row?.role !== 'tool' || row.tool_call_id !== call.callId) {
+      throw fail('execution_delivery_invalid', '子代理工具结果未进入实际批次历史。');
+    }
+    call.staged = stageHistory(node.history,index,images);
+  }
+  async function flushNode(key) {
+    const node = nodeKeys.get(key);
+    if (!node?.pending.size) return;
+    const root = authority(), calls = Array.from(node.pending), snapshot = copyOrdinaryJsonData(node.history);
+    if (!nodeCurrent(node) || calls.some(call => !call.staged || !mainDeliveryMatches(snapshot, call.staged))) {
+      throw fail('execution_delivery_changed', '子代理结果或图片未完整进入当前实际历史。');
+    }
+    for (const call of calls) {
+      const proof = await root.ledger.saveNodeDelivery(call.invocationId, snapshot, { kind: 'foreground_workflow_node',
+        runId: node.run.id, nodeId: node.nodeId, attempt: node.attempt, subagentId: node.subagentId,
+        batchId: call.batchId, toolCallId: call.callId, index: call.staged.index, images: call.staged.images,imageIndices:call.staged.imageIndices }, () => nodeCurrent(node));
+      await root.ledger.markNodeDelivered(call.invocationId, proof);
+      node.pending.delete(call);call.deliveryWait.resolve();call.releaseDispatch?.();
+    }
+  }
+  function appendMainTool(history, batch, row) {
+    if (!enabled()) { history.push(row); return history.length - 1; }
+    const anchor = history.indexOf(batch?.assistant);
+    if (anchor < 0 || anchor !== batch.start - 1 || row?.role !== 'tool'
+        || !batch.assistant.tool_calls?.some(call => String(call.id) === String(row.tool_call_id))) {
+      throw fail('execution_history_changed', '工具批次的历史位置或请求身份发生变化。');
+    }
+    let index = batch.start;
+    while (history[index]?.role === 'tool') index++;
+    history.splice(index, 0, row);
+    return index;
+  }
+  function mainDeliveryMatches(history, staged) {
+    try {
+      if (JSON.stringify(copyOrdinaryJsonData(history[staged.index])) !== staged.row || !Array.isArray(staged.images)
+          ||!Array.isArray(staged.imageIndices)||staged.images.length!==staged.imageIndices.length
+          ||new Set(staged.imageIndices).size!==staged.images.length) return false;
+      return staged.images.every((image,offset)=>{
+        const index=staged.imageIndices[offset],row=history[index];
+        return Number.isSafeInteger(index)&&index>staged.index&&row?.role==='user'&&JSON.stringify(copyOrdinaryJsonData(row.content))===image;
+      });
+    } catch { return false; }
+  }
+  async function flushMain(session, saveOptions) {
+    const list = pendingMain.get(session);
+    if (!list?.size) return;
+    const root = authority(), calls = Array.from(list);
+    if (calls.some(call => !call.staged)) throw fail('execution_delivery_invalid', '尚有桌面结果未进入历史。');
+    const snapshot = copyOrdinaryJsonData(session.providerHistory), json = JSON.stringify(snapshot);
+    for (const call of calls) if (!mainDeliveryMatches(snapshot, call.staged)) {
+      throw fail('execution_delivery_changed', '待保存的工具结果或图像不完整，已停止自动继续。');
+    }
+    const turnSeq = session.turnSeq, rewindGen = generation(session);
+    await saveSession(session, { ...saveOptions, requirePersisted: true, writer: 'desktop-execution-delivery' });
+    const disk = await loadSession(session.id);
+    if (!disk || disk.turnSeq !== turnSeq || generation(disk) !== rewindGen || JSON.stringify(copyOrdinaryJsonData(disk.providerHistory)) !== json) {
+      throw fail('execution_delivery_unverified', '无法核实实际保存的工具历史，已停止自动继续。');
+    }
+    const digest = crypto.createHash('sha256').update(json).digest('hex');
+    for (const call of calls) { await root.ledger.markDelivered(call.invocationId, digest); list.delete(call);call.deliveryWait.resolve();call.releaseDispatch?.(); }
+    if (!list.size) pendingMain.delete(session);
+  }
+  function run(session, work) { return enabled() ? modelScope.run({ sessionId: session.id }, work) : work(); }
+  function runNode(key, work) {
+    const node = nodeKeys.get(key);
+    return enabled() && node ? modelScope.run({ sessionId: node.session.id, nodeKey: key }, work) : work();
+  }
+  function assertNode(key) {
+    if (enabled() && key && !nodeCurrent(nodeKeys.get(key))) throw fail('execution_admission_lost','子代理的真实执行身份已失效。');
+  }
+  async function beforeModelRequest(explicitSessionId) {
+    const scope = modelScope.getStore(), sessionId = scope?.sessionId || explicitSessionId;
+    if (enabled() && sessionId) await guard(sessionId);
+    if (enabled() && scope?.nodeKey && !nodeCurrent(nodeKeys.get(scope.nodeKey))) {
+      throw fail('execution_admission_lost', '子代理模型请求的实际节点身份已失效。');
+    }
+  }
+  return Object.freeze({ initialize, guard, admit, release, prepare, canWriteStartupError,
+    enabled, clientEnvironment, readiness, context, invoke, stageMain, flushMain, run, beforeModelRequest,
+    mainDeliveryMatches, callRefusal, appendMainTool, workflowOrigin, admitNode, releaseNode, nodeHistory, nodeContext, nodeBatch, stageNode, flushNode, runNode, assertNode, nodeWaiting });
+})();
+Object.assign(DesktopExecutionHooks, DesktopExecutionRuntime);
+ProviderHttpHooks.beforeModelRequest = DesktopExecutionRuntime.beforeModelRequest;
 
 async function main() {
   const argv = parseArgs(process.argv.slice(2));

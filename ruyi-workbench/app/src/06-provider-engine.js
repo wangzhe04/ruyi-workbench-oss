@@ -258,7 +258,7 @@ async function probeDesktopMcp(config) {
     const client = mcpClients.get(accEntry.id);
     if (!client || client.dead) return out;
     let diag;
-    try { diag = await client.callTool('diagnostics', {}); } catch { return out; }
+    try { diag = DesktopExecutionHooks.enabled() ? await DesktopExecutionHooks.readiness(client) : await client.callTool('diagnostics', {}); } catch { return out; }
     // diagnostics shape is best-effort — scan for boolean-ish availability of each optional module. Accept
     // several likely shapes: {optional:{ocr:true}}, {modules:{ocr:{available:true}}}, flat {ocr:true}, etc.
     const truthy = v => v === true || v === 'ok' || v === 'available' || (v && typeof v === 'object' && (v.available === true || v.ok === true));
@@ -270,7 +270,7 @@ async function probeDesktopMcp(config) {
     };
     out.optional = { ocr: pick('ocr'), uia: pick('uia'), cv2: pick('cv2'), playwright: pick('playwright') };
     out.ocr.installed = has('ocr_image') && out.optional.ocr;
-    if (has('browser_backend_status')) {
+    if (has('browser_backend_status') && !DesktopExecutionHooks.enabled()) {
       out.browser = { ...out.browser, supported: out.browser.mode !== 'system', installed: out.optional.playwright };
       try {
         const status = await client.callTool('browser_backend_status', {}, 20000);
@@ -1306,7 +1306,7 @@ async function draftPlaybookFromSession(sessionId, options = {}) {
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
 // 线协议(58 号批 1)问 04i 的登记表:端点、请求头、请求体(Responses 把调用方后插的 system 规则折进 instructions ——
 // 否则 JSON 修复器/记忆审稿人的严格协议会被丢掉)、回体取字。URL/请求头/一次 POST 的原语在 04h。
-async function providerRawCompletion(provider, history) {
+async function providerRawCompletion(provider, history, executionSessionId) {
   const wire = providerWireProtocol(provider);
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
@@ -1320,7 +1320,7 @@ async function providerRawCompletion(provider, history) {
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   wire.applyTemperature(bodyObj, temp);
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
-  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000, executionSessionId });
   if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
   if (!r.res || !r.ok) {
     const d = r.raw;
@@ -1534,7 +1534,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
     const tries = stage === 'settled' ? THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1 : THREAD_BRIEF_FIRST_TURN_TRIES;
     for (let attempt = 0; attempt < tries; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, THREAD_BRIEF_RETRY_BACKOFF_MS[attempt - 1]));
-      const sc = await providerRawCompletion(provider, messages);
+      const sc = await providerRawCompletion(provider, messages, sid);
       // 记账:与 playbook-draft / json-repair 逐条同款(kind:'aux' + note)。usage 缺失直接跳过不估算。
       // **不计入 stewardMaxCostPerDay**(note 不是 'steward')—— 它不是管家回合,混进去会让管家因为
       // 用户开了几条新线程而提前停机。防御式:记账绝不可影响摘要,更不可影响回合。
@@ -1591,7 +1591,7 @@ async function repairNodeJsonViaProvider(provider, config, session, node, schema
     const rawStr = String(rawOutput || '');
     const rawSlice = rawStr.length <= 12000 ? rawStr : (rawStr.slice(0, 2000) + '\n…(中段省略)…\n' + rawStr.slice(-10000));
     const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + rawSlice;
-    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }], session?.id);
     // v1.4-OSS 用量看板(补): 每次实际发出的修复补全记一行 aux(note:'json-repair')。usage 缺失直接跳过不估算。
     // 防御式 —— 记账绝不可影响修复流程。
     try {

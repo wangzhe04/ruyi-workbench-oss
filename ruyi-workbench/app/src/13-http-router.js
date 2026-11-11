@@ -98,7 +98,9 @@ function startErrorNextText(kind) {
 async function writeStartError(kind, message) {
   const safeKind = START_ERROR_KINDS.includes(kind) ? kind : 'startup-failed';
   try {
+    if (!DesktopExecutionHooks.canWriteStartupError()) return;
     await fsp.mkdir(paths.data, { recursive: true });
+    if (!DesktopExecutionHooks.canWriteStartupError()) return;
     await atomicWriteJson(path.join(paths.data, LAST_START_ERROR_FILE), {
       at: nowIso(),
       kind: safeKind,
@@ -1966,8 +1968,11 @@ async function startServer(opts) {
         const from = paths.data;
         const to = DATA_ROOT_MIGRATION.to;
         for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
+        if (process.platform === 'darwin') await ownership.confirmRoot(to, DATA_ROOT_MIGRATION.from);
       }
     }
+    // Initialize execution recovery under the OS gate, before any engine/client or startup recovery.
+    await DesktopExecutionHooks.initialize(ownership);
     const result = await startServerInner(opts, bindHost);
     await ownership.releaseStartup();
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
