@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-11T04:12:48.047840+00:00",
+  "baseCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+  "verdict": "approved_for_independent_status_document_commit",
+  "scope": "Three status documents and their existing committed evidence references only. Read-only JSON, Git object, hash, link and prose review. This report is the only reviewer-created artifact. No GUI, engineering tests, runtime tests or implementation changes were performed.",
+  "documents": [
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "sha256": "cd89a4b342d2c154d0cb1d661c6bd6fda9927dc81785920154b6e78133ecd63d",
+      "bytes": 88078
+    },
+    {
+      "path": "MACOS-PORTING/README.md",
+      "sha256": "63b9597a8e04be818ea7e3ca47c7a9d7a4bb1368690406f6bfac665875506d7b",
+      "bytes": 8458
+    },
+    {
+      "path": "MACOS-PORTING/10-TRACKING.md",
+      "sha256": "18a444808940471459fab76729d43c4b86eaa3a2cf967eed9fd94277db9a4e8c",
+      "bytes": 35478
+    }
+  ],
+  "trackedChangeSetExactlyThreeReviewedDocuments": true,
+  "requirementAddressed": {
+    "path": "MACOS-PORTING/evidence/P5/remaining-audit.json",
+    "item": "status_and_bindings",
+    "originalAuditBaseCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+    "scope": "Adds missing implementation/binding references and refreshes the current planning summaries while retaining historical acceptance scope."
+  },
+  "implementationBindings": [
+    {
+      "taskObject": "composedSliceAcceptance",
+      "implementationCommit": "d1b30f6099be9e40d2c838a0d22a955662180840",
+      "commitExistsAndIsAncestorOfHead": true,
+      "commitBinding": "MACOS-PORTING/evidence/P5/composed/commit-binding.json",
+      "commitBindingSha256": "f00a1243eb774bd8890aa9d97276a960d6c04b3648b97146b7eda782ff07e7b4",
+      "independentBinding": "MACOS-PORTING/evidence/P5/composed/independent-commit-binding.json",
+      "independentBindingSha256": "4238d0ced288493316f46070c89e4eef28e8953696c83da3b5ce3e37cf643762",
+      "sourceBlobCount": 88,
+      "rawSourceBytes": 10858878,
+      "allCommitBlobHashesMatchManifestAndBinding": true,
+      "bindingFilesCommittedAndMatchDisk": true,
+      "manifest": "MACOS-PORTING/evidence/P5/composed/source-fingerprint-final-delivery.json",
+      "manifestSha256": "208fa5876304656203dfeeb957ce1ac7d363ab245581b1758084d9dbb6da0203"
+    },
+    {
+      "taskObject": "controlledRecordingSlice",
+      "implementationCommit": "0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6",
+      "commitExistsAndIsAncestorOfHead": true,
+      "commitBinding": "MACOS-PORTING/evidence/P5/record/commit-binding.json",
+      "commitBindingSha256": "c8f35b1f1bd88fd8909f1d7a4f9ca3270f82e1d9a983f0a40dd4f13839e344d5",
+      "independentBinding": "MACOS-PORTING/evidence/P5/record/independent-commit-binding.json",
+      "independentBindingSha256": "46bef2562004ceb2718faf59b49d9f693dbbea7418240cb636c42ba02d883b65",
+      "sourceBlobCount": 94,
+      "rawSourceBytes": 10935192,
+      "allCommitBlobHashesMatchManifestAndBinding": true,
+      "bindingFilesCommittedAndMatchDisk": true,
+      "manifest": "MACOS-PORTING/evidence/P5/record/source-fingerprint-final-delivery.json",
+      "manifestSha256": "dcd2f9962bffd3c524ab42f4e5dffdaa9ac713cfecde79b3ea60790b55c3caf9"
+    },
+    {
+      "taskObject": "cancellationAuditSlice",
+      "implementationCommit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+      "commitExistsAndIsAncestorOfHead": true,
+      "commitBinding": "MACOS-PORTING/evidence/P5/audit/commit-binding.json",
+      "commitBindingSha256": "cdcbad5d76ad5517e9a76acd1cafe8029961d768e64e70e0e692dc181f471386",
+      "independentBinding": "MACOS-PORTING/evidence/P5/audit/independent-commit-binding.json",
+      "independentBindingSha256": "331650241d0e39160fecbc0fc661e5658a23f541bb2d12bd5a79a4a970a6de9e",
+      "sourceBlobCount": 100,
+      "rawSourceBytes": 10990280,
+      "allCommitBlobHashesMatchManifestAndBinding": true,
+      "bindingFilesCommittedAndMatchDisk": true,
+      "manifest": "MACOS-PORTING/evidence/P5/audit/source-fingerprint-final-delivery.json",
+      "manifestSha256": "bdb5248aa01f77b5ddb4e6190a3a8eb522a61cb753339444f05c51634b711af7"
+    }
+  ],
+  "addedOrRefreshedLinkCount": 20,
+  "links": [
+    {
+      "path": "MACOS-PORTING/11-P0-DECISIONS.md",
+      "currentSha256": "ed6563b20061072f6bab8f47df7e35e486ded87f06260cf247e7bd049419a857",
+      "committedAtHead": true,
+      "lastChangeCommit": "0a4308805dacfeca8201bf8aaf592fe2196a380a",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "currentSha256": "cd89a4b342d2c154d0cb1d661c6bd6fda9927dc81785920154b6e78133ecd63d",
+      "committedAtHead": true,
+      "lastChangeCommit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+      "headBlobEqualsDisk": false,
+      "partOfReviewedDocumentChanges": true
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P0/README.md",
+      "currentSha256": "7b0ac106de96b0f14a71fb560456bab19c11e2b407057ab22e7f3f63d95e5cc4",
+      "committedAtHead": true,
+      "lastChangeCommit": "0a4308805dacfeca8201bf8aaf592fe2196a380a",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P3/final-mac-acceptance/README.md",
+      "currentSha256": "481bc0c8264a27d5a916bfabd478e10f84d3bfbbdcb5b4cbec3a158895d17675",
+      "committedAtHead": true,
+      "lastChangeCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P4/host/README.md",
+      "currentSha256": "bd5ba8962253849335b9c293045f9185156e29ea3e95885184b1da940d3487e0",
+      "committedAtHead": true,
+      "lastChangeCommit": "f5c5d4c553103cc9af0c145ed34e13cfc5cfb066",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/README.md",
+      "currentSha256": "f605464fb840f659d26211fe9dfedffc52ed036d862551d0e3112a19bf3a9f64",
+      "committedAtHead": true,
+      "lastChangeCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/commit-binding.json",
+      "currentSha256": "cdcbad5d76ad5517e9a76acd1cafe8029961d768e64e70e0e692dc181f471386",
+      "committedAtHead": true,
+      "lastChangeCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/audit/independent-commit-binding.json",
+      "currentSha256": "331650241d0e39160fecbc0fc661e5658a23f541bb2d12bd5a79a4a970a6de9e",
+      "committedAtHead": true,
+      "lastChangeCommit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/ax/apps/README.md",
+      "currentSha256": "e6c637213e1343da4998535d401f60008ff5fef749d02e9a3ce31b0610451617",
+      "committedAtHead": true,
+      "lastChangeCommit": "b9ca1741861a4a54c8f487bc03f65fa986a08357",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/capture/README.md",
+      "currentSha256": "90466c17931486e75fbb772aaf461790a7406ddfd6b318038d15f88ccac00dd8",
+      "committedAtHead": true,
+      "lastChangeCommit": "0de6d03e1ed6a72835478c9672f12b3b28e85eaf",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/composed/README.md",
+      "currentSha256": "35a8134f7d28e4bdf776557f71d882acb829d35374cc9489649ab43cf6bc35d8",
+      "committedAtHead": true,
+      "lastChangeCommit": "374d15fbcd88be5a6d4b0cab39c62e31c77747ed",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/composed/commit-binding.json",
+      "currentSha256": "f00a1243eb774bd8890aa9d97276a960d6c04b3648b97146b7eda782ff07e7b4",
+      "committedAtHead": true,
+      "lastChangeCommit": "374d15fbcd88be5a6d4b0cab39c62e31c77747ed",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/composed/independent-commit-binding.json",
+      "currentSha256": "4238d0ced288493316f46070c89e4eef28e8953696c83da3b5ce3e37cf643762",
+      "committedAtHead": true,
+      "lastChangeCommit": "374d15fbcd88be5a6d4b0cab39c62e31c77747ed",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/input/README.md",
+      "currentSha256": "96a987b522abb0f57d28d088b127162fd105e287cb424d752cf7d7f1ad86dfbf",
+      "committedAtHead": true,
+      "lastChangeCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/input/events/README.md",
+      "currentSha256": "7200c1cc91018c2c65e0b4569e1082b73e4fd0ecccb2c618744fd1896987bc6d",
+      "committedAtHead": true,
+      "lastChangeCommit": "c1b90ad2806133516455454b29b090eedc9600bb",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/ocr/README.md",
+      "currentSha256": "c00392e551b29cb750778dbadf59902f1afc2912265d3c058e963b7094577d03",
+      "committedAtHead": true,
+      "lastChangeCommit": "1deb89cf6a8f7f0f9e434b1b7a0e02cc15c2a0f0",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/README.md",
+      "currentSha256": "029bc6be413b9e7f1d7381ce0830c59cc966abe5e415f390cae87cd33a8bf579",
+      "committedAtHead": true,
+      "lastChangeCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/commit-binding.json",
+      "currentSha256": "c8f35b1f1bd88fd8909f1d7a4f9ca3270f82e1d9a983f0a40dd4f13839e344d5",
+      "committedAtHead": true,
+      "lastChangeCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/record/independent-commit-binding.json",
+      "currentSha256": "46bef2562004ceb2718faf59b49d9f693dbbea7418240cb636c42ba02d883b65",
+      "committedAtHead": true,
+      "lastChangeCommit": "aefd8f4b402ff2300dfa9950c229925833abccb9",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/remaining-audit.json",
+      "currentSha256": "f88650d31737d8c8ddb9c071b9db52df7586427aa9ae6a83a3c8e3ee1d0462de",
+      "committedAtHead": true,
+      "lastChangeCommit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+      "headBlobEqualsDisk": true,
+      "partOfReviewedDocumentChanges": false
+    }
+  ],
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "result": "Exactly MACOS-PORTING/TASKS.json, MACOS-PORTING/README.md and MACOS-PORTING/10-TRACKING.md were tracked modifications before creating this report."
+    },
+    {
+      "command": "Python json.loads of TASKS.json and all six referenced binding JSON files",
+      "result": "All parsed successfully."
+    },
+    {
+      "command": "git cat-file -t IMPLEMENTATION_SHA; git merge-base --is-ancestor IMPLEMENTATION_SHA HEAD",
+      "result": "All three SHAs are real committed ancestors of the base HEAD."
+    },
+    {
+      "command": "git cat-file blob IMPLEMENTATION_SHA:MANIFEST_PATH and IMPLEMENTATION_SHA:SOURCE_PATH",
+      "result": "282 complete raw source blobs, totalling 32,784,350 bytes across the three historical snapshots, matched their committed final manifests and binding rows."
+    },
+    {
+      "command": "git cat-file blob HEAD:LINK_PATH; git log -1 --format=%H HEAD -- LINK_PATH",
+      "result": "Every added/refreshed local link exists in Git. Existing evidence files match current disk byte-for-byte. Links to the three documents resolve to already committed paths whose updated content is reviewed by this report."
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "result": "Passed with no output."
+    }
+  ],
+  "statusAndScope": {
+    "p5": "in_progress",
+    "p505": "in_progress",
+    "phaseAndTaskStatusesUnchanged": true,
+    "historicalAcceptanceStatusesAndCountsUnchanged": true,
+    "manualCandidate": "Developing in an isolated candidate, with expanded desktop/App and actual human demonstration acceptance pending.",
+    "approvalAndRealSessionTurnCheckpointRollback": "open",
+    "actualPermissionRevocationAndActionTimeLock": "open",
+    "currentCandidateSelectedApplicationRefresh": "open",
+    "physicalDisplayMacOS14WindowsSameCandidateFormalIdentity": "open",
+    "workbenchAbortKillAudit": "pending_separate_validation",
+    "historicalAppEvidenceRetainsItsOriginalVersionAndCommitScope": true,
+    "noCurrentManualCandidateOrAppAcceptanceAdded": true,
+    "noWindowsOrFormalReleaseAcceptanceAdded": true
+  },
+  "commitScope": {
+    "include": [
+      "MACOS-PORTING/TASKS.json",
+      "MACOS-PORTING/README.md",
+      "MACOS-PORTING/10-TRACKING.md",
+      "MACOS-PORTING/evidence/P5/status-sync/review.json"
+    ],
+    "exclude": [
+      "MACOS-PORTING/evidence/P5/manual/ development evidence",
+      "/tmp/ruyi-p5-manual-worktree implementation and fixtures"
+    ],
+    "documentationMayBeCommittedIndependently": true
+  },
+  "conclusion": "The three documents accurately link previously committed current-host slices and preserve all remaining requirements. They may be committed with this review record as a status-document update. This decision does not accept the developing manual candidate or complete P5."
+}

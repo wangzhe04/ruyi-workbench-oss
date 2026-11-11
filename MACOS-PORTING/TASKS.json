@@ -1636,7 +1636,10 @@
             "engineeringStaticPassed": 80,
             "engineeringSyntaxFiles": 1148,
             "helperSha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
-            "recordingStatus": "following_slice"
+            "recordingStatus": "following_slice",
+            "implementationCommit": "d1b30f6099be9e40d2c838a0d22a955662180840",
+            "commitBinding": "evidence/P5/composed/commit-binding.json",
+            "commitBindingReview": "evidence/P5/composed/independent-commit-binding.json"
           },
           "controlledRecordingSlice": {
             "status": "passed_current_host_scope",
@@ -1659,7 +1662,10 @@
             "engineeringUnitExistingSkipped": 18,
             "engineeringStaticPassed": 80,
             "engineeringSyntaxFiles": 1149,
-            "helperSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809"
+            "helperSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+            "implementationCommit": "0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6",
+            "commitBinding": "evidence/P5/record/commit-binding.json",
+            "commitBindingReview": "evidence/P5/record/independent-commit-binding.json"
           },
           "cancellationAuditSlice": {
             "status": "passed_current_host_cooperative_cancellation_scope",
@@ -1680,8 +1686,12 @@
             "engineeringUnitPassed": 2499,
             "engineeringUnitExistingSkipped": 18,
             "engineeringStaticPassed": 80,
-            "engineeringSyntaxFiles": 1150
-          }
+            "engineeringSyntaxFiles": 1150,
+            "implementationCommit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+            "commitBinding": "evidence/P5/audit/commit-binding.json",
+            "commitBindingReview": "evidence/P5/audit/independent-commit-binding.json"
+          },
+          "progress": "组合动作、受控原生请求录制和协作取消审计已分别提交并完成对应当前主机范围验收。手动示范录制在隔离候选中开发，扩展桌面、如意 App 和人工示范验收待完成。正常审批、真实会话/回合检查点回滚、撤权及动作中锁屏等原范围继续开放。"
         }
       ],
       "startedDate": "2026-11-08",
