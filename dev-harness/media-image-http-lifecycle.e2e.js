@@ -5,7 +5,8 @@
 // and the actual 60-second ticket TTL, followed by four successive reuses. Each
 // ticket is checked immediately; earlier tickets may expire during later jobs.
 // No fake processor, clock, owner, worker
-// pause or native-timeout claim. The preload only observes HTTP close events.
+// pause or native-timeout claim. Preloads only observe HTTP close and fixed
+// phase timings; native import/OCR internals remain unknown.
 require('./lib/self-isolate-home');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), fsp = require('node:fs/promises');
@@ -16,6 +17,7 @@ const { releaseEnvironment } = require('./lib/release-checks');
 const { startFakeProvider, textFrames } = require('./lib/fake-openai-provider');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const { getFreePort } = require('./free-port');
+const { printTiming } = require('./lib/media-image-timing.cjs');
 const runner = createRunner('MEDIA IMAGE HTTP LIFECYCLE'), { ok } = runner;
 const full = process.argv.includes('--full-components');
 const defaultRoot = path.resolve(__dirname, '../ruyi-workbench');
@@ -68,6 +70,7 @@ async function main() {
   const serverHash = sha(fs.readFileSync(path.join(defaultRoot, 'app/server.js')));
   assert.equal(sha(fs.readFileSync(server)), serverHash, 'qualification server must equal the current generated workspace service');
   const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-media-http-lifecycle-'));
+  const timingFile = path.join(root, 'media-phase-timing.jsonl');
   const data = path.join(root, 'data'), work = path.join(root, 'workspace'), events = [];
   let child, fake, closePromise, closed = false, exitSeen = false, spawned = false, failure;
   try {
@@ -82,12 +85,13 @@ async function main() {
     const preload = path.join(root, 'observe-http-close.cjs');
     await fsp.writeFile(preload, observer);
     const env = releaseEnvironment(path.join(root, 'home'), data);
-    Object.assign(env, { RUYI_MEDIA_RESOURCE_PROFILE: 'legacy-full-4987-v1',
+    Object.assign(env, { RUYI_TEST_MEDIA_TIMING_FILE: timingFile, RUYI_MEDIA_RESOURCE_PROFILE: 'legacy-full-4987-v1',
       RUYI_MEDIA_RUNTIME_ROOT: full ? process.env.RUYI_MEDIA_RUNTIME_ROOT : path.join(root, 'missing-runtime'),
       RUYI_MEDIA_SOURCES_ROOT: full ? process.env.RUYI_MEDIA_SOURCES_ROOT : path.join(root, 'missing-sources'),
       RUYI_MEDIA_OCR_LANGUAGE: full ? process.env.RUYI_MEDIA_OCR_LANGUAGE : 'en-US' });
     const port = await getFreePort();
-    child = cp.fork(server, ['serve', '--port', String(port)], { execPath: process.execPath, execArgv: ['--require', preload],
+    child = cp.fork(server, ['serve', '--port', String(port)], { execPath: process.execPath,
+      execArgv: ['--require', path.join(__dirname, 'lib/media-image-timing-preload.cjs'), '--require', preload],
       cwd: installation, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
     const log = fs.createWriteStream(path.join(root, 'server.log'));
     child.stdout.pipe(log, { end: false }); child.stderr.pipe(log, { end: false });
@@ -107,7 +111,18 @@ async function main() {
       if (closed) throw Error('server exited before health');
       try { return (await request('/health', { timeout: 500 })).status === 200; } catch { return false; }
     }, 'normal server health', 45000);
-    const runtime = JSON.parse(await fsp.readFile(path.join(data, 'runtime.json'), 'utf8'));
+    // The listener can answer health before its atomic runtime publication.
+    // Wait for this exact held process and port, never a stale or partial file.
+    const runtime = await until(async () => {
+      if (closed) throw Error('server exited before runtime publication');
+      try {
+        const value = JSON.parse(await fsp.readFile(path.join(data, 'runtime.json'), 'utf8'));
+        return value.pid === child.pid && value.port === port && typeof value.token === 'string' && value.token ? value : null;
+      } catch (error) {
+        if (error.code === 'ENOENT' || error instanceof SyntaxError) return null;
+        throw error;
+      }
+    }, 'normal runtime publication');
     assert.equal(runtime.pid, child.pid); assert.equal(runtime.port, port);
     const boot = await request('/api/bootstrap', { method: 'POST', body: {} });
     const token = boot.json?.token; assert.ok(token);
@@ -256,6 +271,7 @@ async function main() {
       }
     } catch (error) { errors.push(error); }
     try { await fake?.close(); } catch (error) { errors.push(error); }
+    printTiming(timingFile, 'MEDIA-LIFECYCLE-TIMING');
     console.log('Synthetic media lifecycle evidence retained at ' + root + (failure ? ' (failure)' : ''));
     if (errors.length) throw new AggregateError([...(failure ? [failure] : []), ...errors], 'media lifecycle cleanup failed', { cause: failure || errors[0] });
   }

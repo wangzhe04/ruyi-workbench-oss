@@ -1,0 +1,1096 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "status": "SCOPED_M4_TIMING_AND_M5_SEALED_COMBINATION_VERIFIED_PUBLIC_DISTRIBUTION_PENDING",
+  "baselineHead": "1b94cfc61646736e8c95ad4fd4db6314d6010881",
+  "commit": {
+    "identity": "containing_commit",
+    "verification": "inspect_git_history"
+  },
+  "applicationVersion": "3.0.1",
+  "releasePublished": false,
+  "source": {
+    "frozenServerSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+    "qualificationRoot": "C:/r31-1111/m5-combination/qualification",
+    "qualificationServerSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+    "workspaceServerSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+    "sameServerBytes": true,
+    "previousB493EvidenceTransferred": false,
+    "files": {
+      "ruyi-workbench/app/server.js": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+      "ruyi-workbench/app/src/13bc-media-image-processor.js": "d75995d5ee92b04468afd8a47e0b1029eaf74f280c5ec6795cd17dae892d3c29",
+      "ruyi-workbench/app/src/13bd-media-image-service.js": "c20cd8f02875a75cbbd1f5a72f577336e257d16b088c462bdbf73562b1f658f9",
+      "ruyi-workbench/app/src/13be-media-image-host.js": "f325e62f57b2e1e57ec89aef34635c18563905cf6a89956a35642332bf929a28",
+      "dev-harness/lib/media-image-timing.cjs": "6946a92a9abd767b9c230a3b3c4a75d1abd66b9fd762c9866549d2b24e948976",
+      "dev-harness/lib/media-image-timing-preload.cjs": "e825629dfaa7b9cb50b815fcbe70cb73a7c97f364dea7b447522523ddf293b9f",
+      "dev-harness/lib/media-browser-delivery.js": "6293ae7840afa77178a2a544f25becaf4b35558218c44eebdb0f35276e4645b7",
+      "dev-harness/media-image-http-lifecycle.e2e.js": "1dcb076dda3d9fe7b53b25532a17cb08a110df4ebc02f8c5c9a36f4996144197",
+      "dev-harness/unit/media-image-timing.test.js": "1c0a2da8b40a4c13649144828b5e9c118596f6129bfee85f22e16d029def1c5d",
+      "dev-harness/unit/media-image-processor-proof.test.js": "60736c027d6804f6fd7a4be2cb58b1481e7f7c0772ed3f03fe50853ebb053b29"
+    },
+    "mediaLifecycleHarnessBeforeStartupPollingFixSha256": "97e0babf0fe41ea3e5aacbff15243264bd411b9d7f59b68c586ab54e940c3060",
+    "mediaLifecycleHarnessAfterStartupPollingFixSha256": "1dcb076dda3d9fe7b53b25532a17cb08a110df4ebc02f8c5c9a36f4996144197"
+  },
+  "m4": {
+    "scope": "Anonymous fixed phase timing only; no owner/source/processor budget or existing acceptance assertion changes",
+    "observer": "process rawListeners individually isolated including rejected thenables; fixed frozen phase-only event; no listeners => no timing/event/Promise/log allocation",
+    "review": {
+      "reviewer": "m4_gap_audit",
+      "status": "independent GO",
+      "scope": "product phase/timing + harness/unit; worker SCRIPT, ownership, deadlines, source and cleanup unchanged"
+    },
+    "unit": {
+      "path": "C:/r31-1111/m5-combination/observation-unit-1.log",
+      "sha256": "39b5c3d93693b32e94078947eb8fcf9dfbfe779106e8f40b4595662f6671769b",
+      "status": "PASS",
+      "tests": 59,
+      "pass": 59,
+      "fail": 0,
+      "skip": 0
+    },
+    "actualRuns": [
+      {
+        "path": "C:/r31-1111/m5-combination/media-lifecycle-timed-1.log",
+        "sha256": "9de12e0898aa8bcb7667ac4bcc187d19ea1fed4e8a2e693bd9a2206e99d9acbf",
+        "status": "PASS",
+        "assertions": 6,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "timing": {
+          "status": "OBSERVED",
+          "clock": "server request-relative monotonic; requests have independent origins",
+          "observationOnly": true,
+          "anonymousRequests": 28,
+          "phaseRows": 412,
+          "intervals": {
+            "sourceAcquisition": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 8.887,
+              "max": 13.077,
+              "mean": 10.363
+            },
+            "initialInventoryVerification": {
+              "unit": "ms",
+              "samples": 1,
+              "min": 11082.327,
+              "max": 11082.327,
+              "mean": 11082.327
+            },
+            "perJobPreverification": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 9068.15,
+              "max": 10104.486,
+              "mean": 9428.712
+            },
+            "nativeAggregate": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 901.763,
+              "max": 3752.241,
+              "mean": 1280.574
+            },
+            "exitToClose": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 0.063,
+              "max": 0.257,
+              "mean": 0.195
+            },
+            "perJobPostverification": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 9116.392,
+              "max": 11647.511,
+              "mean": 9570.309
+            },
+            "outputDecode": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 0.355,
+              "max": 1.371,
+              "mean": 0.649
+            },
+            "storeOpen": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 5.798,
+              "max": 10.844,
+              "mean": 7.254
+            },
+            "persist": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 41.305,
+              "max": 66.809,
+              "mean": 50.601
+            },
+            "previewBorrow": {
+              "unit": "ms",
+              "samples": 10,
+              "min": 31.692,
+              "max": 46.815,
+              "mean": 35.711
+            }
+          },
+          "nativeInternals": "UNKNOWN: native aggregate includes Python startup/import/OCR/code recognition; no internal phase claim"
+        }
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/media-lifecycle-timed-2.log",
+        "sha256": "92ba2c64155a9320a77d67bd6a2f116766f1b8c8294be1df168ea9699b2efcf0",
+        "status": "PASS",
+        "assertions": 6,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "timing": {
+          "status": "OBSERVED",
+          "clock": "server request-relative monotonic; requests have independent origins",
+          "observationOnly": true,
+          "anonymousRequests": 28,
+          "phaseRows": 415,
+          "intervals": {
+            "sourceAcquisition": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 8.278,
+              "max": 12.35,
+              "mean": 9.369
+            },
+            "initialInventoryVerification": {
+              "unit": "ms",
+              "samples": 1,
+              "min": 9406.871,
+              "max": 9406.871,
+              "mean": 9406.871
+            },
+            "perJobPreverification": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 8777.292,
+              "max": 9490.246,
+              "mean": 9042.025
+            },
+            "nativeAggregate": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 883.999,
+              "max": 992.509,
+              "mean": 914.851
+            },
+            "exitToClose": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 0.103,
+              "max": 0.233,
+              "mean": 0.198
+            },
+            "perJobPostverification": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 8781.624,
+              "max": 9360.103,
+              "mean": 8966.749
+            },
+            "outputDecode": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 0.353,
+              "max": 0.705,
+              "mean": 0.517
+            },
+            "storeOpen": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 7.016,
+              "max": 8.942,
+              "mean": 7.987
+            },
+            "persist": {
+              "unit": "ms",
+              "samples": 8,
+              "min": 36.762,
+              "max": 58.726,
+              "mean": 46.454
+            },
+            "previewBorrow": {
+              "unit": "ms",
+              "samples": 11,
+              "min": 30.714,
+              "max": 47.867,
+              "mean": 36.676
+            }
+          },
+          "nativeInternals": "UNKNOWN: native aggregate includes Python startup/import/OCR/code recognition; no internal phase claim"
+        }
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/media-browser-timed-1.log",
+        "sha256": "f2f6c8c79e236037c218d69aec5dc8300610e78f2f1004629da8af0b192c85ba",
+        "status": "PASS",
+        "assertions": 8,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "timing": {
+          "status": "OBSERVED",
+          "clock": "server request-relative monotonic; requests have independent origins",
+          "observationOnly": true,
+          "anonymousRequests": 9,
+          "phaseRows": 149,
+          "intervals": {
+            "sourceAcquisition": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 48.433,
+              "max": 64.947,
+              "mean": 55.052
+            },
+            "initialInventoryVerification": {
+              "unit": "ms",
+              "samples": 1,
+              "min": 40250.609,
+              "max": 40250.609,
+              "mean": 40250.609
+            },
+            "perJobPreverification": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 6887.528,
+              "max": 7232.741,
+              "mean": 7074.421
+            },
+            "nativeAggregate": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 773.716,
+              "max": 796.509,
+              "mean": 782.009
+            },
+            "exitToClose": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 0.216,
+              "max": 0.265,
+              "mean": 0.241
+            },
+            "perJobPostverification": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 6871.425,
+              "max": 7017.996,
+              "mean": 6956.771
+            },
+            "outputDecode": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 0.293,
+              "max": 0.557,
+              "mean": 0.435
+            },
+            "storeOpen": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 10.315,
+              "max": 13.023,
+              "mean": 11.252
+            },
+            "persist": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 31.777,
+              "max": 34.891,
+              "mean": 33.552
+            },
+            "previewBorrow": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 24.342,
+              "max": 27.901,
+              "mean": 25.889
+            }
+          },
+          "nativeInternals": "UNKNOWN: native aggregate includes Python startup/import/OCR/code recognition; no internal phase claim"
+        },
+        "browserProof": {
+          "packagedServerSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "bundledNode": true,
+          "sourceQualification": true,
+          "apiStyle": "chat",
+          "workDataEncryption": true,
+          "sendPngSha256": "2e82a62114675045ff59660d002324ef03c59c2c86fac81486e5359ecd54d6bf",
+          "steerPngSha256": "8f64cb5a7d3a5be46d11b00b69ec11a70e3ef58fc6f35b18080d0c0eaf45b170",
+          "providerRequests": 3
+        },
+        "clientTiming": {
+          "clock": "separate client-process monotonic origin; never subtract from server times",
+          "observationOnly": true,
+          "rows": 30,
+          "uiPreviewWait": {
+            "unit": "ms",
+            "samples": 3,
+            "min": 70.607,
+            "max": 55661.856,
+            "mean": 23577.105
+          }
+        }
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/media-browser-timed-2.log",
+        "sha256": "6becf7a5dd9692d28208faebf0ff422121c1e18f763df0d24f4d29760febb154",
+        "status": "PASS",
+        "assertions": 8,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "timing": {
+          "status": "OBSERVED",
+          "clock": "server request-relative monotonic; requests have independent origins",
+          "observationOnly": true,
+          "anonymousRequests": 9,
+          "phaseRows": 149,
+          "intervals": {
+            "sourceAcquisition": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 43.947,
+              "max": 53.475,
+              "mean": 49.729
+            },
+            "initialInventoryVerification": {
+              "unit": "ms",
+              "samples": 1,
+              "min": 7214.821,
+              "max": 7214.821,
+              "mean": 7214.821
+            },
+            "perJobPreverification": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 6677.037,
+              "max": 7296.776,
+              "mean": 6925.298
+            },
+            "nativeAggregate": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 748.773,
+              "max": 828.905,
+              "mean": 793.001
+            },
+            "exitToClose": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 0.25,
+              "max": 0.27,
+              "mean": 0.262
+            },
+            "perJobPostverification": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 6662.002,
+              "max": 7030.167,
+              "mean": 6847.86
+            },
+            "outputDecode": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 0.504,
+              "max": 0.633,
+              "mean": 0.56
+            },
+            "storeOpen": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 9.341,
+              "max": 12.012,
+              "mean": 10.387
+            },
+            "persist": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 30.152,
+              "max": 34.35,
+              "mean": 32.417
+            },
+            "previewBorrow": {
+              "unit": "ms",
+              "samples": 3,
+              "min": 23.356,
+              "max": 25.052,
+              "mean": 24.179
+            }
+          },
+          "nativeInternals": "UNKNOWN: native aggregate includes Python startup/import/OCR/code recognition; no internal phase claim"
+        },
+        "browserProof": {
+          "packagedServerSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "bundledNode": true,
+          "sourceQualification": true,
+          "apiStyle": "chat",
+          "workDataEncryption": true,
+          "sendPngSha256": "2e82a62114675045ff59660d002324ef03c59c2c86fac81486e5359ecd54d6bf",
+          "steerPngSha256": "8f64cb5a7d3a5be46d11b00b69ec11a70e3ef58fc6f35b18080d0c0eaf45b170",
+          "providerRequests": 3
+        },
+        "clientTiming": {
+          "clock": "separate client-process monotonic origin; never subtract from server times",
+          "observationOnly": true,
+          "rows": 30,
+          "uiPreviewWait": {
+            "unit": "ms",
+            "samples": 3,
+            "min": 69.329,
+            "max": 22633.417,
+            "mean": 12471.788
+          }
+        }
+      }
+    ],
+    "actualSummary": {
+      "acceptedRuns": 4,
+      "assertions": 28,
+      "pendingRuns": 0
+    },
+    "timingBoundary": "Only this new CF542 source execution is measured. Server and client clocks are independent. No timing establishes the cause of either old B493 first failure.",
+    "startupFixtureRepair": {
+      "scope": "Only the normal-serve startup fixture reads runtime.json after health. Poll with the existing 15-second helper until exact owned PID, port and nonempty token publish atomically; retry only ENOENT/SyntaxError, refuse closed process and other IO errors.",
+      "productChanged": false,
+      "unitInputsChanged": false,
+      "reviewer": "m4_gap_audit",
+      "reviewStatus": "independent narrow GO",
+      "wholeFastAndWholeSyntaxPrecedeThisFixtureRepair": true,
+      "directedAfterFixVerification": "PASS_TWO_DEFAULT_RETRIES_AND_BROWSER_MISSING_PLUS_TARGETED_GATES"
+    },
+    "afterStartupPollingFixActuals": [
+      {
+        "path": "C:/r31-1111/m5-combination/closeout-media-lifecycle-default-retry-1.log",
+        "sha256": "137d707e65f59881d058aacc081d96f3cce18fd09543ebed267498660c0dec3f",
+        "status": "PASS",
+        "assertions": 2,
+        "exitCode": 0,
+        "rootConfirmed": true,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d"
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/closeout-media-lifecycle-default-retry-2.log",
+        "sha256": "69dccc31d3c0528999d137c7208b030586008e497f7fccbf38259dd1ea732189",
+        "status": "PASS",
+        "assertions": 2,
+        "exitCode": 0,
+        "rootConfirmed": true,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d"
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/closeout-media-browser-missing.log",
+        "sha256": "aba686a9a7e796278b587a5fed21f18f69d33f126f6c566652c544132966defd",
+        "status": "PASS",
+        "assertions": 7,
+        "exitCode": 0,
+        "rootConfirmed": true,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d"
+      }
+    ]
+  },
+  "m5": {
+    "scope": "Opt-in actual HTTP remote pending, browser terminal decisions and Windows DPAPI sealed queue+journal combination; local synthetic platform receiver only",
+    "authorReadiness": "IMPLEMENTED_AND_REVIEWED_WITH_TWO_ACCEPTED_FRESH_RUNS",
+    "unit": {
+      "path": "C:/r31-1111/m5-combination/m5-sealed-unit-3.log",
+      "sha256": "dfccb642952ddc6998b123e38955fc98546daffa83e3a1ca2096a1f8da691078",
+      "status": "PASS",
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "skip": 0
+    },
+    "targetedSyntax": {
+      "path": "C:/r31-1111/m5-combination/m5-sealed-syntax-3.log",
+      "sha256": "24959d15d4d111c5dbcb3849404f394e131a3b7f92b916747f1381c45a6f51c1",
+      "status": "PASS",
+      "javascriptFiles": 5,
+      "diffWhitespace": "PASS"
+    },
+    "independentReview": {
+      "reviewer": "m4_gap_audit",
+      "status": "independent incremental GO",
+      "scope": "Original sealed queue+journal actual combination, narrow Windows directory identity fix and cold-page pending-only oracle repair; live terminal oracle preserved",
+      "rootConfirmed": true
+    },
+    "sealedBrowserActual": "PASS_TWO_FRESH_SERIAL_ROUNDS",
+    "defaultNineActionRegression": "PASS_9",
+    "staleBrowserOfferRegression": "PASS_8",
+    "realExternalPlatformOrAccountExecuted": false,
+    "scopeBoundaries": [
+      "No claim of a separately verified agent-run snapshot sealed header in this batch",
+      "Old-boot unclaimed offer and group-member-version combinations remain outside this matrix",
+      "No real external platform/account integration"
+    ],
+    "previousTargetedUnit": {
+      "path": "C:/r31-1111/m5-combination/m5-sealed-unit-1.log",
+      "sha256": "457912a2090d307c32cfa5edc9a6cc289641359104a269e2e7a29a219eb93ac2",
+      "status": "PASS",
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skip": 0
+    },
+    "previousTargetedSyntax": {
+      "path": "C:/r31-1111/m5-combination/m5-sealed-syntax-1.log",
+      "sha256": "24959d15d4d111c5dbcb3849404f394e131a3b7f92b916747f1381c45a6f51c1",
+      "status": "PASS",
+      "javascriptFiles": 5,
+      "diffWhitespace": "PASS"
+    },
+    "coldOracle": {
+      "priorMistake": "The new cold test reused a live-page terminal-row oracle. A fresh page has no local attempt cache; the production pending API returns pending decisions only, so the already answered old terminal is absent.",
+      "classification": "NEW_TEST_ORACLE_MISUSE_NOT_PRODUCT_BUG",
+      "productionContractReviewed": "frontend 24/35/97/209 and backend 13d pending contract; author and independent reviewer agreed",
+      "liveOracleChanged": false,
+      "coldChecks": [
+        "actual CDP GET 200 and Network.loadingFinished",
+        "non-degraded response, no continuation cursor and no old intervention id",
+        "UI refresh enabled/current notice, zero target rows and decision controls",
+        "production history exact terminal/answer/version/core key/fingerprint unchanged",
+        "production observer plus raw sealed bytes unchanged; duplicate callbacks have zero extra effect/send"
+      ]
+    },
+    "actualRuns": [
+      {
+        "path": "C:/r31-1111/m5-combination/m5-sealed-browser-3.log",
+        "sha256": "445bcecc51214887809038c697b45a790c4a117a6ee19956e126e24b3333529a",
+        "status": "PASS",
+        "exitCode": 0,
+        "exitRootConfirmed": true,
+        "assertions": 21,
+        "fixtures": 3,
+        "coldRestartBranch": "embedded in question/answer fixture; not a fourth distinct fixture",
+        "result": {
+          "path": "C:/r31-1111/m5-combination/sealed-browser-3/ACTUAL-RESULT.json",
+          "sha256": "0981907e62a8b05f1a4d644e3de28a839a98d4ba050c4e4be1a683e9f033340e",
+          "status": "passed-selected-journeys-and-known-cleanup",
+          "completedJourneys": [
+            {
+              "type": "question",
+              "action": "answer",
+              "status": "answered",
+              "mode": "encrypted",
+              "queueSha256": "2062db8f2a8fb4fa695bf9e51acb2378234f204f0f767cc39aae65252db76c6f",
+              "journalSha256": "1c33ca3e30a9b0d88db33ada95a3b40263d95777fdc5150c67308914fd124e27",
+              "dpapi": "Windows CurrentUser via production LocalSecretCrypto"
+            },
+            {
+              "type": "pool",
+              "action": "approve",
+              "status": "approved",
+              "mode": "encrypted",
+              "queueSha256": "e6e49c641d231e903bf7fc77a198385c7976b78ea7b40b9edf3962aa6b07d83b",
+              "journalSha256": "e3dd62fda35dccf10df71b483125ddbf20f2157afe5125c00404a5963c4a3a5a",
+              "dpapi": "Windows CurrentUser via production LocalSecretCrypto"
+            },
+            {
+              "type": "permission",
+              "action": "deny",
+              "status": "denied",
+              "mode": "encrypted",
+              "queueSha256": "2c4a6b1ae030a29556d171ae8b656ef2aab3f772d55e485cc141cc74afecbd99",
+              "journalSha256": "c8af1623c27193b3c5ad61d35aabf3a87a86ae5802b880dee95a7a3add41272f",
+              "dpapi": "Windows CurrentUser via production LocalSecretCrypto"
+            }
+          ]
+        },
+        "coldQuestion": {
+          "status": "completed-sealed-question-cold-replay-once",
+          "oldHeldExit": {
+            "code": 1,
+            "signal": null
+          },
+          "oldHeldClose": {
+            "code": 1,
+            "signal": null
+          },
+          "freshBrowserGet": {
+            "status": 200,
+            "finished": true,
+            "pendingCount": 0,
+            "nextCursor": null,
+            "degraded": false
+          },
+          "ui": {
+            "refreshDisabled": false,
+            "matchingRows": 0,
+            "controls": 0
+          },
+          "historyStatus": "answered",
+          "historyVersion": 2,
+          "storageHashesRemainExact": true
+        },
+        "cleanup": "known-held-actors-closed"
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/m5-sealed-browser-4.log",
+        "sha256": "445bcecc51214887809038c697b45a790c4a117a6ee19956e126e24b3333529a",
+        "status": "PASS",
+        "exitCode": 0,
+        "exitRootConfirmed": true,
+        "assertions": 21,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "serverSourceRootConfirmed": true,
+        "result": {
+          "path": "C:/r31-1111/m5-combination/sealed-browser-4/ACTUAL-RESULT.json",
+          "sha256": "d6725a6dc66980d342c1bbcf689197e637d7e8e6a5da64e2d73a813c543dd8c5",
+          "status": "passed-selected-journeys-and-known-cleanup",
+          "completedFixtures": 3,
+          "cleanup": "known-held-actors-closed",
+          "completedJourneys": [
+            {
+              "type": "question",
+              "action": "answer",
+              "status": "answered",
+              "mode": "encrypted",
+              "queueSha256": "f9754522b45445bb2b8ca0d009b654f965609cf0688918da089715dc3e76bb7e",
+              "journalSha256": "bf29037dd528bd846387a3b0de3644425271054ccb79bbe926c0ada34da2a875",
+              "dpapi": "Windows CurrentUser via production LocalSecretCrypto"
+            },
+            {
+              "type": "pool",
+              "action": "approve",
+              "status": "approved",
+              "mode": "encrypted",
+              "queueSha256": "9502246088b2c0ab248f1cd7392cf3b6cc7d0cf14fc639b24934f56efeddaaba",
+              "journalSha256": "1af8e66078ac5536feebf616ebfc212b99d02068c0e2aee00bd599e643148f4e",
+              "dpapi": "Windows CurrentUser via production LocalSecretCrypto"
+            },
+            {
+              "type": "permission",
+              "action": "deny",
+              "status": "denied",
+              "mode": "encrypted",
+              "queueSha256": "407ef0631f8e926058f9fec8f1d7dec3c01e2760360d6f334ca3f8b120eb1344",
+              "journalSha256": "27d9743a28a2fe62700fb582bb8af878df6fc9f379642a39618b04469a5daec2",
+              "dpapi": "Windows CurrentUser via production LocalSecretCrypto"
+            }
+          ]
+        },
+        "fixtures": 3,
+        "coldRestartBranch": "embedded in question/answer fixture; not a fourth distinct fixture",
+        "coldQuestion": {
+          "status": "completed-sealed-question-cold-replay-once",
+          "oldHeldExit": {
+            "code": 1,
+            "signal": null
+          },
+          "oldHeldClose": {
+            "code": 1,
+            "signal": null
+          },
+          "freshBrowserGet": {
+            "status": 200,
+            "finished": true,
+            "pendingCount": 0,
+            "nextCursor": null,
+            "degraded": false
+          },
+          "ui": {
+            "refreshDisabled": false,
+            "matchingRows": 0,
+            "controls": 0
+          },
+          "historyStatus": "answered",
+          "historyVersion": 2,
+          "storageHashesRemainExact": true
+        },
+        "cleanup": "known-held-actors-closed"
+      }
+    ],
+    "pendingActualRuns": [],
+    "actualSummary": {
+      "acceptedRuns": 2,
+      "assertions": 42,
+      "fixturesPerRun": 3,
+      "embeddedColdBranchesPerRun": 1,
+      "note": "PASS assertions include startup observations; 42 assertions are not 42 distinct business fixtures."
+    },
+    "harnessInputsSha256": {
+      "dev-harness/external-bots-human-decisions.e2e.js": "d5fdcd19632a9e7bcb470ab9bcb6a8f0cdcaa380b86dedd8e8ec7806c73b56e8",
+      "dev-harness/lib/external-bots-c2/actual-http-fixture.cjs": "8ae9666ff138b2533279aaee82d651f45e7166a9e8cef6a7da1c6656637b41dc",
+      "dev-harness/lib/external-bots-c2/run-journeys.cjs": "db099455208a69db5698b4f5fcaea73814093e9a72429721ad2d9c43159c4464",
+      "dev-harness/lib/external-bots-c2/sealed-observer.cjs": "4441d448b3ab146458492bca1610ef74880d2d3d35ae383d44c35b1ec8a0c2f0",
+      "dev-harness/unit/external-bots-sealed-observer.test.js": "ccdc96d2d9b0cf73d90e65d052af253ea00077afb79beceae0ad9bd75797221a"
+    },
+    "regressions": [
+      {
+        "path": "C:/r31-1111/m5-combination/m5-default-http.log",
+        "sha256": "5ae5bf162255e1a63777299e7bf4d5e9a1d4a0c64560e50f3b0fb6fa02d81c27",
+        "status": "PASS",
+        "exitCode": 0,
+        "exitRootConfirmed": true,
+        "assertions": 9,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "serverSourceRootConfirmed": true,
+        "result": {
+          "path": "C:/r31-1111/m5-combination/default-http/ACTUAL-RESULT.json",
+          "sha256": "d7d09386452ebe2b8a121e3417762db13bd3cbe1a66eba0d23796519ce031669",
+          "status": "passed-selected-journeys-and-known-cleanup",
+          "completedFixtures": 9,
+          "cleanup": "known-held-actors-closed"
+        }
+      },
+      {
+        "path": "C:/r31-1111/m5-combination/m5-default-stale-browser.log",
+        "sha256": "055895d41781b3d83a23bf2d305c98e73aa2166ac4f6e1a3aaa7c8ff7ab529e4",
+        "status": "PASS",
+        "exitCode": 0,
+        "exitRootConfirmed": true,
+        "assertions": 8,
+        "serverSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+        "serverSourceRootConfirmed": true,
+        "result": {
+          "path": "C:/r31-1111/m5-combination/default-stale-browser/ACTUAL-RESULT.json",
+          "sha256": "c8f2cd06e1839c41481c795caf132ea2bf47e75c1a8e391127e204bbd9482fd4",
+          "status": "passed-selected-journeys-and-known-cleanup",
+          "completedFixtures": 1,
+          "cleanup": "known-held-actors-closed"
+        }
+      }
+    ]
+  },
+  "finalGates": {
+    "wholeUnit": {
+      "path": "C:/r31-1111/m5-combination/full-unit.log",
+      "sha256": "9204fda7a5424f4bea2fc1ca99a3770042113b51d4109779fb6efd0dc0cd2dc4",
+      "status": "PASS",
+      "tests": 5250,
+      "pass": 5217,
+      "fail": 0,
+      "skip": 33,
+      "suites": 194,
+      "scope": "Full unit log copied from the unified full-fast unit run; not a separate repeated unit execution"
+    },
+    "wholeFast": {
+      "path": "C:/r31-1111/m5-combination/full-fast.log",
+      "sha256": "9fae520c3a3127586747a6aed50458c82913568bdfa7287c897835b7e79309b6",
+      "status": "PASS_SINGLE_COMPLETE_RUN",
+      "exitCode": 0,
+      "rootSession": 59120,
+      "unit": {
+        "path": "C:/r31-1111/m5-combination/full-unit.log",
+        "sha256": "9204fda7a5424f4bea2fc1ca99a3770042113b51d4109779fb6efd0dc0cd2dc4",
+        "status": "PASS",
+        "tests": 5250,
+        "pass": 5217,
+        "fail": 0,
+        "skip": 33,
+        "suites": 194,
+        "scope": "Full unit log copied from the unified full-fast unit run; not a separate repeated unit execution"
+      },
+      "static": {
+        "tests": 100,
+        "pass": 100,
+        "fail": 0
+      },
+      "liveSkipped": 7,
+      "temporalBoundary": "Completed before the later default HTTP lifecycle startup-poll fixture-only repair. Product and unit inputs stayed unchanged; no claim that the complete fast suite was rerun after that repair."
+    },
+    "wholeSyntax": {
+      "path": "C:/r31-1111/m5-combination/full-syntax.log",
+      "sha256": "455495094a813371cfd55c1de224f674aa3d25ac8975dafeea22480f2d10661d",
+      "status": "PASS",
+      "files": 1504,
+      "fail": 0,
+      "rootSession": 33622,
+      "temporalBoundary": "Completed before the later startup-poll fixture-only repair. Directed changed-file syntax passed in root closeout session21694; no repeated complete syntax run is claimed."
+    },
+    "freshBuildCheck": {
+      "status": "PASS",
+      "rootConfirmed": true,
+      "rootSession": 33622,
+      "command": "node ruyi-workbench/app/build.js --check",
+      "productSourceUnchanged": true
+    },
+    "finalDocsIndependentReview": {
+      "status": "independent GO",
+      "author": "m4_media_review",
+      "reviewer": "m4_gap_audit"
+    },
+    "wholeStatic": {
+      "status": "PASS",
+      "tests": 100,
+      "pass": 100,
+      "fail": 0,
+      "source": "the same full-fast.log execution",
+      "temporalBoundary": "before startup-poll fixture-only repair"
+    },
+    "changedCjsSyntax": {
+      "status": "PASS",
+      "files": 5,
+      "rootConfirmed": true,
+      "rootSession": 33622,
+      "temporalBoundary": "before startup-poll fixture-only repair"
+    },
+    "diffWhitespace": {
+      "status": "PASS",
+      "rootConfirmed": true,
+      "rootSession": 33622,
+      "command": "git diff --check",
+      "temporalBoundary": "before startup-poll fixture-only repair"
+    },
+    "afterStartupPollingFixCloseout": {
+      "status": "PASS_DIRECTED_CLOSEOUT",
+      "rootSession": 21694,
+      "exitCode": 0,
+      "rootConfirmed": true,
+      "checks": [
+        {
+          "path": "C:/r31-1111/m5-combination/closeout-repo-hygiene.log",
+          "sha256": "3235ff6bcacbd00778be64efa368a2bd12e9ec90ba2e647fa9ec426732e9a588",
+          "status": "PASS",
+          "exitCode": 0,
+          "rootConfirmed": true
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/closeout-fixture-home.log",
+          "sha256": "5ba8f8481df9f51a75aeee30a1ddaaf93013975aaac5dd138c68fe213a21d5c6",
+          "status": "PASS",
+          "exitCode": 0,
+          "rootConfirmed": true
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/closeout-process-safety.log",
+          "sha256": "096a0f74469f59208f6621b822daa2e05012840cc246214976ef57890c4044f4",
+          "status": "PASS",
+          "exitCode": 0,
+          "rootConfirmed": true
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/closeout-eol-policy.log",
+          "sha256": "7a233ec04ff059df5f5f8a3b7d86e98a231c2a239523c6ad3b1822fb35b9e3a9",
+          "status": "PASS",
+          "exitCode": 0,
+          "rootConfirmed": true
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/closeout-route-inventory.log",
+          "sha256": "e940ac083185f6bf68fb2ea8729766005d54c061bd43529599e6ba6943353ae4",
+          "status": "PASS",
+          "exitCode": 0,
+          "rootConfirmed": true
+        }
+      ],
+      "commands": [
+        {
+          "command": "node --check dev-harness/media-image-http-lifecycle.e2e.js",
+          "exitCode": 0,
+          "rootConfirmed": true
+        },
+        {
+          "command": "node ruyi-workbench/app/build.js --check",
+          "exitCode": 0,
+          "rootConfirmed": true
+        },
+        {
+          "command": "git diff --check",
+          "exitCode": 0,
+          "rootConfirmed": true
+        }
+      ],
+      "temporalBoundary": "Directed checks after only the startup polling repair; no repeated complete fast or complete syntax run is claimed."
+    }
+  },
+  "retainedPreviousUnknowns": [
+    {
+      "path": "C:/r31-1111/m4-closeout/lifecycle-accepted-1.log",
+      "sha256": "87013be243e9007d3a2368ac13d730600fdcddc8a8c3494c0aa06d58fca88f48",
+      "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "status": "RED_UNRESOLVED_HOST_PROCESSOR_JOB_TIMEOUT_PRESERVED",
+      "rootCause": "UNKNOWN",
+      "note": "No old phase telemetry; new successful interval statistics cannot retrospectively identify the old expired phase or load cause."
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/browser-chat-frozen.log",
+      "sha256": "df7c50095b6106df790fdffad78c6a0b0fec5aa49e95c3c7d17346a9b1ebdf52",
+      "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "status": "RED_BROWSER_PREVIEW_DEADLINE_PRESERVED",
+      "deadlineMs": 115000,
+      "rootCause": "UNKNOWN",
+      "note": "Artifact timing observation and subsequent independent successes do not identify the original cause."
+    }
+  ],
+  "sourceMaterials": {
+    "audit": {
+      "path": "ruyi-workbench/resources/media-runtime-public-source-audit.json",
+      "sha256": "6739cb119680b9254ced34906a172079cec2a9449b9706e799a6bbe2f31e5937"
+    },
+    "report": {
+      "path": "ruyi-workbench/resources/media-runtime-source-evidence.md",
+      "sha256": "4413e89a0b5e6a4aa4ca11ac12c5b506d75d60ec6106e7f75b4154df90d9d5aa"
+    },
+    "locksRegenerated": false,
+    "redistributionAdmitted": false,
+    "localNextSteps": [
+      {
+        "task": "Map all 21 pinned distributions using installed METADATA/RECORD/license files and already cached source artifacts",
+        "fields": [
+          "distribution/version",
+          "wheel filename/hash",
+          "upstream source archive/tag/commit/hash",
+          "build recipe/workflow and actual artifact relation",
+          "embedded native dependency list",
+          "license/notices/source-delivery materials",
+          "exact outstanding evidence"
+        ],
+        "boundary": "Two OpenCV-related local source artifacts do not close the remaining distributions or their native dependencies.",
+        "additionalMechanicalChecks": [
+          "Verify existing source ZIP/artifact lengths and hashes without treating identity as provenance",
+          "Prepare an upstream evidence request containing the exact shipped FFmpeg DLL hash and the required actual image/apt/archive/link-map bindings"
+        ]
+      },
+      {
+        "task": "Retain verified local source artifacts and official fixed recipe/workflow hashes separately from actual build claims",
+        "boundary": "Do not replace ordinary Full/runtime/local-source locks; do not treat embedded compiler strings as an actual toolchain attestation."
+      },
+      {
+        "task": "Inventory intended public package notices/source-delivery and applicable offer/relinking materials",
+        "boundary": "Preparation and mechanical checks are local work; they are not an independent legal or public-distribution approval."
+      }
+    ],
+    "externalEvidenceRequired": [
+      "Maintainer build log or attestation binding the exact FFmpeg DLL hash to its actual Docker image digest, apt snapshot and package manifest.",
+      "Actual link map or equivalent static archive identities for libgcc, libstdc++, MinGW and Winpthreads, with their corresponding source and notices.",
+      "Separate source, build and notice correspondence for all 21 distributions and bundled native dependencies; two OpenCV-related source artifacts do not close this matrix.",
+      "Independent review of the exact intended distribution, notices, source delivery and applicable offer or relinking materials before any public distribution decision."
+    ],
+    "exactBinaryObservations": [
+      {
+        "path": "python_embed/Lib/site-packages/cv2/cv2.pyd",
+        "bytes": 85848064,
+        "sha256": "eefedf6ee006a84bbc7d3df5ec66046429b8c95dbfd5f8f8f98c5772b91d6d48",
+        "buildFamily": "opencv-python-wheel",
+        "compilerVersionObservation": "MSVC 19.44.35228.0; embedded binary metadata only"
+      },
+      {
+        "path": "python_embed/Lib/site-packages/cv2/opencv_videoio_ffmpeg500_64.dll",
+        "bytes": 30876160,
+        "sha256": "7aabff029d1fa47cf56ede4dbbe05dc62da3208f07cd16471d4c966a33f9aa31",
+        "buildFamily": "opencv-ffmpeg-plugin",
+        "compilerVersionObservation": "MinGW POSIX GCC 13.0.0; embedded binary metadata only"
+      }
+    ],
+    "missingLegacyReference": "resources/ffmpeg-provenance.json remains absent; the legacy sidecar recorded hash does not recover the old archive."
+  },
+  "releaseBoundary": [
+    "No new installer/package acceptance or release",
+    "No real QQ/Feishu or external model/account send",
+    "M5 real-platform and M6 package/install/upgrade/recovery/cross-account/cross-machine/frozen regression gates remain pending",
+    "Public distribution requires exact source/build/notices correspondence and independent review of the intended artifacts"
+  ],
+  "retainedCurrentFailures": [
+    {
+      "status": "RED_FIXTURE_IDENTITY_COMPARISON_PRESERVED",
+      "sourceSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+      "rootConfirmed": true,
+      "attribution": "Fixture strict string comparison: production WorkDataRootHooks.bind selected.root uses canonical Windows lower-case while the manifest encrypted.root retained case; original sealed-observer.cjs:66 refused equal directories.",
+      "productDefectEstablished": false,
+      "dpapiDefectEstablished": false,
+      "applicationServerStarted": false,
+      "browserStarted": false,
+      "modelPosts": 0,
+      "platformOutbound": 0,
+      "configuredBrowserFlagIsExecutionProof": false,
+      "observer": {
+        "role": "sealed-read-observer",
+        "spawn": true,
+        "exit": {
+          "code": 1,
+          "signal": null
+        },
+        "close": {
+          "code": 1,
+          "signal": null
+        },
+        "stderrPipeEof": true,
+        "stderrPipeClose": true
+      },
+      "cleanup": {
+        "status": "known-held-actors-closed",
+        "descendantKernelExitCertified": false
+      },
+      "evidence": [
+        {
+          "path": "C:/r31-1111/m5-combination/m5-sealed-browser-1.log",
+          "sha256": "6654b665ecdef656e88d1649c70f2b8bb7aee6309c5595f159cadf9c3cc51af7"
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/sealed-browser-1/FIRST-FAILURE.json",
+          "sha256": "0c23a932af7be953aebc29e5f312a74492e67b9b0319c050c05ce988b2146dea"
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/sealed-browser-1/ACTUAL-RESULT.json",
+          "sha256": "f6baa32a97ac8545f3c373b357afa08cdb26aed309f8edce029061ffc612b5ea"
+        }
+      ],
+      "next": "The narrow Windows directory identity fix was reviewed; fresh round 2 then exposed a separate new cold-test oracle misuse. After both reviewed fixture/oracle repairs, fresh rounds 3 and 4 were accepted. Original failed rounds 1 and 2 remain preserved."
+    },
+    {
+      "status": "RED_NEW_COLD_ORACLE_MISUSE_PRESERVED",
+      "sourceSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+      "rootConfirmed": true,
+      "attribution": "New cold browser test incorrectly demanded the old terminal row from a fresh pending-only page, which lacks live-page local attempt state. The production pending contract intentionally excludes the answered terminal.",
+      "productDefectEstablished": false,
+      "existingLiveOracleRetained": true,
+      "evidence": [
+        {
+          "path": "C:/r31-1111/m5-combination/m5-sealed-browser-2.log",
+          "sha256": "381703894d924c1ef9a7b7cae8971be5c3973b4fe22f63df95e1257d63159f1b"
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/sealed-browser-2/FIRST-FAILURE.json",
+          "sha256": "4d17f5386019152f9a582d073e7a43707478705adacf85a2bc5187caab2e8848"
+        },
+        {
+          "path": "C:/r31-1111/m5-combination/sealed-browser-2/ACTUAL-RESULT.json",
+          "sha256": "f8765fb636079908c9bbe154d8445a6975e4f6a153e66dc1045e6607f192da8f"
+        }
+      ],
+      "next": "Only the new cold-page oracle was aligned with the real GET/pending/UI contract; exact production terminal/history/storage and zero-effect assertions remain."
+    },
+    {
+      "status": "RED_FIXTURE_STARTUP_PUBLICATION_RACE_PRESERVED",
+      "path": "C:/r31-1111/m5-combination/closeout-media-lifecycle-default.log",
+      "sha256": "cd304bbdedf6b024474f5bc4084913d419f834e7b9c518b1c93ae0f2cc0bd75e",
+      "sourceSha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+      "rootConfirmed": true,
+      "cause": "Default test accepted HTTP health 200 then immediately read runtime.json before the production atomic runtime publication. The router listens before writing runtime; direct read returned ENOENT.",
+      "productDefectEstablished": false,
+      "observedMediaPhaseRows": 0,
+      "prepareRequests": 0,
+      "modelPosts": 0,
+      "normalServerLog": true,
+      "retainedSyntheticFixture": "C:/Users/87179/AppData/Local/Temp/ruyi-media-http-lifecycle-eTifj0",
+      "next": "Only the startup runtime publication oracle was corrected and independently reviewed. Follow-up retries are separate evidence, never reclassify this log as PASS."
+    }
+  ],
+  "relatedE2eSummary": {
+    "acceptedRuns": 11,
+    "assertions": 98,
+    "breakdown": {
+      "m4PhaseTimed": 28,
+      "m5SealedBrowserTwoRounds": 42,
+      "m5DefaultHttp": 9,
+      "m5ExistingStaleBrowser": 8,
+      "defaultLifecycleTwoRetries": 4,
+      "mediaBrowserMissing": 7
+    },
+    "retainedFailedAttempts": 3,
+    "earlierB493AttemptsCounted": false,
+    "note": "Counts include startup observations. Hygiene and static checks below are separate gates and excluded from 98."
+  },
+  "qualificationInputSha256": {
+    "dev-harness/lib/media-image-timing.cjs": "6946a92a9abd767b9c230a3b3c4a75d1abd66b9fd762c9866549d2b24e948976",
+    "dev-harness/lib/media-image-timing-preload.cjs": "e825629dfaa7b9cb50b815fcbe70cb73a7c97f364dea7b447522523ddf293b9f",
+    "dev-harness/lib/media-browser-delivery.js": "6293ae7840afa77178a2a544f25becaf4b35558218c44eebdb0f35276e4645b7",
+    "dev-harness/media-image-http-lifecycle.e2e.js": "1dcb076dda3d9fe7b53b25532a17cb08a110df4ebc02f8c5c9a36f4996144197",
+    "dev-harness/unit/media-image-timing.test.js": "1c0a2da8b40a4c13649144828b5e9c118596f6129bfee85f22e16d029def1c5d",
+    "dev-harness/unit/media-image-processor-proof.test.js": "60736c027d6804f6fd7a4be2cb58b1481e7f7c0772ed3f03fe50853ebb053b29",
+    "dev-harness/external-bots-human-decisions.e2e.js": "d5fdcd19632a9e7bcb470ab9bcb6a8f0cdcaa380b86dedd8e8ec7806c73b56e8",
+    "dev-harness/lib/external-bots-c2/actual-http-fixture.cjs": "8ae9666ff138b2533279aaee82d651f45e7166a9e8cef6a7da1c6656637b41dc",
+    "dev-harness/lib/external-bots-c2/run-journeys.cjs": "db099455208a69db5698b4f5fcaea73814093e9a72429721ad2d9c43159c4464",
+    "dev-harness/lib/external-bots-c2/sealed-observer.cjs": "4441d448b3ab146458492bca1610ef74880d2d3d35ae383d44c35b1ec8a0c2f0",
+    "dev-harness/unit/external-bots-sealed-observer.test.js": "ccdc96d2d9b0cf73d90e65d052af253ea00077afb79beceae0ad9bd75797221a"
+  }
+}

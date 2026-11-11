@@ -10,6 +10,7 @@ const { createRunner } = require('./harness');
 const { startBrowserFixture, WB, sleep } = require('./browser-fixture');
 const { releaseEnvironment } = require('./release-checks');
 const { startMediaBrowserProvider, wireMessages, wireImageUrl } = require('./media-browser-provider');
+const { routeFor, printTiming } = require('./media-image-timing.cjs');
 
 const width = 320, height = 192;
 const sendText = 'Please describe the public sample.';
@@ -89,18 +90,43 @@ async function seedEncrypted(base) {
 
 function observe(fx) {
   const responses = [], writes = [], completed = new Set();
+  const timing = [], ordinals = new Map(), started = process.hrtime.bigint();
+  let sequence = 0;
+  function time(event, requestId, url, status) {
+    try {
+      if (timing.length >= 1024) return;
+      const route = routeFor(url.pathname);
+      if (!route) return;
+      if (!ordinals.has(requestId)) ordinals.set(requestId, ++sequence);
+      timing.push({ request: ordinals.get(requestId), route, event,
+        elapsedMs: Math.round(Number(process.hrtime.bigint() - started) / 1000) / 1000,
+        ...(typeof status === 'number' ? { status } : {}) });
+    } catch { /* Timing cannot replace a browser result. */ }
+  }
   const origin = 'http://127.0.0.1:' + fx.appPort;
-  fx.cdp.on('Network.requestWillBeSent', ({ request }) => {
+  fx.cdp.on('Network.requestWillBeSent', ({ requestId, request }) => {
     const url = new URL(request.url);
+    if (url.origin === origin) time('request', requestId, url);
     if (url.origin === origin && request.method === 'POST') writes.push(url.pathname);
   });
   fx.cdp.on('Network.responseReceived', ({ requestId, response }) => {
     const url = new URL(response.url);
+    if (url.origin === origin) time('response', requestId, url, response.status);
     if (url.origin === origin) responses.push({ requestId, path: url.pathname, query: url.searchParams, status: response.status,
       headers: Object.fromEntries(Object.entries(response.headers).map(([key, value]) => [key.toLowerCase(), value])) });
   });
-  fx.cdp.on('Network.loadingFinished', ({ requestId }) => completed.add(requestId));
-  return { responses, writes, completed };
+  fx.cdp.on('Network.loadingFinished', ({ requestId }) => {
+    completed.add(requestId);
+    const row = responses.find(value => value.requestId === requestId);
+    if (row) time('finished', requestId, new URL(row.path, origin));
+  });
+  const mark = event => {
+    try {
+      if (timing.length < 1024) timing.push({ request: 0, route: 'preview', event,
+        elapsedMs: Math.round(Number(process.hrtime.bigint() - started) / 1000) / 1000 });
+    } catch { /* UI observation cannot change its wait or result. */ }
+  };
+  return { responses, writes, completed, timing, mark };
 }
 async function capturePreviewBytes(fx) {
   // CDP can decode a Fetch resource as text even for an image/png response.
@@ -177,6 +203,7 @@ async function send(fx, text) {
 }
 
 async function preview(fx, observed, id, name) {
+  observed.mark('ui.preview.wait');
   const shown = await until(() => fx.evaluate(`(() => {
     const item = state.attachments.find(item=>item.name===${JSON.stringify(name)});
     const image = document.querySelector('#attachmentTray .attach-pill-thumb');
@@ -189,6 +216,7 @@ async function preview(fx, observed, id, name) {
     return {id:item.id, sealed:item.sealed, originalPath:item.path || null, issued:item.protectedImage,
       imageWidth:canvas.width, imageHeight:canvas.height, masked:pixel(15,15), publicPixel:pixel(300,180)};
   })()`), 'actual protected attachment preview', 115000);
+  observed.mark('ui.preview.ready');
   const receipt = await until(() => observed.responses.find(row => row.path === '/api/media/images/' + shown.issued.id + '/preview' &&
     row.query.get('sessionId') === id && row.status === 200 && observed.completed.has(row.requestId)), 'authenticated preview response finished');
   const responsePath = receipt.path + '?' + receipt.query.toString();
@@ -283,6 +311,8 @@ async function run({ full, apiStyle = 'chat' }) {
         Object.assign(serverEnv, isolation, { RUYI_MEDIA_RESOURCE_PROFILE: 'legacy-full-4987-v1', RUYI_MEDIA_OCR_LANGUAGE: 'en-US',
           RUYI_MEDIA_RUNTIME_ROOT: full ? sourceRoot ? process.env.RUYI_MEDIA_RUNTIME_ROOT : undefined : path.join(fixture.root, 'missing-runtime'),
           RUYI_MEDIA_SOURCES_ROOT: full ? sourceRoot ? process.env.RUYI_MEDIA_SOURCES_ROOT : undefined : path.join(fixture.root, 'missing-source') });
+        serverEnv.RUYI_TEST_MEDIA_TIMING_FILE = path.join(fixture.root, 'media-phase-timing.jsonl');
+        serverEnv.NODE_OPTIONS = '--require=' + JSON.stringify(path.join(__dirname, 'media-image-timing-preload.cjs').replace(/\\/g, '/'));
         const seedEnv = releaseEnvironment(path.join(fixture.root, 'seed-profile'), fixture.home);
         seedEnv.RUYI_TEST_SERVER_JS = path.join(workbench, 'app', 'server.js');
         encryptedRoot = execFileSync(process.execPath, [__filename, '--seed-encrypted', fixture.home],
@@ -415,6 +445,8 @@ async function run({ full, apiStyle = 'chat' }) {
     try { await receiver?.close(); } catch (error) { t.fail(error.stack || String(error)); }
     if (fx) {
       if (t.failures) console.log('Media browser fixture retained at ' + fx.root);
+      printTiming(path.join(fx.root, 'media-phase-timing.jsonl'), 'MEDIA-BROWSER-SERVER-TIMING');
+      console.log('MEDIA-BROWSER-CLIENT-TIMING ' + JSON.stringify({ rows: observed?.timing || [], observationOnly: true }));
       try { await fx.close({ keepRoot: t.failures !== 0 }); } catch (error) { t.fail(error.stack || String(error)); }
     }
     t.done();

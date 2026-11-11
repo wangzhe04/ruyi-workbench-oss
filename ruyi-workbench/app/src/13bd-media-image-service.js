@@ -1,6 +1,22 @@
 // Process-private capabilities for prepared image pixels. JSON references name an
 // existing capability; neither an upload record nor a stored manifest creates one.
 const MediaImageService = ((cryptoApi, HeadersApi) => {
+  // Read-only test diagnostics: fixed primitive events, no authority or payload.
+  // Invoke each observer separately: Node diagnostics_channel would turn a
+  // throwing subscriber into a later uncaughtException outside this try/catch.
+  const phaseObservers = require('node:process'), phaseChannel = 'ruyi:media-image-phase';
+  function tracePhase(phase) {
+    try {
+      if (!phaseObservers.listenerCount(phaseChannel)) return;
+      const event = Object.freeze({ phase });
+      for (const observer of phaseObservers.rawListeners(phaseChannel)) {
+        try {
+          const returned = Reflect.apply(observer, phaseObservers, [event]);
+          if (returned && typeof returned.then === 'function') Promise.resolve(returned).catch(() => {});
+        } catch { /* Observation cannot change settlement. */ }
+      }
+    } catch { /* Diagnostics cannot replace a product outcome. */ }
+  }
   const PREFIX = 'https://ruyi.invalid/protected-image/';
   const fail = suffix => { throw Object.assign(Error('privacy.image_' + suffix), { code: 'privacy.image_' + suffix, statusCode: 409 }); };
   const hash = value => cryptoApi.createHash('sha256').update(value).digest('hex');
@@ -127,7 +143,8 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
         const processorSnapshot = processor.capture();
         pipeline = contract.create({ sourceOwner: { capture: () => source.snapshot, assert: () => { assertScopeOwner(scopeOwner,sessionId); return source.assert(); } },
           policyOwner: { capture: () => policy, assert: () => policy.assert(), prepareDetector:policy.prepareDetector }, processorOwner: processor, now });
-        token = await pipeline.prepare({ signal, regions }); assertScopeOwner(scopeOwner,sessionId);
+        tracePhase('service.pipeline.begin');
+        token = await pipeline.prepare({ signal, regions }); tracePhase('service.pipeline.end'); assertScopeOwner(scopeOwner,sessionId);
         const manifest = pipeline.describe(token), id = cryptoApi.randomBytes(16).toString('hex');
         record = { id, sessionId, scopeOwner, source, policy, processor, processorSnapshot, pipeline, token, manifest,
           recipient, dead: false, store: null, storedId: null, timer: null, borrows:new Set(), deliveryState:'ready' };
@@ -140,9 +157,11 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
           },
           assert: snapshot => { if (snapshot?.binding?.revocationRevision !== id) fail('revoked'); return check(record); },
         };
-        record.store = await storeFor({ scopeId: manifest.scope, authority }); check(record);
+        tracePhase('service.store.open.begin');
+        record.store = await storeFor({ scopeId: manifest.scope, authority }); tracePhase('service.store.open.end'); check(record);
         borrowed = pipeline.borrow(token, { purpose: 'preview' }); borrowed.assert();
-        const stored = await record.store.put({ sourceId: source.id, manifest, bytes: borrowed.bytes }); record.storedId = stored.id; check(record);
+        tracePhase('service.store.put.begin');
+        const stored = await record.store.put({ sourceId: source.id, manifest, bytes: borrowed.bytes }); tracePhase('service.store.put.end'); record.storedId = stored.id; check(record);
         borrowed.release(); borrowed = null;
         records.set(id, record);
         // Timers inherit the completed prepare request's ALS context. The trusted

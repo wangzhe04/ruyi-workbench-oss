@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 198(精确 171 / 前缀 15 / 正则 12),ROUTE_AUTH 184 条,生成于 2026-11-11T07:42:22.616Z。
+> 判定点 198(精确 171 / 前缀 15 / 正则 12),ROUTE_AUTH 184 条,生成于 2026-11-11T10:00:49.810Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -24,9 +24,9 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| POST | `/api/media/images/prepare` | exact | token-browser | 13be-media-image-host.js · `MediaImageHost` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 5 件 |
-| DELETE | `/api/media/images/` | prefix | token-browser | 13be-media-image-host.js · `MediaImageHost` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 5 件 |
-| GET | `/api/media/images/` | prefix | token | 13be-media-image-host.js · `MediaImageHost` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 5 件 |
+| POST | `/api/media/images/prepare` | exact | token-browser | 13be-media-image-host.js · `MediaImageHost` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 6 件 |
+| DELETE | `/api/media/images/` | prefix | token-browser | 13be-media-image-host.js · `MediaImageHost` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 6 件 |
+| GET | `/api/media/images/` | prefix | token | 13be-media-image-host.js · `MediaImageHost` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 6 件 |
 
 ## agent-run(5)
 
@@ -121,7 +121,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js · `handleApi` | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js · `handleApi` | attachment-http-roundtrip.e2e.js, chat-ux-wave1.browser.e2e.js, external-bots.browser.e2e.js 等 17 件 |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js · `handleApi` | attachment-http-roundtrip.e2e.js, media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js 等 9 件 |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 207 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 208 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 22 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js · `startServerInner` | — |
 

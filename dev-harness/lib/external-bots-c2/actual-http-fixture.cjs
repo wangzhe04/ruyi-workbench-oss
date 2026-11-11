@@ -12,6 +12,7 @@ const { getFreePort } = require(fromRepo('dev-harness/free-port.js'));
 const { startFakeProvider, textFrames, toolCallFrames } = require(fromRepo('dev-harness/lib/fake-openai-provider.js'));
 const { FAKE_BOT_ENV, qqWire, feishuWire, feishuEvent } = require(fromRepo('dev-harness/lib/external-bot-fixtures.js'));
 const { assertThat, platformText, findView, assertStagedPage } = require('./journey-contract.cjs');
+const { assertSameDirectory } = require('./sealed-observer.cjs');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Caller caps, not product performance claims. Original request cap is 45s;
 // stream cap follows the existing 300s permission prompt. Each selected action
@@ -173,16 +174,19 @@ function createJourneyHome() {
 }
 async function createActualFixture(options = {}) {
   assertThat(typeof options.output === 'string' && path.isAbsolute(options.output), 'C2 actual fixture requires its absolute evidence directory');
+  assertThat(!options.sealed || options.browser && process.platform === 'win32', 'sealed acceptance requires real Windows/browser; never skip DPAPI');
   const deadline = options.deadline || Date.now() + BUDGET.startup + BUDGET.journey;
   const cleanupDeadline = options.cleanupDeadline || deadline + BUDGET.cleanup;
   const lifetime = options.signal || AbortSignal.timeout(remaining(deadline, 2147483647));
   const isolated = createJourneyHome();
-  let home = isolated.home, work = path.join(home, 'work'), server = null, browser = null, provider = null, port = 0, token = '', serial = 0;
+  let home = isolated.home, work = path.join(home, 'work'), data = home, server = null, browser = null, provider = null, port = 0, token = '', serial = 0;
+  let observer = null, observerReady = null, observerSerial = 0;
+  const observations = new Map();
   fs.mkdirSync(work, { recursive: true });
   const outbound = [], tokenRequests = [], streams = new Set(), stderr = [], model = scriptModel(() => work, { output: options.output }), children = [], cleanup = [];
   const evidence = createRetentionEvidence(options.browser ? 'browser' : 'http', { directory: options.output });
   let browserStarting = false, startupSettled = false, closePromise = null, providerStartup = null, providerRetention = null;
-  const facts = () => ({ home, work, port, isolationHome: isolated.home, browserRoot: browser?.root || null, deadline, cleanupDeadline, modelRequests: model.requests.length, outboundCount: outbound.length, stderr,
+  const facts = () => ({ home, work, data, sealed: !!options.sealed, observerReady, port, isolationHome: isolated.home, browserRoot: browser?.root || null, deadline, cleanupDeadline, modelRequests: model.requests.length, outboundCount: outbound.length, stderr,
     actors: children.map(row => ({ ...row.facts, killReceipt: row.killReceipt })), cleanup: cleanup.slice(), browserStarting, startupSettled, providerStartup: providerStartup?.snapshot() || null, descendantKernelExitCertified: false });
   const observeChild = (role, child, metadata) => { const row = observeHeldChild(child, role, metadata); children.push(row); evidence?.observeChild(role, child, metadata); return row; };
   const bounded = (work, label, cap = BUDGET.request) => waitWithin(work, Math.min(deadline, Date.now() + cap), label);
@@ -211,12 +215,51 @@ async function createActualFixture(options = {}) {
   let officialPort = 0;
   let faultDir = path.join(home, 'fault-control'); fs.mkdirSync(faultDir, { recursive: true });
   const preload = fromRepo('dev-harness/lib/external-channel-delivery-preload.js'), faultPreload = path.join(__dirname, 'actual-fault-preload.cjs');
-  const config = { configSchema: 14, workDataEncryptionV1: false, activeProvider: 'fake', engineMode: 'interactive', permissionMode: 'default', permissionTimeoutMs: 300000,
+  const config = { configSchema: 14, workDataEncryptionV1: !!options.sealed, activeProvider: 'fake', engineMode: 'interactive', permissionMode: 'default', permissionTimeoutMs: 300000,
     includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, autoImportKimiCodeMcp: false, enableMcpDropIn: false, schedulerEnabledV1: false,
     stewardEnabledV1: true, stewardPollMs: 120000, missionAutoContinue: false, stewardThreadBriefV1: false, agentWorkflowMaxNodes: 8, subagentMaxPerTurn: 8,
     desktopMcp: { enabled: false, autodetect: false }, onboarding: { completedAt: '2026-10-30T00:00:00.000Z', version: 1, skipped: false } };
   const env = () => ({ ...isolated.env, ...FAKE_BOT_ENV, RUYI_BOT_TEST_F_APP: 'C2_SYNTHETIC_APP_SECRET', RUYI_FAKE_EXTERNAL_API_PORT: String(officialPort), RUYI_C2_FAULT_DIR: faultDir,
     RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, RUYI_TEST_HOOKS: '0', NODE_OPTIONS: '' });
+  const observation = (op, sid) => {
+    assertThat(options.sealed && observerReady && observer?.connected && !lifetime.aborted && Date.now() < deadline, 'live read-only observer required');
+    const id = ++observerSerial;
+    const pending = new Promise((resolve, reject) => {
+      observations.set(id, { resolve, reject });
+      observer.send({ id, op, ...(sid === undefined ? {} : { sid }) }, error => {
+        if (error) { observations.delete(id); reject(error); }
+      });
+    });
+    return bounded(pending, 'production sealed ' + op + ' observation').finally(() => observations.delete(id));
+  };
+  const seedSealed = async fx => {
+    assertThat(!lifetime.aborted && Date.now() < deadline, 'cancelled before DPAPI observer spawn');
+    home = fx.home; work = fx.work; port = fx.appPort;
+    const ready = new Promise((resolve, reject) => observations.set(0, { resolve, reject }));
+    observer = cp.spawn(process.execPath, [path.join(__dirname, 'sealed-observer.cjs'), home], {
+      cwd: ROOT, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'], env: env(),
+    });
+    observeChild('sealed-read-observer', observer, { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    observer.stderr.on('data', bytes => stderr.push('sealed-observer: ' + String(bytes)));
+    observer.on('message', message => {
+      const pending = observations.get(message?.id); if (!pending) return;
+      observations.delete(message.id);
+      if (message.error) pending.reject(Object.assign(Error(message.error.message), { code: message.error.code }));
+      else pending.resolve(message.value);
+    });
+    const unavailable = error => {
+      for (const pending of observations.values()) pending.reject(error);
+      observations.clear();
+    };
+    observer.on('error', unavailable);
+    observer.on('exit', (code, signal) => unavailable(Error('sealed observer exited: ' + code + '/' + signal)));
+    observerReady = await bounded(ready, 'real DPAPI seed and production root binding', BUDGET.startup);
+    assertThat(observerReady?.mode === 'encrypted' && typeof observerReady.root === 'string'
+      && /^[a-f0-9]{48}$/.test(observerReady.id) && path.basename(observerReady.root) === observerReady.id
+      && /^[a-f0-9]{64}$/.test(observerReady.manifestSha256), 'authoritative encrypted generation receipt');
+    assertSameDirectory(observerReady.root, path.join(home, '.work-data', 'generations', observerReady.id));
+    data = observerReady.root;
+  };
   const request = async (method, route, body, { admin = true, headers = {}, signal } = {}) => {
     const response = await fetch(`http://127.0.0.1:${port}${route}`, { method, headers: { 'content-type': 'application/json', ...(admin ? { 'x-wcw-token': token } : {}), ...headers },
       ...(body === undefined ? {} : { body: Buffer.isBuffer(body) ? body : JSON.stringify(body) }), signal: AbortSignal.any([lifetime, signal || AbortSignal.timeout(remaining(deadline))]) });
@@ -234,6 +277,7 @@ async function createActualFixture(options = {}) {
       try { const runtime = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')); if (runtime.pid !== server.pid || !runtime.token || runtime.token === old) return false;
         return (await request('GET', '/api/external-bots/connections', undefined, { admin: false, headers: { 'x-wcw-token': runtime.token } })).status === 200 && runtime.token; } catch { return false; }
     }, 'fresh actual serve token');
+    if (browser) { browser.server = server; browser.token = token; }
   };
   const stop = async () => { if (server) { await stopChild(children.find(row => row.child === server)); server = null; } };
   const close = async () => {
@@ -269,16 +313,18 @@ async function createActualFixture(options = {}) {
       browserStarting = true;
       const startup = startBrowserFixture({ ok: options.ok, prefix: 'ruyi-c2-actual-', config,
         evidenceObserver: { ...evidence.observer,
-          beforeStart(fx) { browser = fx; home = fx.home; work = fx.work; port = fx.appPort; evidence.observer.beforeStart(fx); },
+          beforeStart(fx) { browser = fx; home = fx.home; work = fx.work; if (!options.sealed) data = home; port = fx.appPort; evidence.observer.beforeStart(fx); },
           child: observeChild,
         },
         // NODE_OPTIONS parses backslashes inside quotes as escapes on Windows.
         serverEnv: { ...env(), NODE_OPTIONS: '--require ' + JSON.stringify(preload) + ' --require ' + JSON.stringify(faultPreload) },
+        ...(options.sealed ? { beforeServe: seedSealed } : {}),
         provider: async ctx => { const frames = await model.handler({ body: ctx.body, messages: ctx.messages }); for (const frame of frames || []) ctx.sse(frame); },
-        prepare: async fx => { assertThat(!lifetime.aborted && Date.now() < deadline, 'cancelled original browser startup'); home = fx.home; work = fx.work; port = fx.appPort; token = fx.token; },
+        prepare: async fx => { assertThat(!lifetime.aborted && Date.now() < deadline, 'cancelled original browser startup'); home = fx.home; if (!options.sealed) data = home; work = fx.work; port = fx.appPort; token = fx.token; },
       });
       startup.finally(() => { startupSettled = true; }).catch(() => {});
       browser = await bounded(startup, 'original browser startup', BUDGET.startup);
+      server = browser.server;
       // The control directory intentionally stays in the already isolated first home.
     } else {
       remaining(deadline); assertThat(!lifetime.aborted, 'cancelled before fake provider start');
@@ -335,7 +381,7 @@ async function createActualFixture(options = {}) {
     const pages = []; let code = '', page = 1, identity = null;
     while (page <= 1024) {
       const shown = await command('/pending ' + handle + ' ' + page, platform, 'page'); pages.push(shown);
-      const staged = assertStagedPage(ledger(), shown.item, { handle, page, type, sessionId: iv.sessionId || iv.missionId, interventionId: iv.id }, identity);
+      const staged = assertStagedPage(await ledger(), shown.item, { handle, page, type, sessionId: iv.sessionId || iv.missionId, interventionId: iv.id }, identity);
       const marker = staged.marker; identity ||= marker;
       assertThat(shown.text.startsWith(staged.item.execution.replyText), 'actual platform page contains the original staged content');
       code = shown.text.match(/ra_[A-Za-z0-9_-]{22}/)?.[0] || '';
@@ -363,13 +409,37 @@ async function createActualFixture(options = {}) {
     })(); done.catch(() => {}); done.finally(() => streams.delete(controller)).catch(() => {}); return { events, done, controller };
   };
   const pending = async (sid, type) => wait(async () => { const r = await request('GET', '/api/interventions'); assertThat(r.status === 200, 'original intervention read'); return r.json.pending?.find(iv => iv.type === type && (iv.sessionId === sid || iv.missionId === sid)); }, 'original ' + type + ' consumer');
-  const journalFile = sid => path.join(home, 'sessions', sid + '.interventions.ndjson');
-  const journal = sid => fs.readFileSync(journalFile(sid), 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
-  const ledger = () => JSON.parse(fs.readFileSync(path.join(home, 'external-bots/state-v1.json'), 'utf8'));
+  const journalFile = sid => path.join(data, 'sessions', sid + '.interventions.ndjson');
+  const ledgerFile = () => path.join(data, 'external-bots/state-v1.json');
+  const journal = sid => options.sealed ? observation('journal', sid)
+    : fs.readFileSync(journalFile(sid), 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+  const ledger = () => options.sealed ? observation('ledger') : JSON.parse(fs.readFileSync(ledgerFile(), 'utf8'));
+  const assertSealed = async (sid, forbidden) => {
+    assertThat(options.sealed, 'sealed disk assertion must not silently accept OFF');
+    const state = await ledger(), rows = await journal(sid);
+    const queue = fs.readFileSync(ledgerFile()), journalBytes = fs.readFileSync(journalFile(sid));
+    const header = JSON.parse(queue.toString('utf8').split('\n', 1)[0]);
+    const keyHeader = JSON.parse(fs.readFileSync(path.join(data, 'work-data-key-v1.json'), 'utf8'));
+    assertThat(header.workData === 3 && header.purpose === 'queue' && header.instanceId === keyHeader.instanceId, 'real queue is a chunks-v1 container for this DPAPI instance');
+    const lines = journalBytes.toString('utf8').trim().split('\n');
+    assertThat(lines.length === rows.length && lines.every((line, ordinal) => { const row = JSON.parse(line); return row.w === 2 && row.e?.version === 2
+      && row.e.instanceId === keyHeader.instanceId && row.e.purpose === 'session' && row.e.scopeId === sid && row.e.recordId === 'interventions:' + ordinal && row.e.seq === ordinal; }), 'every complete intervention row is sealed for this instance/session/ordinal');
+    for (const text of forbidden) assertThat(typeof text === 'string' && text.length > 0 && !queue.includes(text) && !journalBytes.includes(text), 'private fixture text/code absent from both ciphertext files');
+    assertThat(!fs.existsSync(path.join(home, 'external-bots', 'state-v1.json')) && !fs.existsSync(path.join(home, 'sessions', sid + '.interventions.ndjson')), 'no fallback ledger/journal in the stable control base');
+    assertThat(await bounded(browser.evaluate('window.state?.config?.workDataEncryptionV1 === true'), 'browser encrypted config'), 'browser reads the actual encrypted mode');
+    const publicRead = await request('GET', '/api/interventions/' + encodeURIComponent(sid));
+    assertThat(publicRead.status === 200 && Array.isArray(publicRead.json?.interventions), 'serve independently decodes the selected root journal');
+    const folded = new Map(); for (const row of rows) folded.set(row.id, { ...folded.get(row.id), ...row });
+    assertThat([...folded.values()].every(row => publicRead.json.interventions.some(value => value.id === row.id && value.status === row.status
+      && value.interventionVersion === row.interventionVersion)), 'serve and isolated production observer agree on original terminal/version');
+    return { mode: 'encrypted', selected: observerReady, queueBytes: queue.length, journalBytes: journalBytes.length,
+      queueSha256: require('node:crypto').createHash('sha256').update(queue).digest('hex'), journalSha256: require('node:crypto').createHash('sha256').update(journalBytes).digest('hex'),
+      decodedItems: state.items.length, decodedJournalRows: rows.length, forbiddenStrings: forbidden.length };
+  };
   const readRun = async (sid, runId) => { const r = await request('GET', '/api/agent-runs/' + runId + '?sessionId=' + sid); assertThat(r.status === 200 && r.json?.run, 'original run reader'); return r.json.run; };
   const launch = async (sid, nodes, poolPolicy = 'off') => { const r = await request('POST', '/api/agent-workflow/launch', { token, sessionId: sid, nodes, poolPolicy, async: true }); assertThat(r.status === 200 && r.json?.runId, 'original workflow launch: ' + r.text); return r.json.runId; };
-  return { get home() { return home; }, get work() { return work; }, get port() { return port; }, get token() { return token; }, get server() { return server; }, output: options.output, browser, model, outbound, tokenRequests, stderr,
-    request, configure, connection, wire, callback, nextId, items, item, delivered, settledCallback, sent, command, offer, createSession, stream, pending, journalFile, journal, ledger, readRun, launch, start, stop, close, faultDir, bounded, wait,
+  return { get home() { return home; }, get work() { return work; }, get data() { return data; }, get port() { return port; }, get token() { return token; }, get server() { return server; }, sealed: !!options.sealed, output: options.output, browser, model, outbound, tokenRequests, stderr,
+    request, configure, connection, wire, callback, nextId, items, item, delivered, settledCallback, sent, command, offer, createSession, stream, pending, journalFile, ledgerFile, journal, ledger, assertSealed, readRun, launch, start, stop, close, faultDir, bounded, wait,
     setFault: spec => fs.writeFileSync(path.join(faultDir, 'fault.json'), JSON.stringify(spec)),
     clearFault: () => { try { fs.unlinkSync(path.join(faultDir, 'fault.json')); } catch (error) { if (error.code !== 'ENOENT') throw error; } },
     evidence: facts,

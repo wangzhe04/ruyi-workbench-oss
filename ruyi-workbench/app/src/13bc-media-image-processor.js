@@ -1,5 +1,21 @@
 // M4 genuine component owner. No normal startup binding or media send is added.
 const MediaImageProcessor = ((io, nodePath, cryptoApi, childProcess, proc) => {
+  // Read-only test diagnostics: fixed primitive events, no authority or payload.
+  // Invoke each observer separately: Node diagnostics_channel would turn a
+  // throwing subscriber into a later uncaughtException outside this try/catch.
+  const phaseObservers = require('node:process'), phaseChannel = 'ruyi:media-image-phase';
+  function tracePhase(phase) {
+    try {
+      if (!phaseObservers.listenerCount(phaseChannel)) return;
+      const event = Object.freeze({ phase });
+      for (const observer of phaseObservers.rawListeners(phaseChannel)) {
+        try {
+          const returned = Reflect.apply(observer, phaseObservers, [event]);
+          if (returned && typeof returned.then === 'function') Promise.resolve(returned).catch(() => {});
+        } catch { /* Observation cannot change settlement. */ }
+      }
+    } catch { /* Diagnostics cannot replace a product outcome. */ }
+  }
   const VERSION = 'm4-image-components-v3-linear-support-unscored';
   const SCRIPT = "\"\"\"One private in-memory image job using the already frozen Full components.\n\nNo filenames, network, cloud services, installation, or source discovery protocol.\nRecognition confidence remains UNKNOWN: successful OCR is not an egress grant.\n\"\"\"\nimport asyncio\nimport hashlib\nimport io\nimport json\nimport math\nimport struct\nimport sys\n\nVERSION = \"m4-image-components-v3-linear-support-unscored\"\nMAX_SOURCE = 8 * 1024 * 1024\nMAX_PIXELS = 8_000_000\nMAX_TEXT = 1024 * 1024\nMAX_WORDS = 20_000\nMAX_CODES = 4096\nMAX_META = 2 * 1024 * 1024\n\n\ndef exact_read(size):\n    data = bytearray()\n    while len(data) < size:\n        chunk = sys.stdin.buffer.read(size - len(data))\n        if not chunk:\n            raise ValueError(\"input_incomplete\")\n        data.extend(chunk)\n    return data\n\n\ndef canonical(data):\n    # Same Pillow/ImageOps mechanism as the reviewed M1 worker, extended to\n    # return RGBA and the original EXIF transform rather than copy metadata.\n    from PIL import Image, ImageOps\n    image = Image.open(io.BytesIO(data))\n    if image.format not in (\"PNG\", \"JPEG\", \"WEBP\", \"BMP\"):\n        raise ValueError(\"format_unsupported\")\n    width, height = image.size\n    if width < 1 or height < 1 or width * height > MAX_PIXELS:\n        raise ValueError(\"pixel_limit\")\n    if getattr(image, \"n_frames\", 1) != 1:\n        raise ValueError(\"animation_unsupported\")\n    orientation = image.getexif().get(274, 1)\n    if type(orientation) is not int or orientation not in range(1, 9):\n        raise ValueError(\"orientation_invalid\")\n    image.load()\n    rgba = ImageOps.exif_transpose(image).convert(\"RGBA\")\n    expected = (height, width) if orientation > 4 else (width, height)\n    if rgba.size != expected:\n        raise ValueError(\"orientation_invalid\")\n    white = Image.new(\"RGBA\", rgba.size, (255, 255, 255, 255))\n    rgb = Image.alpha_composite(white, rgba).convert(\"RGB\")\n    normalized = io.BytesIO()\n    # Fresh RGB object: neither OCR nor code detection sees hidden alpha RGB,\n    # source metadata, thumbnails, or source ancillary chunks.\n    fresh = Image.new(\"RGB\", rgb.size)\n    fresh.paste(rgb)\n    fresh.save(normalized, \"PNG\")\n    return rgba, rgb, normalized.getvalue(), {\"width\": width, \"height\": height, \"orientation\": orientation}\n\n\nasync def recognize(data, language, width, height):\n    # The reviewed M1 in-memory Windows.Media.Ocr transport, with explicit\n    # language and resource disposal. There is no English fallback.\n    from winsdk.windows.media.ocr import OcrEngine\n    from winsdk.windows.globalization import Language\n    from winsdk.windows.graphics.imaging import BitmapDecoder\n    from winsdk.windows.storage.streams import InMemoryRandomAccessStream, DataWriter\n    engine = OcrEngine.try_create_from_language(Language(language))\n    if engine is None:\n        raise ValueError(\"ocr_language_missing\")\n    if width > OcrEngine.max_image_dimension or height > OcrEngine.max_image_dimension:\n        raise ValueError(\"ocr_dimension_unsupported\")\n    stream = InMemoryRandomAccessStream()\n    writer = DataWriter(stream.get_output_stream_at(0))\n    bitmap = None\n    try:\n        writer.write_bytes(data)\n        await writer.store_async()\n        await writer.flush_async()\n        writer.detach_stream()\n        stream.seek(0)\n        decoder = await BitmapDecoder.create_async(stream)\n        bitmap = await decoder.get_software_bitmap_async()\n        result = await engine.recognize_async(bitmap)\n        words = []\n        for line_id, line in enumerate(result.lines):\n            for word in line.words:\n                r = word.bounding_rect\n                words.append({\"text\": word.text, \"line\": line_id,\n                              \"box\": [math.floor(r.x), math.floor(r.y), math.ceil(r.x + r.width), math.ceil(r.y + r.height)]})\n                if len(words) > MAX_WORDS:\n                    raise ValueError(\"recognition_limit\")\n        return words\n    finally:\n        if bitmap is not None:\n            bitmap.close()\n        writer.close()\n        stream.close()\n\n\ndef code_box(points, width, height):\n    left = math.floor(min(float(point[0]) for point in points))\n    top = math.floor(min(float(point[1]) for point in points))\n    right = math.ceil(max(float(point[0]) for point in points)) + 1\n    bottom = math.ceil(max(float(point[1]) for point in points)) + 1\n    return [max(0, left), max(0, top), min(width, right), min(height, bottom)]\n\n\ndef recognize_codes(rgb):\n    import cv2\n    import numpy\n    pixels = cv2.cvtColor(numpy.asarray(rgb), cv2.COLOR_RGB2BGR)\n    width, height = rgb.size\n    codes = []\n    qr = cv2.QRCodeDetector()\n    detected, points = qr.detectMulti(pixels)\n    if detected:\n        decoded, texts, decoded_points, _ = qr.detectAndDecodeMulti(pixels)\n        if not decoded or decoded_points is None or len(points) != len(decoded_points) or len(texts) != len(points) or any(not text for text in texts):\n            raise ValueError(\"code_undecodable\")\n        codes.extend({\"kind\": \"qr\", \"text\": text, \"box\": code_box(polygon, width, height)} for text, polygon in zip(texts, decoded_points))\n    linear = cv2.barcode.BarcodeDetector()\n    # Two bounded scales of the same decoder; no iterative retries or fallback\n    # engine. Per-axis ratios preserve canonical coordinates for odd sizes.\n    for divisor in (1, 2):\n        sample_width, sample_height = max(1, width // divisor), max(1, height // divisor)\n        if sample_width <= 40 or sample_height <= 40:\n            continue\n        sample = pixels if divisor == 1 else cv2.resize(pixels, (sample_width, sample_height), interpolation=cv2.INTER_AREA)\n        detected, points = linear.detect(sample)\n        if detected:\n            decoded, texts, types, decoded_points = linear.detectAndDecodeWithType(sample)\n            if not decoded or decoded_points is None or len(points) != len(decoded_points) or len(texts) != len(points) or len(types) != len(texts) or any(not text for text in texts) or any(not kind for kind in types):\n                raise ValueError(\"code_undecodable\")\n            if len(codes) + len(texts) > MAX_CODES:\n                raise ValueError(\"recognition_limit\")\n            scale_x, scale_y = width / sample_width, height / sample_height\n            for text, kind, polygon in zip(texts, types, decoded_points):\n                raw_points = [[float(point[0]), float(point[1])] for point in polygon]\n                mapped = [[point[0] * scale_x, point[1] * scale_y] for point in raw_points]\n                codes.append({\"kind\": \"barcode\", \"text\": text, \"box\": code_box(mapped, width, height),\n                              \"linear\": {\"width\": sample_width, \"height\": sample_height, \"polygon\": raw_points, \"format\": kind}})\n    if len(codes) > MAX_CODES:\n        raise ValueError(\"recognition_limit\")\n    return codes\n\n\ndef main():\n    size = struct.unpack(\">I\", exact_read(4))[0]\n    if size < 1 or size > 2048:\n        raise ValueError(\"input_invalid\")\n    meta = json.loads(exact_read(size).decode(\"utf-8\", \"strict\"))\n    if set(meta) != {\"schema\", \"bytes\", \"sourceHash\", \"processorHash\", \"language\", \"version\"} or meta[\"schema\"] != 1 or meta[\"version\"] != VERSION:\n        raise ValueError(\"input_invalid\")\n    if type(meta[\"bytes\"]) is not int or not 1 <= meta[\"bytes\"] <= MAX_SOURCE:\n        raise ValueError(\"source_limit\")\n    data = exact_read(meta[\"bytes\"])\n    try:\n        if sys.stdin.buffer.read(1) or hashlib.sha256(data).hexdigest() != meta[\"sourceHash\"]:\n            raise ValueError(\"source_changed\")\n        rgba, rgb, normalized, transform = canonical(data)\n        words = asyncio.run(asyncio.wait_for(recognize(normalized, meta[\"language\"], *rgb.size), 35))\n        codes = recognize_codes(rgb)\n        if sum(len(row[\"text\"]) for row in words + codes) > MAX_TEXT:\n            raise ValueError(\"recognition_limit\")\n        payload = rgba.tobytes()\n        header = {\"schema\": 1, \"width\": rgba.width, \"height\": rgba.height, \"rgbaBytes\": len(payload),\n                  \"sourceHash\": meta[\"sourceHash\"], \"processorHash\": meta[\"processorHash\"], \"frames\": 1,\n                  \"orientationApplied\": True, \"ocrComplete\": True, \"codesComplete\": True,\n                  \"transform\": transform, \"words\": words, \"codes\": codes,\n                  \"recognitionConfidence\": \"unknown\", \"language\": meta[\"language\"],\n                  \"codeProfile\": \"opencv-qr-and-opencv-supported-linear-v3-source-support\"}\n        wire = json.dumps(header, ensure_ascii=True, separators=(\",\", \":\")).encode(\"utf-8\")\n        if len(wire) > MAX_META:\n            raise ValueError(\"output_limit\")\n        sys.stdout.buffer.write(struct.pack(\">I\", len(wire)))\n        sys.stdout.buffer.write(wire)\n        sys.stdout.buffer.write(payload)\n        sys.stdout.buffer.flush()\n    finally:\n        data[:] = b\"\\0\" * len(data)\n\n\nif __name__ == \"__main__\":\n    try:\n        main()\n    except BaseException as exc:\n        known = {\"input_incomplete\", \"input_invalid\", \"source_limit\", \"source_changed\",\n                 \"format_unsupported\", \"pixel_limit\", \"animation_unsupported\",\n                 \"orientation_invalid\", \"ocr_language_missing\", \"ocr_dimension_unsupported\",\n                 \"recognition_limit\", \"code_undecodable\", \"output_limit\"}\n        code = \"component_failed\"\n        if isinstance(exc, ImportError):\n            code = \"component_missing\"\n        elif isinstance(exc, TimeoutError):\n            code = \"recognition_timeout\"\n        elif isinstance(exc, ValueError) and len(exc.args) == 1 and type(exc.args[0]) is str and exc.args[0] in known:\n            code = exc.args[0]\n        # Only this finite code vocabulary is disclosed, never exception text,\n        # paths, recognized text or traceback. Partial success output remains\n        # malformed and is rejected by the parent, not repaired or filtered.\n        raw = json.dumps({\"schema\": 1, \"code\": code}, separators=(\",\", \":\")).encode(\"ascii\")\n        try:\n            sys.stdout.buffer.write(struct.pack(\">I\", len(raw)) + raw)\n            sys.stdout.buffer.flush()\n        except BaseException:\n            pass\n        sys.exit(2)\n";
   const INVENTORY = '4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f', owners = new WeakSet();
@@ -157,7 +173,10 @@ const MediaImageProcessor = ((io, nodePath, cryptoApi, childProcess, proc) => {
       if (!st.isFile() || st.isSymbolicLink() || st.nlink !== 1n || fold(await io.realpath(executable)) !== fold(executable)) throw fail('executable_alias');
       return st;
     };
-    await verify(); const originalExecutable = await executableStat();
+    tracePhase('processor.init.verify.begin');
+    await verify(); tracePhase('processor.init.verify.end');
+    tracePhase('processor.init.executable.begin');
+    const originalExecutable = await executableStat(); tracePhase('processor.init.executable.end');
     const processorHash = hash(JSON.stringify({ schema:1, version:VERSION, workerHash:hash(SCRIPT), inventory:INVENTORY, language }));
     const captures = new WeakSet(), frames = new WeakMap(); let active = null, retired = false, uncertain = false, retained = null, poisoned = false;
     const frameStamp = frame => hash(JSON.stringify({ ...frame, rgba: hash(frame.rgba) }));
@@ -214,14 +233,15 @@ const MediaImageProcessor = ((io, nodePath, cryptoApi, childProcess, proc) => {
       assert(processor);
       if (active || !Buffer.isBuffer(source) || source.length<1 || source.length>LIMIT.source || hash(source)!==sourceHash
         ||!Number.isFinite(deadline)||deadline<=Date.now()||deadline>Date.now()+LIMIT.processMs||signal?.aborted)throw fail('input_invalid');
+      tracePhase('processor.job.begin');
       const record={source:Buffer.from(source),child:null,spawn:false,exit:false,close:false,exitCode:null,closeCode:null,
         stopped:null,settled:false,output:[],outputBytes:0,stderrBytes:0,wire:null,timer:null,settleTimer:null};active=record;
       let resolve,reject;const promise=new Promise((r,j)=>{resolve=r;reject=j;});
       const wipe = () => {record.source.fill(0);if(record.wire)record.wire.fill(0);for(const b of record.output)b.fill(0);record.output.length=0;};
       const settle = (error,value) => {if(record.settled)return;if(error&&uncertain&&Object.getOwnPropertyDescriptor(error,'helperMayStillRun')?.value!==true)error=Object.assign(fail('process_uncertain',true),{cause:error});record.settled=true;clearTimeout(record.timer);clearTimeout(record.settleTimer);signal?.removeEventListener('abort',abort);
-        if(record.close||!record.child)wipe();if(active===record)active=null;error?reject(error):resolve(value);};
+        if(record.close||!record.child)wipe();if(active===record)active=null;tracePhase(error?'processor.job.settle.error':'processor.job.settle.success');error?reject(error):resolve(value);};
       const stop = suffix => {
-        if(record.stopped||record.settled)return;record.stopped=suffix;clearTimeout(record.timer);
+        if(record.stopped||record.settled)return;tracePhase('processor.job.stop');record.stopped=suffix;clearTimeout(record.timer);
         if(!record.child||record.close){settle(fail(suffix));return;}
         record.settleTimer=setTimeout(()=>{latch(record);settle(fail(suffix,true));},LIMIT.settleMs);
         try{record.child.kill();}catch{ /* A kill request/throw is not actual close. */ }
@@ -237,37 +257,44 @@ const MediaImageProcessor = ((io, nodePath, cryptoApi, childProcess, proc) => {
       };
       void(async()=>{
         try{
-          await verify(signal);if(!admitted())return;
-          const currentExecutable=await executableStat();if(!admitted())return;
+          tracePhase('processor.job.preverify.begin');
+          await verify(signal);tracePhase('processor.job.preverify.end');if(!admitted())return;
+          tracePhase('processor.job.executable.begin');
+          const currentExecutable=await executableStat();tracePhase('processor.job.executable.end');if(!admitted())return;
           if(!same(originalExecutable,currentExecutable))throw fail('executable_changed');
           const environment={};for(const key of['SystemRoot','SystemDrive','WINDIR','TEMP','TMP'])if(typeof proc.env[key]==='string')environment[key]=proc.env[key];
           // -I ignores user Python paths/site and -B prevents a new bytecode cache.
           if(!admitted())return;
+          tracePhase('processor.job.spawn.call');
           record.child=childProcess.spawn(executable,['-I','-B','-X','utf8','-c',SCRIPT],{windowsHide:true,shell:false,env:environment,cwd:nodePath.dirname(executable),stdio:['pipe','pipe','pipe']});
           const child=record.child;
-          child.once('spawn',guarded(()=>{record.spawn=true;}));child.once('exit',guarded(code=>{record.exit=true;record.exitCode=code;}));
+          child.once('spawn',guarded(()=>{record.spawn=true;tracePhase('processor.job.spawn.event');}));child.once('exit',guarded(code=>{tracePhase('processor.job.exit');record.exit=true;record.exitCode=code;}));
           child.once('error',guarded(()=>{poisoned=true;stop('process_failed');}));
           const transportError=guarded(()=>{poisoned=true;stop('transport_failed');});
           child.stdout.on('error',transportError);child.stderr.on('error',transportError);child.stdin.on('error',transportError);
-          child.stdout.on('data',guarded(bytes=>{if(record.settled||record.stopped){bytes.fill(0);return;}record.outputBytes+=bytes.length;
+          child.stdout.on('data',guarded(bytes=>{if(record.settled||record.stopped){bytes.fill(0);return;}if(record.outputBytes===0)tracePhase('processor.job.output.first');record.outputBytes+=bytes.length;
             if(record.outputBytes>4+LIMIT.metadata+LIMIT.pixels*4){bytes.fill(0);stop('output_limit');return;}record.output.push(Buffer.from(bytes));}));
           child.stderr.on('data',guarded(bytes=>{record.stderrBytes+=bytes.length;bytes.fill(0);if(record.stderrBytes>LIMIT.stderr)stop('stderr_limit');}));
           child.once('close',(code)=>{void(async()=>{
-            record.close=true;record.closeCode=code;
+            tracePhase('processor.job.close');record.close=true;record.closeCode=code;
             if(record.settled){wipe();return;}
             if(record.stopped){settle(fail(record.stopped));return;}
             if(!record.spawn||!record.exit||record.exitCode!==code||record.stderrBytes)throw fail('process_failed');
             if(code!==0){const bytes=Buffer.concat(record.output,record.outputBytes);try{throw code===2?workerRefusal(bytes):fail('process_failed');}finally{bytes.fill(0);}}
-            await verify(signal);if(!admitted())return;
-            const currentExecutable=await executableStat();if(!admitted())return;
+            tracePhase('processor.job.postverify.begin');
+            await verify(signal);tracePhase('processor.job.postverify.end');if(!admitted())return;
+            tracePhase('processor.job.postexecutable.begin');
+            const currentExecutable=await executableStat();tracePhase('processor.job.postexecutable.end');if(!admitted())return;
             if(!same(originalExecutable,currentExecutable))throw fail('executable_changed');
             const bytes=Buffer.concat(record.output,record.outputBytes);let frame,published=false;
-            try{frame=decode(bytes,sourceHash,()=>{if(!admitted())throw fail('cancelled');});if(!admitted())return;frames.set(frame,frameStamp(frame));settle(null,frame);published=true;}
+            tracePhase('processor.job.decode.begin');
+            try{frame=decode(bytes,sourceHash,()=>{if(!admitted())throw fail('cancelled');});tracePhase('processor.job.decode.end');if(!admitted())return;frames.set(frame,frameStamp(frame));settle(null,frame);published=true;}
             finally{bytes.fill(0);if(frame&&!published)frame.rgba.fill(0);}
           })().catch(error=>settle(controlled(error)));});
           const meta=Buffer.from(JSON.stringify({schema:1,bytes:record.source.length,sourceHash,processorHash,language,version:VERSION}));
           const size=Buffer.alloc(4);size.writeUInt32BE(meta.length);record.wire=Buffer.concat([size,meta,record.source]);meta.fill(0);size.fill(0);
-          child.stdin.end(record.wire,guarded(()=>record.wire.fill(0)));
+          tracePhase('processor.job.stdin.begin');
+          child.stdin.end(record.wire,guarded(()=>{record.wire.fill(0);tracePhase('processor.job.stdin.end');}));
         }catch(error){if(record.child)stop('transport_failed');else settle(controlled(error));}
       })();
       return Object.freeze({promise,finish({failed=false}={}){

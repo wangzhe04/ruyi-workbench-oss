@@ -5,7 +5,7 @@ require('../lib/media-artifact-test-guard');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto'),{EventEmitter}=require('node:events');
 const source=fs.readFileSync(process.env.MEDIA_IMAGE_PROCESSOR_SOURCE||path.resolve(__dirname,'../../ruyi-workbench/app/src/13bc-media-image-processor.js'),'utf8');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
-function fixture(receiptOverrides = {}){
+function fixture(receiptOverrides = {}, { beforeVerify } = {}){
   let child,spawns=0;
   const receipt={schema:1,verificationKind:'offline-artifact-inventory',dependencyFilesVerified:true,pythonVersion:'3.12.10',runtimeArtifacts:4987,verifiedRuntimeBytes:413946142,
     sourceArchiveVerified:true,verifiedSourceBytes:19922194,sourceProfile:'legacy',installsPerformed:false,mediaProcessingEnabled:false,mediaEgressEnabled:false,
@@ -21,7 +21,7 @@ function fixture(receiptOverrides = {}){
       queueMicrotask(()=>{child.emit('spawn');callback();child.stdout.emit('data',Buffer.concat([size,text,Buffer.alloc(16,255)]));child.emit('exit',0);child.emit('close',0);});
     };return child;
   }};
-  const load=name=>name==='node:fs/promises'?io:name==='node:child_process'?childProcess:name==='../tools/verify-media-artifacts.cjs'?{verifyMediaArtifacts:async()=>receipt}:require(name);
+  const load=name=>name==='node:fs/promises'?io:name==='node:child_process'?childProcess:name==='../tools/verify-media-artifacts.cjs'?{verifyMediaArtifacts:async()=>{if(beforeVerify)await beforeVerify();return receipt;}}:require(name);
   const api=vm.runInNewContext(source+';MediaImageProcessor;', {require:load,process:{platform:'win32',env:{}},Buffer,setTimeout,clearTimeout,setInterval,clearInterval});
   return {api,child:()=>child,spawns:()=>spawns,create:()=>api.create({runtimeRoot:path.resolve('C:/synthetic-runtime'),sourceRoot:path.resolve('C:/synthetic-source'),language:'en-US'})};
 }
@@ -53,4 +53,36 @@ test('late stdio errors revoke proofs after known close without inventing a live
   assert.equal(owner.assertCoverage(frame),true);f.child().stdout.emit('error',Error('synthetic late IO'));
   assert.throws(()=>owner.assertCoverage(frame),error=>error.code==='privacy.image_processor_coverage_unverified');assert.throws(()=>owner.capture());
   assert.equal(owner.helperMayStillRun(),false);assert.equal(job.finish().closed,true);frame.rgba.fill(0);
+});
+test('fixed phase observation distinguishes initial, pre and post verification without changing genuine proof/close',async()=>{
+  const channel='ruyi:media-image-phase',phases=[];
+  const observe=event=>{assert.equal(Object.isFrozen(event),true);assert.deepEqual(Object.keys(event),['phase']);phases.push(event.phase);};
+  const throws=()=>{throw Error('synthetic observer failure');};
+  process.on(channel,throws);process.on(channel,observe);process.once(channel,throws);
+  let frame;
+  try{
+    const f=fixture(),owner=await f.create(),bytes=Buffer.from('private source and name are never diagnostic fields');
+    const job=owner.start({source:bytes,sourceHash:hash(bytes),processor:owner.capture(),deadline:Date.now()+1000});
+    frame=await job.promise;assert.equal(owner.assertCoverage(frame),true);assert.equal(job.finish().closed,true);assert.equal(owner.helperMayStillRun(),false);
+    const ordered=['processor.init.verify.begin','processor.init.verify.end','processor.init.executable.end','processor.job.preverify.begin',
+      'processor.job.preverify.end','processor.job.spawn.call','processor.job.spawn.event','processor.job.exit','processor.job.close',
+      'processor.job.postverify.begin','processor.job.postverify.end','processor.job.decode.begin','processor.job.decode.end','processor.job.settle.success'];
+    let last=-1;for(const phase of ordered){const at=phases.indexOf(phase);assert.ok(at>last,phase);last=at;}
+    assert.equal(f.spawns(),1);assert.equal(JSON.stringify(phases).includes('private'),false);
+  }finally{frame?.rgba.fill(0);process.removeListener(channel,throws);process.removeListener(channel,observe);}
+});
+for(const suspendedCall of [2,3])test('phase observation identifies suspended '+(suspendedCall===2?'pre':'post')+'verify while cancellation and close keep their original result',async()=>{
+  const phases=[],channel='ruyi:media-image-phase',observe=event=>phases.push(event.phase);
+  let release,entered,calls=0;
+  const held=new Promise(resolve=>{release=resolve;}),ready=new Promise(resolve=>{entered=resolve;});
+  process.on(channel,observe);
+  try{
+    const f=fixture({}, {beforeVerify:async()=>{if(++calls===suspendedCall){entered();await held;}}}),owner=await f.create(),bytes=Buffer.from('synthetic source');
+    const controller=new AbortController(),job=owner.start({source:bytes,sourceHash:hash(bytes),processor:owner.capture(),deadline:Date.now()+1000,signal:controller.signal});
+    await ready;controller.abort();await assert.rejects(job.promise,{code:'privacy.image_processor_cancelled'});
+    assert.equal(job.finish().closed,true);assert.equal(owner.helperMayStillRun(),false);
+    const part=suspendedCall===2?'preverify':'postverify';assert.ok(phases.includes('processor.job.'+part+'.begin'));
+    assert.equal(phases.includes('processor.job.'+part+'.end'),false);assert.equal(phases.at(-1),'processor.job.settle.error');
+    assert.equal(f.spawns(),suspendedCall===2?0:1);
+  }finally{release();process.removeListener(channel,observe);}
 });

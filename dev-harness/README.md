@@ -23,6 +23,8 @@ node dev-harness\run-all.js --parallel 4
 
 `media-image-http-lifecycle.e2e.js` 默认验证真实 HTTP 入口取消和缺组件拒绝；`--full-components` 使用显式 `RUYI_MEDIA_LIFECYCLE_ROOT` 资格目录、`RUYI_MEDIA_RUNTIME_ROOT`、`RUYI_MEDIA_SOURCES_ROOT` 和 `RUYI_MEDIA_OCR_LANGUAGE` 验证真实媒体组件。它按票据原始到期时间等待，随后持续四次准备，每次立即核验预览 200 和 PNG 摘要；较早票据可以在后续处理期间自然到期，此时仅接受已到原期限的 `privacy.image_expired`。该门不要求四张票同时有效，不修改产品的 60 秒期限，也不模拟原生处理超时。
 
+远程待决的密封浏览器组合可在 Windows 串行运行 `node dev-harness/external-bots-human-decisions.e2e.js --sealed-browser`，用 `RUYI_C2_EVIDENCE_DIR` 指定全新或空的绝对证据目录。该 opt-in 使用真实 CurrentUser DPAPI、活动加密代与 Edge/Chrome，覆盖飞书签名提问作答、飞书任务池批准及 QQ 本机拒绝后旧 Allow 的三种重放；提问完成后还会等待原服务退出并冷启同一目录，核验浏览器成功刷新后已回答问题不再进入待决、没有该问题的可执行控件，并从实际 HTTP 历史复核原终态及回答。重复回调不得新增执行或发送。平台令牌、回调、模型和外发均为隔离本地合成件，不操作真实账号；缺 DPAPI、浏览器或读取凭证会失败。密文原始字节与生产 reader 的逻辑事实分别核验，观察接口只读，不参与业务写入。默认五种待决九个动作及原 `--stale-browser-offer` 明文门保持，群聊成员版本权限仍不在本件验收范围。
+
 ### 实际发布包验收（Windows，按需）
 
 先用 `ruyi-workbench/tools/package-offline.ps1` 分别生成真正包含 EXE 的 Slim 和 Full，保留打包退出码、日志、ZIP 及其同名 stage。Full 需要已验证的 ACC 离线载荷。不要用 `-SkipExeBuild` 的源码运行包代替 EXE 验收。

@@ -1,6 +1,22 @@
 // Lazy production composition. Loading this module starts no processes and does
 // not inspect or copy a runtime. Only an authenticated prepare request does so.
 const MediaImageHost = (() => {
+  // Read-only test diagnostics: fixed primitive events, no authority or payload.
+  // Invoke each observer separately: Node diagnostics_channel would turn a
+  // throwing subscriber into a later uncaughtException outside this try/catch.
+  const phaseObservers = require('node:process'), phaseChannel = 'ruyi:media-image-phase';
+  function tracePhase(phase) {
+    try {
+      if (!phaseObservers.listenerCount(phaseChannel)) return;
+      const event = Object.freeze({ phase });
+      for (const observer of phaseObservers.rawListeners(phaseChannel)) {
+        try {
+          const returned = Reflect.apply(observer, phaseObservers, [event]);
+          if (returned && typeof returned.then === 'function') Promise.resolve(returned).catch(() => {});
+        } catch { /* Observation cannot change settlement. */ }
+      }
+    } catch { /* Diagnostics cannot replace a product outcome. */ }
+  }
   const fail = suffix => { throw Object.assign(Error('privacy.image_' + suffix), { code: 'privacy.image_' + suffix, statusCode: 409 }); };
   const hash = value => crypto.createHash('sha256').update(value).digest('hex');
   const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -326,27 +342,32 @@ const MediaImageHost = (() => {
     return MediaImageService.recipientHash(wire.completionUrl(provider.baseUrl), wire.requestHeaders(provider, { model: provider.model }));
   }
   async function prepare(input, signal) {
+    tracePhase('host.prepare.begin');
     if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['sessionId','id','name','regions'].includes(key))) fail('request_invalid');
     const sessionId=assertSessionIdForPath(input.sessionId), scopeOwner=service.beginScope(sessionId);
     let source, transferred=false, primary, failed=false;
     try {
       scopeOwner.assert();
-      const config=await readConfig(); scopeOwner.assert();
-      const session=await loadSession(sessionId); scopeOwner.assert();
+      tracePhase('host.config.begin');
+      const config=await readConfig(); tracePhase('host.config.end'); scopeOwner.assert();
+      tracePhase('host.session.begin');
+      const session=await loadSession(sessionId); tracePhase('host.session.end'); scopeOwner.assert();
       if (!session || sessionSaveIsTombstoned(session)) throw Object.assign(Error('session.not_found'), {code:'session.not_found',statusCode:404});
       return await PrivacyGateway.run(sessionId,config,()=>managed(async()=>{
         scopeOwner.assert();
         const policy=PrivacyGateway.captureMediaPolicy(); if(!policy)fail('protection_disabled');
         const recipient=currentRecipient(config);
-        source=await sourceFor(input,sessionId,scopeOwner,config.workDataEncryptionV1===true,signal); scopeOwner.assert();
+        tracePhase('host.source.begin');
+        source=await sourceFor(input,sessionId,scopeOwner,config.workDataEncryptionV1===true,signal); tracePhase('host.source.end'); scopeOwner.assert();
         policy.assert();source.assert();
-        const owner=await processor(); scopeOwner.assert(); policy.assert();source.assert();
+        tracePhase('host.processor.wait.begin');
+        const owner=await processor(); tracePhase('host.processor.wait.end'); scopeOwner.assert(); policy.assert();source.assert();
         if(!MediaImageProcessor.isOwner(owner))fail('processor_unavailable');
         transferred=true;
         const result=await service.prepare({sessionId,source,policy,processor:owner,recipient,signal,regions:input.regions??null,scopeOwner});
         // prepare published in this turn; revocation in the await continuation
         // must still refuse the HTTP result. Service cleanup owns the record.
-        scopeOwner.assert(); preparedAny=true; return result;
+        scopeOwner.assert(); preparedAny=true; tracePhase('host.prepare.ready'); return result;
       }));
     } catch(error) { failed=true; primary=error; throw error; }
     finally {
@@ -514,12 +535,14 @@ const MediaImageHost = (() => {
       const q = new URL(req.url, 'http://localhost').searchParams;
       const sessionId = assertSessionIdForPath(q.get('sessionId')), config = await readConfig();
       await PrivacyGateway.run(sessionId, config, () => managed(async () => {
-        const borrowed = await service.borrow(match[1]);
+        tracePhase('host.preview.borrow.begin');
+        const borrowed = await service.borrow(match[1]); tracePhase('host.preview.borrow.end');
         try {
           borrowed.assert();
           res.writeHead(200, { 'content-type': 'image/png', 'content-length': borrowed.bytes.length, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-ruyi-payload-sha256': borrowed.manifest.payloadHash,
             'x-ruyi-manifest-sha256': hash(JSON.stringify(borrowed.manifest)) });
-          res.end(borrowed.bytes, () => borrowed.release());
+          tracePhase('host.preview.response.begin');
+          res.end(borrowed.bytes, () => { borrowed.release(); tracePhase('host.preview.response.end'); });
         } catch (error) { borrowed.release(); throw error; }
       }));
       return true;
