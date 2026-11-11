@@ -1,0 +1,38 @@
+[
+  {
+    "label": "provider-tool-history.e2e",
+    "argv": [
+      "node",
+      "dev-harness/provider-tool-history.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 1.609543082988239
+  },
+  {
+    "label": "parallel-read-island.e2e",
+    "argv": [
+      "node",
+      "dev-harness/parallel-read-island.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 7.112897291997797
+  },
+  {
+    "label": "provider-turnloop-hardening.e2e",
+    "argv": [
+      "node",
+      "dev-harness/provider-turnloop-hardening.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 23.70659312499629
+  },
+  {
+    "label": "turn-stop-supersede.e2e",
+    "argv": [
+      "node",
+      "dev-harness/turn-stop-supersede.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 8.787767875008285
+  }
+]

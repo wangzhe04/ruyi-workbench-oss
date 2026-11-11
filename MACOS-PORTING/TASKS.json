@@ -1882,6 +1882,29 @@
             "evidence": "evidence/P5/hard-abort/README.md",
             "independentReport": "evidence/P5/hard-abort/independent-v1/report.json",
             "commitBinding": "evidence/P5/hard-abort/commit-binding.json"
+          },
+          "providerHistoryDurabilitySlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_provider_main_turn_intents_and_received_prefixes",
+            "implementationCommit": "7f95d654",
+            "productRuntimeSourceChanged": true,
+            "scope": "Strict committed requested model tool intent before local preexecution/approval, received prefixes before next calls, honest unknown vs not_dispatched, bounded parallel display/native images attachments. Node provider main turn, not ACC dispatch/entry/terminal or App/held/automatic continuation acceptance.",
+            "independentCases": {
+              "newUnit": 9,
+              "offlineProcessCrash": 11,
+              "zeroInputNative": 12,
+              "ordinaryEntry": 31
+            },
+            "finalEngineering": {
+              "syntax": 1158,
+              "unitPassed": 2508,
+              "unitExistingSkipped": 18,
+              "fastPassed": 80,
+              "fastFlaky": 0
+            },
+            "evidence": "evidence/P5/durable-history/README.md",
+            "independentReport": "evidence/P5/durable-history/independent-v1/report.json",
+            "commitBinding": "evidence/P5/durable-history/commit-binding.json"
           }
         }
       ],

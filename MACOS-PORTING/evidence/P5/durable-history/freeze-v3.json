@@ -1,0 +1,656 @@
+{
+  "schemaVersion": 1,
+  "label": "post_DHC1_DHC2_array_image_support",
+  "baseCommit": "96db15f6",
+  "scope": "Requested tool intent and received-prefix result persistence, honest unknown pairing. No ACC dispatch/entry/terminal or held/release acceptance.",
+  "sources": [
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "sha256": "e2d3d8e006d0e3f5dcaefa092f6d83dc63388c48195fdb46d9cd9b6d3d15189c"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "sha256": "9633ace42b286f6166e1976df629754c8c9204257b74ae2007436edf59e9be8e"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "bytes": 41944,
+      "sha256": "83f9d3b0faef8924f2eb0ea0a513dfdf0de1c42b490f596b35bf80364998d414"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-abort-window.m",
+      "bytes": 6395,
+      "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+    },
+    {
+      "path": "dev-harness/free-port.js",
+      "bytes": 2370,
+      "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "path": "dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "path": "dev-harness/macos-neutral-abort.e2e.js",
+      "bytes": 25436,
+      "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+    },
+    {
+      "path": "dev-harness/parallel-read-island.e2e.js",
+      "bytes": 9102,
+      "sha256": "3d42bbcc204e23589b5d4f1cfffe8ae896fd38c22f9f81d7494690f2d3488d3a"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14360,
+      "sha256": "b3fcbb93255adc63de299a28655a7ce228856a72dae93814a48f8febdce1eb75"
+    },
+    {
+      "path": "dev-harness/provider-tool-history.e2e.js",
+      "bytes": 12551,
+      "sha256": "c5f851f035902a9cbafd275f7bad1b64ac10d4de829c009b5624a51277dfc309"
+    },
+    {
+      "path": "dev-harness/provider-turnloop-hardening.e2e.js",
+      "bytes": 20932,
+      "sha256": "0ec2f2a1690f7121cf84149509bfa168cd5e0a4b2163bbce70f92ab400a7a0ba"
+    },
+    {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "bytes": 9150,
+      "sha256": "af5529b5dd8b6e19bd34bc521ca6cb768fc54153f357db955b55a6b0259e1be7"
+    },
+    {
+      "path": "dev-harness/turn-stop-supersede.e2e.js",
+      "bytes": 19470,
+      "sha256": "f56bdc8370c83f5aa0fd7aa8a61c665e6c873ef40bb8bbbdfb729be06932aa77"
+    },
+    {
+      "path": "dev-harness/unit/session-required-persistence.test.js",
+      "bytes": 12517,
+      "sha256": "939e1b4571185fa120e9460bf5d047f783e229cc3ef1773bb2f8a10c2216ca49"
+    },
+    {
+      "path": "dev-harness/unit/tool-result-shrink.test.js",
+      "bytes": 18111,
+      "sha256": "b44a6249f622de3892faa5374e6f499f4747e01255cc3e40e010c6ff1b68ae67"
+    },
+    {
+      "path": "dev-harness/visual-baselines/workbench-shell-v2-light.png",
+      "bytes": 138353,
+      "sha256": "9acce5e53558a08037e6e65e4bdbd23e5c98b51592915866819045b92ca74d1f"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 209033,
+      "sha256": "eb6c76c06eb67ee9694fc19fb52e8b8d85185bc70c19fe31081a8f80d78bdd84"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "7e3564a5d91cb04bdd06d37babe23ca97010412df21ac4e64f09274ff039fdea"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "d93c755d6cb1740b0c2864812a6c6cf555682fa7d1f0c0e8fd86f7863ac1ad44"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6782007,
+      "sha256": "208e7503913ae34e17a8cfc0ec657d8eedef4917b16762a0fc2c8b5548a201a2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "bytes": 96866,
+      "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-platform-runtime.js",
+      "bytes": 1999,
+      "sha256": "6fc836ad79bbb2f33c049be258f89ea5d4a89dfa853051e3445ed34d781443ef"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00b-ruyi-names.js",
+      "bytes": 1282,
+      "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "bytes": 290489,
+      "sha256": "6170dc98fa1f90bf2f14d7700f02d749603d135e8a154ad05f0753a62e8ef147"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01b-route-auth.js",
+      "bytes": 18757,
+      "sha256": "85e8b92340e16d83c927c77c00f178fa775834eccd3f0ecf6542597205dc3c88"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01c-runtime-flags.js",
+      "bytes": 11739,
+      "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01d-win-cmdline.js",
+      "bytes": 7622,
+      "sha256": "ee1c5a7fe942332d8a75f5eaf6d8d589a37e935641b423c6a1be8ffa590e3456"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "bytes": 17867,
+      "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "bytes": 5291,
+      "sha256": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "bytes": 16411,
+      "sha256": "f99027cb8f24b5ea9fb0e88eb8e3cbe716cf116990ab5e683fad56a180acb50b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "bytes": 37693,
+      "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "bytes": 24619,
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01i-privacy-rules.js",
+      "bytes": 26429,
+      "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "bytes": 11387,
+      "sha256": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "bytes": 21421,
+      "sha256": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "bytes": 10900,
+      "sha256": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01m-privacy-regex.js",
+      "bytes": 5889,
+      "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "bytes": 5148,
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 412191,
+      "sha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "bytes": 18918,
+      "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "bytes": 5740,
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02e-session-engine-route.js",
+      "bytes": 3042,
+      "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "bytes": 11929,
+      "sha256": "3c70968cafa4bbf09ea7d71b993ee5cc01a9c95c29f31bc4f0e1372bf1536bec"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "bytes": 124245,
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "bytes": 84195,
+      "sha256": "8469f2b59f3dc6741e3734aac72fa341ac87f18d2d8115290703560d9d5904ce"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-desktop-shell.js",
+      "bytes": 40797,
+      "sha256": "198ee712a1fa49a23ff8a8365f13cb3c54020789d2260bcc3274a372d3d7a326"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 195200,
+      "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-visual-pipeline.js",
+      "bytes": 14720,
+      "sha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "bytes": 27430,
+      "sha256": "9c1865eed69ee7b8fce84ac8a5c25e11ef266a6339b88f6c435a3ac011766b18"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "bytes": 15736,
+      "sha256": "d563272e7576737417602ff98521be5fb9bff84e58151d8157310636637f88ab"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "bytes": 40983,
+      "sha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "bytes": 51227,
+      "sha256": "c7d12d7866ab5a16451432955f1b10163292e7d5a51f108b04742842c7c3f12a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "bytes": 53142,
+      "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-learn.js",
+      "bytes": 42013,
+      "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "bytes": 28768,
+      "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "bytes": 181424,
+      "sha256": "bc742c8ddaf67af4334f01b8ab71d756e7e7160ca62bb2c01c99aa2e4d63c23f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "bytes": 173002,
+      "sha256": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "bytes": 35423,
+      "sha256": "eb60a621d764822820784b39c36e182ffd8ffdf6596c25bfdd9dacfa176589ca"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "bytes": 10916,
+      "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "bytes": 166256,
+      "sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "bytes": 125407,
+      "sha256": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "bytes": 7061,
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "bytes": 186948,
+      "sha256": "3b09710d349826f062e4616ab8934ed61fce2ba2fa1cf1fd4494bbf4916a23d1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06e-mission-domain.js",
+      "bytes": 10619,
+      "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "bytes": 21944,
+      "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "bytes": 18239,
+      "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06h-retrieval-index.js",
+      "bytes": 14952,
+      "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06i-steward-core.js",
+      "bytes": 192997,
+      "sha256": "b1c6feb7d233cf8eeae35c3e98993741abdce10c8ddb849f2ee30c1239759e88"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06j-scheduler-core.js",
+      "bytes": 39228,
+      "sha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06k-config-patch.js",
+      "bytes": 16498,
+      "sha256": "3fa94c8584a9a65f23d858388f78c7e67472ebfe72ea9b165e120bc73ef42cbf"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234136,
+      "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 246586,
+      "sha256": "ffcde3d21347d86f6f5e6cd770e005272636828048e6ba23c173df15ba310d66"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 359471,
+      "sha256": "3c3a7b7b209c4d48bbd75d96b0622e0958eae48ab279e8541cccf377ccaf2a4c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "bytes": 12031,
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09d-token-estimation.js",
+      "bytes": 17595,
+      "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 319691,
+      "sha256": "08f1e010fc652dd00de2e3aecf9e4a8365b48d13e53fd0c20e9c042aae19449c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "bytes": 410013,
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "bytes": 36770,
+      "sha256": "740cbf33bac9ffd5c967404940a47f78a2c760cc025b1a21227655651310f159"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11c-file-visual-io.js",
+      "bytes": 9213,
+      "sha256": "3427ec055e00f90a0fd6addf3bec5b540e9c5fb472e720a1ec34604a97aeee37"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11d-media-inspection.js",
+      "bytes": 19979,
+      "sha256": "dd185f06ada6739bbfb8777de403d1df63778982c282155fbbc1206251934a85"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301569,
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "bytes": 13107,
+      "sha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "bytes": 14851,
+      "sha256": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "bytes": 77832,
+      "sha256": "b4b233812ab536d30c0e13a772e717dd9dfaa4f5fe4e5aef29196fdb174c1025"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "bytes": 14058,
+      "sha256": "1526ae2f03b56ca7b1a2d890718478ebacdcdeb5bb8e1b1f2d59a57e3e058c45"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "bytes": 190122,
+      "sha256": "4aa6345e87ac919a3459f10231a6d59a21e82f0a464de7de39e5d1080d765562"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "bytes": 52395,
+      "sha256": "ed3eae97a61b788cab3d19ed4423c3d2f519ba4f685663758079ba60910b3989"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "bytes": 150843,
+      "sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13g-steward.js",
+      "bytes": 34849,
+      "sha256": "6092fb91bfc27c79bc7602befcb3fa96bcdfbd2ced0e40995d1459d43ab33e36"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "bytes": 35776,
+      "sha256": "038af68eebf3e711c844d267a205af2b67ee6caaddefe0982181026b63eb1d92"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "bytes": 99735,
+      "sha256": "640580ad0b773efcaaf059f2bb5c740320b35e84f0228785e6a04f85e0ce4e92"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "bytes": 37377,
+      "sha256": "849e4cad376a6275cadf52b2f89e88e28a53c83acb2bea36111b78e5a871d0af"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13k-steward-threads.js",
+      "bytes": 138835,
+      "sha256": "73b3e4898cc9e7f4e14e4cf511862f3a99be9ca6de95ebfe261be5bb58dcc6ac"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "bytes": 124618,
+      "sha256": "9559c5cb1968ddf3273dbc708d67fd9803f75e182b9e71c9eea1c7045c2f87fe"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "bytes": 27788,
+      "sha256": "9ccad7589001d88b0cf4379b79037c69e51cddef7ff94328c4d9a8d6db0b5a5d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "bytes": 40223,
+      "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "bytes": 56821,
+      "sha256": "f1c1d24425f08b66cccc77d63c3fa7385c52ea51177c2d5eb6853915cb989758"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "bytes": 69467,
+      "sha256": "dc98a4bf271e2fd4400cf90c2cbfc41e3a93ee4bb15ad45d2d1864c4004e7755"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "bytes": 89677,
+      "sha256": "06099c999b674189b973bc75344132d25d23cd1a73f87777c92b89c17905f775"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13r-event-stream.js",
+      "bytes": 26858,
+      "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "bytes": 76468,
+      "sha256": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "bytes": 34363,
+      "sha256": "14dbecff43342ff285faa8206ba0f164a4d2771df0291761a8b72fa0c8916b3a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13u-migration-center.js",
+      "bytes": 59592,
+      "sha256": "ebf1f82fe28bad36f1822b577fee0cbb3667db1f025d7a3acd1da585d2beaa0d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "bytes": 14755,
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "bytes": 63633,
+      "sha256": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "bytes": 9465,
+      "sha256": "86fca44373a8ed7f434c6bb61ad5b2054dcea716d21178601ab929b680e8f8db"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "bytes": 12055,
+      "sha256": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "bytes": 6315,
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"
+    },
+    {
+      "path": "ruyi-workbench/app/src/14-main.js",
+      "bytes": 38366,
+      "sha256": "6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "sha256": "55111d26951f02fefe813bad957f60fd1dbfe31987c01b2123e8cf86f841053a"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "bytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "bytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 8641,
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4588,
+      "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+    }
+  ],
+  "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "8c64ac003381b68fe6ad261b1bd9a9b4f0e367519ae4445ec96bbaedd788c356"
+    }
+  ]
+}

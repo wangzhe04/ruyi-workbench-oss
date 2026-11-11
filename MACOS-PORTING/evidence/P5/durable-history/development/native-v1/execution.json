@@ -1,0 +1,11 @@
+[
+  {
+    "label": "native",
+    "argv": [
+      "node",
+      "dev-harness/macos-neutral-abort.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 3.854851875003078
+  }
+]

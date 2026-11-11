@@ -1,0 +1,21 @@
+[
+  {
+    "label": "syntax",
+    "argv": [
+      "node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "exitCode": 0,
+    "seconds": 26.22800108299998
+  },
+  {
+    "label": "fast",
+    "argv": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 0,
+    "seconds": 122.38261520800006
+  }
+]

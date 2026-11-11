@@ -1,0 +1,11 @@
+[
+  {
+    "label": "entry",
+    "argv": [
+      "node",
+      "dev-harness/macos-native-entry.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 4.415107833003276
+  }
+]

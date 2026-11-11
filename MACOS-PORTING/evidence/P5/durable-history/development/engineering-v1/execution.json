@@ -1,0 +1,41 @@
+[
+  {
+    "label": "syntax",
+    "argv": [
+      "node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "exitCode": 0,
+    "seconds": 25.83247387499432
+  },
+  {
+    "label": "build",
+    "argv": [
+      "node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "exitCode": 0,
+    "seconds": 0.20411199999216478
+  },
+  {
+    "label": "unit",
+    "argv": [
+      "node",
+      "--test",
+      "dev-harness/unit/*.test.js"
+    ],
+    "exitCode": 0,
+    "seconds": 111.41423424999812
+  },
+  {
+    "label": "fast",
+    "argv": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 1,
+    "seconds": 123.51241041700996
+  }
+]

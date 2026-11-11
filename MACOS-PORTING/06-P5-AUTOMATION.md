@@ -77,3 +77,5 @@ P5-05 受控原生录制切片已通过当前主机独立验收，二十一条�
 1b03da04新增真实自有窗口水平平移期间的生产helper捕获测试，独立18项通过；8次有actual CG位置变化见证的window_changed拒绝，静止前后exact bounds/backingScale2/PNG色点通过独立解码。仅测试/夹具/清册变化，12源/2产物和工程门绑定通过；不覆盖resize、物理display布局或移动成功瞬时origin。[记录](evidence/P5/transition/README.md)。
 
 96db15f6新增零输入根进程强杀校准，主执行与独立各12项通过：原5个已观察身份退出、输入中性、GET重启不重放。权限请求名/参数及allow意图仍在；dispatch/ACC wait-entry与执行终局持久归属未确认，完整hard-abort门保持开放。仅测试/夹具/清册变化。[记录](evidence/P5/hard-abort/README.md)。
+
+7f95d654修复普通Provider主回合工具意图/逐结果持久化及严格保存屏障，未知与确未派发收尾分开，恢复并行展示有界并支持原生图片数组附件。独立新unit9/offline11/零输入12/入口31通过，最终工程语法1158、单元2508/18既有skip、fast80/80；初次保存普查79/80失败及修正保留。请求记录不等于实际ACC派发/入口/终局或held门通过，Node范围未新验App。[记录](evidence/P5/durable-history/README.md)。

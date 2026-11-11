@@ -1,0 +1,15 @@
+✔ required persistence commits the exact pending tool identity and model arguments (173.30775ms)
+✔ required persistence rejects a deleted session while legacy saves remain discarded (98.103708ms)
+✔ required persistence rejects an older rewind generation without changing the current body (99.658791ms)
+✔ required persistence rejects a newer committed turn before accepting old tool intent (101.669541ms)
+✔ required persistence checks owner replacement inside the queued write (95.343583ms)
+✔ failed intent head commit prevents the real file effect instead of dispatching without history (403.524125ms)
+✔ Stop after first parallel read retains the already returned second result (118.00825ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8927.758417

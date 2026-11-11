@@ -1,0 +1,13 @@
+PASS actual file effect completes before the pending second call
+PASS pending batch call IDs and requested model arguments are committed before whole-batch completion
+PASS completed prefix result is committed while second call still has no result
+PASS only original owned service root receives deliberate SIGKILL
+PASS committed invocation and prefix survive actual process death
+PASS GET-only cold restart identifies missing tool results rather than a user-only unfinished turn
+PASS GET-only restart requests no model and does not replay completed effect
+PASS default-mode pending approval already has durable tool intent with no effect
+PASS actual default permission is denied
+PASS denied result persists without executing its file effect
+PASS all observed service birth identities exit
+
+PROVIDER TOOL HISTORY E2E: ALL PASS
