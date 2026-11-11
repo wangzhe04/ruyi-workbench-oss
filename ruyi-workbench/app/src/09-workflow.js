@@ -1630,7 +1630,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const pairingRepaired = repairProviderHistoryPairing(session.providerHistory);
   if (pairingRepaired > 0) {
     logEvent({ kind: 'provider_pairing_repair', sessionId: session.id, repaired: pairingRepaired, turnSeq: (Number(session.turnSeq) || 0) + 1 });
-    session.messages.push({ role: 'system', content: `🛠 检测到上次回会在工具执行中中断,已补 ${pairingRepaired} 条丢失的工具结果占位(防 strict provider 400 卡死会话)`, createdAt: nowIso(), source: 'repair' });
+    session.messages.push({ role: 'system', content: `🛠 上次回合有 ${pairingRepaired} 项工具调用未保存结果;是否执行及影响未确认,请先核实,避免重复操作`, createdAt: nowIso(), source: 'repair' });
     session.providerHistoryCursor = session.messages.length;
   }
   // 参数铁律自愈(同上一段的同位兄弟,毒在参数而非配对):持久化历史里若有 assistant.tool_calls 的
@@ -2095,6 +2095,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
+  // Turn-local knowledge for honest pairing on errors. Processing is NOT target dispatch proof.
+  let pendingProviderCalls = new Map();
   // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
   // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
   // 新到的调用 id 撞了就规范成唯一(id + '_' + 迭代序号):下游 —— providerHistory 的 assistant.tool_calls[].id、role:'tool' 的
@@ -3091,6 +3093,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         for (const stc of serverToolCalls) await surfaceServerSearchCall(stc, call.serverSearchInline !== true);
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
         if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
+        // Persist requested call IDs/names/model arguments before any local execution or permission wait.
+        // This is intent, not a receipt that the target accepted or executed a call.
+        pendingProviderCalls = new Map(localToolCalls.map(tc => [String(tc.id), { processing: false }]));
+        const persistToolHistory = async () => {
+          await saveSession(session, { ...turnSaveOpts, requirePersisted: true });
+          assertSessionExecutionOwner(session.id, executionOwner);
+        };
+        if (localToolCalls.length) await persistToolHistory();
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
@@ -3135,6 +3145,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               // 现状全量并发路径(逐字节等价,仅供 E1 埋点延续)
               await Promise.all(islandCalls.map(async tc => {
                 let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                pendingProviderCalls.get(String(tc.id)).processing = true;
                 let res, lease = '';
                 if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
                 try {
@@ -3142,12 +3153,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                   res = await awaitProviderTool(
                     tc,
-                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true, toolCallId: tc.id }),
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                   );
                 } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                 finally { releaseResourceLease(lease); }
                 parallelReadResults.set(tc.id, res);
+                Object.assign(pendingProviderCalls.get(String(tc.id)), { hasResult: true, result: res });
               }));
             } else {
               // 21-E2: >8 纯 read —— 有界 worker pool。worker 数 = min(width, min(8, max(4, width))),
@@ -3158,6 +3170,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 while (poolNext < islandCalls.length) {
                   const tc = islandCalls[poolNext++];
                   let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                  pendingProviderCalls.get(String(tc.id)).processing = true;
                   let res, lease = '', tWait0 = Date.now();
                   if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 预执行真实起点
                   try {
@@ -3166,12 +3179,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     poolQueueWaitMs += Date.now() - tWait0; // 21-E2: 资源锁排队时长计量
                     res = await awaitProviderTool(
                       tc,
-                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
+                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true, toolCallId: tc.id }),
                       INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                     );
                   } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                   finally { releaseResourceLease(lease); }
                   parallelReadResults.set(tc.id, res);
+                  Object.assign(pendingProviderCalls.get(String(tc.id)), { hasResult: true, result: res });
                 }
               }));
             }
@@ -3182,6 +3196,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const batchToolCallsStart = toolCalls.length;
         const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
         for (const tc0 of localToolCalls) {
+          pendingProviderCalls.get(String(tc0.id)).processing = true;
+          try {
           const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
@@ -3207,13 +3223,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
-              const skip = { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
-              await notifyToolHookStart(rem, rargs, iter, 'loop_skipped');
+              const returned = parallelReadResults && parallelReadResults.has(rem.id);
+              const skip = returned ? parallelReadResults.get(rem.id) : { ok: false, error: '本轮已因重复调用停止,该调用未执行' };
+              await notifyToolHookStart(rem, rargs, iter, returned ? 'execute' : 'loop_skipped');
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
-              onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
-              toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
-              await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
+              const shownSkip = await boundToolResultForDisplay(rem.name, skip, { sessionId: session.id });
+              onEvent({ type: 'tool_result', id: rem.id, content: shownSkip, isError: !returned || skip?.ok === false });
+              toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: shownSkip });
+              const historySkip = returned ? VisualPipeline.stripToolImageFields(skip, 'interrupted-batch') : skip;
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(historySkip) : historySkip)) });
+              await notifyToolHookEnd(rem, skip, iter, returned ? 'executed' : 'loop_skipped');
             }
             // v2.7.1 (opt#2): 5x 中止后自主恢复 -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)要求模型换策略,
             // 重置签名连击计数,仅 break 内层 for 循环(不设 loopAborted)-> 外层迭代循环带着恢复指令重新请求模型。
@@ -3517,7 +3536,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true, toolCallId: tc.id }),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
@@ -3620,16 +3639,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
-              const skip = { ok: false, error: '本轮已因用户插话中断,该调用未执行' };
-              await notifyToolHookStart(rem, rargs, iter, 'steer_skipped');
+              const returned = parallelReadResults && parallelReadResults.has(rem.id);
+              const skip = returned ? parallelReadResults.get(rem.id) : { ok: false, error: '本轮已因用户插话中断,该调用未执行' };
+              await notifyToolHookStart(rem, rargs, iter, returned ? 'execute' : 'steer_skipped');
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
-              onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
-              toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
-              await notifyToolHookEnd(rem, skip, iter, 'steer_skipped');
+              const shownSkip = await boundToolResultForDisplay(rem.name, skip, { sessionId: session.id });
+              onEvent({ type: 'tool_result', id: rem.id, content: shownSkip, isError: !returned || skip?.ok === false });
+              toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: shownSkip });
+              const historySkip = returned ? VisualPipeline.stripToolImageFields(skip, 'interrupted-batch') : skip;
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(historySkip) : historySkip)) });
+              await notifyToolHookEnd(rem, skip, iter, returned ? 'executed' : 'steer_skipped');
             }
             steerAborted = true;
             break;
+          }
+          } finally {
+            // Include refusal/control/continue/break paths and every received prefix before later tools.
+            await persistToolHistory();
           }
         }
         // v0.9-S7 视觉回路: FLUSH the batch's queued tool screenshots NOW — the whole tool block is closed
@@ -3824,9 +3850,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       session.providerHistory[session.providerHistory.length - 1].role === 'user') {
     session.providerHistory.pop();
   }
-  // 停止(或异常)落在一批工具中途:批里后面的调用既没执行也没回复,落盘的历史留下孤儿 tool_call。下一回合开头的
-  // 配对自愈会补上,但措辞是「上次回会在执行该工具时中断,结果未保存」并发一条 🛠 系统消息 —— 对一次正常的停止是误导。
-  // 这里在收尾时就把末尾那批补齐,说清楚是回合停了、调用没执行(与批内 loop/steer 跳过的逐条配对同形)。
+  // Pair missing replies without turning a returned parallel result or an uncertain in-flight call
+  // into a claim of nonexecution. Only this batch's still-unprocessed intents are known not dispatched.
   if (!ok || wasStopped) {
     const hist = session.providerHistory;
     let blockEnd = hist.length;
@@ -3834,10 +3859,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const lastAsst = hist[blockEnd - 1];
     if (lastAsst && lastAsst.role === 'assistant' && Array.isArray(lastAsst.tool_calls) && lastAsst.tool_calls.length) {
       const answered = new Set(hist.slice(blockEnd).map(m => String(m.tool_call_id)));
-      const skip = { ok: false, error: wasStopped ? '回合已被停止,该调用未执行' : '回合异常结束,该调用未执行' };
       for (const tcall of lastAsst.tool_calls) {
         if (!tcall || tcall.id == null || answered.has(String(tcall.id))) continue;
-        hist.push({ role: 'tool', tool_call_id: tcall.id, content: JSON.stringify(skip) });
+        const state = pendingProviderCalls.get(String(tcall.id));
+        const received = toolCalls.find(tc => String(tc.id) === String(tcall.id));
+        const prefix = wasStopped ? '回合已被停止' : '回合异常结束';
+        const skip = received ? received.result : state?.hasResult ? state.result
+          : state?.processing || !state
+            ? { ok: false, outcome: 'unknown', action_sent: null, error: prefix + ',调用结果未保存,是否执行及影响未确认;请勿自动重放' }
+            : { ok: false, outcome: 'not_dispatched', action_sent: false, error: prefix + ',该调用未执行' };
+        const safe = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip;
+        hist.push({ role: 'tool', tool_call_id: tcall.id, content: truncateToolResult(tcall.function?.name || '', JSON.stringify(VisualPipeline.stripToolImageFields(safe))) });
       }
     }
   }

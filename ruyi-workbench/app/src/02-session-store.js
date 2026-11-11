@@ -3192,7 +3192,7 @@ function repairProviderHistoryPairing(history) {
     if (!missing.length) continue;
     const fills = missing.map(tc => ({
       role: 'tool', tool_call_id: tc.id,
-      content: '[工具结果丢失:上次回会在执行该工具时中断,结果未保存。请勿重放此调用,按上下文继续。]',
+      content: '[工具结果丢失:上次回合已记录此调用,是否派发、执行及其结果未确认,可能已经产生影响。请勿自动重放此调用;先核实已发生的影响,需要再次执行时请取得明确授权。]',
     }));
     history.splice(j, 0, ...fills);
     repaired += fills.length;
@@ -3867,6 +3867,15 @@ async function saveSession(session, opts) {
   }
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
   if (dropped) {
+    // Execution barriers must distinguish a committed snapshot from a legacy best-effort return.
+    // Other callers retain their existing handling of intentionally discarded stale/deleted saves.
+    if (opts && opts.requirePersisted === true) {
+      throw Object.assign(new Error('session save was not committed; execution must not continue'), {
+        code: 'SESSION_SAVE_NOT_COMMITTED',
+        reason: dropped.deleted ? 'deleted' : dropped.executionSuperseded ? 'execution_superseded'
+          : dropped.supersededTurn ? 'turn_superseded' : 'stale',
+      });
+    }
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
     // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
     if (dropped.supersededTurn) {
