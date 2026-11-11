@@ -39,8 +39,8 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
   }
   const referenceId = ref => typeof ref === 'string' && ref.startsWith(PREFIX) && /^[a-f0-9]{32}$/.test(ref.slice(PREFIX.length)) ? ref.slice(PREFIX.length) : null;
   const validPointer = pointer => /^(?:\/(?:messages|input))?\/\d+\/content\/\d+$/.test(pointer);
-  function create({ contract = MediaImageContract, context, storeFor, now = Date.now } = {}) {
-    if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
+  function create({ contract = MediaImageContract, context, storeFor, now = Date.now, expireCleanup = work => work() } = {}) {
+    if (typeof context !== 'function' || typeof storeFor !== 'function' || typeof expireCleanup !== 'function') fail('host_required');
     const records = new Map(), removals = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
     function beginScope(sessionId) {
       if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}(?::[A-Za-z0-9_-]{1,160})?$/.test(sessionId)) fail('scope_changed');
@@ -145,7 +145,10 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
         const stored = await record.store.put({ sourceId: source.id, manifest, bytes: borrowed.bytes }); record.storedId = stored.id; check(record);
         borrowed.release(); borrowed = null;
         records.set(id, record);
-        record.timer = setTimeout(() => { void remove(id).catch(() => {}); }, Math.max(1, manifest.expiresAt - now())); record.timer.unref?.();
+        // Timers inherit the completed prepare request's ALS context. The trusted
+        // host grants a fresh cleanup admission for this entire retirement, not
+        // just unlink: the source lease and scope owner remain covered too.
+        record.timer = setTimeout(() => { void (async () => expireCleanup(() => remove(id)))().catch(() => {}); }, Math.max(1, manifest.expiresAt - now())); record.timer.unref?.();
         returned = true;
         return Object.freeze({ id, reference: PREFIX + id, manifest, recognitionConfidence: 'unknown' });
       } catch (error) { failed=true;primary=error;throw error; }

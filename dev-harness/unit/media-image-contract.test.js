@@ -61,6 +61,29 @@ test('all owner changes during synchronous compression refuse before publication
   }
 });
 test('opaque host tickets cannot be cloned or consumed by another pipeline',async()=>{const f=fixture(),g=fixture(),t=await f.pipeline.prepare();a.throws(()=>f.pipeline.describe({}),{code:'privacy.image_unknown_artifact'});a.throws(()=>g.pipeline.borrow(t),{code:'privacy.image_unknown_artifact'});a.throws(()=>f.pipeline.describe({...t}),{code:'privacy.image_unknown_artifact'});f.pipeline.release(t);});
+test('successful retirement makes owner cleanup idempotent without admitting foreign or retired tickets', async () => {
+  const f = fixture(), g = fixture(), token = await f.pipeline.prepare(), foreign = await g.pipeline.prepare();
+  f.pipeline.release(token);
+  a.doesNotThrow(() => f.pipeline.release(token));
+  a.throws(() => f.pipeline.describe(token), { code: 'privacy.image_unknown_artifact' });
+  a.throws(() => f.pipeline.borrow(token), { code: 'privacy.image_unknown_artifact' });
+  a.throws(() => f.pipeline.release(foreign), { code: 'privacy.image_unknown_artifact' });
+  a.throws(() => f.pipeline.release({}), { code: 'privacy.image_unknown_artifact' });
+  g.pipeline.release(foreign);
+});
+test('repeated owner cleanup preserves a previously recorded retirement failure', async () => {
+  const f = fixture(), controller = new AbortController();
+  const token = await f.pipeline.prepare({ signal: controller.signal }), borrowed = f.pipeline.borrow(token);
+  const original = controller.signal.removeEventListener, cause = Error('synthetic listener cleanup failure');
+  controller.signal.removeEventListener = () => { throw cause; };
+  let first;
+  try { f.pipeline.release(token); } catch (error) { first = error; }
+  finally { controller.signal.removeEventListener = original; }
+  a.equal(first.code, 'privacy.image_cleanup_failed'); a.equal(first.errors[0], cause);
+  a.throws(() => f.pipeline.release(token), error => error === first);
+  a.throws(() => f.pipeline.describe(token), error => error === first);
+  a.ok(borrowed.bytes.every(byte => byte === 0));
+});
 test('preview and delivery borrow exact same payload hash, fixed name and no send authorization',async()=>{const f=fixture(),t=await f.pipeline.prepare(),v=f.pipeline.borrow(t),d=f.pipeline.borrow(t,{purpose:'delivery'});a.equal(h(v.bytes),h(d.bytes));a.equal(d.manifest.payloadHash,h(d.bytes));a.equal(d.manifest.name,'protected.png');a.equal(d.manifest.authorization,'none');a.throws(()=>f.pipeline.borrow(t,{purpose:'delivery'}),{code:'privacy.image_delivery_already_borrowed'});v.release();d.release();f.pipeline.release(t);});
 for(const kind of['Source','Policy','Processor'])test(kind+' replacement refuses old preview and zeros all outstanding copies',async()=>{const f=fixture(),t=await f.pipeline.prepare(),v=f.pipeline.borrow(t),d=f.pipeline.borrow(t,{purpose:'delivery'});f['set'+kind]();a.throws(()=>v.assert(),{code:'privacy.image_owner_changed'});a.equal(v.bytes.every(n=>n===0),true);a.equal(d.bytes.every(n=>n===0),true);a.throws(()=>f.pipeline.borrow(t),{code:'privacy.image_unknown_artifact'});});
 test('changing protected borrow bytes refuses with no source fallback',async()=>{const f=fixture(),t=await f.pipeline.prepare(),v=f.pipeline.borrow(t);v.bytes[0]^=1;a.throws(()=>v.assert(),{code:'privacy.image_borrow_changed'});a.equal(v.bytes.every(n=>n===0),true);a.throws(()=>f.pipeline.describe(t),{code:'privacy.image_unknown_artifact'});});
@@ -108,6 +131,53 @@ test('invalid boxes and empty recognized results fail closed', () => {
   const { detector } = loadDetector();
   assert.throws(() => mapWords([], detector, 400, 60), { code: 'unrecognized' });
   assert.throws(() => mapWords([{ text: 'local.fixture@example.test', line: 0, box: [0, 0, 900, 50] }], detector, 400, 60), { code: 'invalid-ocr' });
+});
+
+const productMapWords = vm.runInNewContext(functionBlock(source, 'mapWords') + ';mapWords;', {
+  failure: code => Object.assign(Error(code), { code }),
+});
+test('OCR interval selection scales with words and hits without their Cartesian product', () => {
+  const count = 4000, words = Array.from({ length: count }, () => ({ text: 'x', line: 0, box: [1, 1, 2, 2] }));
+  let startsRead = 0;
+  const hits = Array.from({ length: count }, (_, index) => ({
+    get start() { startsRead++; return index * 2; }, end: index * 2 + 1, category: 'SYNTHETIC',
+  }));
+  const result = productMapWords(words, { detect: () => hits }, 8, 8);
+  a.equal(result.matchedWords, count);
+  a.equal(result.hitCount, count);
+  a.equal(result.crossWord, false);
+  a.ok(startsRead <= count * 4, `bounded hit reads: ${startsRead}`);
+});
+test('OCR span construction, interval selection and selected boxes each poll interruption', () => {
+  const words = Array.from({ length: 256 }, () => ({ text: 'x', line: 0, box: [1, 1, 2, 2] }));
+  for (const phase of ['words', 'hits', 'boxes']) {
+    let checks = 0, detected = false;
+    const interruption = Object.assign(Error(phase), { code: 'fixture.interrupted' });
+    const detector = { detect: () => { detected = true; return Array.from({ length: 256 }, (_, index) => ({ start: index * 2, end: index * 2 + 1, category: 'SYNTHETIC' })); } };
+    a.throws(() => productMapWords(words, detector, 8, 8, () => {
+      checks++;
+      if ((phase === 'words' && checks === 3) || (phase === 'hits' && detected && checks === 8)
+        || (phase === 'boxes' && checks === 12)) throw interruption;
+    }), error => error === interruption, phase);
+  }
+});
+test('unsorted overlapping intervals preserve empty-word, UTF-16, category and coverage semantics', () => {
+  const words = ['', '😀', '', 'ALPHA', 'BETA', ''].map((text, index) => ({ text, line: index > 3 ? 1 : 0, box: [index * 10, 1, index * 10 + 5, 6] }));
+  const hits = [{ start: 5, end: 14, category: 'SECOND' }, { start: 0, end: 9, category: 'FIRST' }, { start: 4, end: 9, category: 'FIRST' }];
+  const result = productMapWords(words, { detect: () => hits }, 80, 10);
+  a.equal(result.matchedWords, 4);
+  a.equal(result.hitCount, 3);
+  a.equal(result.crossWord, true);
+  a.deepEqual(Array.from(result.categories), ['SECOND', 'FIRST']);
+  a.deepEqual(JSON.parse(JSON.stringify(result.boxes)), [[6, 0, 19, 10], [16, 0, 29, 10], [26, 0, 39, 10], [36, 0, 49, 10]]);
+  a.throws(() => productMapWords(words, { detect: () => [{ start: 2, end: 3, category: 'GAP' }] }, 80, 10), { code: 'incomplete-coverage' });
+});
+test('malformed detector interval endpoints cannot acquire OCR coverage through unordered comparisons', () => {
+  const words = [{ text: 'PUBLIC', line: 0, box: [1, 1, 5, 5] }];
+  for (const endpoint of ['start', 'end']) for (const value of [NaN, undefined, null, Infinity, -Infinity, 'bad', '2', {}, []]) {
+    const hit = { start: 0, end: 3, category: 'SYNTHETIC', [endpoint]: value };
+    a.throws(() => productMapWords(words, { detect: () => [hit] }, 8, 8), { code: 'incomplete-coverage' });
+  }
 });
 
 // Preserved tests from revoke-cleanup.test.cjs

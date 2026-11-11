@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "status": "SCOPED_M4_DEVELOPMENT_VERIFIED",
+  "baselineHead": "b2fb4619bfe0f65554de3a04b7b08f88596e9a23",
+  "scope": [
+    "Protected native file_read for supported local images and saved screenshots",
+    "Bounded UTF-16 OCR interval mapping with cancellation and deadline polling",
+    "Actual Responses PDF tool-result media transport"
+  ],
+  "sourceSha256": {
+    "ruyi-workbench/app/server.js": "b9a5d4f4d72accd344bbf1767e16e2f26eebb472a7ee1c0809e84f6e21208b45",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "62d66b8e23fa11bb3ad43173d718a977e15b2747f4076db40eb8cf6711b84314",
+    "ruyi-workbench/app/src/13ba-media-image-contract.js": "197eb13392f167d4bc0936fb96aa883c1b42303f98295be6f44560f3f7076808",
+    "dev-harness/native-protected-image.e2e.js": "056375133d01a19e83daf8d9d8a86e0938c88c9f31ade3aa3c53886fe9ea1fb7",
+    "dev-harness/media-image-ocr-budget-source.e2e.js": "a2524f81b933f679b511170a29f25926dd5e17ca29577f941e055630b0442694",
+    "dev-harness/protected-document-video.e2e.js": "79ec3a2adc9f48a4d5aa7bc826acd14b679de7dec9c86a2d3d241c558f74f84e",
+    "dev-harness/privacy-m1/media/prototype.js": "a21235da9104ddaa2c12d77e0a4294db67d2030dae0b0f4bc54588742f3df9ed",
+    "dev-harness/unit/media-image-contract.test.js": "136d0fbdb945d33a667c3f5e1e706c8b7deeaee2b5f4ba67b445a171b4cbc469",
+    "dev-harness/unit/media-image-canonical-regions.test.js": "e4dc68ba4506390d72441375160cbb651277185a62da40b5f655e68bc5023b48",
+    "dev-harness/unit/native-protected-image.test.js": "165e9393742211c9f8ecca9714100fdca25f5593c10c076d83a8a4439f99a604"
+  },
+  "qualification": {
+    "server": "C:/r31-1111/m4-next/qualification/app/server.js",
+    "serverSha256": "b9a5d4f4d72accd344bbf1767e16e2f26eebb472a7ee1c0809e84f6e21208b45",
+    "runtimeRoot": "C:/r31-1109/m4p1/ruyi-workbench/dist/Ruyi-full-local/mcp/ai-computer-control",
+    "sourceRoot": "C:/r31-1109/m4p1/ruyi-workbench/dist/Ruyi-full-local/resources/media-runtime-sources",
+    "sourceProfile": "local-full-v2",
+    "runtimeFiles": 4987,
+    "runtimeBytes": 413946142,
+    "sourceBytes": 189682945,
+    "ordinaryFullLockChanged": false,
+    "newPackageAcceptance": false
+  },
+  "independentReviews": [
+    {
+      "scope": "native image implementation and sensitive-pixel regression",
+      "author": "m4_gap_audit",
+      "reviewer": "m4_media_review",
+      "result": "GO; strengthened real OCR pixel assertions"
+    },
+    {
+      "scope": "OCR interval mapper",
+      "author": "m4_media_review",
+      "reviewer": "m4_responses_e2e",
+      "result": "GO after non-finite endpoint rejection fix and 18 invalid-endpoint cases; 30000 finite-interval differential cases matched"
+    },
+    {
+      "scope": "Responses HTTP regression",
+      "author": "m4_responses_e2e",
+      "reviewer": "m4_gap_audit",
+      "result": "GO; real endpoint, exact masked pixels, immediate tool binding, and history exclusions checked"
+    }
+  ],
+  "verification": {
+    "node": "24.14.0",
+    "targetUnit": {
+      "tests": 389,
+      "pass": 389,
+      "fail": 0,
+      "log": "C:\\r31-1111\\m4-next\\target-unit-final.log"
+    },
+    "syntax": {
+      "files": 1499,
+      "fail": 0,
+      "log": "C:\\r31-1111\\m4-next\\syntax.log"
+    },
+    "staticAndHygiene": [
+      "media-runtime-inventory.static.e2e.js",
+      "media-runtime-notices.static.e2e.js",
+      "media-runtime-source-evidence.static.e2e.js",
+      "media-artifact-package.static.e2e.js",
+      "module-dependency-graph.static.e2e.js",
+      "route-inventory.static.e2e.js",
+      "facts.static.e2e.js",
+      "manifest-ranges.static.e2e.js",
+      "repo-hygiene.e2e.js"
+    ],
+    "e2e": [
+      {
+        "log": "C:\\r31-1111\\m4-next\\native-image-full-first.log",
+        "sha256": "a9f3c8445ced56d89101517ff28e9d02c6f2bfaec3ac24cbbf354236a49bf078",
+        "mode": "current-source-real-components",
+        "assertions": 8,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\native-image-full-repeat.log",
+        "sha256": "a9f3c8445ced56d89101517ff28e9d02c6f2bfaec3ac24cbbf354236a49bf078",
+        "mode": "current-source-real-components",
+        "assertions": 8,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\document-video-full-first.log",
+        "sha256": "232eff9fdd72db5657597a8341f48a776a50198943094b018e0d0bb173f6ed78",
+        "mode": "current-source-real-components",
+        "assertions": 13,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\responses-current-repeat.log",
+        "sha256": "691d3bb6523f8cee22b333a379b77841d5683e9815b623b3554e8c8eb3c73242",
+        "mode": "current-source-real-components",
+        "assertions": 1,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\native-protected-image-final-1.log",
+        "sha256": "f8268725997a72fae756a8c29f92a92c4152fa9a48a9a504090bb4ef0ea9f722",
+        "mode": "default",
+        "assertions": 8,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\native-protected-image-final-2.log",
+        "sha256": "f8268725997a72fae756a8c29f92a92c4152fa9a48a9a504090bb4ef0ea9f722",
+        "mode": "default",
+        "assertions": 8,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\media-image-ocr-budget-source-final-1.log",
+        "sha256": "8a9c1560399ce67dc4dfef9fa7487a93c520244bd0aa74d814679626380eda18",
+        "mode": "source-composition",
+        "assertions": 6,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\media-image-ocr-budget-source-final-2.log",
+        "sha256": "8a9c1560399ce67dc4dfef9fa7487a93c520244bd0aa74d814679626380eda18",
+        "mode": "source-composition",
+        "assertions": 6,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\protected-document-video-final-1.log",
+        "sha256": "7d72ee014d2d0a63d8b4685815904e8346567cc158df8b7f0c85ac8c4195b645",
+        "mode": "default",
+        "assertions": 2,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\protected-document-video-final-2.log",
+        "sha256": "7d72ee014d2d0a63d8b4685815904e8346567cc158df8b7f0c85ac8c4195b645",
+        "mode": "default",
+        "assertions": 2,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\media-rendered-prepare-final-1.log",
+        "sha256": "b35ab0be1428aaca6bff31a642fa12b9d066ac91d51dbb359719d9700a7425c7",
+        "mode": "default",
+        "assertions": 3,
+        "exitCode": 0
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\native-media-boundaries-final-1.log",
+        "sha256": "007fbe874e884d14a1a48256b4f69d79c18bd60b4a1db06d436fd46941ae5234",
+        "mode": "default",
+        "assertions": 35,
+        "exitCode": 0
+      }
+    ],
+    "oldSourceCounterexample": {
+      "log": "C:\\r31-1111\\m4-next\\native-image-old-rejected.log",
+      "exitCode": 1,
+      "expected": "old source returns privacy.media_not_supported before the new protected image preparation route"
+    }
+  },
+  "preservedFirstFailures": {
+    "wholeUnitDuringIntegration": {
+      "tests": 5203,
+      "pass": 5143,
+      "fail": 34,
+      "skip": 26,
+      "log": "C:\\r31-1111\\m4-next\\unit-before.log",
+      "historicalMatches": 28,
+      "historicalLog": "C:/r31-1109/m4-final-check-174000/baseline-failures.log",
+      "otherSix": "one outdated mapper hash lock, three source/build freshness checks, one bridge startup timing case, one scheduler approval timeout; all six relevant files pass final targeted verification",
+      "wholeUnitFinalGreenClaimed": false
+    },
+    "responsesPackageAttempts": [
+      {
+        "log": "C:\\r31-1111\\m4-next\\responses-package-first.log",
+        "result": "RED: legitimate HEAD capability probe omitted by fixture; fixed"
+      },
+      {
+        "log": "C:\\r31-1111\\m4-next\\responses-package-repeat.log",
+        "result": "RED: reader_unavailable; exact underlying runtime admission cause not established; no budget or component gate relaxed"
+      }
+    ]
+  },
+  "remaining": [
+    "M4 public distribution build/source/static dependency/license correspondence in handoff section 12.69",
+    "M5 authorized real QQ and Feishu platform integration",
+    "M6 fresh package installation, upgrade and frozen complete regression"
+  ],
+  "version": "3.0.1",
+  "releasePerformed": false
+}

@@ -12,21 +12,30 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), cp = require('node:child_process');
 const tempBase = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(tempBase, 'ruyi-pdf-hidden-'));
 const data = path.join(root, 'data'); fs.mkdirSync(data);
+const requestedPython = process.env.RUYI_BUNDLED_PYTHON;
 Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
 const app = require('../lib/server-internals').loadServerInternals(['FileVisualIo']);
 const HELPER = path.resolve(__dirname, '../../ruyi-workbench/resources/native-file-read.py');
 
 function pythonWithPdfplumber() {
-  for (const [exe, pre] of [['python', []], ['py', ['-3']], ['python3', []]]) {
+  const candidates = [...(requestedPython ? [[requestedPython, []]] : []), ['python', []], ['py', ['-3']], ['python3', []]];
+  for (const [exe, pre] of candidates) {
     try {
-      const r = cp.spawnSync(exe, [...pre, '-c', 'import pdfplumber'], { windowsHide: true, timeout: 20000 });
-      if (r.status === 0) return { exe, pre };
+      // Match FileVisualIo's isolated invocation: user-site/PYTHONPATH imports
+      // must not make this probe claim that the actual reader has pdfplumber.
+      const r = cp.spawnSync(exe, [...pre, '-I', '-X', 'utf8', '-c', 'import sys, pdfplumber; print(sys.executable)'],
+        { windowsHide: true, timeout: 20000, encoding: 'utf8' });
+      const executable = r.stdout?.trim();
+      if (r.status === 0 && path.isAbsolute(executable || '') && fs.existsSync(executable)) return executable;
     } catch { /* try next */ }
   }
   return null;
 }
 const PY = pythonWithPdfplumber();
-const skip = PY ? false : 'pdfplumber not installed';
+// A successful py probe must not be followed by an earlier, different python
+// candidate in the product; bind the exact interpreter that passed isolation.
+if (PY) process.env.RUYI_BUNDLED_PYTHON = PY;
+const skip = PY ? false : 'pdfplumber unavailable in an isolated Python runtime';
 
 // 一份最小合法 PDF:每个对象一条,自带 xref 偏移,能被 pdfminer/pdfplumber 正常解析。
 function buildPdf(objects) {

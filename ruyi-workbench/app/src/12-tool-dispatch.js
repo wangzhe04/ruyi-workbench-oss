@@ -1401,7 +1401,10 @@ async function fileToolBatch(operation, args, ctx) {
 NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, { ...req, io: privacyLocalIo });
 
 async function readNativeMedia(file, kind, args, ctx, protectedRead) {
-  const visual = args.as === 'image';
+  if (kind === 'image' && (args.as === 'text' || args.includeImages === false && args.as !== 'image')) {
+    return { ok: false, code: 'not_text', hint: 'Use file_read with as:"image" to receive a locally protected image. Image text extraction is not supported.' };
+  }
+  const visual = kind === 'image' || args.as === 'image';
   if (kind === 'video' && !visual) return { ok: false, code: 'video_image_required',
     hint: 'Use file_read with as:"image" to sample video frames. Set startSeconds, frameCount and intervalSeconds for the range you need.' };
   const wire = typeof ToolPreparedMedia === 'undefined' ? null : ToolPreparedMedia;
@@ -1416,8 +1419,13 @@ async function readNativeMedia(file, kind, args, ctx, protectedRead) {
     await privacyInspectLocalPath(file, signal, true);
     const { value, source } = await privacyLocalIo(file, false, () => MediaImageHooks.readLocalMediaFile(file, signal, async (bytes, source) => {
       policy?.assert();
-      const value = kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
-        : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
+      const value = kind === 'image'
+        ? bytes.length > 4 * 1024 * 1024
+          ? { ok: false, code: 'file_too_large', hint: 'Resize or compress a copy to at most 4 MiB before reading it.' }
+          : { ok: true, mode: 'image', content: 'Locally protected image attached. Original filename, path and metadata withheld.',
+            images: [{ name: 'image.png', mimeType: 'image/png', data: bytes.toString('base64') }] }
+        : kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
+          : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
       policy?.assert(); source.assert();
       return { value, source };
     }));
@@ -1506,16 +1514,14 @@ const FILE_TOOL_HANDLERS = {
       let visualKind;
       try {
         visualKind = typeof MediaInspection !== 'undefined' && MediaInspection.isVideoPath?.(p) ? 'video' : await FileVisualIo.kind(p, privacyTextRead);
-        if (visualKind === 'video' || privacyTextRead && visualKind === 'document') {
+        if (visualKind === 'video' || privacyTextRead && (visualKind === 'document' || visualKind === 'image')) {
           return await readNativeMedia(p, visualKind, args, ctx, privacyTextRead);
         }
-        // Text-only extraction still paginates/transforms document source and may start
-        // an external parser. It is unsupported by the privacy boundary, even without pixels.
-        // 隐私开着时,文档/图片读取在起任何解析器之前就被拒(像素与隐藏层都没经过遮盖链路)。
-        // 只给一个码等于让人猜:带上可执行的下一步。注意口径 —— 这里【不】建议用户降低保护,
-        // 与相邻的 document_render_unavailable / document_encrypted 一致:只给"换一种读法"。
+        // Future media kinds stay refused until they have an explicit protected
+        // source and preparation route. Offer a text-copy fallback while keeping
+        // the user's protection enabled.
         if (privacyTextRead && visualKind) return { ok: false, code: 'privacy.media_not_supported',
-          hint: 'Privacy protection is on, so document/image reading is refused before any parser runs. Read a text copy instead: export the page or section to .txt/.md (or paste the text) and read that file.' };
+          hint: 'This media kind has no protected reader. Read a text copy instead: export the page or section to .txt/.md (or paste the text) and read that file.' };
         if (args.as === 'image' && !visualKind) return { ok: false, code: 'not_image', error: 'This file is not an image or supported visual document.', path: p };
         if (args.as === 'image') args = { ...args, includeImages: true };
         if (args.as === 'text' && visualKind === 'image') return { ok: false, code: 'not_text', error: 'Image bytes cannot be read as text; use as:image.', path: p };

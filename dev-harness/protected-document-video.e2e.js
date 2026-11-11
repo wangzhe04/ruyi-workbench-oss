@@ -13,7 +13,7 @@ const { startFakeProvider, toolCallFrames, textFrames } = require('./lib/fake-op
 const { startFakeAnthropic, messageEvents } = require('./lib/fake-anthropic-provider');
 const { releaseEnvironment } = require('./lib/release-checks');
 const { makeVideoFixture, audioCanary, metadataCanary } = require('./lib/media-video-fixture');
-const { protectedPdf, protectedDocx, protectedPptx } = require('./lib/protected-document-fixtures');
+const { protectedPdf, protectedDocx, protectedPptx, protectedXlsx, protectedOdf } = require('./lib/protected-document-fixtures');
 
 const runner = createRunner('PROTECTED DOCUMENT VIDEO');
 
@@ -22,7 +22,7 @@ function images(body) {
     .flatMap(message => message.content.filter(item => item.type === 'image_url').map(item => item.image_url.url));
 }
 
-function hasOpaqueMask(url, region) {
+function hasOpaqueMask(url, region, office = false) {
   // The production derivative uses RGB PNG, filter zero, and no source chunks.
   // The fixture draws one ordinary word. Eight successive horizontal runs of
   // 64 black pixels establish a filled redaction rectangle, beyond any glyph.
@@ -37,6 +37,18 @@ function hasOpaqueMask(url, region) {
   const raw = inflateSync(Buffer.concat(chunks), { maxOutputLength: stride * height });
   const pixel = (x, y) => y * stride + 1 + x * 3;
   const isRgb = (offset, value) => raw[offset] === value && raw[offset + 1] === value && raw[offset + 2] === value;
+  if (office) {
+    if (width !== 960 || height !== 1200 || !isRgb(pixel(900, 1100), 255)) return false;
+    // The public prefix starts at x=36, y=64; the email appears later on this
+    // line. Require actual public glyph ink and gaps to survive independently
+    // of the filled mask rectangle detected below.
+    let publicInk = 0, publicWhite = 0;
+    for (let y = 64; y < 96; y++) for (let x = 36; x < 130; x++) {
+      if (isRgb(pixel(x, y), 0)) publicInk++;
+      if (isRgb(pixel(x, y), 255)) publicWhite++;
+    }
+    if (publicInk < 5 || publicWhite < 20) return false;
+  }
   if (region) {
     // The 2× PDF fixture must retain its white background and cover the entire
     // independently observed word rectangle, including its rightmost letters.
@@ -132,6 +144,105 @@ async function checkAnthropicPage(app, workspace, pdf, keyword) {
   }
 }
 
+async function checkResponsesPage(app, workspace, pdf, keyword) {
+  const captured = [], errors = [];
+  const callId = 'call_responses_media', followUpId = 'call_responses_after_media';
+  const model = 'responses-fixture';
+  let iteration = 0;
+  // Reuse the common provider's socket ownership and close path. Its fallback
+  // receives Responses requests before the Chat Completions decoder runs.
+  const fake = await startFakeProvider({ fallback: async (req, res) => {
+    try {
+      // The production capability probe checks the configured base before the
+      // native turn; models GETs are handled by the shared provider itself.
+      if (req.method === 'HEAD' && req.url === '/v1') { res.writeHead(200); res.end(); return; }
+      assert.equal(req.method, 'POST');
+      assert.equal(req.url, '/v1/responses');
+      let raw = '';
+      req.setEncoding('utf8');
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw);
+      captured.push({ raw, body, stream: body.stream === true });
+      if (!body.stream) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ status: 'completed', output: [{ type: 'message', role: 'assistant',
+          content: [{ type: 'output_text', text: 'Synthetic answer.' }] }] }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      let sequence = 0;
+      const emit = value => res.write('data: ' + JSON.stringify({ ...value, sequence_number: sequence++ }) + '\n\n');
+      const id = 'response_media_' + (++iteration);
+      emit({ type: 'response.created', response: { id, status: 'in_progress', output: [] } });
+      if (iteration <= 2) {
+        const args = iteration === 1 ? { path: 'sample.pdf', as: 'image', pageLimit: 1 } : { path: 'follow-up.txt' };
+        const item = { type: 'function_call', id: 'fc_media_' + iteration,
+          call_id: iteration === 1 ? callId : followUpId, name: 'file_read', arguments: '' };
+        emit({ type: 'response.output_item.added', output_index: 0, item });
+        emit({ type: 'response.function_call_arguments.delta', output_index: 0, item_id: item.id, delta: JSON.stringify(args) });
+        emit({ type: 'response.output_item.done', output_index: 0, item: { ...item, arguments: JSON.stringify(args) } });
+      } else emit({ type: 'response.output_text.delta', output_index: 0, item_id: 'msg_media', delta: 'Synthetic answer.' });
+      emit({ type: 'response.completed', response: { id, status: 'completed', output: [],
+        usage: { input_tokens: 12, output_tokens: 5 } } });
+      res.end();
+    } catch (error) {
+      errors.push(error);
+      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Synthetic Responses fixture failed.' } }));
+    }
+  } });
+  try {
+    const provider = { id: 'responses-fixture', label: 'Responses fixture', type: 'openai-compat', apiStyle: 'responses',
+      baseUrl: fake.url + '/v1', apiKey: 'synthetic-responses-key', model, vision: true, serverWebSearch: false };
+    await app.mutateConfig(config => { config.providers.push(provider); });
+    const session = await app.createSession({ title: 'Protected PDF Responses fixture', cwd: workspace,
+      engineRoute: { engine: 'openai', providerId: provider.id, model } });
+    const events = [];
+    const { result } = await app.runSessionTurn({ sessionId: session.id, cwd: workspace, source: 'http',
+      message: 'Inspect the requested local visual material.', onEvent: event => events.push(event) });
+    assert.equal(result.ok, true);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(fake.errors, []);
+    assert.deepEqual(fake.requests, [], 'Responses must never fall back to Chat Completions');
+    const streamed = captured.filter(request => request.stream);
+    assert.equal(streamed.length, 3);
+    const items = streamed[1].body.input;
+    const receiptIndex = items.findIndex(item => item.type === 'function_call_output' && item.call_id === callId);
+    assert.ok(receiptIndex >= 0, 'matching PDF tool result exists');
+    const page = JSON.parse(items[receiptIndex].output);
+    assert.equal(page.ok, true, 'Responses PDF tool result: ' + JSON.stringify(page));
+    assert.equal(page.projection, 'pdf-pages');
+    const visual = items[receiptIndex + 1];
+    assert.equal(visual.type, 'message');
+    assert.equal(visual.role, 'user');
+    const imagesIn = body => body.input.flatMap(item => Array.isArray(item.content)
+      ? item.content.filter(part => part.type === 'input_image') : []);
+    const sent = imagesIn(streamed[1].body);
+    assert.equal(sent.length, 1);
+    assert.ok(visual.content.includes(sent[0]), 'PDF image immediately follows its matching tool-result item');
+    const url = sent[0].image_url;
+    assert.match(url, /^data:image\/png;base64,iVBORw0KGgo/);
+    assert.ok(hasOpaqueMask(url, { left: 65, top: 56, right: 298, bottom: 81 }),
+      'Responses wire PNG masks the synthetic text region while preserving white background');
+    const followUp = streamed[2].body.input.find(item => item.type === 'function_call_output' && item.call_id === followUpId);
+    assert.equal(JSON.parse(followUp.output).ok, true);
+    const absent = [keyword, pdf.toString('base64'), 'UNEXPOSED', 'https://ruyi.invalid/protected-image/'];
+    for (const request of captured) {
+      assert.ok(absent.every(marker => !request.raw.includes(marker)));
+      if (request !== streamed[1]) {
+        assert.deepEqual(imagesIn(request.body), []);
+        assert.ok(!request.raw.includes(url.split(',')[1]));
+      }
+    }
+    for (const value of [JSON.stringify(await app.loadSession(session.id)), JSON.stringify(events)]) {
+      assert.ok(absent.every(marker => !value.includes(marker)) && !value.includes(url.split(',')[1]));
+    }
+    runner.ok(true, 'Responses receives the masked PDF page only on the matching tool-result request');
+  } finally {
+    await fake.close();
+  }
+}
+
 async function packagedEntry(root) {
   assert.ok(path.isAbsolute(root), 'package root must be absolute');
   const packageRoot = await fs.realpath(root);
@@ -153,9 +264,12 @@ async function packagedEntry(root) {
 async function main() {
   const { values } = parseArgs({ options: {
     'full-components': { type: 'boolean' }, 'package-root': { type: 'string' }, 'anthropic-only': { type: 'boolean' },
+    'responses-only': { type: 'boolean' },
   } });
-  const full = values['full-components'], anthropicOnly = values['anthropic-only'], packageRoot = values['package-root'];
-  assert.ok(full || (!anthropicOnly && packageRoot === undefined), 'package and Anthropic modes require --full-components');
+  const full = values['full-components'], anthropicOnly = values['anthropic-only'], responsesOnly = values['responses-only'];
+  const packageRoot = values['package-root'];
+  assert.ok(!(anthropicOnly && responsesOnly), 'choose only one provider-only mode');
+  assert.ok(full || (!anthropicOnly && !responsesOnly && packageRoot === undefined), 'package and provider-only modes require --full-components');
   const packageServer = packageRoot === undefined ? null : await packagedEntry(packageRoot);
   if (full) {
     assert.equal(process.platform, 'win32');
@@ -186,12 +300,26 @@ async function main() {
       { path: 'clipped-slide.pptx', bytes: protectedPptx({ clipped: true }), layer: 'unhandled-slide-geometry' },
     ] : [];
     const slide = full ? protectedPptx() : null;
+    const officeCases = full ? [
+      { path: 'sample.xlsx', bytes: protectedXlsx({ text: 'Sheet contact ' + email }), text: 'A1: Sheet contact ',
+        requiredText: ['B1: 321', 'C1: TRUE'] },
+      { path: 'formula.xlsx', bytes: protectedXlsx({ formula: true }), refusal: 'document_hidden_content', layer: 'spreadsheet-formulas' },
+      { path: 'hidden-sheet.xlsx', bytes: protectedXlsx({ hiddenSheet: true }), refusal: 'document_hidden_content', layer: 'hidden-content' },
+      { path: 'hidden-format.xlsx', bytes: protectedXlsx({ hiddenFormat: true }), refusal: 'document_hidden_content', layer: 'unhandled-cell-display' },
+      ...['odt', 'ods'].map(extension => ({ path: 'sample.' + extension,
+        bytes: protectedOdf({ extension, text: 'ODF contact ' + email }), text: 'ODF contact ' })),
+      { path: 'sample.odp', bytes: protectedOdf({ extension: 'odp' }), refusal: 'document_hidden_content', layer: 'unhandled-visual-content' },
+      { path: 'conditional.odt', bytes: protectedOdf({ conditional: true }), refusal: 'document_hidden_content', layer: 'conditional-content' },
+      { path: 'external.ods', bytes: protectedOdf({ extension: 'ods', external: true }), refusal: 'document_hidden_content', layer: 'external-or-embedded-relationships' },
+      { path: 'non-ascii.odt', bytes: protectedOdf({ text: 'Public 演示文本' }), text: 'Public ', requiredText: ['演示文本'] },
+    ] : [];
     await Promise.all([
       fs.writeFile(path.join(workspace, 'sample.avi'), video), fs.writeFile(path.join(workspace, 'sample.pdf'), pdf),
       fs.writeFile(path.join(workspace, 'sample.docx'), docx), fs.writeFile(path.join(workspace, 'hidden.docx'), hidden),
       fs.writeFile(path.join(workspace, 'follow-up.txt'), 'Synthetic follow-up after the visual request.'),
       ...concealed.map(item => fs.writeFile(path.join(workspace, item.path), item.bytes)),
       ...(slide ? [fs.writeFile(path.join(workspace, 'sample.pptx'), slide)] : []),
+      ...officeCases.map(item => fs.writeFile(path.join(workspace, item.path), item.bytes)),
     ]);
     let plan, iteration = 0;
     fake = await startFakeProvider({ handler(request) {
@@ -213,6 +341,10 @@ async function main() {
       await checkAnthropicPage(app, workspace, pdf, keyword);
       return;
     }
+    if (responsesOnly) {
+      await checkResponsesPage(app, workspace, pdf, keyword);
+      return;
+    }
     const activeConfig = await app.readConfig();
     const activeProvider = activeConfig.providers.find(item => item.id === provider.id);
 
@@ -226,6 +358,10 @@ async function main() {
         ...concealed.map(item => ({ args: { path: item.path }, bytes: item.bytes, label: item.path,
           refusal: 'document_hidden_content', layer: item.layer })),
         { args: { path: 'sample.pptx' }, bytes: slide, label: 'in-bounds PPTX text box', text: 'Synthetic slide text' },
+        ...officeCases.map(item => ({ ...item, args: { path: item.path }, label: item.path + ' protected text' })),
+        ...officeCases.map(item => ({ ...item, text: undefined, args: { path: item.path, as: 'image' },
+          label: item.path + ' protected preview', ...(item.refusal ? {} : item.path === 'non-ascii.odt'
+            ? { refusal: 'document_render_unavailable' } : { visual: true, projection: 'office-content-preview', officeMask: true }) })),
       ] : []),
     ];
     for (plan of cases) {
@@ -263,7 +399,9 @@ async function main() {
       }
       if (plan.projection) assert.equal(receipt.projection, plan.projection);
       if (plan.mask) assert.ok(hasOpaqueMask(sent[0]), 'wire PNG covers the synthetic literal with an opaque pixel rectangle');
+      if (plan.officeMask) assert.ok(hasOpaqueMask(sent[0], undefined, true), 'Office preview masks the email while retaining public prefix pixels and white background');
       if (plan.text) assert.ok(receipt.content.startsWith(plan.text) && !receipt.content.includes(email));
+      if (!plan.refusal && !plan.visual) for (const expected of plan.requiredText || []) assert.ok(receipt.content.includes(expected), expected);
       if (plan.args.frameCount) {
         assert.deepEqual(receipt.coverage.sampledSeconds, [0.25, 0.75]);
         assert.equal(receipt.coverage.fullVideo, false);
@@ -280,6 +418,7 @@ async function main() {
     }
     if (full) {
       await checkAnthropicPage(app, workspace, pdf, keyword);
+      await checkResponsesPage(app, workspace, pdf, keyword);
       await app.mutateConfig(config => { config.privacyModeV1 = 'off'; });
       plan = { args: { path: 'sample.avi', as: 'image', frameCount: 1 }, visual: false };
       iteration = 0;

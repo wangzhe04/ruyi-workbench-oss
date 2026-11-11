@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-10T12:14:11.402Z",
+  "generatedAt": "2026-11-11T07:42:22.616Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1210,6 +1210,7 @@
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\help-viewer.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\onboarding.e2e.js",
@@ -2800,6 +2801,7 @@
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\steward-attachments.browser.e2e.js",
@@ -2827,6 +2829,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\attachment-http-roundtrip.e2e.js",
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
@@ -2932,6 +2935,7 @@
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\mcp-bridge.e2e.js",
         "dev-harness\\mcp-config.e2e.js",
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
@@ -3140,6 +3144,7 @@
       "domain": "13ab-privacy-api.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
@@ -3181,6 +3186,7 @@
       "domain": "13ab-privacy-api.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
@@ -4004,6 +4010,7 @@
       "domain": "13be-media-image-host.js",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
@@ -4023,6 +4030,7 @@
       "domain": "13be-media-image-host.js",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
@@ -4042,6 +4050,7 @@
       "domain": "13be-media-image-host.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\unit\\media-resource-profile.test.js",
@@ -4236,6 +4245,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\mcp-consumer-restart.e2e.js",
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
@@ -4552,6 +4562,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\mcp-consumer-restart.e2e.js",
+        "dev-harness\\media-image-http-lifecycle.e2e.js",
         "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",

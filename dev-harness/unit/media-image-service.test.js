@@ -124,7 +124,7 @@ test('unknown image POST outcome prevents an automatic submission retry; acknowl
 // Independent source leases model the host's already-open handle and owned
 // buffer. Admission tests exercise the real service and image contract rather
 // than substituting a fake busy implementation or reusing an accepted source.
-function admissionFixture({ blockFirst = false } = {}) {
+function admissionFixture({ blockFirst = false, runtime = api, now = Date.now, beforeRemove } = {}) {
   const sessionId='sess_admission', scope=sha(sessionId).slice(0,32), config={personal:true,rules:[]};
   let currentScope=sessionId, serial=0, starts=0, unblock;
   const policy={config,hash:sha(JSON.stringify(config)),rulesHash:sha('rules'),revision:'policy1',assert:()=>true};
@@ -137,11 +137,11 @@ function admissionFixture({ blockFirst = false } = {}) {
     const promise=blockFirst&&starts===1?new Promise(resolve=>{unblock=()=>resolve(frame);}):Promise.resolve(frame);
     return {promise,finish:()=>({closed:true,helperMayStillRun:false,ownershipRetained:false})};
   }};
-  const service=api.MediaImageService.create({context:()=>({scopeId:currentScope}),storeFor:async({authority})=>{
+  const service=runtime.MediaImageService.create({now,context:()=>({scopeId:currentScope}),storeFor:async({authority})=>{
     let stored;
     return {async put(value){const captured=await authority.capture(value.sourceId);authority.assert(captured);stored={...value,bytes:Buffer.from(value.bytes),captured};return{id:'mimg_admission'};},
       async read(){const bytes=Buffer.from(stored.bytes);return {bytes,manifest:stored.manifest,assert(){authority.assert(stored.captured);return true;},release(){bytes.fill(0);}};},
-      async remove(){stored?.bytes.fill(0);stored=null;return true;}};
+      async remove(){if(beforeRemove)await beforeRemove();stored?.bytes.fill(0);stored=null;return true;}};
   }});
   function lease(){
     const index=++serial, bytes=Buffer.alloc(32,index);let held=true,releaseCalls=0;
@@ -155,6 +155,49 @@ function admissionFixture({ blockFirst = false } = {}) {
     prepare:(owned,overrides={})=>service.prepare({sessionId,source:owned.source,policy,processor,recipient,...overrides})};
 }
 function assertReleased(owned){assert.equal(owned.releases(),1);assert.equal(owned.held(),false);assert.equal(owned.bytes.every(byte=>byte===0),true);}
+
+function expiryScheduler() {
+  let time = Date.now(), serial = 0;
+  const timers = new Map();
+  const runtime = vm.runInNewContext(sources + ';({MediaImageContract,MediaImageService});', {
+    require, Buffer, Headers,
+    setTimeout(fn, ms) { const handle = { id: ++serial, unref() {} }; timers.set(handle, { fn, due: time + ms, serial }); return handle; },
+    clearTimeout(handle) { timers.delete(handle); },
+  });
+  return { runtime, now: () => time, async fireNextDeadline() {
+    const deadline = Math.min(...[...timers.values()].map(row => row.due));
+    assert.ok(Number.isFinite(deadline));
+    time = deadline;
+    const due = [...timers].filter(([, row]) => row.due === deadline).sort((a, b) => a[1].serial - b[1].serial);
+    for (const [handle, row] of due) if (timers.delete(handle)) row.fn();
+    await new Promise(resolve => setImmediate(resolve));
+    return due.length;
+  } };
+}
+
+for (const removeFails of [false, true]) test(`actual contract/service expiry ordering ${removeFails ? 'retains a genuine failed cleanup' : 'releases all four admission slots'}`, async () => {
+  const clock = expiryScheduler(); let removals = 0;
+  const failure = Error('synthetic derived-store remove failure');
+  const f = admissionFixture({ ...clock, beforeRemove() { if (++removals === 1 && removeFails) throw failure; } });
+  const original = f.lease(), expired = await f.prepare(original), borrowed = await f.service.borrow(expired.id);
+  assert.equal(await clock.fireNextDeadline(), 2, 'contract retirement precedes service cleanup at the same actual registered expiry');
+  assertReleased(original);
+  assert.ok(borrowed.bytes.every(byte => byte === 0));
+  await assert.rejects(f.service.borrow(expired.id), { code: 'privacy.image_expired' });
+  const capacity = removeFails ? 3 : 4;
+  for (let round = 0; round < 2; round++) {
+    const accepted = [];
+    try {
+      for (let index = 0; index < capacity; index++) {
+        const owned = f.lease(), prepared = await f.prepare(owned); accepted.push({ owned, prepared });
+      }
+      const rejected = f.lease();
+      await assert.rejects(f.prepare(rejected), { code: 'privacy.image_busy' }); assertReleased(rejected);
+    } finally {
+      for (const { owned, prepared } of accepted) { await f.service.remove(prepared.id); assertReleased(owned); }
+    }
+  }
+});
 test('full four-record capacity releases every rejected new source without retiring accepted artifacts',async()=>{
   const f=admissionFixture(),accepted=[];
   try{

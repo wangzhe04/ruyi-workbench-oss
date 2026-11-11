@@ -21,6 +21,8 @@ node dev-harness\run-all.js --fast --parallel 4
 node dev-harness\run-all.js --parallel 4
 ```
 
+`media-image-http-lifecycle.e2e.js` 默认验证真实 HTTP 入口取消和缺组件拒绝；`--full-components` 使用显式 `RUYI_MEDIA_LIFECYCLE_ROOT` 资格目录、`RUYI_MEDIA_RUNTIME_ROOT`、`RUYI_MEDIA_SOURCES_ROOT` 和 `RUYI_MEDIA_OCR_LANGUAGE` 验证真实媒体组件。它按票据原始到期时间等待，随后持续四次准备，每次立即核验预览 200 和 PNG 摘要；较早票据可以在后续处理期间自然到期，此时仅接受已到原期限的 `privacy.image_expired`。该门不要求四张票同时有效，不修改产品的 60 秒期限，也不模拟原生处理超时。
+
 ### 实际发布包验收（Windows，按需）
 
 先用 `ruyi-workbench/tools/package-offline.ps1` 分别生成真正包含 EXE 的 Slim 和 Full，保留打包退出码、日志、ZIP 及其同名 stage。Full 需要已验证的 ACC 离线载荷。不要用 `-SkipExeBuild` 的源码运行包代替 EXE 验收。

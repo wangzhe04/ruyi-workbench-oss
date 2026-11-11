@@ -9,6 +9,7 @@ const { execFileSync } = require('node:child_process');
 const { createRunner } = require('./harness');
 const { startBrowserFixture, WB, sleep } = require('./browser-fixture');
 const { releaseEnvironment } = require('./release-checks');
+const { startMediaBrowserProvider, wireMessages, wireImageUrl } = require('./media-browser-provider');
 
 const width = 320, height = 192;
 const sendText = 'Please describe the public sample.';
@@ -227,28 +228,43 @@ async function maskRegion(fx, oldId) {
 }
 
 function assertWire(wire, shown, original, name, expectedText) {
-  const user = wire.messages.findLast(row => row.role === 'user');
+  const user = wireMessages(wire).findLast(row => row.role === 'user');
   assert.ok(Array.isArray(user?.content), 'wire user turn has protected image parts');
-  const parts = user.content.filter(row => row.type === 'image_url');
+  const parts = user.content.filter(row => wireImageUrl(row) !== null);
   assert.equal(parts.length, 1);
-  assert.equal(parts[0].image_url.url, 'data:image/png;base64,' + shown.base64);
+  const allImages = wireMessages(wire).flatMap(row => Array.isArray(row.content) ? row.content.filter(part => wireImageUrl(part) !== null) : []);
+  assert.equal(allImages.length, 1, 'the complete wire contains only the current reviewed image');
+  assert.equal(wireImageUrl(parts[0]), 'data:image/png;base64,' + shown.base64);
   const raw = JSON.stringify(wire);
   assert.ok(!raw.includes(original.toString('base64')) && !raw.includes(name) &&
     !raw.includes(shown.issued.reference), 'wire contains only the protected representation');
-  assert.ok(user.content.some(row => row.type === 'text' && row.text.includes(expectedText)));
+  assert.ok(user.content.some(row => ['text', 'input_text'].includes(row.type) && row.text.includes(expectedText)));
 }
 
-async function run({ full }) {
-  const t = createRunner(full ? 'MEDIA BROWSER FULL SEND STEER' : 'MEDIA BROWSER MISSING');
-  let fx, releaseHold, observed;
+async function run({ full, apiStyle = 'chat' }) {
+  const t = createRunner(full ? 'MEDIA BROWSER FULL SEND STEER ' + apiStyle.toUpperCase() : 'MEDIA BROWSER MISSING');
+  let fx, releaseHold, observed, receiver;
   try {
     assert.equal(process.platform, 'win32', 'browser media fixture requires Windows DPAPI');
-    const workbenchRoot = full ? packagePath(process.env.RUYI_MEDIA_BROWSER_PACKAGE) : undefined;
+    assert.ok(['chat', 'responses', 'anthropic'].includes(apiStyle));
+    const sourceRoot = full && process.env.RUYI_MEDIA_BROWSER_SOURCE_ROOT;
+    if (sourceRoot) {
+      assert.ok(path.isAbsolute(sourceRoot));
+      assert.equal(sha(fs.readFileSync(path.join(sourceRoot, 'app', 'server.js'))), sha(fs.readFileSync(path.join(WB, 'app', 'server.js'))),
+        'qualification source must match the current generated server');
+      for (const key of ['RUYI_MEDIA_RUNTIME_ROOT', 'RUYI_MEDIA_SOURCES_ROOT']) assert.ok(path.isAbsolute(process.env[key] || ''), key);
+    }
+    const workbenchRoot = full ? sourceRoot ? fs.realpathSync(sourceRoot) : packagePath(process.env.RUYI_MEDIA_BROWSER_PACKAGE) : undefined;
     const workbench = workbenchRoot || WB;
     const serverEnv = {};
     const held = new Promise(resolve => { releaseHold = resolve; });
     const wires = [];
     let holdSeen = false, encryptedRoot, sendSession, steerSession;
+    const receive = async body => {
+      wires.push(structuredClone(body));
+      if (!holdSeen && JSON.stringify(wireMessages(body)).includes(holdText)) { holdSeen = true; await held; }
+    };
+    if (apiStyle !== 'chat') receiver = await startMediaBrowserProvider(apiStyle, doneText, receive);
     await startBrowserFixture({
       prefix: 'ruyi-media-browser-', workbenchRoot, serverEnv, ok: t.ok,
       config: { locale: 'en-US', privacyModeV1: 'enhanced', privacyRulesV1: [], privacyTechnicalV1: false,
@@ -257,19 +273,24 @@ async function run({ full }) {
         contextAutoCompactEnabled: false, allowDesktopTools: false, desktopMcp: { enabled: false, autodetect: false } },
       evidenceObserver: { beforeStart(value) { fx = value; }, provider() {}, child() {}, cleanup() {} },
       async beforeServe(fixture) {
+        if (receiver) {
+          const file = path.join(fixture.home, 'config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+          Object.assign(config.providers[0], { apiStyle, baseUrl: receiver.baseUrl });
+          fs.writeFileSync(file, JSON.stringify(config));
+        }
         const isolation = releaseEnvironment(path.join(fixture.root, 'server-profile'), fixture.home);
         for (const key of Object.keys(process.env)) if (!Object.hasOwn(isolation, key)) isolation[key] = undefined;
         Object.assign(serverEnv, isolation, { RUYI_MEDIA_RESOURCE_PROFILE: 'legacy-full-4987-v1', RUYI_MEDIA_OCR_LANGUAGE: 'en-US',
-          RUYI_MEDIA_RUNTIME_ROOT: full ? undefined : path.join(fixture.root, 'missing-runtime'),
-          RUYI_MEDIA_SOURCES_ROOT: full ? undefined : path.join(fixture.root, 'missing-source') });
+          RUYI_MEDIA_RUNTIME_ROOT: full ? sourceRoot ? process.env.RUYI_MEDIA_RUNTIME_ROOT : undefined : path.join(fixture.root, 'missing-runtime'),
+          RUYI_MEDIA_SOURCES_ROOT: full ? sourceRoot ? process.env.RUYI_MEDIA_SOURCES_ROOT : undefined : path.join(fixture.root, 'missing-source') });
         const seedEnv = releaseEnvironment(path.join(fixture.root, 'seed-profile'), fixture.home);
         seedEnv.RUYI_TEST_SERVER_JS = path.join(workbench, 'app', 'server.js');
         encryptedRoot = execFileSync(process.execPath, [__filename, '--seed-encrypted', fixture.home],
           { env: seedEnv, encoding: 'utf8', windowsHide: true, timeout: 30000 }).trim();
       },
       async provider(ctx) {
-        wires.push(structuredClone(ctx.body));
-        if (!holdSeen && JSON.stringify(ctx.messages).includes(holdText)) { holdSeen = true; await held; }
+        assert.equal(apiStyle, 'chat', 'browser must use the selected protocol receiver');
+        await receive(ctx.body);
         ctx.text(doneText);
         ctx.stop();
       },
@@ -328,7 +349,7 @@ async function run({ full }) {
     assert.equal(forbidden.json?.error?.code, 'privacy.image_scope_changed');
     t.ok(true, 'real encrypted tray and editor apply a mask, preserve public pixels and reject preview in another session');
     await send(fx, sendText);
-    const sendWire = await until(() => wires.find(body => JSON.stringify(body.messages).includes(sendText)), 'Send wire receipt');
+    const sendWire = await until(() => wires.find(body => JSON.stringify(wireMessages(body)).includes(sendText)), 'Send wire receipt');
     assertWire(sendWire, exact, sendBytes, sendName, sendText);
     await until(() => fx.evaluate(`!state.streaming && document.getElementById('messages').textContent.includes(${JSON.stringify(doneText)})`),
       'Send rendered provider result');
@@ -349,21 +370,36 @@ async function run({ full }) {
     assert.equal(observed.writes.filter(route => route === '/api/steer').length, 1);
     assert.equal(observed.writes.filter(route => route === '/api/chat/stream').length, 2);
     releaseHold();
-    const steerWire = await until(() => wires.find(body => JSON.stringify(body.messages).includes(steer.base64)), 'Steer wire receipt');
+    const steerWire = await until(() => wires.find(body => JSON.stringify(wireMessages(body)).includes(steer.base64)), 'Steer wire receipt');
     assertWire(steerWire, steer, steerBytes, steerName, 'protected.png');
     await until(() => fx.evaluate('!state.streaming'), 'native turn finishes after Steer');
-    assert.equal(wires.filter(body => JSON.stringify(body.messages).includes(exact.base64)).length, 1);
-    assert.equal(wires.filter(body => JSON.stringify(body.messages).includes(steer.base64)).length, 1);
+    assert.equal(wires.filter(body => JSON.stringify(wireMessages(body)).includes(exact.base64)).length, 1);
+    assert.equal(wires.filter(body => JSON.stringify(wireMessages(body)).includes(steer.base64)).length, 1);
+    assert.equal(wires.length, 3);
+    receiver?.assert();
     const seen = JSON.stringify(wires);
     for (const raw of [sendName, steerName, sendBytes.toString('base64'), steerBytes.toString('base64'), exact.issued.reference, steer.issued.reference]) {
       assert.ok(!seen.includes(raw), 'all captured provider requests preserve the original-image exclusion');
     }
     t.ok(true, 'attachment-only Browser Steer stays on the live native turn and delivers its exact PNG without the original name or bytes');
     console.log('MEDIA-BROWSER-PROOF ' + JSON.stringify({ packagedServerSha256: sha(fs.readFileSync(path.join(workbench, 'app', 'server.js'))),
-      bundledNode: Boolean(workbenchRoot), workDataEncryption: true, sendPngSha256: exact.issued.payloadHash,
+      bundledNode: Boolean(workbenchRoot), sourceQualification: Boolean(sourceRoot), apiStyle, workDataEncryption: true, sendPngSha256: exact.issued.payloadHash,
       steerPngSha256: steer.issued.payloadHash, providerRequests: wires.length }));
   } catch (error) {
     t.fail(error.stack || String(error));
+    try {
+      const state = await fx?.evaluate(`(() => ({ uploading: window.state?.uploading,
+        attachments: (window.state?.attachments || []).map(item => ({ sealed: item.sealed,
+          protected: Boolean(item.protectedImage), editing: item.imageEditing, reviewRequired: item.imageReviewRequired,
+          preview: Boolean(item.previewUrl), error: item.imageError || null })),
+        thumbnails: [...document.querySelectorAll('#attachmentTray .attach-pill-thumb')].map(image =>
+          ({ complete: image.complete, width: image.naturalWidth, height: image.naturalHeight })) }))()`);
+      console.log('MEDIA-BROWSER-DIAG ' + JSON.stringify({ state, mediaResponses: observed?.responses
+        .filter(row => row.path.startsWith('/api/media/images/') || row.path === '/api/upload')
+        .map(row => ({ route: row.path.replace(/[a-f0-9]{32}/g, '<ticket>'), status: row.status,
+          completed: observed.completed.has(row.requestId) })), exceptions: fx?.exceptions.length,
+        consoleErrors: fx?.consoleErrors.length }));
+    } catch { /* diagnostics must not replace the original failure */ }
     const refused = observed?.responses.filter(row => row.path === '/api/media/images/prepare' &&
       row.status >= 400 && observed.completed.has(row.requestId)).at(-1);
     if (refused) {
@@ -376,6 +412,7 @@ async function run({ full }) {
     }
   } finally {
     releaseHold?.();
+    try { await receiver?.close(); } catch (error) { t.fail(error.stack || String(error)); }
     if (fx) {
       if (t.failures) console.log('Media browser fixture retained at ' + fx.root);
       try { await fx.close({ keepRoot: t.failures !== 0 }); } catch (error) { t.fail(error.stack || String(error)); }

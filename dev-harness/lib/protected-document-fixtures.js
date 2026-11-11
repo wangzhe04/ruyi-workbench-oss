@@ -88,18 +88,41 @@ function protectedPptx({ outOfSlide = false, clipped = false } = {}) {
   });
 }
 
-function protectedXlsx({ hiddenFormat = false } = {}) {
+function protectedXlsx({ hiddenFormat = false, text, hiddenSheet = false, formula = false } = {}) {
   const rels = 'http://schemas.openxmlformats.org/package/2006/relationships';
   const ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
   const sheet = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
   return storedZip({
     '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>',
     '_rels/.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${ns}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
-    'xl/workbook.xml': `<workbook xmlns="${sheet}" xmlns:r="${ns}"><sheets><sheet name="Synthetic sheet" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    'xl/workbook.xml': `<workbook xmlns="${sheet}" xmlns:r="${ns}"><sheets><sheet name="Synthetic sheet" sheetId="1" r:id="rId1"${hiddenSheet ? ' state="hidden"' : ''}/></sheets></workbook>`,
     'xl/_rels/workbook.xml.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${ns}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${ns}/styles" Target="styles.xml"/></Relationships>`,
-    'xl/worksheets/sheet1.xml': `<worksheet xmlns="${sheet}"><sheetData><row r="1"><c r="A1" s="0"><v>321</v></c></row></sheetData></worksheet>`,
+    'xl/worksheets/sheet1.xml': `<worksheet xmlns="${sheet}"><sheetData><row r="1">${text === undefined
+      ? '<c r="A1" s="0"><v>321</v></c>'
+      : `<c r="A1" t="inlineStr"><is><t>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</t></is></c><c r="B1"><v>321</v></c><c r="C1" t="b"><v>1</v></c>`
+    }${formula ? '<c r="D1"><f>LEN("UNEXPOSED FORMULA")</f><v>17</v></c>' : ''}</row></sheetData></worksheet>`,
     'xl/styles.xml': `<styleSheet xmlns="${sheet}">${hiddenFormat ? '<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;&quot;"/></numFmts>' : ''}<cellXfs count="1"><xf numFmtId="${hiddenFormat ? 164 : 0}" fontId="0" fillId="0"/></cellXfs></styleSheet>`,
   });
 }
 
-module.exports = { protectedPdf, protectedDocx, protectedPptx, protectedXlsx };
+function protectedOdf({ extension = 'odt', text = 'Bounded visible ODF text', conditional = false, external = false } = {}) {
+  if (!['odt', 'ods', 'odp'].includes(extension)) throw Error('unknown ODF fixture kind');
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const body = conditional ? '<text:conditional-text text:condition="true()" text:string-value-if-true="UNEXPOSED CONDITIONAL CONTENT"/>'
+    : external ? `<text:a xlink:href="https://example.invalid/private">${escaped}</text:a>` : escaped;
+  const paragraph = `<text:p>${body}</text:p>`;
+  const content = extension === 'odt' ? `<office:text>${paragraph}</office:text>`
+    : extension === 'ods' ? `<office:spreadsheet><table:table table:name="Public"><table:table-row><table:table-cell office:value-type="string">${paragraph}</table:table-cell></table:table-row></table:table></office:spreadsheet>`
+      // A real ODP paragraph belongs to a text box. That visual geometry remains
+      // an explicitly refused layer, rather than a fabricated geometry-free ODP.
+      : `<office:presentation><draw:page draw:name="Public"><draw:frame><draw:text-box>${paragraph}</draw:text-box></draw:frame></draw:page></office:presentation>`;
+  const mime = 'application/vnd.oasis.opendocument.' + ({ odt: 'text', ods: 'spreadsheet', odp: 'presentation' })[extension];
+  return storedZip({
+    mimetype: mime,
+    'META-INF/manifest.xml': `<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:full-path="/" manifest:media-type="${mime}"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>`,
+    'content.xml': `<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.2"><office:body>${content}</office:body></office:document-content>`,
+    'meta.xml': '<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><office:meta><dc:title>UNEXPOSED ODF METADATA</dc:title></office:meta></office:document-meta>',
+  });
+}
+
+module.exports = { protectedPdf, protectedDocx, protectedPptx, protectedXlsx, protectedOdf };

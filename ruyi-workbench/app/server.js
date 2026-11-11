@@ -73691,7 +73691,10 @@ async function fileToolBatch(operation, args, ctx) {
 NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, { ...req, io: privacyLocalIo });
 
 async function readNativeMedia(file, kind, args, ctx, protectedRead) {
-  const visual = args.as === 'image';
+  if (kind === 'image' && (args.as === 'text' || args.includeImages === false && args.as !== 'image')) {
+    return { ok: false, code: 'not_text', hint: 'Use file_read with as:"image" to receive a locally protected image. Image text extraction is not supported.' };
+  }
+  const visual = kind === 'image' || args.as === 'image';
   if (kind === 'video' && !visual) return { ok: false, code: 'video_image_required',
     hint: 'Use file_read with as:"image" to sample video frames. Set startSeconds, frameCount and intervalSeconds for the range you need.' };
   const wire = typeof ToolPreparedMedia === 'undefined' ? null : ToolPreparedMedia;
@@ -73706,8 +73709,13 @@ async function readNativeMedia(file, kind, args, ctx, protectedRead) {
     await privacyInspectLocalPath(file, signal, true);
     const { value, source } = await privacyLocalIo(file, false, () => MediaImageHooks.readLocalMediaFile(file, signal, async (bytes, source) => {
       policy?.assert();
-      const value = kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
-        : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
+      const value = kind === 'image'
+        ? bytes.length > 4 * 1024 * 1024
+          ? { ok: false, code: 'file_too_large', hint: 'Resize or compress a copy to at most 4 MiB before reading it.' }
+          : { ok: true, mode: 'image', content: 'Locally protected image attached. Original filename, path and metadata withheld.',
+            images: [{ name: 'image.png', mimeType: 'image/png', data: bytes.toString('base64') }] }
+        : kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
+          : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
       policy?.assert(); source.assert();
       return { value, source };
     }));
@@ -73796,16 +73804,14 @@ const FILE_TOOL_HANDLERS = {
       let visualKind;
       try {
         visualKind = typeof MediaInspection !== 'undefined' && MediaInspection.isVideoPath?.(p) ? 'video' : await FileVisualIo.kind(p, privacyTextRead);
-        if (visualKind === 'video' || privacyTextRead && visualKind === 'document') {
+        if (visualKind === 'video' || privacyTextRead && (visualKind === 'document' || visualKind === 'image')) {
           return await readNativeMedia(p, visualKind, args, ctx, privacyTextRead);
         }
-        // Text-only extraction still paginates/transforms document source and may start
-        // an external parser. It is unsupported by the privacy boundary, even without pixels.
-        // 隐私开着时,文档/图片读取在起任何解析器之前就被拒(像素与隐藏层都没经过遮盖链路)。
-        // 只给一个码等于让人猜:带上可执行的下一步。注意口径 —— 这里【不】建议用户降低保护,
-        // 与相邻的 document_render_unavailable / document_encrypted 一致:只给"换一种读法"。
+        // Future media kinds stay refused until they have an explicit protected
+        // source and preparation route. Offer a text-copy fallback while keeping
+        // the user's protection enabled.
         if (privacyTextRead && visualKind) return { ok: false, code: 'privacy.media_not_supported',
-          hint: 'Privacy protection is on, so document/image reading is refused before any parser runs. Read a text copy instead: export the page or section to .txt/.md (or paste the text) and read that file.' };
+          hint: 'This media kind has no protected reader. Read a text copy instead: export the page or section to .txt/.md (or paste the text) and read that file.' };
         if (args.as === 'image' && !visualKind) return { ok: false, code: 'not_image', error: 'This file is not an image or supported visual document.', path: p };
         if (args.as === 'image') args = { ...args, includeImages: true };
         if (args.as === 'text' && visualKind === 'image') return { ok: false, code: 'not_text', error: 'Image bytes cannot be read as text; use as:image.', path: p };
@@ -113523,30 +113529,52 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
   });
   return { text, spans };
   }
-  function mapWords(words, detector, width, height) {
+  function mapWords(words, detector, width, height, checkProgress = () => {}) {
   let text = '', previousLine;
-  const spans = words.map(word => {
+  const spans = words.map((word, index) => {
+    if (!(index % 64)) checkProgress();
     if (!word || typeof word.text !== 'string' || !Number.isInteger(word.line) || !Array.isArray(word.box)) throw failure('invalid-ocr');
     if (text) text += word.line === previousLine ? ' ' : '\n';
     const start = text.length; text += word.text; previousLine = word.line;
     return { ...word, start, end: text.length };
   });
   if (!text.trim()) throw failure('unrecognized');
+  checkProgress();
   const hits = detector.detect(text);
+  checkProgress();
   if (!hits.length) throw failure('unrecognized'); // Conservative M1 fixture policy, no original-media fallback.
-  const selected = spans.filter(word => hits.some(hit => word.start < hit.end && word.end > hit.start));
-  for (const hit of hits) {
-    const covered = selected.filter(word => word.start < hit.end && word.end > hit.start);
-    if (!covered.length || covered[0].start > hit.start || covered.at(-1).end < hit.end) throw failure('incomplete-coverage');
+  // Word spans are ordered even when detector hits overlap or arrive unsorted.
+  // Find each hit's first/last overlapping word without a words-by-hits scan.
+  const changes = new Int32Array(spans.length + 1), categories = new Set();
+  let crossWord = false;
+  for (let index = 0; index < hits.length; index++) {
+    if (!(index % 64)) checkProgress();
+    const hit = hits[index], start = hit.start, end = hit.end;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) throw failure('incomplete-coverage');
+    let low = 0, high = spans.length;
+    while (low < high) { const middle = (low + high) >>> 1; if (spans[middle].end <= start) low = middle + 1; else high = middle; }
+    const first = low;
+    low = 0; high = spans.length;
+    while (low < high) { const middle = (low + high) >>> 1; if (spans[middle].start < end) low = middle + 1; else high = middle; }
+    const last = low;
+    if (first >= last || spans[first].start > start || spans[last - 1].end < end) throw failure('incomplete-coverage');
+    changes[first]++; changes[last]--;
+    if (last - first >= 3) crossWord = true;
+    categories.add(hit.category);
   }
-  const boxes = selected.map(word => {
+  const boxes = []; let covering = 0;
+  for (let index = 0; index < spans.length; index++) {
+    if (!(index % 64)) checkProgress();
+    covering += changes[index];
+    if (!covering) continue;
+    const word = spans[index];
     if (word.box.length !== 4 || word.box.some(n => !Number.isFinite(n))) throw failure('invalid-ocr');
     const [x1, y1, x2, y2] = word.box;
     if (x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > width || y2 > height) throw failure('invalid-ocr');
-    return [Math.max(0, Math.floor(x1) - 4), Math.max(0, Math.floor(y1) - 4), Math.min(width, Math.ceil(x2) + 4), Math.min(height, Math.ceil(y2) + 4)];
-  });
-  return { boxes, hitCount: hits.length, categories: [...new Set(hits.map(h => h.category))],
-    matchedWords: selected.length, crossWord: hits.some(hit => spans.filter(w => w.start < hit.end && w.end > hit.start).length >= 3) };
+    boxes.push([Math.max(0, Math.floor(x1) - 4), Math.max(0, Math.floor(y1) - 4), Math.min(width, Math.ceil(x2) + 4), Math.min(height, Math.ceil(y2) + 4)]);
+  }
+  checkProgress();
+  return { boxes, hitCount: hits.length, categories: [...categories], matchedWords: boxes.length, crossWord };
 }
 
   function create({ sourceOwner, policyOwner, processorOwner, now = Date.now } = {}) {
@@ -113661,7 +113689,7 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
         const verifiedDetection = typeof processorOwner.assertCoverage === 'function'
           && processorOwner.assertCoverage(frame) === true;
         let mapped;
-        try { mapped = mapWords(frame.words, detector, width, height); }
+        try { mapped = mapWords(frame.words, detector, width, height, checkProgress); }
         catch (error) {
           if (!verifiedDetection || error?.code !== 'privacy.image_unrecognized') throw error;
           mapped = { boxes: [], hitCount: 0, categories: [], matchedWords: 0, crossWord: false };
@@ -113766,7 +113794,14 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
       const borrowed = Object.freeze({ bytes, manifest: record.manifest, assert, release() { if (!released) { released = true; try { fillBuffer(bytes, 0); } catch (error) { throw cleanupFailure([error]); } finally { record.borrows.delete(borrowed); } } } });
       record.borrows.add(borrowed); return borrowed;
     }
-    function release(token) { const record = own(token); retire(record); }
+    function release(token) {
+      const record = records.get(token);
+      // The ticket timer can finish retirement before the service's same-deadline
+      // cleanup runs. Successful retirement is idempotent; foreign tickets and
+      // any recorded cleanup uncertainty must still pass through the old gate.
+      if (record?.retired && !record.cleanupError) return;
+      retire(own(token));
+    }
     return Object.freeze({ prepare, describe, borrow, release, invalidate() { epoch++; stopPending?.(); const errors = []; for (const record of [...active]) { try { retire(record); } catch (error) { errors.push(error); } } if (errors.length) throw cleanupFailure(errors); } });
   }
   return Object.freeze({ create, LIMITS });
@@ -114315,8 +114350,8 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
   }
   const referenceId = ref => typeof ref === 'string' && ref.startsWith(PREFIX) && /^[a-f0-9]{32}$/.test(ref.slice(PREFIX.length)) ? ref.slice(PREFIX.length) : null;
   const validPointer = pointer => /^(?:\/(?:messages|input))?\/\d+\/content\/\d+$/.test(pointer);
-  function create({ contract = MediaImageContract, context, storeFor, now = Date.now } = {}) {
-    if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
+  function create({ contract = MediaImageContract, context, storeFor, now = Date.now, expireCleanup = work => work() } = {}) {
+    if (typeof context !== 'function' || typeof storeFor !== 'function' || typeof expireCleanup !== 'function') fail('host_required');
     const records = new Map(), removals = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
     function beginScope(sessionId) {
       if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}(?::[A-Za-z0-9_-]{1,160})?$/.test(sessionId)) fail('scope_changed');
@@ -114421,7 +114456,10 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
         const stored = await record.store.put({ sourceId: source.id, manifest, bytes: borrowed.bytes }); record.storedId = stored.id; check(record);
         borrowed.release(); borrowed = null;
         records.set(id, record);
-        record.timer = setTimeout(() => { void remove(id).catch(() => {}); }, Math.max(1, manifest.expiresAt - now())); record.timer.unref?.();
+        // Timers inherit the completed prepare request's ALS context. The trusted
+        // host grants a fresh cleanup admission for this entire retirement, not
+        // just unlink: the source lease and scope owner remain covered too.
+        record.timer = setTimeout(() => { void (async () => expireCleanup(() => remove(id)))().catch(() => {}); }, Math.max(1, manifest.expiresAt - now())); record.timer.unref?.();
         returned = true;
         return Object.freeze({ id, reference: PREFIX + id, manifest, recognitionConfidence: 'unknown' });
       } catch (error) { failed=true;primary=error;throw error; }
@@ -114565,6 +114603,12 @@ const MediaImageHost = (() => {
   const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(key => a[key] === b[key]);
   const managed = work => typeof WorkDataMaintenanceHooks.run === 'function' ? WorkDataMaintenanceHooks.run('media-image', work) : work();
+  function expireCleanup(work) {
+    // Only detached retirement gets a new admission. Explicit API operations
+    // retain their existing owner, and stale business continuations still fail.
+    return typeof WorkDataMaintenanceHooks.fresh === 'function'
+      ? WorkDataMaintenanceHooks.fresh('media-image', work) : managed(work);
+  }
   const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
   const localHelperHashes = Object.freeze({
     'native-file-read.py': '6a307d73f881492718356fe139635d35f49c321dd951711daf6d8baef300e9ea',
@@ -114858,7 +114902,7 @@ const MediaImageHost = (() => {
     if (typeof payload === 'string') return atomicWriteJson(target, async function* () { yield Buffer.from(payload); }, { stream: true });
     return atomicWriteJson(target, payload, options);
   }
-  const service = MediaImageService.create({ context: () => PrivacyGateway.active(), storeFor: async ({ scopeId, authority }) => {
+  const service = MediaImageService.create({ context: () => PrivacyGateway.active(), expireCleanup, storeFor: async ({ scopeId, authority }) => {
     if (!/^[a-f0-9]{32}$/.test(scopeId)) fail('scope_changed');
     const root = path.join(paths.data, 'media-derived-v1', scopeId);
     assertAncestors(paths.data);

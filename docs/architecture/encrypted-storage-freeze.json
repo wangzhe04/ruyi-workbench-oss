@@ -3,13 +3,13 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 80,
+  "count": 81,
   "classCounts": {
     "required": 47,
-    "excluded": 33
+    "excluded": 34
   },
   "batchCounts": {
-    "not-migrated": 33,
+    "not-migrated": 34,
     "sessions": 13,
     "index-cache": 10,
     "memory-queue": 13,
@@ -90,6 +90,15 @@
     "derivation": "HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)"
   },
   "entries": [
+    {
+      "id": "journal-retired-directory",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "authenticated detached checkpoint directory name used only for recoverable reclamation; its opaque session id and key-bound tag are control metadata, while every surviving journal record retains its required encrypted family and original authentication",
+      "adapter": "pending"
+    },
     {
       "id": "work-data-source-recovery-observation",
       "encryption": "excluded",

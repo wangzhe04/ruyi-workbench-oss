@@ -185,7 +185,9 @@ test('startup diagnostic retains its schema, size limit and original error while
       PrivacyCore: { configHooks: { startupGuidance: f.CredentialRecovery.startupGuidance } },
       paths: { data: 'synthetic-data' }, dataRoot: () => 'synthetic-data', dataRootSource: () => 'default',
       WorkDataMaintenanceRuntimeHooks: {}, // This case isolates the existing post-admission startup diagnostic.
-      WorkDataRootHooks: { bind: async () => {}, ready: () => true }, path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
+      WorkDataRootHooks: { bind: async () => ({ present: false }), ready: () => true },
+      journalResumeRetirements: async () => {}, // Already-admitted journal owner is outside this diagnostic case.
+      path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
       lstatOrNull: () => null, isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => ({ portable: false }) },
       startServerInner: async () => { throw error; }, finishBootCliPathProbes: () => { finished++; },
       START_ERROR_KINDS: ['port-unavailable', 'data-dir-unwritable', 'startup-failed'], LAST_START_ERROR_FILE: 'last-start-error.json',

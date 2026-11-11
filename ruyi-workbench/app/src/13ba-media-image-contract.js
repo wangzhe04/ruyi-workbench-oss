@@ -102,30 +102,52 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
   });
   return { text, spans };
   }
-  function mapWords(words, detector, width, height) {
+  function mapWords(words, detector, width, height, checkProgress = () => {}) {
   let text = '', previousLine;
-  const spans = words.map(word => {
+  const spans = words.map((word, index) => {
+    if (!(index % 64)) checkProgress();
     if (!word || typeof word.text !== 'string' || !Number.isInteger(word.line) || !Array.isArray(word.box)) throw failure('invalid-ocr');
     if (text) text += word.line === previousLine ? ' ' : '\n';
     const start = text.length; text += word.text; previousLine = word.line;
     return { ...word, start, end: text.length };
   });
   if (!text.trim()) throw failure('unrecognized');
+  checkProgress();
   const hits = detector.detect(text);
+  checkProgress();
   if (!hits.length) throw failure('unrecognized'); // Conservative M1 fixture policy, no original-media fallback.
-  const selected = spans.filter(word => hits.some(hit => word.start < hit.end && word.end > hit.start));
-  for (const hit of hits) {
-    const covered = selected.filter(word => word.start < hit.end && word.end > hit.start);
-    if (!covered.length || covered[0].start > hit.start || covered.at(-1).end < hit.end) throw failure('incomplete-coverage');
+  // Word spans are ordered even when detector hits overlap or arrive unsorted.
+  // Find each hit's first/last overlapping word without a words-by-hits scan.
+  const changes = new Int32Array(spans.length + 1), categories = new Set();
+  let crossWord = false;
+  for (let index = 0; index < hits.length; index++) {
+    if (!(index % 64)) checkProgress();
+    const hit = hits[index], start = hit.start, end = hit.end;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) throw failure('incomplete-coverage');
+    let low = 0, high = spans.length;
+    while (low < high) { const middle = (low + high) >>> 1; if (spans[middle].end <= start) low = middle + 1; else high = middle; }
+    const first = low;
+    low = 0; high = spans.length;
+    while (low < high) { const middle = (low + high) >>> 1; if (spans[middle].start < end) low = middle + 1; else high = middle; }
+    const last = low;
+    if (first >= last || spans[first].start > start || spans[last - 1].end < end) throw failure('incomplete-coverage');
+    changes[first]++; changes[last]--;
+    if (last - first >= 3) crossWord = true;
+    categories.add(hit.category);
   }
-  const boxes = selected.map(word => {
+  const boxes = []; let covering = 0;
+  for (let index = 0; index < spans.length; index++) {
+    if (!(index % 64)) checkProgress();
+    covering += changes[index];
+    if (!covering) continue;
+    const word = spans[index];
     if (word.box.length !== 4 || word.box.some(n => !Number.isFinite(n))) throw failure('invalid-ocr');
     const [x1, y1, x2, y2] = word.box;
     if (x1 < 0 || y1 < 0 || x1 >= x2 || y1 >= y2 || x2 > width || y2 > height) throw failure('invalid-ocr');
-    return [Math.max(0, Math.floor(x1) - 4), Math.max(0, Math.floor(y1) - 4), Math.min(width, Math.ceil(x2) + 4), Math.min(height, Math.ceil(y2) + 4)];
-  });
-  return { boxes, hitCount: hits.length, categories: [...new Set(hits.map(h => h.category))],
-    matchedWords: selected.length, crossWord: hits.some(hit => spans.filter(w => w.start < hit.end && w.end > hit.start).length >= 3) };
+    boxes.push([Math.max(0, Math.floor(x1) - 4), Math.max(0, Math.floor(y1) - 4), Math.min(width, Math.ceil(x2) + 4), Math.min(height, Math.ceil(y2) + 4)]);
+  }
+  checkProgress();
+  return { boxes, hitCount: hits.length, categories: [...categories], matchedWords: boxes.length, crossWord };
 }
 
   function create({ sourceOwner, policyOwner, processorOwner, now = Date.now } = {}) {
@@ -240,7 +262,7 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
         const verifiedDetection = typeof processorOwner.assertCoverage === 'function'
           && processorOwner.assertCoverage(frame) === true;
         let mapped;
-        try { mapped = mapWords(frame.words, detector, width, height); }
+        try { mapped = mapWords(frame.words, detector, width, height, checkProgress); }
         catch (error) {
           if (!verifiedDetection || error?.code !== 'privacy.image_unrecognized') throw error;
           mapped = { boxes: [], hitCount: 0, categories: [], matchedWords: 0, crossWord: false };
@@ -345,7 +367,14 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
       const borrowed = Object.freeze({ bytes, manifest: record.manifest, assert, release() { if (!released) { released = true; try { fillBuffer(bytes, 0); } catch (error) { throw cleanupFailure([error]); } finally { record.borrows.delete(borrowed); } } } });
       record.borrows.add(borrowed); return borrowed;
     }
-    function release(token) { const record = own(token); retire(record); }
+    function release(token) {
+      const record = records.get(token);
+      // The ticket timer can finish retirement before the service's same-deadline
+      // cleanup runs. Successful retirement is idempotent; foreign tickets and
+      // any recorded cleanup uncertainty must still pass through the old gate.
+      if (record?.retired && !record.cleanupError) return;
+      retire(own(token));
+    }
     return Object.freeze({ prepare, describe, borrow, release, invalidate() { epoch++; stopPending?.(); const errors = []; for (const record of [...active]) { try { retire(record); } catch (error) { errors.push(error); } } if (errors.length) throw cleanupFailure(errors); } });
   }
   return Object.freeze({ create, LIMITS });

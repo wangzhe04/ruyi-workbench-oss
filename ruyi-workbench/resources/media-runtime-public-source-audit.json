@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "kind": "media-source-observations-not-distribution-approval",
+  "observedDate": "2026-11-11",
+  "runtimeLockSha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+  "localSourceLockSha256": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7",
+  "binaryObservations": [
+    {
+      "path": "python_embed/Lib/site-packages/cv2/cv2.pyd",
+      "bytes": 85848064,
+      "sha256": "eefedf6ee006a84bbc7d3df5ec66046429b8c95dbfd5f8f8f98c5772b91d6d48",
+      "buildFamily": "opencv-python-wheel",
+      "compilerVersionObservation": "MSVC 19.44.35228.0; embedded binary metadata only"
+    },
+    {
+      "path": "python_embed/Lib/site-packages/cv2/opencv_videoio_ffmpeg500_64.dll",
+      "bytes": 30876160,
+      "sha256": "7aabff029d1fa47cf56ede4dbbe05dc62da3208f07cd16471d4c966a33f9aa31",
+      "buildFamily": "opencv-ffmpeg-plugin",
+      "compilerVersionObservation": "MinGW POSIX GCC 13.0.0; embedded binary metadata only"
+    }
+  ],
+  "wheel": {
+    "releaseMetadataUrl": "https://pypi.org/pypi/opencv-python-headless/5.0.0.93/json",
+    "sourceCommit": "b83046cda41133f1bf2e73e99dba16a1248f103a",
+    "opencvGitlink": "40738fb16ceddb5fb3fea747585f7ce6abb0605b",
+    "workflowUrl": "https://github.com/opencv/opencv-python/blob/b83046cda41133f1bf2e73e99dba16a1248f103a/.github/workflows/build_wheels_windows.yml",
+    "workflowSha256": "ed7998427b440618ba0d1ee2e48204eb462b5d2416e7df5f7b7034e6fb6d7c1e"
+  },
+  "plugin": {
+    "binaryCommit": "06dc20cad65dc7fcf784f70c95d46750520889a7",
+    "sourceCommit": "664c0098dcb47b361f20c1d6a518653c23f5f2b5",
+    "opencvSourceCommit": "a0a660fcb1e58a295e6caa6aee64ed4d369b0181",
+    "recipeObservations": [
+      {
+        "url": "https://raw.githubusercontent.com/opencv/opencv_3rdparty/664c0098dcb47b361f20c1d6a518653c23f5f2b5/ffmpeg/docker/Dockerfile",
+        "sha256": "31dc0f663053c80e63967b624f9e90efb6ed1f014d66fe094544ec5c599a8242",
+        "facts": "ubuntu:24.04 base tag without digest; apt packages without version pins"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/opencv/opencv_3rdparty/664c0098dcb47b361f20c1d6a518653c23f5f2b5/ffmpeg/build_videoio_plugin.sh",
+        "sha256": "d9d6a15cfdb90eebc3136bad76eea3eb5d26cec97bd7b04c4063ac26f8cfde02",
+        "facts": "recipe requests -static, -static-libgcc and -static-libstdc++; actual linked archive identities remain unproven"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/opencv/opencv_3rdparty/664c0098dcb47b361f20c1d6a518653c23f5f2b5/ffmpeg/build_via_docker.sh",
+        "sha256": "0ad8cfc8bd3b8e28120eee19654a4d0a784033869ef50f56fafd6c2ad64331c3",
+        "facts": "recipe builds a local Docker tag; it does not record the image digest used for the published DLL"
+      }
+    ]
+  },
+  "pendingEvidence": [
+    "Maintainer build log or attestation binding the exact FFmpeg DLL hash to its actual Docker image digest, apt snapshot and package manifest.",
+    "Actual link map or equivalent static archive identities for libgcc, libstdc++, MinGW and Winpthreads, with their corresponding source and notices.",
+    "Separate source, build and notice correspondence for all 21 distributions and bundled native dependencies; two OpenCV-related source artifacts do not close this matrix.",
+    "Independent review of the exact intended distribution, notices, source delivery and applicable offer or relinking materials before any public distribution decision."
+  ],
+  "toolchainBuildAttestation": false,
+  "allDistributionSourceCorrespondenceClosed": false,
+  "redistributionAdmitted": false
+}

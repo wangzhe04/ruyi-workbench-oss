@@ -1,0 +1,717 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "status": "SCOPED_M4_LOCAL_DEVELOPMENT_VERIFIED_PUBLIC_DISTRIBUTION_PENDING",
+  "baselineHead": "b2fb4619bfe0f65554de3a04b7b08f88596e9a23",
+  "applicationVersion": "3.0.1",
+  "releasePublished": false,
+  "commit": {
+    "identity": "containing_commit",
+    "verification": "inspect_git_history"
+  },
+  "source": {
+    "frozenServerSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+    "qualificationRoot": "C:/r31-1111/m4-closeout/qualification",
+    "qualificationServerSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+    "workspaceServerSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+    "sameServerBytes": true,
+    "files": {
+      "ruyi-workbench/app/server.js": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "ruyi-workbench/app/src/12-tool-dispatch.js": "62d66b8e23fa11bb3ad43173d718a977e15b2747f4076db40eb8cf6711b84314",
+      "ruyi-workbench/app/src/13ba-media-image-contract.js": "176363b156bcf832ed56e374e4caae3dcc7a63e7ecfc22aeffe82aa1c0b3e68f",
+      "ruyi-workbench/app/src/13bd-media-image-service.js": "f7286368d05f9e149fc1689f11a8cc9677cdf396ae7d55ea424d4e01f0ac2b43",
+      "ruyi-workbench/app/src/13be-media-image-host.js": "6c7121bbb873a1f47030d04119f2ee829cf40f4441de79f52bbef4eb89e2f04a"
+    },
+    "preliminaryServerSha256": "419067cd8b38ca49af8b7a0e2d05697b94a1f9dfc7cf4d5c38fd667418695a11",
+    "previousCheckpointServerSha256": "b9a5d4f4d72accd344bbf1767e16e2f26eebb472a7ee1c0809e84f6e21208b45"
+  },
+  "implementedScope": [
+    "Protected native file_read for supported local images and saved screenshots uses existing permissions, source snapshots and one immediate prepared-media continuation; explicit image-as-text remains not_text and OFF semantics remain intact.",
+    "UTF-16 OCR intervals use ordered-span binary selection and difference accumulation with bounded cancellation/deadline polling; empty spans, overlapping/unsorted finite hits, category order and four-pixel expansion remain preserved.",
+    "Successful retired contract tickets release idempotently; foreign tickets and cleanup uncertainty still refuse.",
+    "Detached TTL cleanup obtains a fresh trusted maintenance admission covering the complete remove, physical unlink, source close and scope release; normal stale business continuations still refuse; maintenance/extraAdmission and physical identity guards are unchanged."
+  ],
+  "qualificationScope": [
+    "Responses PDF actual tool-result transport, plus encrypted browser Chat/Responses/Anthropic preview=Send/Steer checks with local synthetic receivers.",
+    "Twenty additional Office text/preview cases bring the full document/video matrix to 33 assertions, including XLSX, ODT/ODS, non-ASCII preservation and exact hidden/formula/conditional/external/ODP refusal cases.",
+    "A pinned offline generator creates 17 public synthetic image cases across PNG/BMP/JPEG/WebP, independent EXIF mappings and sensitive text/QR/EAN/pixel oracles; generating fixtures does not grant qualification.",
+    "Real HTTP cancellation, post-header preview disconnect, physical source/policy changes, real ticket expiry and four successive preparations, each with immediate authenticated preview and unchanged deadline.",
+    "Historical 28 unit failures corrected through test seams, exact historical native method locks, isolated-Python probe alignment, explicit config-tier expectations and fresh encrypted-storage census. No behavior assertions were removed.",
+    "Two final unit seams aligned with not_text and fixtureRules; exact Chinese-regex line registration and the real-TTL metadata count/exemption aligned without broad allowlists."
+  ],
+  "verification": {
+    "node": "24.14.0",
+    "platform": "win32",
+    "unit": {
+      "path": "C:/r31-1111/m4-closeout/final-unit.log",
+      "sha256": "b8517015aafe244e138051f741713549d3aac327afc30b01d60bbb150004cd87",
+      "status": "PASS",
+      "tests": 5233,
+      "pass": 5200,
+      "fail": 0,
+      "skip": 33,
+      "suites": 194
+    },
+    "syntax": {
+      "path": "C:/r31-1111/m4-closeout/syntax-closeout.log",
+      "sha256": "10eebb637c09f4d2d77a10e67bdf29cff021a869553ba498e302ac1c53e713ea",
+      "status": "PASS",
+      "files": 1502,
+      "fail": 0,
+      "scope": "Final syntax after diagnostic-only harness changes; frozen B493 product source unchanged.",
+      "rootConfirmed": true
+    },
+    "static": {
+      "status": "PASS_COMBINED_SEPARATE_RUNS",
+      "tests": 100,
+      "pass": 100,
+      "fail": 0,
+      "serialSummary": {
+        "path": "C:/r31-1111/m4-closeout/static-final-summary.log",
+        "sha256": "e5c9d6ec165d6d8b1fed844f9b89f7e7dcbd6b7336f732327ffa5c6ab2d599d5"
+      },
+      "directory": "C:/r31-1111/m4-closeout/static-final",
+      "serialInitial": {
+        "pass": 99,
+        "fail": 1,
+        "failed": "copy-path-guard.static.e2e.js"
+      },
+      "replacement": {
+        "path": "C:/r31-1111/m4-closeout/copy-path-fixed.log",
+        "sha256": "1e4c0021ffbdebf773dd8de8cb860072d6f5efc1ffb829efed5b09ce66111055",
+        "status": "PASS",
+        "scope": "Exact existing source regex registration moved from line 1720 to 1722."
+      },
+      "singleCompleteFastGreen": false
+    },
+    "completeFast": {
+      "path": "C:/r31-1111/m4-closeout/fast-final.log",
+      "sha256": "28e93547787ce6d99332bdd737fd904c0b565a812b5489ffa9f9d48e8ea632ac",
+      "status": "RED_PRESERVED",
+      "unit": {
+        "tests": 5233,
+        "pass": 5200,
+        "fail": 0,
+        "skip": 33
+      },
+      "static": {
+        "ran": 100,
+        "pass": 98,
+        "fail": 2
+      },
+      "failures": [
+        "copy-path-guard.static.e2e.js",
+        "fixture-home.static.e2e.js"
+      ],
+      "note": "Subsequent individual static fixes and the serial 100-case results are separate evidence; no claim of a single all-green full fast run."
+    },
+    "preliminaryActuals": {
+      "serverSha256": "419067cd8b38ca49af8b7a0e2d05697b94a1f9dfc7cf4d5c38fd667418695a11",
+      "status": "PRELIMINARY_SOURCE_ONLY_NOT_FINAL_B493_ACCEPTANCE",
+      "browser": {
+        "assertions": 48,
+        "roundsPerProtocol": 2,
+        "protocols": [
+          "chat",
+          "responses",
+          "anthropic"
+        ],
+        "logs": [
+          {
+            "path": "C:/r31-1111/m4-closeout/browser-chat-1.log",
+            "sha256": "c4c5ffc3ccc56854362b29ea2584c8d584041767a190bd46a5760bf04014aa0e",
+            "assertions": 8,
+            "status": "PASS"
+          },
+          {
+            "path": "C:/r31-1111/m4-closeout/browser-chat-2.log",
+            "sha256": "c4c5ffc3ccc56854362b29ea2584c8d584041767a190bd46a5760bf04014aa0e",
+            "assertions": 8,
+            "status": "PASS"
+          },
+          {
+            "path": "C:/r31-1111/m4-closeout/browser-responses-first.log",
+            "sha256": "5e8a4a377b1e636f9a0a8a6598291626c5508b00f2646e16dbde7ecf67ec667f",
+            "assertions": 8,
+            "status": "PASS"
+          },
+          {
+            "path": "C:/r31-1111/m4-closeout/browser-responses-2.log",
+            "sha256": "5e8a4a377b1e636f9a0a8a6598291626c5508b00f2646e16dbde7ecf67ec667f",
+            "assertions": 8,
+            "status": "PASS"
+          },
+          {
+            "path": "C:/r31-1111/m4-closeout/browser-anthropic-1.log",
+            "sha256": "8f348e522d0417253ee8ffa158e1b8ba3ef4bd4cb7efcf16afb5536b60c22f2c",
+            "assertions": 8,
+            "status": "PASS"
+          },
+          {
+            "path": "C:/r31-1111/m4-closeout/browser-anthropic-2.log",
+            "sha256": "8f348e522d0417253ee8ffa158e1b8ba3ef4bd4cb7efcf16afb5536b60c22f2c",
+            "assertions": 8,
+            "status": "PASS"
+          }
+        ]
+      },
+      "images": {
+        "path": "C:/r31-1111/m4-closeout/images-full-second.log",
+        "sha256": "72706e5f92ebc66cd4d81781172daafba7273ce1ad2f640cbe5463060595375b",
+        "status": "PASS",
+        "cases": 17,
+        "assertions": 82
+      },
+      "office": {
+        "path": "C:/r31-1111/m4-closeout/office-full-first.log",
+        "sha256": "d56c801827bd25a589e0edeb21486ec1d47cf40da4367d19acad34f245c4784f",
+        "status": "PASS",
+        "assertions": 33
+      }
+    },
+    "frozenSourceActuals": {
+      "serverSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "status": "PASS_SCOPED_LOCAL_MATRIX",
+      "lifecycle": {
+        "status": "PASS_TWO_FRESH_ROUNDS",
+        "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+        "rounds": [
+          {
+            "path": "C:/r31-1111/m4-closeout/lifecycle-retry-1.log",
+            "sha256": "9f88d566f47522d70890e31680f8b44cf3fa587cfa14049bd514137550b460b0",
+            "status": "PASS",
+            "assertions": 6,
+            "exitCode": 0,
+            "rootConfirmed": true
+          },
+          {
+            "path": "C:/r31-1111/m4-closeout/lifecycle-retry-2.log",
+            "sha256": "bc9b1684af774d4aa4908895f2a5be4c24d26688ff4c0dca8f9c96cd7547727b",
+            "status": "PASS",
+            "assertions": 6,
+            "exitCode": 0,
+            "rootConfirmed": true
+          }
+        ],
+        "retainedUnresolvedAttempt": "C:/r31-1111/m4-closeout/lifecycle-accepted-1.log",
+        "note": "Two successful fresh attempts are distinct from the retained unexplained privacy.image_processor_timeout; no historical result is overwritten."
+      },
+      "defaultRegressions": {
+        "status": "PASS",
+        "runs": 8,
+        "assertions": 77,
+        "items": [
+          {
+            "scope": "HTTP lifecycle default round 1",
+            "path": "C:/r31-1111/m4-closeout/lifecycle-default-1.log",
+            "sha256": "d4c437fc8afa74ce919d064afde629707a0deb503a90d6da34232b6093327202",
+            "status": "PASS",
+            "assertions": 2,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "HTTP lifecycle default round 2",
+            "path": "C:/r31-1111/m4-closeout/lifecycle-default-2.log",
+            "sha256": "9549fb165d6cf86f3a3c0c148a3d908a8f328baaa5674c7f757ba789f73c7a70",
+            "status": "PASS",
+            "assertions": 2,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "native protected image default",
+            "path": "C:/r31-1111/m4-closeout/native-image-default.log",
+            "sha256": "f8268725997a72fae756a8c29f92a92c4152fa9a48a9a504090bb4ef0ea9f722",
+            "status": "PASS",
+            "assertions": 8,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "OCR budget source composition",
+            "path": "C:/r31-1111/m4-closeout/ocr-budget-default.log",
+            "sha256": "8a9c1560399ce67dc4dfef9fa7487a93c520244bd0aa74d814679626380eda18",
+            "status": "PASS",
+            "assertions": 6,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "media resource default",
+            "path": "C:/r31-1111/m4-closeout/resource-default.log",
+            "sha256": "5e148c15642881e9f625190464a961fcda8ec0b1395513d3c43fc9fab8d0ef70",
+            "status": "PASS",
+            "assertions": 14,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "rendered prepare",
+            "path": "C:/r31-1111/m4-closeout/rendered-default.log",
+            "sha256": "b35ab0be1428aaca6bff31a642fa12b9d066ac91d51dbb359719d9700a7425c7",
+            "status": "PASS",
+            "assertions": 3,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "native media boundaries",
+            "path": "C:/r31-1111/m4-closeout/native-boundaries-default.log",
+            "sha256": "007fbe874e884d14a1a48256b4f69d79c18bd60b4a1db06d436fd46941ae5234",
+            "status": "PASS",
+            "assertions": 35,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          },
+          {
+            "scope": "encrypted browser missing components",
+            "path": "C:/r31-1111/m4-closeout/browser-missing-default.log",
+            "sha256": "bf7763b9266019324e6b23b86b51595cba3fcc1ead042bae2cad7bbb35f7fda5",
+            "status": "PASS",
+            "assertions": 7,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          }
+        ]
+      },
+      "fullMatrix": {
+        "status": "PASS",
+        "items": [
+          {
+            "scope": "17-image Full matrix",
+            "path": "C:/r31-1111/m4-closeout/images-frozen.log",
+            "status": "PASS",
+            "expectedAssertions": 82,
+            "cases": 17,
+            "assertions": 82,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sha256": "5521b621ee30ef409cc95ca9096127410cb2425856a50d9da7f8eb113b9f01bf"
+          },
+          {
+            "scope": "encrypted browser Chat journey",
+            "path": "C:/r31-1111/m4-closeout/browser-chat-diagnostic-1.log",
+            "status": "PASS",
+            "expectedAssertions": 8,
+            "attempts": [
+              {
+                "path": "C:/r31-1111/m4-closeout/browser-chat-frozen.log",
+                "status": "RED_PRESERVED",
+                "rootCause": "unknown"
+              },
+              {
+                "path": "C:/r31-1111/m4-closeout/browser-chat-diagnostic-1.log",
+                "status": "PASS",
+                "assertions": 8
+              }
+            ],
+            "assertions": 8,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+            "sha256": "fe17130c63415d7e958c127a944a643bc31fdabd4d8f19bde50d13ab83491bae",
+            "observedProof": {
+              "packagedServerSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+              "bundledNode": true,
+              "sourceQualification": true,
+              "apiStyle": "chat",
+              "workDataEncryption": true,
+              "sendPngSha256": "2e82a62114675045ff59660d002324ef03c59c2c86fac81486e5359ecd54d6bf",
+              "steerPngSha256": "8f64cb5a7d3a5be46d11b00b69ec11a70e3ef58fc6f35b18080d0c0eaf45b170",
+              "providerRequests": 3
+            },
+            "note": "Same B493 source and unchanged 115-second preview bound; only catch diagnostics added. Original first failure remains unknown; late artifact timing is an observation, not a proven cause."
+          },
+          {
+            "scope": "encrypted browser Responses journey",
+            "path": "C:/r31-1111/m4-closeout/browser-responses-frozen.log",
+            "status": "PASS",
+            "expectedAssertions": 8,
+            "assertions": 8,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+            "sha256": "95778e9d3e3586ce943fde6f7e2137bccdb06bc4b470d04755e2ea37894bdf91",
+            "observedProof": {
+              "packagedServerSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+              "bundledNode": true,
+              "sourceQualification": true,
+              "apiStyle": "responses",
+              "workDataEncryption": true,
+              "sendPngSha256": "2e82a62114675045ff59660d002324ef03c59c2c86fac81486e5359ecd54d6bf",
+              "steerPngSha256": "8f64cb5a7d3a5be46d11b00b69ec11a70e3ef58fc6f35b18080d0c0eaf45b170",
+              "providerRequests": 3
+            }
+          },
+          {
+            "scope": "encrypted browser Anthropic journey",
+            "path": "C:/r31-1111/m4-closeout/browser-anthropic-frozen.log",
+            "status": "PASS",
+            "expectedAssertions": 8,
+            "assertions": 8,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+            "sha256": "9cb22f070cce5b1b41c9463ea4d6539ea54170c9facc6cca52f153d5019ff933",
+            "observedProof": {
+              "packagedServerSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+              "bundledNode": true,
+              "sourceQualification": true,
+              "apiStyle": "anthropic",
+              "workDataEncryption": true,
+              "sendPngSha256": "2e82a62114675045ff59660d002324ef03c59c2c86fac81486e5359ecd54d6bf",
+              "steerPngSha256": "8f64cb5a7d3a5be46d11b00b69ec11a70e3ef58fc6f35b18080d0c0eaf45b170",
+              "providerRequests": 3
+            }
+          },
+          {
+            "scope": "native protected image",
+            "path": "C:/r31-1111/m4-closeout/native-image-frozen.log",
+            "status": "PASS",
+            "expectedAssertions": 8,
+            "assertions": 8,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+            "sha256": "584c5653f66c99e71adc36ad4f1ddaa16d16cf55c146a93251e090eea087b107"
+          },
+          {
+            "scope": "Office/document/video matrix",
+            "path": "C:/r31-1111/m4-closeout/office-frozen.log",
+            "status": "PASS",
+            "expectedAssertions": 33,
+            "sha256": "fa26e688f2cb08789e9bdd8c9cc309e4ec275efe1965fadb9e30ab6ba8fc9e10",
+            "assertions": 33,
+            "exitCode": 0,
+            "rootConfirmed": true,
+            "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a"
+          }
+        ],
+        "runs": 6,
+        "assertions": 147
+      },
+      "summary": {
+        "fullMatrixRuns": 6,
+        "fullMatrixAssertions": 147,
+        "lifecycleRuns": 2,
+        "lifecycleAssertions": 12,
+        "defaultRuns": 8,
+        "defaultAssertions": 77,
+        "totalAcceptedRuns": 16,
+        "totalAssertionsAcrossRuns": 236,
+        "note": "Counts describe accepted executions; distinct earlier first failures remain separately recorded."
+      }
+    },
+    "isolatedHistoricalUnitRepair": {
+      "tests": 145,
+      "pass": 145,
+      "fail": 0,
+      "skip": 0,
+      "log": "C:/r31-1111/m4-next/legacy-nine-final-unit.log",
+      "python": "C:/r31-1109/pdf-python/Scripts/python.exe",
+      "note": "Default environment separately and honestly skips seven PDF cases when isolated pdfplumber is absent; the explicit isolated interpreter executed all seven."
+    },
+    "realStoreAlsUnit": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "nativeComponentExecuted": false,
+      "scope": "Real maintenance ALS, real plaintext/encrypted derived stores and filesystem; synthetic decoded pixels and registered-context timer delivery. Fresh owner stays live through source close, business stale denial, busy/retired/extraAdmission, real unlink failure and four-slot reuse."
+    },
+    "previousSyntax": {
+      "path": "C:/r31-1111/m4-closeout/syntax-frozen.log",
+      "sha256": "10eebb637c09f4d2d77a10e67bdf29cff021a869553ba498e302ac1c53e713ea",
+      "status": "PASS",
+      "files": 1502,
+      "fail": 0
+    },
+    "finalSourceChecks": {
+      "buildFreshness": {
+        "status": "PASS",
+        "command": "node ruyi-workbench/app/build.js --check",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      "diffWhitespace": {
+        "status": "PASS",
+        "command": "git diff --check",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      "note": "Final build and diff checks are root-confirmed command outcomes; no invented log file or self-referential evidence hash."
+    },
+    "finalCloseoutChecks": [
+      {
+        "path": "C:/r31-1111/m4-closeout/closeout-facts.static.log",
+        "sha256": "4eab2600e7403f7aa5f38b6fea368e36d9bc8b0dd4efdaa24ba587fc4d17a490",
+        "status": "PASS",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      {
+        "path": "C:/r31-1111/m4-closeout/closeout-media-runtime-source-evidence.static.log",
+        "sha256": "d4e723bd20faf38b9568cf80fc23e42a049112141e7403e362472aa16e5767b9",
+        "status": "PASS",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      {
+        "path": "C:/r31-1111/m4-closeout/closeout-encrypted-storage-freeze.static.log",
+        "sha256": "04787cffd8a8bd062bd44f816a51e4131754022cdfb7854718c99cc7926b4704",
+        "status": "PASS",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      {
+        "path": "C:/r31-1111/m4-closeout/closeout-route-inventory.static.log",
+        "sha256": "e940ac083185f6bf68fb2ea8729766005d54c061bd43529599e6ba6943353ae4",
+        "status": "PASS",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      {
+        "path": "C:/r31-1111/m4-closeout/closeout-eol-policy.static.log",
+        "sha256": "82aa3ed9b2d7a13b576431a1f0a1f567b6d1508c059071a5596cd73d3b6e4343",
+        "status": "PASS",
+        "exitCode": 0,
+        "rootConfirmed": true
+      },
+      {
+        "path": "C:/r31-1111/m4-closeout/closeout-repo-hygiene.log",
+        "sha256": "4dc56aed91d19d803f63a5ac05d8cb5edba5ecea37dab83ed464eddfced82675",
+        "status": "PASS",
+        "exitCode": 0,
+        "rootConfirmed": true
+      }
+    ]
+  },
+  "retainedFailures": [
+    {
+      "log": "C:/r31-1111/m4-next/unit-before.log",
+      "status": "RED_PRESERVED",
+      "tests": 5203,
+      "pass": 5143,
+      "fail": 34,
+      "skip": 26,
+      "note": "28 historical failures plus source/hash/timing failures recorded under 12.71; not silently reclassified as final pass."
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/fast-first-unit.log",
+      "sha256": "67c29a714c8de44be6c5c65196d91ac9d2213659bcf4cca9e4c7f4a60202dbab",
+      "status": "RED_PRESERVED",
+      "tests": 5223,
+      "pass": 5188,
+      "fail": 2,
+      "skip": 33,
+      "causes": [
+        "privacy-file-read expected old generic media refusal instead of not_text",
+        "media-resource-profile VM lacked fixtureRules"
+      ]
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/lifecycle-full-1.log",
+      "sha256": "88a0aa78c0ecedb010c2c03cc6814ae9e9b2ea30b74e93640f2e9c2b61af3ab5",
+      "status": "RED_PRESERVED",
+      "sourceSha256": "419067cd8b38ca49af8b7a0e2d05697b94a1f9dfc7cf4d5c38fd667418695a11",
+      "cause": "Old TTL expiry inherited stale maintenance ALS, leaving an expired artifact and one occupied slot."
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/ttl-real-store-als-first-red.log",
+      "sha256": "961ec4378522433d9131686bfdb66d9761fd2fbbdc497b4c39e157b9bc4ede0e",
+      "status": "RED_NEGATIVE_CONTROL_PRESERVED",
+      "cause": "Real store and ALS composition reproduced maintenance_stale_continuation before the fresh-cleanup fix."
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/lifecycle-final-1.log",
+      "sha256": "dc96c9e13b64feb4a166f876adae54d01de3bc597312082d6c4c5827f99c20df",
+      "status": "RED_TEST_TIME_ASSUMPTION_PRESERVED",
+      "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "cause": "All four preparations succeeded; delayed common preview encountered genuine expiry of the earliest ticket. New unpublished oracle now checks every immediate 200/hash and accepts only deadline-proven exact expiry later."
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/lifecycle-accepted-1.log",
+      "sha256": "87013be243e9007d3a2368ac13d730600fdcddc8a8c3494c0aa06d58fca88f48",
+      "status": "RED_UNRESOLVED_HOST_PROCESSOR_JOB_TIMEOUT_PRESERVED",
+      "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "cause": "privacy.image_processor_timeout",
+      "rootCause": "unknown",
+      "note": "No phase-level log identifies the expired phase. This is not evidence of worker recognition timeout or a load-related cause. Later success remains a distinct attempt.",
+      "observedStage": "First prepare of expiry.bmp; the run had not entered the TTL wait.",
+      "timeoutLayer": "host processor job deadline",
+      "deadlineCoverage": [
+        "component preverification",
+        "spawn and native processing",
+        "post-close component verification"
+      ]
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/browser-chat-frozen.log",
+      "sha256": "df7c50095b6106df790fdffad78c6a0b0fec5aa49e95c3c7d17346a9b1ebdf52",
+      "status": "RED_BROWSER_PREVIEW_DEADLINE_PRESERVED",
+      "sourceSha256": "b493b6077cd82d65755565e88b07a9942e7a13d1b59a7b865f53e10a0480c62a",
+      "cause": "Browser delivery deadline: actual protected attachment preview",
+      "deadlineMs": 115000,
+      "completedAssertions": 5,
+      "rootCause": "unknown",
+      "retainedSyntheticFixture": "C:/Users/87179/AppData/Local/Temp/ruyi-media-browser-VKmuK6",
+      "note": "Later diagnostic attempt passed separately on the same B493 source and unchanged preview deadline; the original first failure and its unknown root cause remain preserved."
+    }
+  ],
+  "reviews": [
+    {
+      "scope": "Native image path and final sensitive-pixel regression",
+      "author": "m4_gap_audit",
+      "reviewer": "m4_media_review",
+      "status": "independent GO"
+    },
+    {
+      "scope": "UTF-16 OCR mapper",
+      "author": "m4_media_review",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent GO after non-finite endpoint rejection and exact identity-lock repair; 30000 finite-interval differential cases agreed"
+    },
+    {
+      "scope": "Responses PDF actual HTTP regression",
+      "author": "m4_responses_e2e",
+      "reviewer": "m4_gap_audit",
+      "status": "independent GO"
+    },
+    {
+      "scope": "Contract release idempotence and detached fresh cleanup",
+      "author": "m4_media_review",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent GO; real store+ALS six-unit combination independently rerun PASS"
+    },
+    {
+      "scope": "Office 20 cases and pinned 17-image generator",
+      "author": "m4_gap_audit",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent static GO after real mask/public-pixel and non-ASCII preservation assertions"
+    },
+    {
+      "scope": "Three-protocol browser receivers and delivery",
+      "author": "root",
+      "reviewers": [
+        "m4_responses_e2e",
+        "m4_gap_audit"
+      ],
+      "status": "independent GO after input_text and complete-wire unique-image checks"
+    },
+    {
+      "scope": "Public-source audit/report",
+      "author": "m4_media_review",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent GO; fixed upstream object hashes checked, no public-distribution admission"
+    },
+    {
+      "scope": "Journal-retired-directory storage census",
+      "author": "root",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent GO; only directory control metadata excluded, surviving journal records still required"
+    },
+    {
+      "scope": "Historical unit fixture and native-identity repairs",
+      "author": "m4_responses_e2e",
+      "reviewer": "m4_media_review",
+      "status": "independent GO; explicit isolated Python nine-file group 145/145 PASS"
+    },
+    {
+      "scope": "Final privacy-file-read/resource-profile unit seams and process-owner count",
+      "author": "root",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent GO; no parser/raw-data exclusions relaxed"
+    },
+    {
+      "scope": "Exact Chinese-regex source line registration",
+      "author": "m4_responses_e2e",
+      "reviewer": "m4_gap_audit",
+      "status": "independent GO; only preexisting line 1720 to 1722 registration moved"
+    },
+    {
+      "scope": "HTTP lifecycle unpublished time oracle",
+      "author": "m4_media_review",
+      "reviewer": "m4_responses_e2e",
+      "status": "independent GO; each immediate preview remains 200/hash, later expiry needs exact code and original deadline proof"
+    },
+    {
+      "scope": "Final docs/evidence and frozen-source matrix binding",
+      "status": "independent GO; frozen source, acceptance input and log hashes/counts checked; retained first failures, UNKNOWN causes and public-distribution boundaries preserved",
+      "author": "m4_responses_e2e",
+      "reviewer": "m4_media_review"
+    }
+  ],
+  "sourcesAndReleaseBoundary": {
+    "runtimeRoot": "C:/r31-1109/m4p1/ruyi-workbench/dist/Ruyi-full-local/mcp/ai-computer-control",
+    "sourceRoot": "C:/r31-1109/m4p1/ruyi-workbench/dist/Ruyi-full-local/resources/media-runtime-sources",
+    "runtimeFiles": 4987,
+    "runtimeBytes": 413946142,
+    "localSourceBytes": 189682945,
+    "ordinaryFullLockChanged": false,
+    "runtimeLockChanged": false,
+    "localSourceLockChanged": false,
+    "newPackageAcceptance": false,
+    "sourceAudit": "ruyi-workbench/resources/media-runtime-public-source-audit.json",
+    "report": "ruyi-workbench/resources/media-runtime-source-evidence.md",
+    "publicDistributionApproval": false,
+    "pending": [
+      "Actual upstream FFmpeg DLL build environment: Docker image digest, apt snapshot and exact packages",
+      "Actual statically linked libgcc/libstdc++/MinGW/Winpthreads archive identities and corresponding materials",
+      "All 21 distribution/native-dependency source/build/notices correspondence",
+      "Independent license/source-delivery/relinking or offer review of the actual intended public distribution",
+      "M5 real-platform gates and M6 new package/install/upgrade/recovery/cross-account/cross-machine/frozen regression gates"
+    ],
+    "lockIdentities": [
+      {
+        "path": "ruyi-workbench/resources/media-runtime-dependencies.json",
+        "sha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+        "baselineSha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+        "unchanged": true
+      },
+      {
+        "path": "ruyi-workbench/resources/media-runtime-sources.json",
+        "sha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29",
+        "baselineSha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29",
+        "unchanged": true
+      },
+      {
+        "path": "ruyi-workbench/tools/media-runtime-sources-local-full.json",
+        "sha256": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7",
+        "baselineSha256": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7",
+        "unchanged": true
+      }
+    ]
+  },
+  "qualificationInputSha256": {
+    "dev-harness/media-image-http-lifecycle.e2e.js": "25d5feda5336cb7940cec960396fe5d7a7114354c5e0f818be5c723330847cb7",
+    "dev-harness/lib/media-browser-delivery.js": "14c4bac6ad9b926cd09ced8524a1be108b1dea09f57b75221ce617df2ca4dc76",
+    "dev-harness/lib/media-browser-provider.js": "9e825c021c1bee21b94bd0b3fe72a2e65c363d5e769edeac4f4b9cdfbd3fdc9c",
+    "dev-harness/native-protected-image.e2e.js": "056375133d01a19e83daf8d9d8a86e0938c88c9f31ade3aa3c53886fe9ea1fb7",
+    "dev-harness/media-image-ocr-budget-source.e2e.js": "a2524f81b933f679b511170a29f25926dd5e17ca29577f941e055630b0442694",
+    "dev-harness/protected-document-video.e2e.js": "1e361baff9773450dca4bc3aa90eacb3691ed61fb98b1593f41b0219f6dfd2ee",
+    "dev-harness/lib/protected-document-fixtures.js": "45d49a33bb0dea5b888584884d0a849b7210943664f105542417cac6f01b7763",
+    "dev-harness/lib/generate-media-qualification.py": "85e33d4a3c1f6e2ab48fbd2e4ed2c23d7dca467ef38dec57dffbaa48ff17bab3",
+    "dev-harness/media-resource-profile.e2e.js": "2cde963965a686eaacb02d0404e301de706ad5068850c237f26e772204746a7a",
+    "dev-harness/unit/media-image-expiry-owner.test.js": "110f2766005428ff60ad90aff46e14cc9902f4677ec9b7b92f4989d89c47e590"
+  },
+  "qualificationFixtureManifests": [
+    {
+      "path": "C:/r31-1111/m4-closeout/public-images/manifest.json",
+      "sha256": "71f434a6e8436cd0036d7c41591bfb44429715836424c1b783038a1599907cab",
+      "scope": "Public synthetic fixture identities; manifests differ in absolute paths, while the two generated source-file/oracle sets were independently compared."
+    },
+    {
+      "path": "C:/r31-1111/m4-closeout/public-images-repeat/manifest.json",
+      "sha256": "663ed5bc0336b1ef4da3267853f0dd061ad9a728acf2e126a68c992ac6f3cff0",
+      "scope": "Public synthetic fixture identities; manifests differ in absolute paths, while the two generated source-file/oracle sets were independently compared."
+    }
+  ]
+}

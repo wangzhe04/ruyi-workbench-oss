@@ -6,6 +6,12 @@ const MediaImageHost = (() => {
   const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(key => a[key] === b[key]);
   const managed = work => typeof WorkDataMaintenanceHooks.run === 'function' ? WorkDataMaintenanceHooks.run('media-image', work) : work();
+  function expireCleanup(work) {
+    // Only detached retirement gets a new admission. Explicit API operations
+    // retain their existing owner, and stale business continuations still fail.
+    return typeof WorkDataMaintenanceHooks.fresh === 'function'
+      ? WorkDataMaintenanceHooks.fresh('media-image', work) : managed(work);
+  }
   const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
   const localHelperHashes = Object.freeze({
     'native-file-read.py': '6a307d73f881492718356fe139635d35f49c321dd951711daf6d8baef300e9ea',
@@ -299,7 +305,7 @@ const MediaImageHost = (() => {
     if (typeof payload === 'string') return atomicWriteJson(target, async function* () { yield Buffer.from(payload); }, { stream: true });
     return atomicWriteJson(target, payload, options);
   }
-  const service = MediaImageService.create({ context: () => PrivacyGateway.active(), storeFor: async ({ scopeId, authority }) => {
+  const service = MediaImageService.create({ context: () => PrivacyGateway.active(), expireCleanup, storeFor: async ({ scopeId, authority }) => {
     if (!/^[a-f0-9]{32}$/.test(scopeId)) fail('scope_changed');
     const root = path.join(paths.data, 'media-derived-v1', scopeId);
     assertAncestors(paths.data);

@@ -27,7 +27,9 @@ test('canonical fractional edges round outward and zero regions are an explicit 
   a.deepEqual(pixel(image,12,12),[0,0,0]);a.deepEqual(pixel(image,13,13),[0,0,0]);a.deepEqual(pixel(image,14,14),[200,200,200]);f.pipeline.release(token);
   regions.boxes=[];const empty=await f.pipeline.prepare({regions}),view=f.pipeline.borrow(empty);a.deepEqual(pixel(png(view.bytes),12,12),[200,200,200]);f.pipeline.release(empty);
 });
-test('source-pixel mapper and OCR interval mapper retain reviewed production bytes',()=>{
+test('source-pixel mapper and budgeted OCR interval mapper retain independently reviewed production bytes',()=>{
   a.equal(h(functionBlock(source,'explicitBoxes')),'3081833f96598a16884008d9fdc7e1d666cd9e2d0ce188da4146530bf5da8e2c');
-  a.equal(h(functionBlock(source,'mapWords')),'757792e792caf7a7a92e4b8a36826a09eea9ca6b04104b44c2e8959082d05c0c');
+  // Reviewed UTF-16 binary interval mapping, bounded progress polls, and finite
+  // endpoint refusal; the source-pixel coordinate projection above is unchanged.
+  a.equal(h(functionBlock(source,'mapWords')),'791a35abfb163ffd692fd54a9b613e989d856b1ec9e78df297f1d952b3ca6dd9');
 });

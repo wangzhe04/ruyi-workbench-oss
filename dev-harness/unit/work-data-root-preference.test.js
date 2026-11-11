@@ -456,7 +456,8 @@ function startServerSandbox({ base, legacy, next, source, acquire, migrate }) {
     isDirectServeInvocation: () => true,
     ServerOwnership: { acquire: async () => { throw new Error('fallback acquire must not run'); }, canonicalRoot: async value => value },
     WorkDataMaintenanceRuntimeHooks: { acquireServe: acquire },
-    WorkDataRootHooks: { bind: async () => {}, ready: () => true },
+    WorkDataRootHooks: { bind: async () => ({ present: false }), ready: () => true },
+    journalResumeRetirements: async () => {}, // This sandbox isolates root selection and legacy-migration admission.
     migrateLegacyDataRoot: migrate,
     startServerInner: async () => 'served', finishBootCliPathProbes: () => {},
     START_ERROR_KINDS: [], PrivacyCore: { configHooks: {} }, writeStartError: async () => {},

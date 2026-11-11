@@ -7,6 +7,12 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 开启发送前隐私保护时，原生视觉模型可通过文件读取工具查看受支持的本地图片及已保存截图。需要已核验的 Windows Full 媒体组件，发送的是本地遮盖后的 PNG；原件、文件名和元数据不会随图片交付，派生图片不留在后续请求或会话历史中。无可用组件或视觉模型时明确拒绝。
+- With pre-send privacy protection enabled, native vision models can read supported local images and saved screenshots through the file tool. Verified Windows Full media components are required. The model receives a locally redacted PNG without the original file, name or metadata; derived images stay out of later requests and session history. Missing components or vision support produce an explicit refusal.
+
+- 修复受保护图片到期后，即使清理成功仍持续占用准备名额，最终无法再准备图片的问题。真正清理失败的记录仍保守保留；维护门禁止时继续拒绝操作，不回退原图。
+- Fix expired protected images continuing to consume preparation slots after successful cleanup, eventually blocking new images. Real cleanup failures remain retained, and maintenance restrictions still reject operations without falling back to the original image.
+
 - 开启发送前隐私保护时，原值还原改为按宿主确认的接收方、用途和字段授权。明确适配的本地文件、文本检索和会话工具保持原权限及正常操作；未适配的脚本、任意HTTP和MCP输入不再仅凭工具登记取得代号原值。权限改参、策略或目标变化后重新核对，不增加日常密码或重复确认；该约束不代表操作系统隔离，网络盘等支持边界见当前隐私方案。
 - With pre-send privacy protection enabled, original values are restored only under host-bound recipient, purpose and field authorization. Supported local file, text-search and session tools retain their existing permissions and normal workflows. Unadapted scripts, arbitrary HTTP and MCP inputs no longer obtain originals merely by registering a tool. Permission edits and policy or destination changes are checked again without extra routine passwords or confirmations. This is not operating-system isolation; current privacy documentation records filesystem and channel support limits.
 

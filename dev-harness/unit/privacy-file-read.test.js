@@ -183,11 +183,12 @@ test('privacy refuses images without a model continuation and never falls back t
           const result = await rawRead(target, args, policy);
           assert.equal(result.ok, false);
           const textDocument = /\.(docx|pdf)$/.test(target) && args.as !== 'image';
-          assert.equal(result.code, textDocument ? 'reader_unavailable' : 'privacy.media_not_supported');
+          const textImage = !/\.(docx|pdf)$/.test(target) && (args.as === 'text' || args.includeImages === false && args.as !== 'image');
+          assert.equal(result.code, textDocument ? 'reader_unavailable' : textImage ? 'not_text' : 'privacy.media_not_supported');
           // 拒绝必须带可执行的下一步(2026-11-05 之前只有一个码,读者得自己猜),但【不许】劝人降低保护:
           // 全仓同类拒绝都只给"换一种读法";而这条 hint 是要发给模型转述的,一句"关掉隐私"就是话术漏洞。
           assert.equal(typeof result.hint, 'string');
-          assert.match(result.hint, textDocument ? /Full offline package/ : /text copy|as:"text"/i);
+          assert.match(result.hint, textDocument ? /Full offline package/ : textImage ? /as:"image"/i : /text copy|as:"text"/i);
           assert.doesNotMatch(result.hint, /turn privacy off|disable privacy|关掉隐私|关闭隐私/i);
           assert.deepEqual(Object.keys(result).sort(), ['code', 'hint', 'ok']);
           assert.equal(JSON.stringify(result).includes(target), false);

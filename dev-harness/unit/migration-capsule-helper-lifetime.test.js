@@ -15,6 +15,7 @@ function fixture(options={}){
   child.stdin.end=()=>{child.ends++;if(options.endThrows)throw options.endThrows;};child.kill=()=>{child.kills++;if(options.killThrows)throw options.killThrows;return false;};children.push(child);return child;};
  const context={Buffer,process:{platform:'win32',env:{},hrtime:{bigint:()=>0n}},MigrationHooks:{},MIGRATION_SKILL_CAPSULE_NATIVE:'unchanged native fixture',MIGRATION_CAPSULE_ARCHIVE_LIMIT:1024,
    migrationRecoverSkillBackups:async()=>{},createMigrationBackupOwner(){},migrationScan(){},migrationApply(){},migrationUndo(){},migrationRecycle(){},migrationCopySkills(){},
+   readWorkDataControlPreserved(){throw Error('control reads are outside the helper lifetime fixture');},
    require:name=>name==='node:child_process'?{spawn}:name==='node:timers'?{setTimeout(fn,ms){const id=++sequence;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)}:require(name)};
  const fragments=['migrationCapsuleCode','migrationChain','migrationRecoveryNeeded','migrationBackupAuthority'].map(name=>constBlock(source,name));
  fragments.push(...['migrationCapsuleFail','migrationSerial','migrationCapsuleBroker'].map(name=>functionBlock(source,name)),bracedBlock(source,'Object.assign(MigrationHooks,')+');');

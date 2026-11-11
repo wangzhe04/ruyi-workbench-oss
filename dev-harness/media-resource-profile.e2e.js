@@ -7,7 +7,10 @@
 require('./lib/self-isolate-home');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto'),vm=require('node:vm'),zlib=require('node:zlib');
 const {createRunner}=require('./lib/harness'),{startFakeProvider,textFrames}=require('./lib/fake-openai-provider'),{releaseEnvironment}=require('./lib/release-checks'),{killOwnTree}=require('./lib/kill-own-tree'),{getFreePort}=require('./free-port');
-const WB=path.resolve(__dirname,'../ruyi-workbench'),ID='m4-image-cpython312-candidate-v2',full=process.argv.includes('--full-components');
+const CURRENT_WB=path.resolve(__dirname,'../ruyi-workbench'),ID='m4-image-cpython312-candidate-v2',full=process.argv.includes('--full-components');
+const WB=full&&process.env.RUYI_MEDIA_QUALIFICATION_WORKBENCH?path.resolve(process.env.RUYI_MEDIA_QUALIFICATION_WORKBENCH):CURRENT_WB;
+const fixtureRules=[{id:'fixture-secret',kind:'literal',value:'SECRET',category:'INTERNAL'},
+  {id:'fixture-ean',kind:'literal',value:'5901234123457',category:'INTERNAL'}];
 const t=createRunner(full?'MEDIA IMAGE COMPONENT QUALIFICATION':'MEDIA RESOURCE PROFILE HTTP'),{ok}=t;
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -20,11 +23,15 @@ async function request(port,route,{method='GET',body,token,signal,timeout=15000}
 }
 function fullInputs() {
   if(process.platform!=='win32')throw Error('qualification.windows_required');
+  if(process.env.RUYI_MEDIA_QUALIFICATION_WORKBENCH){
+    if(!path.isAbsolute(process.env.RUYI_MEDIA_QUALIFICATION_WORKBENCH)||sha(fs.readFileSync(path.join(WB,'app/server.js')))!==sha(fs.readFileSync(path.join(CURRENT_WB,'app/server.js'))))throw Error('qualification.source_changed');
+  }
   for(const key of ['RUYI_MEDIA_RUNTIME_ROOT','RUYI_MEDIA_SOURCES_ROOT','RUYI_MEDIA_OCR_LANGUAGE','RUYI_MEDIA_QUALIFICATION_FIXTURES'])if(!process.env[key])throw Error('qualification.missing_'+key);
   const file=process.env.RUYI_MEDIA_QUALIFICATION_FIXTURES;
   if(!path.isAbsolute(file))throw Error('qualification.fixture_path');
   const manifest=JSON.parse(fs.readFileSync(file));
   if(manifest.schema!==1||manifest.kind!=='public-synthetic-media-image-oracles'||!Array.isArray(manifest.cases))throw Error('qualification.fixture_shape');
+  if(JSON.stringify(manifest.policyRules)!==JSON.stringify(fixtureRules))throw Error('qualification.fixture_policy');
   const names=new Set(manifest.cases.map(row=>row.id));
   if(names.size!==manifest.cases.length||required.some(name=>!names.has(name)))throw Error('qualification.fixture_matrix_incomplete');
   return required.map(id=>{
@@ -77,7 +84,7 @@ async function scenario(root,fake,{profile,fixtures}) {
     ok(originalRead.status===200&&originalRead.bytes.equals(PNG),profile+': OFF HTTP preserves original upload bytes');
     await api('/api/chat/stream',{sessionId:offSessionId,message:'Describe the public fixture.',cwd:work,attachments:[original]});
     ok(fake.requests.slice(offBefore).some(row=>row.raw.includes(PNG.toString('base64'))),profile+': OFF ordinary image reaches the local provider');
-    const settings=await api('/api/privacy/settings',{mode:'enhanced',technical:false,rules:[]});if(settings.json?.ok!==true)throw Error(settings.json?.error?.code||'qualification.settings');
+    const settings=await api('/api/privacy/settings',{mode:'enhanced',technical:false,rules:fixtures?fixtureRules:[]});if(settings.json?.ok!==true)throw Error(settings.json?.error?.code||'qualification.settings');
     if(!fixtures){
       const sessionId=await newSession('Public media ON resource refusal');
       const before=fake.requests.length,refusal=await api('/api/media/images/prepare',{sessionId,id:original.id,name:original.name});
@@ -130,15 +137,17 @@ async function main(){
     if(full){
       const profile=process.env.RUYI_MEDIA_RESOURCE_PROFILE||'legacy-full-4987-v1';
       if(profile!=='legacy-full-4987-v1'){
-        const adapter=require('../ruyi-workbench/tools/verify-media-profile.cjs'),descriptor=JSON.parse(fs.readFileSync(path.join(WB,'resources/media-profiles',ID+'.json')));
+        const adapter=require(path.join(WB,'tools/verify-media-profile.cjs')),descriptor=JSON.parse(fs.readFileSync(path.join(WB,'resources/media-profiles',ID+'.json')));
         adapter.assertMediaProfileExecutable(adapter.captureMediaProfile({profileId:profile,workerHash:descriptor.worker.sha256,language:process.env.RUYI_MEDIA_OCR_LANGUAGE}));
-      }else await require('../ruyi-workbench/tools/verify-media-artifacts.cjs').verifyMediaArtifacts(process.env.RUYI_MEDIA_RUNTIME_ROOT,process.env.RUYI_MEDIA_SOURCES_ROOT);
+      }else await require(path.join(WB,'tools/verify-media-artifacts.cjs')).verifyMediaArtifacts(process.env.RUYI_MEDIA_RUNTIME_ROOT,process.env.RUYI_MEDIA_SOURCES_ROOT);
     }
     root=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-media-profile-http-'));fake=await startFakeProvider({handler:()=>textFrames('Public fixture received.')});
     for(const profile of full?[process.env.RUYI_MEDIA_RESOURCE_PROFILE||'legacy-full-4987-v1']:['legacy-full-4987-v1',ID])await scenario(root,fake,{profile,fixtures});
   }catch(error){t.fail(error.stack||String(error));}
   finally{if(fake)await fake.close();if(root)console.log('Media HTTP evidence retained at '+root);t.done({exit:true});}
 }
-if (process.argv.length === 3 && ['--browser-full','--browser-missing'].includes(process.argv[2])) {
-  void require('./lib/media-browser-delivery').run({ full: process.argv[2] === '--browser-full' });
+const browserModes={'--browser-full':{full:true},'--browser-missing':{full:false},
+  '--browser-full-responses':{full:true,apiStyle:'responses'},'--browser-full-anthropic':{full:true,apiStyle:'anthropic'}};
+if (process.argv.length === 3 && Object.hasOwn(browserModes,process.argv[2])) {
+  void require('./lib/media-browser-delivery').run(browserModes[process.argv[2]]);
 } else void main();

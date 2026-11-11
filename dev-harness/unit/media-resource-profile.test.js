@@ -128,7 +128,7 @@ test('disk RestoreMap or truth flags cannot instantiate source and target custod
 // in-memory HTTP/process facades. No server/socket/component is started. These
 // controls check fixture session orchestration, not actual image qualification.
 async function sessionOrchestration(fixtures,sourceOverride){
-  const {EventEmitter}=require('node:events'),zlib=require('node:zlib'),{functionBlock}=require('../lib/source-slice');
+  const {EventEmitter}=require('node:events'),zlib=require('node:zlib'),{functionBlock,constBlock}=require('../lib/source-slice');
   const source=sourceOverride||fs.readFileSync(p.join(ROOT,'dev-harness/media-resource-profile.e2e.js'),'utf8');
   const scenario=functionBlock(source,'scenario'),frontend=functionBlock(source,'frontendState');a.ok(scenario&&frontend);
   const header=Buffer.alloc(13);header.writeUInt32BE(2,0);header.writeUInt32BE(2,4);header[8]=8;header[9]=2;
@@ -163,7 +163,7 @@ async function sessionOrchestration(fixtures,sourceOverride){
   };
   const sandbox={fs:{mkdirSync(){},writeFileSync(){},readFileSync:fs.readFileSync},path:p,WB:p.join(ROOT,'ruyi-workbench'),releaseEnvironment:()=>({}),process:{env:{},execPath:'synthetic-node'},ID,PNG:png,crypto,vm,Buffer,URL,TextEncoder,DataView,AbortController,setTimeout,clearTimeout,getFreePort:async()=>0,request,sha,sleep:async()=>{},ok:(condition,label)=>assertions.push({condition,label}),
     cp:{spawn(){child=new EventEmitter();child.stdout={resume(){}};child.stderr={resume(){}};queueMicrotask(()=>child.emit('spawn'));return child;}},killOwnTree(){child.emit('exit',0);child.emit('close',0);return{killed:[1]};},previewPixels:()=>({width:2,height:2,pixel:()=>[255,255,255]})};
-  const run=vm.runInNewContext(frontend+'\n'+scenario+';scenario;',sandbox);
+  const run=vm.runInNewContext(constBlock(source,'fixtureRules')+'\n'+frontend+'\n'+scenario+';scenario;',sandbox);
   const cases=fixtures?['first','second'].map(id=>({id,bytes:png,sha256:sha(png),expected:'success',width:2,height:2,pixels:[{x:0,y:0,rgb:[255,255,255]}]})):undefined;
   await run(p.resolve('C:/synthetic-e2e-home'),fake,{profile:ID,fixtures:cases});return{calls,assertions,sessions,fake};
 }
