@@ -9,6 +9,8 @@ _MODIFIERS = {54: 0x100000, 55: 0x100000, 56: 0x20000, 60: 0x20000,
 _DEVICE_MODIFIERS = {54: 0x10, 55: 0x8, 56: 0x2, 60: 0x4, 58: 0x20, 61: 0x40, 59: 0x1, 62: 0x2000}
 _FLAGS = 0xffffffff
 _MODIFIER_FLAGS = 0x9e0000
+_POINTER_PROFILES = ('exact', 'standard_mouse')
+_ASSOCIATIONS = sum(1 << kind for kind in (1, 2, 3, 4, 5, 6, 7, 25, 26, 27, 34))
 
 
 def _require(condition):
@@ -21,9 +23,10 @@ def _number(value, low, high, integer=False):
         and (not integer or value == int(value))
 
 
-def validate_events(events, bounds=None):
+def validate_events(events, bounds=None, pointer_profile='exact'):
     """Reject an invalid suffix before any event is posted, including unmatched input and scroll phases."""
     try:
+        _require(pointer_profile in _POINTER_PROFILES)
         _require(isinstance(events, list) and 1 <= len(events) <= 512)
         _require(len(json.dumps(events, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')) <= 48000)
         keys, buttons = set(), set()
@@ -93,13 +96,25 @@ def validate_events(events, bounds=None):
                 else:
                     _require(kind in ('mouse_down', 'mouse_up', 'drag', 'move'))
                     fields |= {'button', 'click_state', 'pressure', 'delta_x', 'delta_y'}
+                    if 'associated_events_mask' in event:
+                        fields.add('associated_events_mask')
+                        mask = event['associated_events_mask']
+                        _require(pointer_profile == 'standard_mouse' and kind != 'move'
+                                 and type(mask) is int and 0 <= mask <= 9007199254740991
+                                 and not mask & ~_ASSOCIATIONS)
                     if 'subtype' in event:
                         fields.add('subtype')
                         _require(_number(event['subtype'], 0, 3, True) and event['subtype'] in (0, 3))
+                    if 'source_subtype' in event:
+                        fields.add('source_subtype')
+                        _require(pointer_profile == 'standard_mouse' and _number(event['source_subtype'], 0, 3, True)
+                                 and event['source_subtype'] in (0, 3))
                     _require(_number(event.get('button'), 0, 2, True) and _number(event.get('click_state'), 0, 5, True)
                              and _number(event.get('pressure'), 0, 1)
                              and _number(event.get('delta_x'), -2147483648, 2147483647, True)
                              and _number(event.get('delta_y'), -2147483648, 2147483647, True))
+                    if pointer_profile == 'standard_mouse':
+                        _require(event.get('subtype', 0) == 0 and event['pressure'] == (1 if kind in ('mouse_down', 'drag') else 0))
                     button = event['button']
                     if kind == 'mouse_down':
                         _require(button not in buttons)

@@ -154,6 +154,9 @@ function pointer(type, point, at_us, extra = {}) {
     const subtypes = nativeContract('test_pointer_subtypes');
     t.ok(subtypes.cases.length === 50 && subtypes.cases.every(row => row.matched) && subtypes.pressure_association_refused,
       'native pointer capture preserves default and mouse-touch fields and refuses tablet or unknown subtypes');
+    const projection = nativeContract('test_pointer_projection');
+    t.ok(projection.cases.length === 20 && projection.cases.every(row => row.matched),
+      'standard projection normalizes all supported button families and preserves source capabilities only as provenance');
     t.ok(allocation.cleanup_refused === true && allocation.ownership_retained === true && allocation.permission_ownership_retained === true && allocation.cross_tool_blocked === true,
       'native release failures retain ownership and block subsequent writes across tool families');
     const stoppedMutations = nativeContract('test_stopped_mutations');
@@ -173,6 +176,8 @@ function pointer(type, point, at_us, extra = {}) {
     t.ok(JSON.parse(productionFixture.stdout).code === 'invalid_args', 'production helper excludes testing-only release injection');
     const productionSubtypes = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'test_pointer_subtypes' }), encoding: 'utf8', timeout: 5000 });
     t.ok(JSON.parse(productionSubtypes.stdout).code === 'invalid_args', 'production helper excludes testing-only pointer generation');
+    const productionProjection = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'test_pointer_projection' }), encoding: 'utf8', timeout: 5000 });
+    t.ok(JSON.parse(productionProjection.stdout).code === 'invalid_args', 'production helper excludes testing-only projection generation');
     const probe = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'status' }), encoding: 'utf8', timeout: 5000 });
     const status = JSON.parse(probe.stdout);
     if (!status.manualRecordReady || !status.inputSequenceReady) {
@@ -486,6 +491,59 @@ function pointer(type, point, at_us, extra = {}) {
     const diagnostic = await call(recorder, 'diagnostics');
     t.ok(diagnostic.capabilities['desktop.recording'].manualReady && diagnostic.capabilities['desktop.input_sequence'].ready,
       'diagnostics report independent manual-listening and sequence replay readiness');
+    await command('source-abc');
+    await command('clear-neutral');
+    await command('focus-text');
+    bound = await target(recorder); peerBound = await target(peer);
+    await call(recorder, 'focus_window', { target: bound });
+    const standardStarted = await call(recorder, 'record_start', { target: bound, source: 'native_window_events', pointer_profile: 'standard_mouse' });
+    const hoverTick = (await command('state')).manualPointerTick;
+    await command('manual-hover-outside');
+    await until(() => reports.find(row => row.event === 'manual-fixture-pointer-observed' && row.manualPointerTick > hoverTick));
+    point = { x: Math.round(moved.pad.x + 100), y: Math.round(moved.pad.y + 60) };
+    const projectedEvents = combine(typing([0], ['标准']), [pointer('mouse_down', point, 0, { pressure: 1, source_subtype: 3, associated_events_mask: (2 ** 34) + 70 }),
+      pointer('drag', { x: point.x + 20, y: point.y + 10 }, 80000, { pressure: 1, source_subtype: 3, associated_events_mask: (2 ** 34) + 70 }),
+      pointer('mouse_up', { x: point.x + 20, y: point.y + 10 }, 160000, { source_subtype: 3, associated_events_mask: (2 ** 34) + 70 })]);
+    const projected = await call(peer, 'input_sequence', { target: peerBound, input_source, events: projectedEvents, pointer_profile: 'standard_mouse' });
+    const standard = await call(recorder, 'record_stop', { save_as: 'standard mouse projection' });
+    t.ok(standardStarted.ok && projected.ok && projected.device_capabilities_normalized && standard.complete
+      && standard.recording.schema === 3 && standard.recording.pointer_profile === 'standard_mouse'
+      && standard.recording.replay_scope === 'keyboard_and_standard_mouse' && standard.excluded_features.includes('pressure_gestures'),
+      'standard manual recording explicitly marks schema3 scope and excludes pressure gesture semantics');
+    if (!standard.complete) throw new Error('Standard projection incomplete: ' + JSON.stringify(standard));
+    const standardRows = standard.recording.actions.flatMap(action => action.events).filter(event => 'button' in event);
+    t.ok(standardRows.length >= 3 && standardRows.every(event => (event.subtype || 0) === 0
+      && event.pressure === (['mouse_down', 'drag'].includes(event.type) ? 1 : 0)
+      && event.x >= bound.bounds.x && event.x < bound.bounds.x + bound.bounds.width),
+      'external unpressed hover is omitted while recorded button data remains a standard mouse projection');
+    await command('clear-neutral'); await command('focus-text');
+    const standardReplay = await call(recorder, 'macro_run', { recording: standard.recording, target: bound });
+    const standardState = await command('state');
+    t.ok(standardReplay.ok && standardState.text === '标准' && !standardState.leftHeld && standardState.modifierFlags === 0,
+      'schema3 source profile survives whole-macro preflight and replays committed text and a balanced drag');
+    await command('focus-pad');
+    await call(recorder, 'record_start', { target: bound });
+    const explicitProjection = await call(recorder, 'input_sequence', { target: bound, input_source, pointer_profile: 'standard_mouse',
+      events: [pointer('mouse_down', point, 0, { pressure: 1 }), pointer('mouse_up', point, 80000)] });
+    const controlledProjection = await call(recorder, 'record_stop', { save_as: 'controlled projection refused' });
+    t.ok(explicitProjection.ok && explicitProjection.device_capabilities_normalized && !controlledProjection.complete
+      && controlledProjection.recording.schema === 1 && controlledProjection.recording.end_reason === 'recording_profile_mismatch'
+      && !controlledProjection.path,
+      'an explicit standard input still executes while schema1 capture refuses to save a projected action');
+    for (const mode of ['manual-hover-outside', 'manual-held-hover-outside', 'manual-drag-outside']) {
+      await command('focus-pad');
+      await call(recorder, 'record_start', { target: bound, source: 'native_window_events',
+        ...(mode === 'manual-hover-outside' ? {} : { pointer_profile: 'standard_mouse' }) });
+      const tick = (await command('state')).manualPointerTick;
+      await command(mode);
+      await until(() => reports.find(row => row.event === 'manual-fixture-pointer-observed'
+        && row.manualPointerTick >= tick + (mode === 'manual-hover-outside' ? 1 : 3)));
+      const refused = await call(recorder, 'record_stop', { save_as: 'outside incomplete' });
+      t.ok(!refused.complete && refused.recording.end_reason === 'point_outside_target' && !refused.path,
+        `${mode} preserves strict or held-button bounds refusal instead of saving a partial gesture`);
+    }
+    t.ok(diagnostic.capabilities['desktop.recording'].pointerProfiles.includes('standard_mouse'),
+      'normal diagnostics expose the explicit standard mouse projection profile');
     await command('clipboard-track ' + Buffer.from('示范').toString('base64'));
   } catch (error) { t.fail(error.stack || String(error)); }
   finally {
@@ -513,7 +571,14 @@ function pointer(type, point, at_us, extra = {}) {
       } catch { killOwnTree(fixture); }
     }
     await Promise.allSettled(pendingCalls);
-    if (fixture) t.ok(reports.some(report => report.event === 'input-source-restore' && report.restored), 'owned fixture conditionally restores its original keyboard source');
+    if (fixture && reports.some(report => ['source-abc', 'source-pinyin'].includes(report.event)))
+      t.ok(reports.some(report => report.event === 'input-source-restore' && report.restored), 'owned fixture conditionally restores its original keyboard source');
+    else if (fixture) {
+      const original = reports.find(report => report.event === 'ready')?.inputSource;
+      const final = reports.filter(report => report.event === 'state').at(-1)?.inputSource;
+      t.ok(typeof original === 'string' && original.length > 0 && typeof final === 'string' && final.length > 0 && original === final,
+        'a startup failure before input-source selection leaves the original source unchanged');
+    }
     if (clipboardSeeded) t.ok(reports.some(report => report.event === 'clipboard-restore' && report.restored), 'owned manual fixture restores the original clipboard on exit');
     if (process.env.RUYI_P5_MANUAL_EVIDENCE) {
       const evidence = path.resolve(process.env.RUYI_P5_MANUAL_EVIDENCE);

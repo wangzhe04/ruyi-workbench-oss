@@ -11,6 +11,7 @@ static NSMutableArray *sequence;
 static NSTimeInterval sequenceStarted;
 static NSTimeInterval sequenceEnded;
 static BOOL sequenceBalanced;
+static NSString *pointerProfile;
 
 NSDictionary *RuyiAutomationRecordingInputSource(void) {
     TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
@@ -51,7 +52,7 @@ void RuyiAutomationStopManualRecording(void) {
     }
     if (eventTap) { CFMachPortInvalidate(eventTap); CFRelease(eventTap); eventTap = NULL; }
     if (recordedWindow) { CFRelease(recordedWindow); recordedWindow = NULL; }
-    eventTarget = nil; inputSource = nil; sequence = nil; sequenceStarted = 0; sequenceEnded = 0; sequenceBalanced = YES;
+    eventTarget = nil; inputSource = nil; pointerProfile = nil; sequence = nil; sequenceStarted = 0; sequenceEnded = 0; sequenceBalanced = YES;
 }
 
 static NSDictionary *WindowRow(void) {
@@ -60,7 +61,7 @@ static NSDictionary *WindowRow(void) {
 
 static void FlushSequence(void) {
     if (!sequence.count) return;
-    NSDictionary *failure = RuyiAutomationValidateSequence(sequence, eventTarget[@"bounds"], YES);
+    NSDictionary *failure = RuyiAutomationValidateSequenceProfile(sequence, eventTarget[@"bounds"], YES, pointerProfile);
     if (failure) { RuyiAutomationEndRecording(@"incomplete_input_sequence"); return; }
     RuyiAutomationAppendRecordedAction(@{@"op":@"input.sequence", @"events":[sequence copy]}, sequenceStarted, sequenceEnded);
     if (!RuyiAutomationManualRecordingActive()) return;
@@ -85,6 +86,17 @@ NSString *RuyiAutomationManualRecordingState(void) {
 }
 
 static void Capture(CGEventRef event) {
+    if ([pointerProfile isEqual:@"standard_mouse"] && CGEventGetType(event) == kCGEventMouseMoved
+        && !CGRectContainsPoint(RuyiAutomationFieldsRect(eventTarget[@"bounds"]), CGEventGetLocation(event))) {
+        BOOL held = NO;
+        NSMutableSet *buttons = [NSMutableSet set];
+        for (NSDictionary *row in sequence) {
+            if ([row[@"type"] isEqual:@"mouse_down"]) [buttons addObject:row[@"button"]];
+            if ([row[@"type"] isEqual:@"mouse_up"]) [buttons removeObject:row[@"button"]];
+        }
+        for (CGMouseButton button = 0; button <= 2; button++) held |= CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, button);
+        if (!held && !buttons.count) return; // Unpressed external hover is outside this window's demonstration.
+    }
     // Preserve source-event timing. AX checks and callback scheduling must not stretch a gesture.
     NSTimeInterval time = CGEventGetTimestamp(event) / 1000000000.0;
     NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
@@ -98,16 +110,16 @@ static void Capture(CGEventRef event) {
         RuyiAutomationEndRecording(@"input_sequence_capacity"); return;
     }
     NSDictionary *failure = nil;
-    NSDictionary *row = RuyiAutomationSequenceEvent(event, (uint64_t)llround((time - sequenceStarted) * 1000000), &failure);
+    NSDictionary *row = RuyiAutomationSequenceEventProfile(event, (uint64_t)llround((time - sequenceStarted) * 1000000), &failure, pointerProfile);
     if (!row) { RuyiAutomationEndRecording(failure[@"code"] ?: @"event_unsupported"); return; }
     if (row[@"x"]) {
         failure = RuyiAutomationPointGuard(WindowRow(), recordedWindow, CGPointMake([row[@"x"] doubleValue], [row[@"y"] doubleValue]));
         if (failure) { RuyiAutomationEndRecording(failure[@"code"] ?: @"target_hit_unconfirmed"); return; }
     }
     [sequence addObject:row]; sequenceEnded = time;
-    failure = RuyiAutomationValidateSequence(sequence, eventTarget[@"bounds"], NO);
+    failure = RuyiAutomationValidateSequenceProfile(sequence, eventTarget[@"bounds"], NO, pointerProfile);
     if (failure) { RuyiAutomationEndRecording(@"event_sequence_unsupported"); return; }
-    sequenceBalanced = !RuyiAutomationValidateSequence(sequence, eventTarget[@"bounds"], YES);
+    sequenceBalanced = !RuyiAutomationValidateSequenceProfile(sequence, eventTarget[@"bounds"], YES, pointerProfile);
 }
 
 static CGEventRef Observe(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *context) {
@@ -131,13 +143,18 @@ static CGEventRef Observe(CGEventTapProxy proxy, CGEventType type, CGEventRef ev
 }
 
 NSDictionary *RuyiAutomationStartManualRecording(NSDictionary *target) {
+    return RuyiAutomationStartManualRecordingProfile(target, @"exact");
+}
+
+NSDictionary *RuyiAutomationStartManualRecordingProfile(NSDictionary *target, NSString *profile) {
+    if (![@[@"exact", @"standard_mouse"] containsObject:profile]) return RuyiAutomationFailure(@"invalid_args", @"Choose a supported pointer profile");
     if (!CGPreflightListenEventAccess()) return RuyiAutomationFailure(@"listen_permission_denied", @"Enable Input Monitoring for the responsible application");
     NSDictionary *row = RuyiAutomationCheckTarget(target);
     if (row[@"error"]) return row;
     NSDictionary *failure = nil;
     recordedWindow = RuyiAutomationCopyTargetWindow(row, &failure);
     if (!recordedWindow) return failure;
-    eventTarget = [target copy]; inputSource = RuyiAutomationRecordingInputSource();
+    eventTarget = [target copy]; inputSource = RuyiAutomationRecordingInputSource(); pointerProfile = profile;
     if (!inputSource) { RuyiAutomationStopManualRecording(); return RuyiAutomationFailure(@"input_source_unknown", @"Cannot identify the current keyboard input source"); }
     sequence = [NSMutableArray array]; sequenceBalanced = YES;
     CGEventFlags lastFlags = CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState);

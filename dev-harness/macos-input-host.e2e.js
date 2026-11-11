@@ -31,6 +31,7 @@ const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
 const ax = process.env.RUYI_P5_APP_AX === '1';
 const recording = process.env.RUYI_P5_APP_RECORD === '1';
 const manual = process.env.RUYI_P5_APP_MANUAL === '1';
+const pointerProfile = process.env.RUYI_P5_APP_POINTER_PROFILE || 'exact';
 const composed = process.env.RUYI_P5_APP_COMPOSED === '1';
 const visual = composed || process.env.RUYI_P5_APP_VISUAL === '1';
 const events = [];
@@ -91,6 +92,7 @@ async function cleanupOwned() {
   try {
     if (process.platform !== 'darwin') { console.log('SKIP Mac App input launch chain'); return; }
     if (manual && (recording || visual || ax || paste || forceAppExit)) throw new Error('Select the manual App scenario by itself');
+    if (!['exact', 'standard_mouse'].includes(pointerProfile) || (!manual && pointerProfile !== 'exact')) throw new Error('Select a supported manual pointer profile');
     const helper = (manual && process.env.RUYI_P5_MANUAL_HELPER) || (recording && process.env.RUYI_P5_RECORD_HELPER) || (visual && process.env.RUYI_P5_OCR_HELPER)
       || buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
     if (manual) {
@@ -180,7 +182,7 @@ if(${manual} && focused.ok){
   };
   await mark('prepare');
   await waitMarker('prepared');
-  const started=await invoke('record_start',{target:row.target,source:'native_window_events',max_seconds:30});
+  const started=await invoke('record_start',{target:row.target,source:'native_window_events',max_seconds:30,pointer_profile:${JSON.stringify(pointerProfile)}});
   if(!started.ok) return {capabilities,focused,manual:{capabilities:diag.capabilities?.['desktop.recording'],started}};
   await mark('ready');
   await waitMarker('done');
@@ -262,8 +264,16 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
           { type: 'key_down', keycode, keyboard_type: 91, repeat: 0, flags: 0, at_us: index * 80000 },
           { type: 'key_up', keycode, keyboard_type: 91, repeat: 0, flags: 0, at_us: index * 80000 + 40000 }
         ]);
+        if (pointerProfile === 'standard_mouse') {
+          const at = demonstrated.at(-1).at_us + 80000;
+          const point = { x: Math.round(ready.pad.x + 100), y: Math.round(ready.pad.y + 60) };
+          for (const [type, offset, dx, dy, pressure] of [['mouse_down', 0, 0, 0, 1], ['drag', 80000, 20, 10, 1], ['mouse_up', 160000, 20, 10, 0]])
+            demonstrated.push({ type, at_us: at + offset, x: point.x + dx, y: point.y + dy, flags: 0, button: 0,
+              click_state: 1, pressure, delta_x: type === 'drag' ? dx : 0, delta_y: type === 'drag' ? dy : 0,
+              source_subtype: 3, associated_events_mask: (2 ** 34) + 70 });
+        }
         const sent = await manualPeer.callTool('input_sequence', { target: peerTarget,
-          input_source: { id: selected.inputSource, type: 'TISTypeKeyboardInputMode' }, events: demonstrated });
+          input_source: { id: selected.inputSource, type: 'TISTypeKeyboardInputMode' }, events: demonstrated, pointer_profile: pointerProfile });
         if (!sent.ok) throw new Error('Independent App demonstration failed ' + JSON.stringify(sent));
         manualBefore = await until(async () => {
           const state = await fixtureCommand('state');
@@ -343,8 +353,9 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
       t.ok(extra.manual?.capabilities?.manualReady && extra.manual.capabilities.listenAuthorization === 'granted',
         'the real App identity has listening and input readiness for manual recording');
       t.ok(extra.manual?.started?.source === 'native_window_events' && extra.manual.collected?.complete
-        && extra.manual.collected.recording.schema === 2 && extra.manual.collected.path,
-        'the normal App HTTP route captures and saves a complete schema2 event demonstration');
+        && extra.manual.collected.recording.schema === (pointerProfile === 'standard_mouse' ? 3 : 2) && extra.manual.collected.path,
+        pointerProfile === 'standard_mouse' ? 'the normal App HTTP route captures and saves a complete schema3 standard projection'
+          : 'the normal App HTTP route captures and saves a complete schema2 event demonstration');
       t.ok(extra.manual?.replayed?.ok && manualBefore?.text === sample && !manualBefore.marked
         && state.text === sample && !state.marked,
         'the App clears and replays raw Pinyin events to the same committed Chinese text');
@@ -352,6 +363,14 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
         'the App macro catalog reads its saved manual recording');
       t.ok(['record_start', 'record_stop', 'input_sequence'].every(name => extra.manual?.audit?.records?.some(row => row.tool === name && row.ok)),
         'App-origin recording, collection and native sequence replay keep their actual audit rows');
+      if (pointerProfile === 'standard_mouse') {
+        t.ok(extra.manual.collected.recording.pointer_profile === 'standard_mouse'
+          && extra.manual.collected.recording.replay_scope === 'keyboard_and_standard_mouse'
+          && extra.manual.collected.excluded_features.includes('pressure_gestures'),
+          'App schema3 explicitly marks standard projection scope and excluded pressure gestures');
+        t.ok(state.counts.dragged >= 2 && state.counts.left_down === 2 && state.counts.left_up === 2,
+          'App standard projection captures and replays a real balanced pointer drag');
+      }
     }
     if (recording) {
       t.ok(extra.recording?.started?.source === 'controlled_native_requests' && extra.recording.collected?.complete

@@ -300,10 +300,11 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
         return;
     }
 #ifdef RUYI_AUTOMATION_TESTING
+    if ([op isEqual:@"test_pointer_projection"]) { done(RuyiAutomationTestPointerProjection()); return; }
     if ([op isEqual:@"test_pointer_subtypes"]) { done(RuyiAutomationTestPointerSubtypes()); return; }
     if ([op isEqual:@"test_stopped_mutations"]) { done(RuyiAutomationTestStoppedMutations()); return; }
     if ([op isEqual:@"test_validate_sequence"]) {
-        done(RuyiAutomationValidateSequence(request[@"events"], request[@"bounds"], YES) ?: @{@"ok":@YES, @"protocolVersion":@1}); return;
+        done(RuyiAutomationValidateSequenceProfile(request[@"events"], request[@"bounds"], YES, request[@"pointer_profile"] ?: @"exact") ?: @{@"ok":@YES, @"protocolVersion":@1}); return;
     }
     if ([op isEqual:@"test_release_allocation"]) { done(RuyiAutomationTestReleaseAllocation()); return; }
     if ([op isEqual:@"test_input_state"]) { done(RuyiAutomationTestInputState()); return; }

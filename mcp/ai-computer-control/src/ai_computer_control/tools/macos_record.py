@@ -55,7 +55,8 @@ def _save(name, recording):
 
 @mcp.tool(audit=True)
 def record_start(target: dict, max_seconds: StrictFloat | StrictInt = 60,
-                  source: Literal['controlled_native_requests', 'native_window_events'] = 'controlled_native_requests') -> dict:
+                  source: Literal['controlled_native_requests', 'native_window_events'] = 'controlled_native_requests',
+                  pointer_profile: Literal['exact', 'standard_mouse'] = 'exact') -> dict:
     """Record Mac inputs into one currently focused window using the selected source.
 
     Pass a complete current target. Captures successful native text, shortcuts, clicks, pointer movement,
@@ -66,7 +67,12 @@ def record_start(target: dict, max_seconds: StrictFloat | StrictInt = 60,
     Its bounded event sequences preserve key ownership, timing, pointer gestures and the recorded input source.
     Start from neutral/committed IME or dead-key composition. Complete groups are limited to five seconds/512 events.
     Keep pointer movements inside the target bounds. Ordinary mouse-touch events are supported;
-    tablet events and pressure-associated Force Touch sequences are refused as incomplete.
+    in exact mode, tablet events and pressure-associated Force Touch sequences are refused as incomplete.
+    For ordinary trackpad clicks/drags, explicitly choose standard_mouse. Its schema 3 recording marks
+    device-capability normalization and keyboard_and_standard_mouse replay scope. Completion covers only
+    that projection: pressure gestures/stages, including stage 1 telemetry, are neither captured nor replayed.
+    This profile does not detect or guarantee refusal of every pressure gesture. Use exact to refuse pressure-associated devices.
+    Unpressed hover outside the window is excluded in that profile; button gestures must stay inside.
     Clipboard shortcuts consume replay-time clipboard contents, including earlier copy steps.
     Keep the bound window focused until collection. Its buffer contains sensitive input intentionally recorded there.
     """
@@ -74,6 +80,8 @@ def record_start(target: dict, max_seconds: StrictFloat | StrictInt = 60,
         payload = {'op': 'record.start', 'target': target, 'max_seconds': max_seconds}
         if source != 'controlled_native_requests':
             payload['source'] = source
+        if pointer_profile != 'exact':
+            payload['pointer_profile'] = pointer_profile
         return request(payload)
 
 

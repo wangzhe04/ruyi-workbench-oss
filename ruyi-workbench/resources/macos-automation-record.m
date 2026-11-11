@@ -11,6 +11,7 @@ static NSUInteger recordBytes;
 static NSString *recordEnd;
 static NSString *recordSource;
 static NSDictionary *recordInputSource;
+static NSString *recordPointerProfile;
 
 BOOL RuyiAutomationManualRecordingActive(void) {
     return recordedActions && !recordEnd && [recordSource isEqual:@"native_window_events"];
@@ -21,6 +22,7 @@ NSDictionary *RuyiAutomationRecordStatus(void) {
     return @{@"inputSequenceSupported":@YES, @"inputSequenceReady":@(ready), @"recordSupported":@YES, @"recordReady":@(ready), @"recordSource":@"controlled_native_requests",
         @"recordSources":@[@"controlled_native_requests", @"native_window_events"], @"manualRecordSupported":@YES,
         @"manualRecordReady":ready && CGPreflightListenEventAccess() ? @YES : @NO,
+        @"manualPointerProfiles":@[@"exact", @"standard_mouse"],
         @"listenAuthorization":CGPreflightListenEventAccess() ? @"granted" : @"denied",
         @"recordInputSource":RuyiAutomationRecordingInputSource() ?: @{}};
 }
@@ -69,6 +71,9 @@ void RuyiAutomationRefreshRecording(void) {
 }
 
 static NSDictionary *PreflightRecording(NSDictionary *request) {
+    NSString *profile = request[@"pointer_profile"] ?: @"exact";
+    if (![@[@"exact", @"standard_mouse"] containsObject:profile])
+        return RuyiAutomationFailure(@"invalid_args", @"Choose an explicit supported pointer profile");
     NSDictionary *sourceFailure = RuyiAutomationInputSourceGuard(request[@"input_source"]);
     if (sourceFailure) return sourceFailure;
     NSArray *actions = request[@"actions"] ?: @[];
@@ -86,7 +91,9 @@ static NSDictionary *PreflightRecording(NSDictionary *request) {
             if (failure) return failure;
         }
         if ([action[@"op"] isEqual:@"input.sequence"]) {
-            failure = RuyiAutomationValidateSequence(action[@"events"], nil, YES);
+            if (action[@"pointer_profile"] && ![action[@"pointer_profile"] isEqual:profile])
+                return RuyiAutomationFailure(@"invalid_args", @"An action cannot override the recording pointer profile");
+            failure = RuyiAutomationValidateSequenceProfile(action[@"events"], nil, YES, action[@"pointer_profile"] ?: profile);
             if (failure) return failure;
         }
         if ([action[@"op"] isEqual:@"keyboard.text"]) {
@@ -113,7 +120,7 @@ static NSDictionary *PreflightRecording(NSDictionary *request) {
     @try {
         for (NSDictionary *action in actions) {
             if (![action[@"op"] isEqual:@"input.sequence"]) continue;
-            failure = RuyiAutomationValidateSequence(action[@"events"], oldBounds, YES);
+            failure = RuyiAutomationValidateSequenceProfile(action[@"events"], oldBounds, YES, action[@"pointer_profile"] ?: profile);
             if (failure) return failure;
             if (!action[@"input_source"] && !request[@"input_source"])
                 return RuyiAutomationFailure(@"invalid_args", @"Bind all input sequences to their keyboard source");
@@ -135,8 +142,8 @@ static NSDictionary *PreflightRecording(NSDictionary *request) {
 NSDictionary *RuyiAutomationRecordRequest(NSDictionary *request) {
     NSString *op = request[@"op"];
     NSSet *allowed = [NSSet setWithArray:[op isEqual:@"record.start"]
-        ? @[@"op", @"version", @"target", @"max_seconds", @"source"] : [op isEqual:@"record.target"]
-        ? @[@"op", @"version", @"target", @"actions", @"input_source", @"sequence_bounds"] : @[@"op", @"version"]];
+        ? @[@"op", @"version", @"target", @"max_seconds", @"source", @"pointer_profile"] : [op isEqual:@"record.target"]
+        ? @[@"op", @"version", @"target", @"actions", @"input_source", @"sequence_bounds", @"pointer_profile"] : @[@"op", @"version"]];
     for (NSString *key in request)
         if (![allowed containsObject:key]) return RuyiAutomationFailure(@"invalid_args", @"Unexpected recording field");
     if ([op isEqual:@"record.target"]) return PreflightRecording(request);
@@ -148,41 +155,52 @@ NSDictionary *RuyiAutomationRecordRequest(NSDictionary *request) {
         NSString *source = request[@"source"] ?: @"controlled_native_requests";
         if (![@[@"controlled_native_requests", @"native_window_events"] containsObject:source])
             return RuyiAutomationFailure(@"invalid_args", @"Choose controlled_native_requests or native_window_events");
+        NSString *profile = request[@"pointer_profile"] ?: @"exact";
+        if (![@[@"exact", @"standard_mouse"] containsObject:profile]
+            || (![source isEqual:@"native_window_events"] && ![profile isEqual:@"exact"]))
+            return RuyiAutomationFailure(@"invalid_args", @"standard_mouse requires the manual event source");
         NSDictionary *current = RecordingTarget(request[@"target"]);
         if (![current[@"ok"] boolValue]) return current;
         recordedTarget = [current[@"target"] copy]; recordedApplication = current[@"application"];
         recordedActions = [NSMutableArray array]; recordEnd = nil; recordBytes = 0;
-        recordSource = source; recordInputSource = nil;
+        recordSource = source; recordInputSource = nil; recordPointerProfile = profile;
         recordStarted = NSProcessInfo.processInfo.systemUptime;
         recordDeadline = recordStarted + [seconds doubleValue];
         if ([source isEqual:@"native_window_events"]) {
-            NSDictionary *installed = RuyiAutomationStartManualRecording(recordedTarget);
+            NSDictionary *installed = RuyiAutomationStartManualRecordingProfile(recordedTarget, profile);
             if (![installed[@"ok"] boolValue]) {
-                recordedActions = nil; recordedTarget = nil; recordedApplication = nil; recordSource = nil;
+                recordedActions = nil; recordedTarget = nil; recordedApplication = nil; recordSource = nil; recordPointerProfile = nil;
                 return installed;
             }
             recordInputSource = installed[@"input_source"];
         }
         return @{@"ok":@YES, @"protocolVersion":@1, @"recording":@YES,
-            @"source":source, @"max_seconds":seconds};
+            @"source":source, @"max_seconds":seconds, @"pointer_profile":profile};
     }
     if ([op isEqual:@"record.stop"]) {
         if (!recordedActions) return RuyiAutomationFailure(@"recording_absent", @"No recording to collect");
         RuyiAutomationRefreshRecording();
         BOOL manual = [recordSource isEqual:@"native_window_events"];
+        BOOL standard = manual && [recordPointerProfile isEqual:@"standard_mouse"];
         if (manual && !recordEnd) {
             NSString *pending = RuyiAutomationManualRecordingPending();
             if (pending) RuyiAutomationEndRecording(pending);
         }
         RuyiAutomationStopManualRecording();
-        NSMutableDictionary *recording = [@{@"schema":manual ? @2 : @1, @"platform":@"darwin", @"coordinate_space":@"macos_global_points",
+        NSMutableDictionary *recording = [@{@"schema":standard ? @3 : manual ? @2 : @1, @"platform":@"darwin", @"coordinate_space":@"macos_global_points",
             @"source":recordSource, @"application":recordedApplication,
             @"bounds":recordedTarget[@"bounds"], @"complete":recordEnd ? @NO : @YES,
             @"end_reason":recordEnd ?: @"stopped", @"actions":[recordedActions copy]} mutableCopy];
         if (manual) recording[@"input_source"] = recordInputSource;
+        if (standard) {
+            recording[@"pointer_profile"] = recordPointerProfile;
+            recording[@"replay_scope"] = @"keyboard_and_standard_mouse";
+        }
         recordedActions = nil; recordedTarget = nil; recordedApplication = nil; recordEnd = nil;
-        recordSource = nil; recordInputSource = nil;
-        return @{@"ok":@YES, @"protocolVersion":@1, @"recording":recording};
+        recordSource = nil; recordInputSource = nil; recordPointerProfile = nil;
+        return @{@"ok":@YES, @"protocolVersion":@1, @"recording":recording,
+            @"completion_scope":standard ? @"keyboard_and_standard_mouse" : @"exact_supported_events",
+            @"excluded_features":standard ? @[@"pressure_gestures", @"multitouch", @"tablet"] : @[@"tablet", @"pressure_associations"]};
     }
     return RuyiAutomationFailure(@"invalid_args", @"Unsupported recording operation");
 }
@@ -193,6 +211,11 @@ static BOOL Recordable(NSString *op) {
 
 void RuyiAutomationBeforeRecordedRequest(NSDictionary *request) {
     RuyiAutomationRefreshRecording();
+    if (recordedActions && !recordEnd && [recordSource isEqual:@"controlled_native_requests"]
+        && [request[@"op"] isEqual:@"input.sequence"] && request[@"pointer_profile"]
+        && ![request[@"pointer_profile"] isEqual:@"exact"]) {
+        RuyiAutomationEndRecording(@"recording_profile_mismatch"); return;
+    }
     if (RuyiAutomationManualRecordingActive() && Recordable(request[@"op"])) {
         RuyiAutomationEndRecording(@"mixed_automation"); return;
     }

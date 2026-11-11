@@ -159,6 +159,8 @@ def diagnostics() -> dict:
             "ready": bool(record and state.get("recordReady")), "source": "controlled_native_requests",
             "sources": state.get('recordSources', []), "manualSupported": state.get('manualRecordSupported', False),
             "manualReady": bool(record and state.get('manualRecordReady')),
+            "pointerProfiles": state.get('manualPointerProfiles', []),
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
             "listenAuthorization": state.get('listenAuthorization', 'unknown'), "inputSource": state.get('recordInputSource'),
             "coordinate_space": "macos_global_points"}
     return {

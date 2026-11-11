@@ -108,6 +108,52 @@ static BOOL SameCharacters(CGEventRef actual, CGEventRef rebuilt) {
 }
 
 #ifdef RUYI_AUTOMATION_TESTING
+NSDictionary *RuyiAutomationTestPointerProjection(void) {
+    NSMutableArray *cases = [NSMutableArray array];
+    for (NSNumber *subtype in @[@0, @3]) {
+        for (NSNumber *type in @[@(kCGEventMouseMoved), @(kCGEventLeftMouseDown), @(kCGEventLeftMouseUp), @(kCGEventLeftMouseDragged),
+            @(kCGEventRightMouseDown), @(kCGEventRightMouseUp), @(kCGEventRightMouseDragged),
+            @(kCGEventOtherMouseDown), @(kCGEventOtherMouseUp), @(kCGEventOtherMouseDragged)]) {
+            CGMouseButton button = type.unsignedIntValue >= kCGEventOtherMouseDown ? 2
+                : [@[@(kCGEventRightMouseDown), @(kCGEventRightMouseUp), @(kCGEventRightMouseDragged)] containsObject:type] ? 1 : 0;
+            CGEventRef event = CGEventCreateMouseEvent(NULL, type.unsignedIntValue, CGPointMake(25, 35), button);
+            if (!event) return Invalid();
+            CGEventSetIntegerValueField(event, kCGMouseEventSubtype, subtype.longLongValue);
+            CGEventSetDoubleValueField(event, kCGMouseEventPressure, .37);
+            CGEventSetFlags(event, 0);
+            testPressureAssociation = YES;
+            NSDictionary *failure = nil;
+            NSDictionary *row = RuyiAutomationSequenceEventProfile(event, 0, &failure, @"standard_mouse");
+            testPressureAssociation = NO;
+            CFRelease(event);
+            if (!row) {
+                [cases addObject:@{@"subtype":subtype, @"type":type, @"matched":@NO, @"failure":failure ?: @{}}];
+                continue;
+            }
+            NSMutableArray *complete = [NSMutableArray array];
+            NSMutableDictionary *down = [row mutableCopy], *up = [row mutableCopy], *middle = [row mutableCopy];
+            down[@"type"] = @"mouse_down"; down[@"pressure"] = @1;
+            up[@"type"] = @"mouse_up"; up[@"pressure"] = @0;
+            if ([row[@"type"] isEqual:@"move"]) [complete addObject:row];
+            else {
+                [complete addObject:down];
+                if ([row[@"type"] isEqual:@"drag"]) { middle[@"at_us"] = @10; [complete addObject:middle]; }
+                up[@"at_us"] = @20; [complete addObject:up];
+            }
+            CGEventRef rebuilt = row ? RuyiAutomationCreateSequenceEvent(row, NULL) : NULL;
+            BOOL matched = row && rebuilt && !failure && !RuyiAutomationValidateSequenceProfile(complete, nil, YES, @"standard_mouse")
+                && CGEventGetIntegerValueField(rebuilt, kCGMouseEventSubtype) == 0
+                && CGEventGetDoubleValueField(rebuilt, kCGMouseEventPressure) == ([@[@"mouse_down", @"drag"] containsObject:row[@"type"]] ? 1 : 0)
+                && (!subtype.intValue || [row[@"source_subtype"] isEqual:subtype]);
+            if (![row[@"type"] isEqual:@"move"]) matched = matched && ([row[@"associated_events_mask"] unsignedLongLongValue] & NSEventMaskPressure)
+                && RuyiAutomationValidateSequence(complete, nil, YES) != nil;
+            if (rebuilt) CFRelease(rebuilt);
+            [cases addObject:@{@"subtype":subtype, @"type":type, @"matched":@(matched), @"row":row ?: @{}, @"failure":failure ?: @{}}];
+        }
+    }
+    return @{@"ok":@YES, @"protocolVersion":@1, @"cases":cases};
+}
+
 NSDictionary *RuyiAutomationTestPointerSubtypes(void) {
     NSMutableArray *cases = [NSMutableArray array];
     for (NSNumber *subtype in @[@0, @1, @2, @3, @4]) {
@@ -156,6 +202,11 @@ NSDictionary *RuyiAutomationTestPointerSubtypes(void) {
 #endif
 
 NSDictionary *RuyiAutomationSequenceEvent(CGEventRef event, uint64_t offset, NSDictionary **failure) {
+    return RuyiAutomationSequenceEventProfile(event, offset, failure, @"exact");
+}
+
+NSDictionary *RuyiAutomationSequenceEventProfile(CGEventRef event, uint64_t offset, NSDictionary **failure, NSString *profile) {
+    if (![@[@"exact", @"standard_mouse"] containsObject:profile]) { *failure = Invalid(); return nil; }
     CGEventType type = CGEventGetType(event);
     NSDictionary *types = @{@(kCGEventKeyDown):@"key_down", @(kCGEventKeyUp):@"key_up", @(kCGEventFlagsChanged):@"flags",
         @(kCGEventMouseMoved):@"move", @(kCGEventLeftMouseDown):@"mouse_down", @(kCGEventRightMouseDown):@"mouse_down",
@@ -207,10 +258,12 @@ NSDictionary *RuyiAutomationSequenceEvent(CGEventRef event, uint64_t offset, NSD
             if (subtype != NX_SUBTYPE_DEFAULT && subtype != NX_SUBTYPE_MOUSE_TOUCH) {
                 *failure = RuyiAutomationFailure(@"pointer_event_unsupported", @"Unsupported pointer subtype requires additional native fields"); return nil;
             }
-            if (subtype) row[@"subtype"] = @(subtype);
+            BOOL standard = [profile isEqual:@"standard_mouse"];
+            if (subtype) row[standard ? @"source_subtype" : @"subtype"] = @(subtype);
             row[@"button"] = @(CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber));
             row[@"click_state"] = @(CGEventGetIntegerValueField(event, kCGMouseEventClickState));
-            row[@"pressure"] = @(CGEventGetDoubleValueField(event, kCGMouseEventPressure));
+            row[@"pressure"] = standard ? @([@[@"mouse_down", @"drag"] containsObject:row[@"type"]] ? 1 : 0)
+                : @(CGEventGetDoubleValueField(event, kCGMouseEventPressure));
             row[@"delta_x"] = @(CGEventGetIntegerValueField(event, kCGMouseEventDeltaX));
             row[@"delta_y"] = @(CGEventGetIntegerValueField(event, kCGMouseEventDeltaY));
             CGEventRef clone = RuyiAutomationCreateSequenceEvent(row, NULL);
@@ -226,14 +279,15 @@ NSDictionary *RuyiAutomationSequenceEvent(CGEventRef event, uint64_t offset, NSD
                     associated = original.associatedEventsMask;
                     reconstructed = rebuilt.associatedEventsMask;
                 }
-                comparable = comparable && original.subtype == rebuilt.subtype;
+                if (!standard) comparable = comparable && original.subtype == rebuilt.subtype;
             } @catch (NSException *exception) { (void)exception; comparable = NO; }
 #ifdef RUYI_AUTOMATION_TESTING
             if (testPressureAssociation) associated |= NSEventMaskPressure;
 #endif
             // Pressure events and their stages are outside this portable mouse
             // sequence. Do not silently change an application's deep-click path.
-            BOOL same = comparable && !(associated & NSEventMaskPressure) && associated == reconstructed;
+            BOOL same = comparable && (standard || (!(associated & NSEventMaskPressure) && associated == reconstructed));
+            if (standard && type != kCGEventMouseMoved) row[@"associated_events_mask"] = @(associated);
             if (clone) CFRelease(clone);
             if (!same) {
                 *failure = RuyiAutomationFailure(@"pointer_semantics_unsupported", @"Cannot reconstruct this pointer event's associated semantics"); return nil;
@@ -244,6 +298,11 @@ NSDictionary *RuyiAutomationSequenceEvent(CGEventRef event, uint64_t offset, NSD
 }
 
 NSDictionary *RuyiAutomationValidateSequence(id events, NSDictionary *bounds, BOOL complete) {
+    return RuyiAutomationValidateSequenceProfile(events, bounds, complete, @"exact");
+}
+
+NSDictionary *RuyiAutomationValidateSequenceProfile(id events, NSDictionary *bounds, BOOL complete, NSString *profile) {
+    if (![@[@"exact", @"standard_mouse"] containsObject:profile]) return Invalid();
     if (![events isKindOfClass:NSArray.class] || [events count] < 1 || [events count] > 512) return Invalid();
     NSData *data = [NSJSONSerialization dataWithJSONObject:events options:0 error:nil];
     if (!data || data.length > 48000) return Invalid();
@@ -306,14 +365,32 @@ NSDictionary *RuyiAutomationValidateSequence(id events, NSDictionary *bounds, BO
             } else {
                 if (![@[@"mouse_down", @"mouse_up", @"drag", @"move"] containsObject:type]) return Invalid();
                 [fields addObjectsFromArray:@[@"button", @"click_state", @"pressure", @"delta_x", @"delta_y"]];
+                if (row[@"associated_events_mask"]) {
+                    [fields addObject:@"associated_events_mask"];
+                    uint64_t allowed = NSEventMaskLeftMouseDown | NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged
+                        | NSEventMaskRightMouseDown | NSEventMaskRightMouseUp | NSEventMaskRightMouseDragged
+                        | NSEventMaskOtherMouseDown | NSEventMaskOtherMouseUp | NSEventMaskOtherMouseDragged
+                        | NSEventMaskMouseMoved | NSEventMaskPressure;
+                    if (![profile isEqual:@"standard_mouse"] || [type isEqual:@"move"]
+                        || !Number(row[@"associated_events_mask"], 0, 9007199254740991.0, YES)
+                        || CFNumberIsFloatType((__bridge CFNumberRef)row[@"associated_events_mask"])
+                        || ([row[@"associated_events_mask"] unsignedLongLongValue] & ~allowed)) return Invalid();
+                }
                 if (row[@"subtype"]) {
                     [fields addObject:@"subtype"];
                     if (!Number(row[@"subtype"], NX_SUBTYPE_DEFAULT, NX_SUBTYPE_MOUSE_TOUCH, YES)
                         || ![@[@(NX_SUBTYPE_DEFAULT), @(NX_SUBTYPE_MOUSE_TOUCH)] containsObject:row[@"subtype"]]) return Invalid();
                 }
+                if (row[@"source_subtype"]) {
+                    [fields addObject:@"source_subtype"];
+                    if (![profile isEqual:@"standard_mouse"] || !Number(row[@"source_subtype"], 0, 3, YES)
+                        || ![@[@0, @3] containsObject:row[@"source_subtype"]]) return Invalid();
+                }
                 if (!Number(row[@"button"], 0, 2, YES) || !Number(row[@"click_state"], 0, 5, YES)
                     || !Number(row[@"pressure"], 0, 1, NO) || !Number(row[@"delta_x"], INT32_MIN, INT32_MAX, YES)
                     || !Number(row[@"delta_y"], INT32_MIN, INT32_MAX, YES)) return Invalid();
+                if ([profile isEqual:@"standard_mouse"] && ([row[@"subtype"] intValue] != 0
+                    || [row[@"pressure"] doubleValue] != ([@[@"mouse_down", @"drag"] containsObject:type] ? 1 : 0))) return Invalid();
                 NSNumber *button = row[@"button"];
                 if ([type isEqual:@"mouse_down"]) {
                     if ([buttons containsObject:button]) return Invalid();

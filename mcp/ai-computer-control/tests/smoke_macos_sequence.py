@@ -113,6 +113,67 @@ class SequenceContracts(unittest.TestCase):
             with self.subTest(subtype=subtype), self.assertRaises(self.error):
                 self.validate([self.pointer('move', subtype=subtype)])
 
+    def test_device_association_metadata_requires_explicit_standard_profile(self):
+        mask = (1 << 34) | (1 << 1) | (1 << 2) | (1 << 6)
+        events = [self.pointer('mouse_down', source_subtype=3, pressure=1, associated_events_mask=mask),
+                  self.pointer('mouse_up', 100000, source_subtype=3, associated_events_mask=mask)]
+        self.validate(events, pointer_profile='standard_mouse')
+        for profile in ('exact', 'unknown', None, True):
+            with self.subTest(profile=profile), self.assertRaises(self.error):
+                self.validate(events, pointer_profile=profile)
+        for invalid in (True, None, -1, 1 << 10, 1 << 54, '17179869254'):
+            with self.subTest(mask=invalid), self.assertRaises(self.error):
+                self.validate([self.pointer('mouse_down', associated_events_mask=invalid), self.pointer('mouse_up', 10)], pointer_profile='standard_mouse')
+        with self.assertRaises(self.error):
+            self.validate([self.pointer('move', associated_events_mask=0)], pointer_profile='standard_mouse')
+        for changes in ({'subtype': 3}, {'pressure': .5}, {'associated_events_mask': float(mask)}):
+            invalid = copy.deepcopy(events)
+            invalid[0].update(changes)
+            with self.subTest(changes=changes), self.assertRaises(self.error):
+                self.validate(invalid, pointer_profile='standard_mouse')
+
+    def test_schema3_binds_standard_profile_through_whole_document_preflight_and_replay(self):
+        mask = (1 << 34) | 70
+        events = [self.pointer('mouse_down', pressure=1, associated_events_mask=mask), self.pointer('mouse_up', 100000, associated_events_mask=mask)]
+        document = {'schema': 3, 'pointer_profile': 'standard_mouse', 'replay_scope': 'keyboard_and_standard_mouse',
+            'platform': 'darwin', 'coordinate_space': 'macos_global_points',
+            'source': 'native_window_events', 'complete': True, 'end_reason': 'stopped',
+            'application': {'executable': '/owned/Fixture', 'bundle_id': ''},
+            'bounds': {'x': -10, 'y': 30, 'width': 100, 'height': 50},
+            'input_source': {'id': 'com.apple.keylayout.ABC', 'type': 'TISTypeKeyboardLayout'},
+            'actions': [{'op': 'input.sequence', 'at': 0, 'ended': .1, 'events': events}]}
+        original = copy.deepcopy(document)
+        target = {'bounds': document['bounds']}
+        with patch.object(self.recording, 'request', return_value={'target': target, 'application': document['application']}) as native:
+            steps = self.recording.prepare_recording(document, target)
+        self.assertEqual(native.call_args.args[0]['pointer_profile'], 'standard_mouse')
+        self.assertEqual(steps[0]['args']['pointer_profile'], 'standard_mouse')
+        self.assertEqual(steps[0]['args']['events'], events)
+        self.assertEqual(original, document)
+        downgraded = copy.deepcopy(document)
+        downgraded['schema'] = 2
+        downgraded.pop('pointer_profile')
+        downgraded.pop('replay_scope')
+        with patch.object(self.recording, 'request') as native, self.assertRaises(self.error):
+            self.recording.prepare_recording(downgraded, target)
+        native.assert_not_called()
+        controlled = copy.deepcopy(document)
+        controlled.update(schema=1, source='controlled_native_requests')
+        controlled.pop('pointer_profile'); controlled.pop('replay_scope')
+        source = controlled.pop('input_source')
+        controlled['actions'][0].update(pointer_profile='standard_mouse', input_source=source)
+        with patch.object(self.recording, 'request') as native, self.assertRaises(self.error):
+            self.recording.prepare_recording(controlled, target)
+        native.assert_not_called()
+
+    def test_standard_profile_reaches_native_dispatch_without_losing_metadata(self):
+        events = [self.pointer('mouse_down', pressure=1, associated_events_mask=(1 << 34) | 70), self.pointer('mouse_up', 100000)]
+        with patch.object(self.tools, 'request', return_value={'ok': True}) as native:
+            result = asyncio.run(self.tools.input_sequence(events, {}, {}, pointer_profile='standard_mouse'))
+        self.assertTrue(result['ok'])
+        self.assertEqual(native.call_args.args[0]['pointer_profile'], 'standard_mouse')
+        self.assertEqual(native.call_args.args[0]['events'], events)
+
     def test_incomplete_scroll_and_missing_phase_prefix_are_rejected(self):
         for events in ([self.scroll(1)], [self.scroll(2), self.scroll(4, offset=10)], [self.scroll(4)],
                        [self.scroll(momentum=2), self.scroll(momentum=3, offset=10)],

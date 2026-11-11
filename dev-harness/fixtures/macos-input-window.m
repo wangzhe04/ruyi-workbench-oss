@@ -22,6 +22,8 @@ static void Report(NSString *event);
 #ifdef RUYI_MANUAL_FIXTURE
 static TISInputSourceRef originalSource;
 static NSString *selectedSource;
+static NSUInteger manualPointerTick;
+static CGEventType manualPointerType;
 static NSString *SourceID(void) {
     TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
     NSString *identifier = source ? [(__bridge NSString *)TISGetInputSourceProperty(source, kTISPropertyInputSourceID) copy] : @"";
@@ -85,6 +87,12 @@ static void ChangeClipboard(void) {
     }
     if (key)
         counts[key] = @([counts[key] integerValue] + 1);
+#ifdef RUYI_MANUAL_FIXTURE
+    if (event.CGEvent && CGEventGetIntegerValueField(event.CGEvent, kCGEventSourceUserData) == 0x525559493550LL) {
+        manualPointerTick++; manualPointerType = CGEventGetType(event.CGEvent);
+        Report(@"manual-fixture-pointer-observed");
+    }
+#endif
     [super sendEvent:event];
     if (event.type == NSEventTypeKeyDown && (event.modifierFlags & NSEventModifierFlagCommand) &&
         [[event charactersIgnoringModifiers] isEqual:@"v"]) {
@@ -210,6 +218,7 @@ static void Report(NSString *event) {
         @"counts" : counts,
 #ifdef RUYI_MANUAL_FIXTURE
         @"inputSource":SourceID(), @"marked":@(editor.hasMarkedText),
+        @"manualPointerTick":@(manualPointerTick), @"manualPointerType":@(manualPointerType),
         @"cursorX":@(NSEvent.mouseLocation.x),
         @"cursorY":@(CGDisplayBounds(CGMainDisplayID()).size.height - NSEvent.mouseLocation.y),
         @"hidFlags":@(CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState)),
@@ -248,8 +257,35 @@ static void ShowCover(void) {
     [cover makeKeyAndOrderFront:nil];
 }
 
+#ifdef RUYI_MANUAL_FIXTURE
+static void PostManualPointerFixture(NSString *mode) {
+    NSDictionary *bounds = Bounds(pad);
+    CGPoint inside = CGPointMake([bounds[@"x"] doubleValue] + 100, [bounds[@"y"] doubleValue] + 50);
+    CGPoint outside = CGPointMake([Bounds(primary.contentView)[@"x"] doubleValue] - 30, inside.y);
+    BOOL held = ![mode isEqual:@"manual-hover-outside"];
+    CGEventRef events[3] = {NULL, NULL, NULL};
+    NSUInteger count = held ? 3 : 1;
+    events[0] = CGEventCreateMouseEvent(NULL, held ? kCGEventLeftMouseDown : kCGEventMouseMoved, held ? inside : outside, 0);
+    if (held) {
+        events[1] = CGEventCreateMouseEvent(NULL, [mode isEqual:@"manual-drag-outside"] ? kCGEventLeftMouseDragged : kCGEventMouseMoved, outside, 0);
+        events[2] = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp, inside, 0);
+    }
+    BOOL allocated = YES;
+    for (NSUInteger index = 0; index < count; index++) allocated &= events[index] != NULL;
+    if (allocated) for (NSUInteger index = 0; index < count; index++) {
+        CGEventSetFlags(events[index], 0);
+        CGEventSetIntegerValueField(events[index], kCGEventSourceUserData, 0x525559493550LL);
+        CGEventSetIntegerValueField(events[index], kCGEventTargetUnixProcessID, NSProcessInfo.processInfo.processIdentifier);
+        CGEventSetTimestamp(events[index], (CGEventTimestamp)(NSProcessInfo.processInfo.systemUptime * 1000000000.0));
+        CGEventPostToPid(NSProcessInfo.processInfo.processIdentifier, events[index]);
+    }
+    for (NSUInteger index = 0; index < count; index++) if (events[index]) CFRelease(events[index]);
+}
+#endif
+
 static void Command(NSString *command) {
 #ifdef RUYI_MANUAL_FIXTURE
+    if ([@[@"manual-hover-outside", @"manual-held-hover-outside", @"manual-drag-outside"] containsObject:command]) PostManualPointerFixture(command);
     if ([command isEqual:@"clear-neutral"]) { [editor unmarkText]; [editor setString:@""]; }
     if ([command isEqual:@"source-abc"] || [command isEqual:@"source-pinyin"]) {
         NSString *identifier = [command isEqual:@"source-abc"] ? @"com.apple.keylayout.ABC" : @"com.apple.inputmethod.SCIM.ITABC";

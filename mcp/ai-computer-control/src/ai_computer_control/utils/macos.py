@@ -195,7 +195,8 @@ def capability():
                    manualRecordReady=bool(status.get('manualRecordSupported') is True and status.get('manualRecordReady')
                                          and out.get('recordReady')),
                    listenAuthorization=status.get('listenAuthorization', 'unknown'),
-                   recordSources=status.get('recordSources', []), recordInputSource=status.get('recordInputSource'))
+                   recordSources=status.get('recordSources', []), recordInputSource=status.get('recordInputSource'),
+                   manualPointerProfiles=status.get('manualPointerProfiles', []))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))

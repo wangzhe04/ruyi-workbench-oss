@@ -2,6 +2,7 @@
 import asyncio
 import threading
 import anyio
+from typing import Literal
 
 from ai_computer_control.server import mcp
 from ai_computer_control.utils.macos import DesktopError
@@ -140,7 +141,8 @@ def scroll_at(x: int, y: int, amount: int, target: dict) -> dict:
 
 
 @mcp.tool(audit=True)
-async def input_sequence(events: list[dict], target: dict, input_source: dict) -> dict:
+async def input_sequence(events: list[dict], target: dict, input_source: dict,
+                         pointer_profile: Literal['exact', 'standard_mouse'] = 'exact') -> dict:
     """Replay a balanced, source-bound Mac keyboard/pointer gesture in the focused exact target.
 
     Pass event rows from a native_window_events recording. Types are key_down/key_up/flags,
@@ -148,14 +150,21 @@ async def input_sequence(events: list[dict], target: dict, input_source: dict) -
     Unicode payload, pointer paths, click counts, pressure, continuous three-axis scroll and phases.
     Ordinary mouse and mouse-touch subtype rows are supported. Tablet, multitouch and Force Touch
     pressure-stage gestures are outside this portable sequence; capture refuses unpreserved associations.
+    standard_mouse explicitly replays ordinary mouse-touch rows as standard mouse input, preserving the
+    recorded associated_events_mask as metadata only. Device pressure capabilities are not reproduced.
+    Standard rows use subtype 0 and binary mouse-button pressure (down/drag=1, up/move=0);
+    source_subtype and associated_events_mask are provenance, not replayed device properties.
+    Completion covers keyboard and standard pointer events, not pressure-driven application state.
     at_us is a monotonic relative microsecond offset, starting at zero. Limits are 512 events,
     five seconds and 48000 JSON bytes. All fields and complete ownership are checked before dispatch.
     The recorded input source must match. Begin with neutral/committed IME and dead-key composition.
     Each event rechecks focus, target, permissions, source and pointer hit. Owned input is released on
     interruption. Success reports posted events. Observe application state to confirm consumption.
     """
-    validate_events(events, target.get('bounds'))
+    validate_events(events, target.get('bounds'), pointer_profile)
     payload = {'op': 'input.sequence', 'events': events, 'target': target, 'input_source': input_source}
+    if pointer_profile != 'exact':
+        payload['pointer_profile'] = pointer_profile
     cancel_event, finished = threading.Event(), threading.Event()
     cancel_lock = threading.Lock()
     receipt = {}

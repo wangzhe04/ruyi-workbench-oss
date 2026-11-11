@@ -55,12 +55,14 @@ def _input_source(value):
              and value['type'] in ('TISTypeKeyboardLayout', 'TISTypeKeyboardInputMode'))
 
 
-def _validate_action(action, bounds, previous_end):
+def _validate_action(action, bounds, previous_end, pointer_profile='exact'):
     _require(isinstance(action, dict) and isinstance(action.get('op'), str))
     fields = _FIELDS.get(action['op'])
     optional = {'input_source'} if action['op'].startswith('keyboard.') or action['op'] == 'input.sequence' else set()
     if action['op'] == 'keyboard.chord':
         optional.add('event_flags')
+    if action['op'] == 'input.sequence':
+        optional.add('pointer_profile')
     _require(fields is not None and set(action) - optional == fields | {'op', 'at', 'ended'})
     if 'input_source' in action:
         _input_source(action['input_source'])
@@ -74,8 +76,9 @@ def _validate_action(action, bounds, previous_end):
                  and _number(action['start_y'], bounds['y'], bounds['y'] + bounds['height'])
                  and action['start_x'] < bounds['x'] + bounds['width'] and action['start_y'] < bounds['y'] + bounds['height'])
     if action['op'] == 'input.sequence':
+        _require(action.get('pointer_profile', pointer_profile) == pointer_profile)
         try:
-            validate_events(action['events'], bounds)
+            validate_events(action['events'], bounds, pointer_profile)
         except DesktopError:
             _require(False)
         _require(action['ended'] - action['at'] + .000002 >= action['events'][-1]['at_us'] / 1000000)
@@ -113,13 +116,21 @@ def validate_recording(recording):
             'complete', 'end_reason', 'actions'}
         if manual:
             required.add('input_source')
+        normalized = manual and recording.get('schema') == 3
+        if normalized:
+            required.add('pointer_profile')
+            required.add('replay_scope')
         _require(set(recording) == required)
-        _require(type(recording['schema']) is int and recording['schema'] == (2 if manual else 1)
+        _require(type(recording['schema']) is int and recording['schema'] == (3 if normalized else 2 if manual else 1)
                  and recording['platform'] == 'darwin' and recording['coordinate_space'] == 'macos_global_points'
                  and recording['source'] in ('controlled_native_requests', 'native_window_events')
                  and recording['complete'] is True and recording['end_reason'] == 'stopped')
         if manual:
             _input_source(recording['input_source'])
+        pointer_profile = recording.get('pointer_profile', 'exact')
+        _require(pointer_profile == ('standard_mouse' if normalized else 'exact'))
+        if normalized:
+            _require(recording['replay_scope'] == 'keyboard_and_standard_mouse')
         app = recording['application']
         _require(isinstance(app, dict) and set(app) == {'bundle_id', 'executable'})
         _require(isinstance(app['bundle_id'], str) and len(app['bundle_id']) <= 256
@@ -129,9 +140,9 @@ def validate_recording(recording):
         _require(isinstance(recording['actions'], list) and len(recording['actions']) <= 100)
         ended = 0
         for action in recording['actions']:
-            _validate_action(action, recording['bounds'], ended)
+            _validate_action(action, recording['bounds'], ended, pointer_profile)
             if manual:
-                _require(action['op'] == 'input.sequence' and 'input_source' not in action)
+                _require(action['op'] == 'input.sequence' and 'input_source' not in action and 'pointer_profile' not in action)
             elif action['op'] == 'input.sequence':
                 _require('input_source' in action)
             ended = action['ended']
@@ -139,7 +150,7 @@ def validate_recording(recording):
         raise DesktopError('recording_invalid', 'Recording contains invalid JSON or field values') from None
 
 
-def _action_steps(action, target, old_bounds, input_source=None):
+def _action_steps(action, target, old_bounds, input_source=None, pointer_profile='exact'):
     op = action['op']
     args = {key: action[key] for key in _FIELDS[op]}
     if op.startswith('keyboard.') or op == 'input.sequence':
@@ -152,11 +163,14 @@ def _action_steps(action, target, old_bounds, input_source=None):
         if key in args:
             args[key] += target['bounds'][axis] - old_bounds[axis]
     if op == 'input.sequence':
+        pointer_profile = action.get('pointer_profile', pointer_profile)
+        if pointer_profile != 'exact':
+            args['pointer_profile'] = pointer_profile
         for event in args['events']:
             if 'x' in event:
                 event['x'] += target['bounds']['x'] - old_bounds['x']
                 event['y'] += target['bounds']['y'] - old_bounds['y']
-        validate_events(args['events'], target['bounds'])
+        validate_events(args['events'], target['bounds'], pointer_profile)
         return [{'tool': 'input_sequence', 'args': {**args, 'target': target}}]
     if op == 'keyboard.text':
         enters = int(args.pop('enters'))
@@ -183,6 +197,9 @@ def prepare_recording(recording, target):
     validate_recording(recording)
     payload = {'op': 'record.target', 'target': target, 'actions': recording['actions']}
     input_source = recording.get('input_source')
+    pointer_profile = recording.get('pointer_profile', 'exact')
+    if pointer_profile != 'exact':
+        payload['pointer_profile'] = pointer_profile
     if input_source is not None:
         payload['input_source'] = input_source
     if any(action['op'] == 'input.sequence' for action in recording['actions']):
@@ -203,7 +220,7 @@ def prepare_recording(recording, target):
             steps.append({'tool': 'wait', 'args': {'seconds': gap}})
         elif steps and gap > .3:
             steps.append({'tool': 'wait', 'args': {'seconds': round(min(5., gap), 1)}})
-        steps.extend(_action_steps(action, target, bounds, input_source))
+        steps.extend(_action_steps(action, target, bounds, input_source, pointer_profile))
         previous_end = action['ended']
     if len(steps) > 200:
         raise DesktopError('recording_capacity', 'Expanded recording exceeds the 200-step replay limit')

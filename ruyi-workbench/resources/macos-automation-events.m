@@ -733,7 +733,8 @@ static NSDictionary *Mouse(NSDictionary *request, NSDictionary *row, AXUIElement
 }
 
 static NSDictionary *Sequence(NSDictionary *request, NSDictionary *row, AXUIElementRef window) {
-    NSDictionary *failure = RuyiAutomationValidateSequence(request[@"events"], row[@"target"][@"bounds"], YES);
+    NSString *profile = request[@"pointer_profile"] ?: @"exact";
+    NSDictionary *failure = RuyiAutomationValidateSequenceProfile(request[@"events"], row[@"target"][@"bounds"], YES, profile);
     if (failure) return failure;
     if (!request[@"input_source"]) return RuyiAutomationFailure(@"invalid_args", @"Bind input.sequence to its keyboard input source");
     failure = RuyiAutomationInputSourceGuard(request[@"input_source"]);
@@ -814,7 +815,8 @@ static NSDictionary *Sequence(NSDictionary *request, NSDictionary *row, AXUIElem
         for (NSValue *value in nativeEvents) CFRelease((CGEventRef)value.pointerValue);
     }
     return failure ? InputFailure(failure, acted) : @{@"ok":@YES, @"protocolVersion":@1,
-        @"acted":@(acted), @"action_sent":@(acted), @"verification":@"events_posted", @"event_count":@(nativeEvents.count)};
+        @"acted":@(acted), @"action_sent":@(acted), @"verification":@"events_posted", @"event_count":@(nativeEvents.count),
+        @"pointer_profile":profile, @"device_capabilities_normalized":[profile isEqual:@"standard_mouse"] ? @YES : @NO};
 }
 
 NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request) {
@@ -841,10 +843,10 @@ NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request) {
         @"events"
     ]];
     for (NSString *key in request)
-        if (![keys containsObject:key])
+        if (![keys containsObject:key] && !([request[@"op"] isEqual:@"input.sequence"] && [key isEqual:@"pointer_profile"]))
             return RuyiAutomationFailure(@"invalid_args", @"Unexpected input field");
     if ([request[@"op"] isEqual:@"input.sequence"]) {
-        NSSet *sequenceKeys = [NSSet setWithArray:@[@"op", @"version", @"target", @"events", @"input_source"]];
+        NSSet *sequenceKeys = [NSSet setWithArray:@[@"op", @"version", @"target", @"events", @"input_source", @"pointer_profile"]];
         for (NSString *key in request) if (![sequenceKeys containsObject:key]) return RuyiAutomationFailure(@"invalid_args", @"Unexpected sequence field");
         for (CGKeyCode key = 0; key < 128; key++)
             if (CGEventSourceKeyState(kCGEventSourceStateHIDSystemState, key))
