@@ -1,0 +1,50 @@
+[
+  {
+    "pid": 63382,
+    "ppid": 61689,
+    "birth": "Wed Nov 11 14:32:42 2026",
+    "command": "/Users/jiming/.local/bin/node dev-harness/macos-input-host.e2e.js"
+  },
+  {
+    "pid": 63396,
+    "ppid": 63382,
+    "birth": "Wed Nov 11 14:32:43 2026",
+    "command": "/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-p5-input-host-uWurFE/receiver"
+  },
+  {
+    "pid": 63406,
+    "ppid": 63382,
+    "birth": "Wed Nov 11 14:32:44 2026",
+    "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 63407,
+    "ppid": 63406,
+    "birth": "Wed Nov 11 14:32:44 2026",
+    "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 63408,
+    "ppid": 63407,
+    "birth": "Wed Nov 11 14:32:44 2026",
+    "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+  },
+  {
+    "pid": 63411,
+    "ppid": 63382,
+    "birth": "Wed Nov 11 14:32:44 2026",
+    "command": "/usr/bin/open -n -W -a /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app --env HOME=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-home-PC97Fb --env USERPROFILE=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-home-PC97Fb --env LOCALAPPDATA=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-appdata/Local --env APPDATA=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-appdata/Roaming --env RUYI_HOME=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-p5-input-host-uWurFE/data --env WIN_CLAUDE_WORKBENCH_HOME=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-p5-input-host-uWurFE/data --env RUYI_NODE_PATH=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node  -args  -workbench-root  private/tmp/ruyi-p5-touch-worktree/ruyi-workbench  -acceptance-report"
+  },
+  {
+    "pid": 63845,
+    "ppid": 63382,
+    "birth": "Wed Nov 11 14:32:46 2026",
+    "command": "(ruyi-process-hel)"
+  },
+  {
+    "pid": 64016,
+    "ppid": 63408,
+    "birth": "Wed Nov 11 14:32:46 2026",
+    "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+  }
+]

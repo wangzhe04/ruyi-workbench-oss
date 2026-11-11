@@ -1,0 +1,37 @@
+'use strict';
+const project = '/Users/jiming/Documents/ruyi-workbench-mac';
+require(project + '/dev-harness/lib/self-isolate-home');
+const fs=require('node:fs'), path=require('node:path'), os=require('node:os'), cp=require('node:child_process');
+const {fixtureChildEnv}=require(project+'/dev-harness/lib/fixture-home');
+const {killOwnTree}=require(project+'/dev-harness/lib/kill-own-tree');
+const {loadServerInternals}=require(project+'/dev-harness/lib/server-internals');
+const directory=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-tap-probe-'));
+const receiver=path.join(directory,'receiver');
+const built=cp.spawnSync('/usr/bin/xcrun',['clang','-fobjc-arc','-fblocks','-Wall','-Wextra','-Werror','-mmacosx-version-min=14.0','-framework','AppKit','-framework','ApplicationServices',project+'/dev-harness/fixtures/macos-input-window.m','-o',receiver],{encoding:'utf8',timeout:60000});
+if(built.status!==0)throw new Error(built.stderr);
+const S=loadServerInternals(['McpStdioClient','ProcessRuntime']);
+let fixture,tap,client;
+const receiverRows=[],tapRows=[],calls=[];
+function lines(child,rows){let buffer='';child.stdout.on('data',data=>{buffer+=data;let end;while((end=buffer.indexOf('\n'))>=0){rows.push(JSON.parse(buffer.slice(0,end)));buffer=buffer.slice(end+1);}});child.stderr.resume();}
+async function until(read){const deadline=Date.now()+8000;while(Date.now()<deadline){const value=await read();if(value)return value;await new Promise(resolve=>setTimeout(resolve,20));}throw new Error('Owned tap probe timed out');}
+(async()=>{try{
+ fixture=cp.spawn(receiver,[],{env:fixtureChildEnv(),stdio:['pipe','pipe','pipe']});lines(fixture,receiverRows);
+ const ready=await until(()=>receiverRows.find(row=>row.event==='ready'));
+ const repo=project+'/mcp/ai-computer-control';
+ client=new S.McpStdioClient({id:'ai-computer-control',command:repo+'/.venv/bin/python',args:['-X','utf8','-m','ai_computer_control.server'],cwd:repo,env:{...fixtureChildEnv(),PYTHONPATH:repo+'/src',WCW_DATA_DIR:directory+'/data',ACC_TOOLSETS:'desktop',ACC_HIDE_TOOLS:'',RUYI_MACOS_AUTOMATION_HELPER:project+'/ruyi-workbench/runtime/macos/ruyi-automation-helper'}});
+ await client.start();
+ const listed=await client.callTool('list_windows',{});const target=listed.windows.find(row=>row.pid===fixture.pid&&row.handle===ready.id)?.target;if(!target)throw new Error('Missing owned target');
+ const focus=await client.callTool('focus_window',{target});if(!focus.ok)throw new Error(JSON.stringify(focus));
+ tap=cp.spawn('/tmp/ruyi-p5-window-tap-probe',['--tap',String(fixture.pid)],{env:fixtureChildEnv(),stdio:['pipe','pipe','pipe']});lines(tap,tapRows);
+ await until(()=>tapRows.find(row=>row.event==='ready'||row.event==='failed'));
+ if(tapRows.some(row=>row.event==='failed'))throw new Error('Public per-PID event tap was refused');
+ for(const[name,args]of[['type_text',{text:'窗口内中文探针',target,use_clipboard:false,interval:0}],['press_key',{key:'escape',target}],['mouse_click',{target,x:Math.round(ready.pad.x+ready.pad.width/2),y:Math.round(ready.pad.y+ready.pad.height/2)}]])calls.push({name,result:await client.callTool(name,args)});
+ await until(()=>tapRows.some(row=>row.event==='tap'&&row.type===2));
+ const offset=receiverRows.length;fixture.stdin.write('state\n');await until(()=>receiverRows.slice(offset).find(row=>row.event==='state'));
+ console.log(JSON.stringify({receiverPID:fixture.pid,tapPID:tap.pid,calls,tapRows,receiver:receiverRows.filter(row=>row.event==='state')},null,2));
+ }finally{
+ if(tap&&tap.exitCode===null){tap.stdin.write('q\n');try{await until(()=>tap.exitCode!==null||tap.signalCode!==null);}catch{killOwnTree(tap);}}
+ if(client?.child){const child=client.child;client.kill();await S.ProcessRuntime.waitForCleanup(child,3000);}
+ if(fixture&&fixture.exitCode===null){fixture.stdin.write('quit\n');try{await until(()=>fixture.exitCode!==null||fixture.signalCode!==null);}catch{killOwnTree(fixture);}}
+ fs.rmSync(directory,{recursive:true,force:true});
+ }})().catch(error=>{console.error(error.stack);process.exitCode=1;});

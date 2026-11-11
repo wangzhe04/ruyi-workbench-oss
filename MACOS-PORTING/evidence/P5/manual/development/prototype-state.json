@@ -1,0 +1,32 @@
+{
+  "created_utc": "2026-11-10T16:46:04.771283+00:00",
+  "status": "development_prototype_not_independently_accepted",
+  "worktree": "/tmp/ruyi-p5-manual-worktree",
+  "branch": "codex/p5-manual-events",
+  "base_commit": "cf32a23176bc9bebad5b55a9143e6a4df9c9f62c",
+  "source_hashes": {
+    "ruyi-workbench/resources/macos-automation-record-events.m": "446f5b41d164e8cfec59249f999b40a88e4cdca2ba35f50e816f5a634a6b98f9",
+    "ruyi-workbench/resources/macos-automation-record.m": "8741139a512704473e87243d7efa34032261478705c7cef724a82fa32a121dca",
+    "ruyi-workbench/resources/macos-automation-events.m": "5ab9ccb737a72f805db43692b96b7f20ebec3a834f5a7fee23d4b2480a3f0736",
+    "ruyi-workbench/resources/macos-automation.h": "90fda3cf7082ed356e7e1602a736ccc1de03fa66b04986d886e5efe660708227",
+    "ruyi-workbench/tools/build-macos-automation-helper.js": "8e7b02b587844d4a9b23bc1c61d375de121bfe7eafa75d27228dd90717435043"
+  },
+  "helper": "/tmp/ruyi-p5-manual-native-helper",
+  "helper_sha256": "c14c66081bc3b5a113081f3c6d73cd630a612f2362c6f472833b237116a579c2",
+  "build_exit": 0,
+  "per_pid_probe_exit": 0,
+  "per_pid_probe_event_count": 18,
+  "kernel_probe_exit": 0,
+  "kernel_proved": [
+    "Independent process click becomes one complete native_window_events schema2 action in a self-owned foreground window",
+    "Same-recorder automated input stops the event recording as mixed_automation"
+  ],
+  "not_proved": [
+    "Public Python source selection/schema2 replay",
+    "Keyboard raw event/IME/dead-key/paste fidelity",
+    "Manual pointer drags and continuous trackpad scrolling",
+    "Signal/EOF/listener teardown independent regression",
+    "Full target-scoped manual demonstration regression and independent acceptance"
+  ],
+  "audit_scope": "The accepted cooperative cancellation repair is committed separately at 280d148b with evidence binding cf32a231. Manual prototype is uncommitted and excluded."
+}

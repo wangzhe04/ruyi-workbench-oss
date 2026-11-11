@@ -1,0 +1,31 @@
+P5 remains active/in_progress. Latest manual implementation commits:
+0d054b04b7cd7d97fe163ca7177c165a38020693 (bounded exact manual recording/input_sequence)
+1500b82b9d8ee54f285d1b316d87067a7b430c52 (explicit standard_mouse schema3 projection).
+Both are integrated into codex/p5-macos-automation. Historical strict physical failures remain archived.
+
+The user selected standard click/drag support; pressure gestures are explicitly unsupported.
+Standard projection acceptance is complete within that declared scope. Do not request another physical demonstration.
+Independent standard GUI88/App exact17/App standard19 passed; Python170 and engineering gates are source-bound
+as described in standard-mouse/README.md and independent-final-v2/report.json. Physical-v1 is a user demonstration;
+physical-evidence-review-v1.json independently reviews its provenance, rather than claiming a second execution.
+The earlier exact-only physicalInputAcceptance=false describes its historical strict scope, not standard projection.
+
+Main default native helper was rebuilt from 1500b82b; raw SHA256
+1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5.
+Normalized Mach-O equivalence and its exact exclusions are documented in standard-mouse/commit-binding.json
+and independent-commit-binding.json. This is not raw binary/TCC identity or new GUI acceptance of this artifact.
+Ruyi.app has not been rebuilt/re-signed. Keep App historical evidence and current source binding distinct.
+
+Next slice: ordinary default-mode session approval allow/deny/cancel, and actual session/turn image-writer
+create/overwrite checkpoints with rollback. Development branch codex/p5-native-entry in /tmp/ruyi-p5-entry-worktree;
+entry/development logs are preliminary and excluded from this manual acceptance commit.
+Remaining P5 gates include actual TCC revoke/regrant, approved action-time lock/unlock and cleanup,
+current selected-app bindings, readiness/hidden nested tool paths, plus multi-display/nonRetina, macOS14,
+Windows current-candidate, and formal app identity. P3/P4 Windows waivers do not automatically apply to P5.
+Do not lock the desktop without a specific new user choice; the standing instruction is to keep it awake.
+
+User TCC authorizations are already granted. Screen saver idleTime=0; caffeinate PID49085 was confirmed live
+on this continuation. Real GUI E2E must run serially. Isolate HOME/USERPROFILE/APPDATA/LOCALAPPDATA/data;
+use short TMPDIR outside Git. Do not access/close UserNotificationCenter to bypass prior CUA denial.
+Owned Shift/left recovery was already performed; never rerun archived recovery scripts.
+Historical clipboard loss is not retroactively restored by later successful tests.

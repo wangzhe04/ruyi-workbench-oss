@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "normal",
+    "path": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+    "bytes": 291344,
+    "sha256": "7e600a4f39a1a786cc1b1c8005c228a473ca54db5d35de1154396398a226e147"
+  },
+  {
+    "mode": "testing",
+    "path": "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+    "bytes": 308736,
+    "sha256": "fa43e7fb08b8d6b0e91a7cbf354dbb6b2c9dba79ac3431b8f88922f5eb53eba0"
+  }
+]

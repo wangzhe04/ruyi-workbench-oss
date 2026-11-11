@@ -1,0 +1,55 @@
+[
+  {
+    "name": "syntax",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 25.766,
+    "environment": {
+      "HOME": "/tmp/ruyi-sm2-d-mozfpyfe/h",
+      "USERPROFILE": "/tmp/ruyi-sm2-d-mozfpyfe/u",
+      "APPDATA": "/tmp/ruyi-sm2-d-mozfpyfe/a",
+      "LOCALAPPDATA": "/tmp/ruyi-sm2-d-mozfpyfe/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-sm2-d-mozfpyfe/w",
+      "RUYI_HOME": "/tmp/ruyi-sm2-d-mozfpyfe/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-sm2-d-mozfpyfe/c",
+      "TMPDIR": "/tmp/ruyi-sm2-d-mozfpyfe/t",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-sm2-d-mozfpyfe/absent-helper"
+    },
+    "tmpdirPathBytes": 26,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/syntax.txt",
+    "logDigest": {
+      "bytes": 60,
+      "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad"
+    }
+  },
+  {
+    "name": "build-check",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 0.206,
+    "environment": {
+      "HOME": "/tmp/ruyi-sm2-d-607dnqpx/h",
+      "USERPROFILE": "/tmp/ruyi-sm2-d-607dnqpx/u",
+      "APPDATA": "/tmp/ruyi-sm2-d-607dnqpx/a",
+      "LOCALAPPDATA": "/tmp/ruyi-sm2-d-607dnqpx/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-sm2-d-607dnqpx/w",
+      "RUYI_HOME": "/tmp/ruyi-sm2-d-607dnqpx/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-sm2-d-607dnqpx/c",
+      "TMPDIR": "/tmp/ruyi-sm2-d-607dnqpx/t",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-sm2-d-607dnqpx/absent-helper"
+    },
+    "tmpdirPathBytes": 26,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/build-check.txt",
+    "logDigest": {
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    }
+  }
+]

@@ -1,0 +1,343 @@
+{
+  "name": "app",
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-input-host.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-manual-worktree",
+  "startedAt": "2026-11-11T05:25:47.514750+00:00",
+  "elapsedSeconds": 6.292,
+  "exitCode": 0,
+  "passLines": 17,
+  "failLines": 0,
+  "skipLines": 0,
+  "allPassMarker": true,
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/e2e.txt",
+  "logDigest": {
+    "bytes": 1267,
+    "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee"
+  },
+  "environment": {
+    "HOME": "/tmp/ruyi-g6-qhw8dlds/h",
+    "USERPROFILE": "/tmp/ruyi-g6-qhw8dlds/u",
+    "APPDATA": "/tmp/ruyi-g6-qhw8dlds/a",
+    "LOCALAPPDATA": "/tmp/ruyi-g6-qhw8dlds/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-g6-qhw8dlds/w",
+    "RUYI_HOME": "/tmp/ruyi-g6-qhw8dlds/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-g6-qhw8dlds/c",
+    "TMPDIR": "/tmp/ruyi-g6-qhw8dlds/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+    "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_APP_MANUAL": "1",
+    "RUYI_P5_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app",
+    "RUYI_DESKTOP_TEST_APP": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app"
+  },
+  "tmpdirPathBytes": 23,
+  "observedOwnedProcessIdentities": [
+    {
+      "pid": 43176,
+      "ppid": 42844,
+      "birth": "Wed Nov 11 13:25:47 2026",
+      "command": "/Users/jiming/.local/bin/node dev-harness/macos-input-host.e2e.js"
+    },
+    {
+      "pid": 43188,
+      "ppid": 43176,
+      "birth": "Wed Nov 11 13:25:48 2026",
+      "command": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/receiver"
+    },
+    {
+      "pid": 43198,
+      "ppid": 43176,
+      "birth": "Wed Nov 11 13:25:49 2026",
+      "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 43199,
+      "ppid": 43198,
+      "birth": "Wed Nov 11 13:25:49 2026",
+      "command": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 43200,
+      "ppid": 43199,
+      "birth": "Wed Nov 11 13:25:49 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 43203,
+      "ppid": 43176,
+      "birth": "Wed Nov 11 13:25:49 2026",
+      "command": "/usr/bin/open -n -W -a /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app --env HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-home-goeq3g --env USERPROFILE=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-home-goeq3g --env LOCALAPPDATA=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-appdata/Local --env APPDATA=/tmp/ruyi-g6-qhw8dlds/t/ruyi-e2e-appdata/Roaming --env RUYI_HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/data --env WIN_CLAUDE_WORKBENCH_HOME=/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/data --env RUYI_NODE_PATH=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node  -args  -workbench-root  private/tmp/ruyi-p5-manual-worktree/ruyi-workbench  -acceptance-report"
+    },
+    {
+      "pid": 43524,
+      "ppid": 43176,
+      "birth": "Wed Nov 11 13:25:50 2026",
+      "command": "(ps)"
+    },
+    {
+      "pid": 43795,
+      "ppid": 43200,
+      "birth": "Wed Nov 11 13:25:51 2026",
+      "command": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper --input-session"
+    },
+    {
+      "pid": 44236,
+      "ppid": 43176,
+      "birth": "Wed Nov 11 13:25:52 2026",
+      "command": "(ps)"
+    }
+  ],
+  "remainingObservedOwnedProcessIdentities": [],
+  "observationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be observed. Script cleanup assertions cover its own exact identities. LaunchServices App process identities are checked separately from its native report.",
+  "appEvidenceDigest": {
+    "bytes": 15400,
+    "sha256": "853104252cd677d80eaf41012b9676235713fc97dcd44e8aaffaaaa7cd9cdcc3"
+  },
+  "launchServicesCleanupCheck": {
+    "exitCode": 0,
+    "stdout": "[]",
+    "stderr": "",
+    "observedProcesses": [
+      {
+        "pid": 43207,
+        "ppid": 1,
+        "created": "1794374749441309"
+      },
+      {
+        "pid": 43242,
+        "ppid": 43207,
+        "created": "1794374749640963"
+      },
+      {
+        "pid": 43268,
+        "ppid": 43242,
+        "created": "1794374749746839"
+      },
+      {
+        "pid": 43267,
+        "ppid": 43242,
+        "created": "1794374749745997"
+      },
+      {
+        "pid": 43366,
+        "ppid": 43242,
+        "created": "1794374750146980"
+      },
+      {
+        "pid": 43379,
+        "ppid": 43242,
+        "created": "1794374750201366"
+      },
+      {
+        "pid": 43380,
+        "ppid": 43379,
+        "created": "1794374750202698"
+      },
+      {
+        "pid": 43382,
+        "ppid": 43380,
+        "created": "1794374750203068"
+      },
+      {
+        "pid": 43418,
+        "ppid": 43242,
+        "created": "1794374750307524"
+      },
+      {
+        "pid": 43430,
+        "ppid": 43242,
+        "created": "1794374750375335"
+      },
+      {
+        "pid": 43431,
+        "ppid": 43430,
+        "created": "1794374750376952"
+      },
+      {
+        "pid": 43432,
+        "ppid": 43431,
+        "created": "1794374750377281"
+      },
+      {
+        "pid": 43498,
+        "ppid": 43242,
+        "created": "1794374750573398"
+      },
+      {
+        "pid": 43527,
+        "ppid": 43432,
+        "created": "1794374750666970"
+      },
+      {
+        "pid": 43545,
+        "ppid": 43432,
+        "created": "1794374750709992"
+      },
+      {
+        "pid": 43562,
+        "ppid": 43432,
+        "created": "1794374750753696"
+      },
+      {
+        "pid": 43597,
+        "ppid": 43432,
+        "created": "1794374750865410"
+      },
+      {
+        "pid": 43613,
+        "ppid": 43432,
+        "created": "1794374750911793"
+      },
+      {
+        "pid": 43632,
+        "ppid": 43242,
+        "created": "1794374750954121"
+      },
+      {
+        "pid": 43629,
+        "ppid": 43242,
+        "created": "1794374750950259"
+      },
+      {
+        "pid": 43630,
+        "ppid": 43629,
+        "created": "1794374750951846"
+      },
+      {
+        "pid": 43654,
+        "ppid": 43242,
+        "created": "1794374751007758"
+      },
+      {
+        "pid": 43653,
+        "ppid": 43432,
+        "created": "1794374750996387"
+      },
+      {
+        "pid": 43717,
+        "ppid": 43242,
+        "created": "1794374751220460"
+      },
+      {
+        "pid": 43747,
+        "ppid": 43242,
+        "created": "1794374751295437"
+      },
+      {
+        "pid": 43763,
+        "ppid": 43242,
+        "created": "1794374751342533"
+      },
+      {
+        "pid": 43779,
+        "ppid": 43242,
+        "created": "1794374751395539"
+      },
+      {
+        "pid": 43796,
+        "ppid": 43242,
+        "created": "1794374751437673"
+      },
+      {
+        "pid": 43844,
+        "ppid": 43242,
+        "created": "1794374751590437"
+      },
+      {
+        "pid": 43895,
+        "ppid": 43242,
+        "created": "1794374751742338"
+      },
+      {
+        "pid": 43927,
+        "ppid": 43242,
+        "created": "1794374751825361"
+      },
+      {
+        "pid": 43950,
+        "ppid": 43242,
+        "created": "1794374751909532"
+      },
+      {
+        "pid": 43983,
+        "ppid": 43242,
+        "created": "1794374751989884"
+      },
+      {
+        "pid": 44035,
+        "ppid": 43242,
+        "created": "1794374752153520"
+      },
+      {
+        "pid": 44067,
+        "ppid": 43242,
+        "created": "1794374752235156"
+      },
+      {
+        "pid": 44115,
+        "ppid": 43242,
+        "created": "1794374752387613"
+      },
+      {
+        "pid": 44132,
+        "ppid": 43242,
+        "created": "1794374752432612"
+      },
+      {
+        "pid": 44149,
+        "ppid": 43242,
+        "created": "1794374752487906"
+      },
+      {
+        "pid": 44166,
+        "ppid": 43242,
+        "created": "1794374752534934"
+      },
+      {
+        "pid": 44198,
+        "ppid": 43242,
+        "created": "1794374752616898"
+      },
+      {
+        "pid": 44440,
+        "ppid": 43242,
+        "created": "1794374753297624"
+      },
+      {
+        "pid": 44459,
+        "ppid": 43242,
+        "created": "1794374753357360"
+      }
+    ],
+    "remaining": []
+  },
+  "candidateServiceInvocation": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/desktop-macos/service-lease.cjs /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/app/server.js serve --host 127.0.0.1",
+  "candidateWorkbenchRoot": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench",
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 12,
+      "key_up": 12
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 830
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  },
+  "launch": "LaunchServices",
+  "permissionMode": "bypass fixture; normal approval allow/deny/cancel is outside scope",
+  "passed": true
+}

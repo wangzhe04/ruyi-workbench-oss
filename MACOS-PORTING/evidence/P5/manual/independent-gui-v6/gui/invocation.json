@@ -1,0 +1,30 @@
+{
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-manual-record.e2e.js"
+  ],
+  "pid": 42848,
+  "startedAt": "2026-11-11T05:25:13.842926+00:00",
+  "cwd": "/tmp/ruyi-p5-manual-worktree",
+  "environment": {
+    "HOME": "/tmp/ruyi-g6-55wcseaa/h",
+    "USERPROFILE": "/tmp/ruyi-g6-55wcseaa/u",
+    "APPDATA": "/tmp/ruyi-g6-55wcseaa/a",
+    "LOCALAPPDATA": "/tmp/ruyi-g6-55wcseaa/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-g6-55wcseaa/w",
+    "RUYI_HOME": "/tmp/ruyi-g6-55wcseaa/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-g6-55wcseaa/c",
+    "TMPDIR": "/tmp/ruyi-g6-55wcseaa/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+    "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_MANUAL_REQUIRED": "1",
+    "RUYI_P5_MANUAL_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui"
+  },
+  "tmpdirPathBytes": 23
+}

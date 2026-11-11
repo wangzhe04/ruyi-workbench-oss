@@ -14,7 +14,7 @@
 | P5 | P4 | in_progress | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) / [键鼠与App启动](evidence/P5/input/events/README.md) / [AX应用](evidence/P5/ax/apps/README.md) / [OCR](evidence/P5/ocr/README.md) / [组合](evidence/P5/composed/README.md) / [受控录制](evidence/P5/record/README.md) / [协作取消审计](evidence/P5/audit/README.md) / [剩余需求](evidence/P5/remaining-audit.json) |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
 
-P5 已验收切片分别绑定其实施提交，当前候选的手动示范录制仍在开发。桌面、如意 App 和人工示范验收，以及正常审批、检查点回滚、撤权、动作中锁屏和原环境门继续开放。历史应用场景的验收范围与当前候选复验分别登记。
+P5 已验收切片分别绑定其实施提交。手动严格模式 `0d054b04` 与标准鼠标投影 `1500b82b` 已提交并完成各自当前主机范围独立验收。标准投影 GUI 88 项、App exact 17 项、standard 19 项通过；真人主执行与来源独立核验通过，压力手势按用户选择排除。正常审批、检查点回滚、撤权、动作中锁屏和原环境门继续开放。历史应用场景与当前候选复验分别登记。[手动录制](evidence/P5/manual/README.md)
 
 29 个工作包的详细状态维护在 [TASKS.json](TASKS.json)。状态值使用 `planned / in_progress / blocked / in_review / done`。`done` 必须有验收、独立复核和处理结果；`blocked` 写具体依赖与可继续的独立任务，不能只写“平台问题”。未开始不记为“0 人日完成”。
 
@@ -181,3 +181,7 @@ P5-03 AX核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，56
 2026-11-10 P5-05 组合实施提交 `d1b30f60` 的 88 份原始 blob 已独立绑定。受控原生录制切片通过当前主机独立验收，21 条命令各一次，303 项 Node 与 127 项 Python 通过，97 项冻结指纹全程一致，五组 App 创建身份均退出。完整单元 2499 通过/18 既有跳过、静态 80/80、语法 1149 与构建新鲜度通过。来源字段和后续物理监听范围分别登记，P5/P5-05 继续进行中。[录制记录](evidence/P5/record/README.md)
 
 2026-11-11 P5 继续推进。独立需求审计将手动监听、正常审批、真实检查点回滚、IME、撤权和动作中锁屏分别保留为本地未完成项。已修复协作取消漏 ACC 审计及两项状态传播问题，独立 24 条命令各一次，326 项 Node E2E 和 147 项 Python 通过，103 项冻结指纹全程一致。工程语法 1150、构建新鲜度、单元 2499 通过/18 既有跳过、静态 80/80 均通过。[取消审计](evidence/P5/audit/README.md)
+
+2026-11-11 有界原生事件录制严格模式实施 `0d054b04`，34 份原始提交 blob 独立绑定。独立 GUI 78 项、App 17 项及工程四门通过，167 项 Python 按 v5/v6 逐字来源绑定明确复用。真实用户示范暴露设备压力关联与悬停边界，三次严格示范均未验收；用户选择标准点击/拖拽投影、压力手势明确不支持。标准投影候选主执行 GUI 87 项、App 19 项、真实输入“你好”与触控板拖拽保存回放通过，最终独立验收进行中。历史 GUI 超时根因未定、脚本与环境失败及全部原范围保留。[当前记录](evidence/P5/manual/README.md)
+
+标准投影最终实施 `1500b82b`，16 份变更及 34 份来源原始 blob 独立绑定。独立 GUI 88 项、App exact 17 项、standard 19 项各一次通过；170 项 Python、70 原生事件 case、56 组字段一致性和工程四门按冻结 v1/v2 明确复用/执行。真人示范 6 actions/57 events，真实“你好”与 35 次拖拽事件保存、清空后回放为同文本和累计 70 次拖拽；来源由独立审查核验，非独立 agent 再做真人交互。压力阶段与压力驱动应用状态不在所选投影内。默认 helper 已重建并做限定代码/数据等价绑定，App 未重签。P5/P5-05 继续进行中。[标准投影](evidence/P5/manual/standard-mouse/README.md)

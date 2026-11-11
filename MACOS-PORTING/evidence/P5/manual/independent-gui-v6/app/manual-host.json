@@ -1,0 +1,644 @@
+{
+  "nativePID": 43207,
+  "servicePID": 43242,
+  "launch": "LaunchServices",
+  "serviceInvocation": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/desktop-macos/service-lease.cjs /private/tmp/ruyi-p5-manual-worktree/ruyi-workbench/app/server.js serve --host 127.0.0.1",
+  "workbenchRoot": "/private/tmp/ruyi-p5-manual-worktree/ruyi-workbench",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "inputSequenceReady": true,
+    "inputSequenceSupported": true,
+    "installed": true,
+    "listenAuthorization": "granted",
+    "locked": false,
+    "manualRecordReady": true,
+    "manualRecordSupported": true,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "recordInputSource": {
+      "id": "com.apple.inputmethod.SCIM.ITABC",
+      "type": "TISTypeKeyboardInputMode"
+    },
+    "recordReady": true,
+    "recordSource": "controlled_native_requests",
+    "recordSources": [
+      "controlled_native_requests",
+      "native_window_events"
+    ],
+    "recordSupported": true,
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 4442,
+      "height": 528,
+      "pid": 43188,
+      "process_start": "1794374748:32365",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "handle": 4442,
+        "pid": 43188,
+        "process_start": "1794374748:32365",
+        "ref": "57C24B17-ECCE-4375-8868-CEBB0662BB0E"
+      },
+      "title": "Ruyi P5 Input 43188",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 492
+    }
+  },
+  "manual": {
+    "audit": {
+      "count": 8,
+      "log_dir": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/acc-data/logs",
+      "ok": true,
+      "records": [
+        {
+          "args": {
+            "target": "<dict keys=5>"
+          },
+          "ms": 41,
+          "ok": true,
+          "tool": "focus_window",
+          "ts": "2026-11-11T13:25:51"
+        },
+        {
+          "args": {
+            "allow_protected": false,
+            "append": false,
+            "content": "ready",
+            "encoding": "utf-8",
+            "path": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/manual-prepare.json"
+          },
+          "ms": 1,
+          "ok": true,
+          "tool": "write_file",
+          "ts": "2026-11-11T13:25:51"
+        },
+        {
+          "args": {
+            "max_seconds": 30,
+            "source": "native_window_events",
+            "target": "<dict keys=5>"
+          },
+          "ms": 11,
+          "ok": true,
+          "tool": "record_start",
+          "ts": "2026-11-11T13:25:51"
+        },
+        {
+          "args": {
+            "allow_protected": false,
+            "append": false,
+            "content": "ready",
+            "encoding": "utf-8",
+            "path": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/manual-ready.json"
+          },
+          "ms": 1,
+          "ok": true,
+          "tool": "write_file",
+          "ts": "2026-11-11T13:25:51"
+        },
+        {
+          "args": {
+            "save_as": "App手动示范宏"
+          },
+          "ms": 11,
+          "ok": true,
+          "tool": "record_stop",
+          "ts": "2026-11-11T13:25:52"
+        },
+        {
+          "args": {
+            "allow_protected": false,
+            "append": false,
+            "content": "ready",
+            "encoding": "utf-8",
+            "path": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/manual-collected.json"
+          },
+          "ms": 1,
+          "ok": true,
+          "tool": "write_file",
+          "ts": "2026-11-11T13:25:52"
+        },
+        {
+          "action_sent": true,
+          "args": {
+            "events": "<list len=12>",
+            "input_source": "<dict keys=2>",
+            "target": "<dict keys=5>"
+          },
+          "ms": 460,
+          "ok": true,
+          "tool": "input_sequence",
+          "ts": "2026-11-11T13:25:53"
+        },
+        {
+          "args": {
+            "delay_ms": null,
+            "on_error": "stop",
+            "recording": "<dict keys=10>",
+            "steps": null,
+            "target": "<dict keys=5>"
+          },
+          "ms": 468,
+          "ok": true,
+          "tool": "macro_run",
+          "ts": "2026-11-11T13:25:53"
+        }
+      ]
+    },
+    "capabilities": {
+      "authorization": "granted",
+      "coordinate_space": "macos_global_points",
+      "inputSource": {
+        "id": "com.apple.inputmethod.SCIM.ITABC",
+        "type": "TISTypeKeyboardInputMode"
+      },
+      "installed": true,
+      "listenAuthorization": "granted",
+      "manualReady": true,
+      "manualSupported": true,
+      "ready": true,
+      "source": "controlled_native_requests",
+      "sources": [
+        "controlled_native_requests",
+        "native_window_events"
+      ],
+      "supported": true
+    },
+    "collected": {
+      "complete": true,
+      "count": 1,
+      "ok": true,
+      "output_path": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/acc-data/macros/App手动示范宏.json",
+      "path": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/acc-data/macros/App手动示范宏.json",
+      "protocolVersion": 1,
+      "recording": {
+        "actions": [
+          {
+            "at": 0.49901587433123495,
+            "ended": 0.9151025833270978,
+            "events": [
+              {
+                "at_us": 0,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 45,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 86652,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 45,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 87479,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 34,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 119736,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 34,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 137155,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 4,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 176629,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 4,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 218984,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 258556,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 0,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 300527,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 31,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 337883,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 31,
+                "repeat": 0,
+                "type": "key_up"
+              },
+              {
+                "at_us": 382909,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 49,
+                "repeat": 0,
+                "type": "key_down"
+              },
+              {
+                "at_us": 416087,
+                "flags": 0,
+                "keyboard_type": 91,
+                "keycode": 49,
+                "repeat": 0,
+                "type": "key_up"
+              }
+            ],
+            "op": "input.sequence"
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "input_source": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      },
+      "saved_as": "App手动示范宏"
+    },
+    "listed": {
+      "count": 1,
+      "macros": [
+        {
+          "name": "App手动示范宏",
+          "path": "/tmp/ruyi-g6-qhw8dlds/t/ruyi-p5-input-host-PFKPJ1/acc-data/macros/App手动示范宏.json",
+          "source": "native_window_events",
+          "steps": 1,
+          "valid": true
+        }
+      ],
+      "ok": true,
+      "truncated": false
+    },
+    "replayed": {
+      "completed": 1,
+      "failed": 0,
+      "ok": true,
+      "results": [
+        {
+          "ok": true,
+          "result": {
+            "acted": true,
+            "action_sent": true,
+            "event_count": 12,
+            "ok": true,
+            "protocolVersion": 1,
+            "verification": "events_posted"
+          },
+          "step": 0,
+          "tool": "input_sequence"
+        }
+      ],
+      "success": true
+    },
+    "started": {
+      "max_seconds": 30,
+      "ok": true,
+      "protocolVersion": 1,
+      "recording": true,
+      "source": "native_window_events"
+    }
+  },
+  "manualDemonstration": {
+    "kind": "independent synthetic input through a real event tap",
+    "before": {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 630,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 6,
+        "key_up": 6
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4442,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 43188,
+      "temporaryClipboardOwned": false,
+      "text": "你好",
+      "title": "Ruyi P5 Input 43188"
+    }
+  },
+  "observedProcesses": [
+    {
+      "pid": 43207,
+      "ppid": 1,
+      "created": "1794374749441309"
+    },
+    {
+      "pid": 43242,
+      "ppid": 43207,
+      "created": "1794374749640963"
+    },
+    {
+      "pid": 43268,
+      "ppid": 43242,
+      "created": "1794374749746839"
+    },
+    {
+      "pid": 43267,
+      "ppid": 43242,
+      "created": "1794374749745997"
+    },
+    {
+      "pid": 43366,
+      "ppid": 43242,
+      "created": "1794374750146980"
+    },
+    {
+      "pid": 43379,
+      "ppid": 43242,
+      "created": "1794374750201366"
+    },
+    {
+      "pid": 43380,
+      "ppid": 43379,
+      "created": "1794374750202698"
+    },
+    {
+      "pid": 43382,
+      "ppid": 43380,
+      "created": "1794374750203068"
+    },
+    {
+      "pid": 43418,
+      "ppid": 43242,
+      "created": "1794374750307524"
+    },
+    {
+      "pid": 43430,
+      "ppid": 43242,
+      "created": "1794374750375335"
+    },
+    {
+      "pid": 43431,
+      "ppid": 43430,
+      "created": "1794374750376952"
+    },
+    {
+      "pid": 43432,
+      "ppid": 43431,
+      "created": "1794374750377281"
+    },
+    {
+      "pid": 43498,
+      "ppid": 43242,
+      "created": "1794374750573398"
+    },
+    {
+      "pid": 43527,
+      "ppid": 43432,
+      "created": "1794374750666970"
+    },
+    {
+      "pid": 43545,
+      "ppid": 43432,
+      "created": "1794374750709992"
+    },
+    {
+      "pid": 43562,
+      "ppid": 43432,
+      "created": "1794374750753696"
+    },
+    {
+      "pid": 43597,
+      "ppid": 43432,
+      "created": "1794374750865410"
+    },
+    {
+      "pid": 43613,
+      "ppid": 43432,
+      "created": "1794374750911793"
+    },
+    {
+      "pid": 43632,
+      "ppid": 43242,
+      "created": "1794374750954121"
+    },
+    {
+      "pid": 43629,
+      "ppid": 43242,
+      "created": "1794374750950259"
+    },
+    {
+      "pid": 43630,
+      "ppid": 43629,
+      "created": "1794374750951846"
+    },
+    {
+      "pid": 43654,
+      "ppid": 43242,
+      "created": "1794374751007758"
+    },
+    {
+      "pid": 43653,
+      "ppid": 43432,
+      "created": "1794374750996387"
+    },
+    {
+      "pid": 43717,
+      "ppid": 43242,
+      "created": "1794374751220460"
+    },
+    {
+      "pid": 43747,
+      "ppid": 43242,
+      "created": "1794374751295437"
+    },
+    {
+      "pid": 43763,
+      "ppid": 43242,
+      "created": "1794374751342533"
+    },
+    {
+      "pid": 43779,
+      "ppid": 43242,
+      "created": "1794374751395539"
+    },
+    {
+      "pid": 43796,
+      "ppid": 43242,
+      "created": "1794374751437673"
+    },
+    {
+      "pid": 43844,
+      "ppid": 43242,
+      "created": "1794374751590437"
+    },
+    {
+      "pid": 43895,
+      "ppid": 43242,
+      "created": "1794374751742338"
+    },
+    {
+      "pid": 43927,
+      "ppid": 43242,
+      "created": "1794374751825361"
+    },
+    {
+      "pid": 43950,
+      "ppid": 43242,
+      "created": "1794374751909532"
+    },
+    {
+      "pid": 43983,
+      "ppid": 43242,
+      "created": "1794374751989884"
+    },
+    {
+      "pid": 44035,
+      "ppid": 43242,
+      "created": "1794374752153520"
+    },
+    {
+      "pid": 44067,
+      "ppid": 43242,
+      "created": "1794374752235156"
+    },
+    {
+      "pid": 44115,
+      "ppid": 43242,
+      "created": "1794374752387613"
+    },
+    {
+      "pid": 44132,
+      "ppid": 43242,
+      "created": "1794374752432612"
+    },
+    {
+      "pid": 44149,
+      "ppid": 43242,
+      "created": "1794374752487906"
+    },
+    {
+      "pid": 44166,
+      "ppid": 43242,
+      "created": "1794374752534934"
+    },
+    {
+      "pid": 44198,
+      "ppid": 43242,
+      "created": "1794374752616898"
+    },
+    {
+      "pid": 44440,
+      "ppid": 43242,
+      "created": "1794374753297624"
+    },
+    {
+      "pid": 44459,
+      "ppid": 43242,
+      "created": "1794374753357360"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 12,
+      "key_up": 12
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 830
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

@@ -1,0 +1,388 @@
+{
+  "name": "app-standard",
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-input-host.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-touch-worktree",
+  "startedAt": "2026-11-11T06:32:42.870529+00:00",
+  "elapsedSeconds": 6.301,
+  "exitCode": 0,
+  "passLines": 19,
+  "failLines": 0,
+  "skipLines": 0,
+  "allPassMarker": true,
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/e2e.txt",
+  "logDigest": {
+    "bytes": 1437,
+    "sha256": "f211982eb45099719fd400cc03d11fc5808f27aef26b827050442dc14a4d7266"
+  },
+  "environment": {
+    "HOME": "/tmp/ruyi-sm2-g-5i1vfxyo/h",
+    "USERPROFILE": "/tmp/ruyi-sm2-g-5i1vfxyo/u",
+    "APPDATA": "/tmp/ruyi-sm2-g-5i1vfxyo/a",
+    "LOCALAPPDATA": "/tmp/ruyi-sm2-g-5i1vfxyo/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-sm2-g-5i1vfxyo/w",
+    "RUYI_HOME": "/tmp/ruyi-sm2-g-5i1vfxyo/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-sm2-g-5i1vfxyo/c",
+    "TMPDIR": "/tmp/ruyi-sm2-g-5i1vfxyo/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-touch-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_APP_MANUAL": "1",
+    "RUYI_P5_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard",
+    "RUYI_DESKTOP_TEST_APP": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app",
+    "RUYI_P5_APP_POINTER_PROFILE": "standard_mouse"
+  },
+  "tmpdirPathBytes": 26,
+  "observedOwnedProcessIdentities": [
+    {
+      "pid": 63382,
+      "ppid": 61689,
+      "birth": "Wed Nov 11 14:32:42 2026",
+      "command": "/Users/jiming/.local/bin/node dev-harness/macos-input-host.e2e.js"
+    },
+    {
+      "pid": 63396,
+      "ppid": 63382,
+      "birth": "Wed Nov 11 14:32:43 2026",
+      "command": "/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-p5-input-host-uWurFE/receiver"
+    },
+    {
+      "pid": 63406,
+      "ppid": 63382,
+      "birth": "Wed Nov 11 14:32:44 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 63407,
+      "ppid": 63406,
+      "birth": "Wed Nov 11 14:32:44 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 63408,
+      "ppid": 63407,
+      "birth": "Wed Nov 11 14:32:44 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 63411,
+      "ppid": 63382,
+      "birth": "Wed Nov 11 14:32:44 2026",
+      "command": "/usr/bin/open -n -W -a /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app --env HOME=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-home-PC97Fb --env USERPROFILE=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-home-PC97Fb --env LOCALAPPDATA=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-appdata/Local --env APPDATA=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-e2e-appdata/Roaming --env RUYI_HOME=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-p5-input-host-uWurFE/data --env WIN_CLAUDE_WORKBENCH_HOME=/tmp/ruyi-sm2-g-5i1vfxyo/t/ruyi-p5-input-host-uWurFE/data --env RUYI_NODE_PATH=/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node  -args  -workbench-root  private/tmp/ruyi-p5-touch-worktree/ruyi-workbench  -acceptance-report"
+    },
+    {
+      "pid": 63845,
+      "ppid": 63382,
+      "birth": "Wed Nov 11 14:32:46 2026",
+      "command": "(ruyi-process-hel)"
+    },
+    {
+      "pid": 64016,
+      "ppid": 63408,
+      "birth": "Wed Nov 11 14:32:46 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+    }
+  ],
+  "remainingObservedOwnedProcessIdentities": [],
+  "observationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be observed. Script cleanup assertions cover its own exact identities. LaunchServices App process identities are checked separately from its native report.",
+  "appEvidenceDigest": {
+    "bytes": 18356,
+    "sha256": "6036fd6692b3ee30052466146d0bbfb6306d406369b93a15b81a72af41f2ef49"
+  },
+  "launchServicesCleanupCheck": {
+    "exitCode": 0,
+    "stdout": "[]",
+    "stderr": "",
+    "observedProcesses": [
+      {
+        "pid": 63415,
+        "ppid": 1,
+        "created": "1794378764438295"
+      },
+      {
+        "pid": 63443,
+        "ppid": 63415,
+        "created": "1794378764634241"
+      },
+      {
+        "pid": 63461,
+        "ppid": 63443,
+        "created": "1794378764728238"
+      },
+      {
+        "pid": 63555,
+        "ppid": 63443,
+        "created": "1794378765102730"
+      },
+      {
+        "pid": 63571,
+        "ppid": 63443,
+        "created": "1794378765164245"
+      },
+      {
+        "pid": 63572,
+        "ppid": 63571,
+        "created": "1794378765165548"
+      },
+      {
+        "pid": 63573,
+        "ppid": 63572,
+        "created": "1794378765166046"
+      },
+      {
+        "pid": 63589,
+        "ppid": 63443,
+        "created": "1794378765216145"
+      },
+      {
+        "pid": 63606,
+        "ppid": 63443,
+        "created": "1794378765274293"
+      },
+      {
+        "pid": 63628,
+        "ppid": 63443,
+        "created": "1794378765355955"
+      },
+      {
+        "pid": 63629,
+        "ppid": 63628,
+        "created": "1794378765357629"
+      },
+      {
+        "pid": 63630,
+        "ppid": 63629,
+        "created": "1794378765358051"
+      },
+      {
+        "pid": 63677,
+        "ppid": 63443,
+        "created": "1794378765519142"
+      },
+      {
+        "pid": 63721,
+        "ppid": 63630,
+        "created": "1794378765657912"
+      },
+      {
+        "pid": 63751,
+        "ppid": 63630,
+        "created": "1794378765746590"
+      },
+      {
+        "pid": 63769,
+        "ppid": 63630,
+        "created": "1794378765794418"
+      },
+      {
+        "pid": 63779,
+        "ppid": 63630,
+        "created": "1794378765832963"
+      },
+      {
+        "pid": 63804,
+        "ppid": 63630,
+        "created": "1794378765912278"
+      },
+      {
+        "pid": 63822,
+        "ppid": 63443,
+        "created": "1794378765956006"
+      },
+      {
+        "pid": 63819,
+        "ppid": 63443,
+        "created": "1794378765952518"
+      },
+      {
+        "pid": 63820,
+        "ppid": 63819,
+        "created": "1794378765954151"
+      },
+      {
+        "pid": 63821,
+        "ppid": 63820,
+        "created": "1794378765954533"
+      },
+      {
+        "pid": 63841,
+        "ppid": 63443,
+        "created": "1794378766000211"
+      },
+      {
+        "pid": 63842,
+        "ppid": 63841,
+        "created": "1794378766001582"
+      },
+      {
+        "pid": 63843,
+        "ppid": 63842,
+        "created": "1794378766002056"
+      },
+      {
+        "pid": 63840,
+        "ppid": 63630,
+        "created": "1794378765993334"
+      },
+      {
+        "pid": 63858,
+        "ppid": 63443,
+        "created": "1794378766029386"
+      },
+      {
+        "pid": 63882,
+        "ppid": 63443,
+        "created": "1794378766123207"
+      },
+      {
+        "pid": 63898,
+        "ppid": 63443,
+        "created": "1794378766170136"
+      },
+      {
+        "pid": 63935,
+        "ppid": 63443,
+        "created": "1794378766254765"
+      },
+      {
+        "pid": 63953,
+        "ppid": 63443,
+        "created": "1794378766333782"
+      },
+      {
+        "pid": 64032,
+        "ppid": 63443,
+        "created": "1794378766561171"
+      },
+      {
+        "pid": 64056,
+        "ppid": 63443,
+        "created": "1794378766635437"
+      },
+      {
+        "pid": 64081,
+        "ppid": 63443,
+        "created": "1794378766714163"
+      },
+      {
+        "pid": 64108,
+        "ppid": 63443,
+        "created": "1794378766785644"
+      },
+      {
+        "pid": 64130,
+        "ppid": 63443,
+        "created": "1794378766860750"
+      },
+      {
+        "pid": 64161,
+        "ppid": 63443,
+        "created": "1794378766936647"
+      },
+      {
+        "pid": 64179,
+        "ppid": 63443,
+        "created": "1794378767008646"
+      },
+      {
+        "pid": 64213,
+        "ppid": 63443,
+        "created": "1794378767085436"
+      },
+      {
+        "pid": 64266,
+        "ppid": 63443,
+        "created": "1794378767242926"
+      },
+      {
+        "pid": 64296,
+        "ppid": 63443,
+        "created": "1794378767322514"
+      },
+      {
+        "pid": 64319,
+        "ppid": 63443,
+        "created": "1794378767395802"
+      },
+      {
+        "pid": 64347,
+        "ppid": 63443,
+        "created": "1794378767469951"
+      },
+      {
+        "pid": 64370,
+        "ppid": 63443,
+        "created": "1794378767551288"
+      },
+      {
+        "pid": 64402,
+        "ppid": 63443,
+        "created": "1794378767628855"
+      },
+      {
+        "pid": 64419,
+        "ppid": 63443,
+        "created": "1794378767684423"
+      },
+      {
+        "pid": 64483,
+        "ppid": 63443,
+        "created": "1794378767867213"
+      },
+      {
+        "pid": 64500,
+        "ppid": 63443,
+        "created": "1794378767917916"
+      },
+      {
+        "pid": 64517,
+        "ppid": 63443,
+        "created": "1794378767973292"
+      },
+      {
+        "pid": 64797,
+        "ppid": 63443,
+        "created": "1794378768760925"
+      },
+      {
+        "pid": 64820,
+        "ppid": 63443,
+        "created": "1794378768818343"
+      }
+    ],
+    "remaining": []
+  },
+  "requestedPointerProfile": "standard_mouse",
+  "savedSchema": 3,
+  "candidateServiceInvocation": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node --require /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/desktop-macos/service-lease.cjs /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/app/server.js serve --host 127.0.0.1",
+  "candidateWorkbenchRoot": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench",
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "dragged": 2,
+      "key_down": 12,
+      "key_up": 12,
+      "left_down": 2,
+      "left_up": 2
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 830
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  },
+  "launch": "LaunchServices",
+  "permissionMode": "bypass fixture; normal approval allow/deny/cancel is outside scope",
+  "passed": true
+}

@@ -1,0 +1,61 @@
+{
+  "kind": "development engineering checks; GUI acceptance pending",
+  "started": "2026-11-11T03:27:27.054411+00:00",
+  "source_before": true,
+  "runs": [
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exit": 0,
+      "seconds": 24.793,
+      "source_before": true,
+      "source_after": true,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.139,
+      "source_before": true,
+      "source_after": true,
+      "log": "build.txt"
+    },
+    {
+      "name": "unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/*.test.js"
+      ],
+      "exit": 0,
+      "seconds": 115.291,
+      "source_before": true,
+      "source_after": true,
+      "log": "unit.txt"
+    },
+    {
+      "name": "static",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exit": 0,
+      "seconds": 127.443,
+      "source_before": true,
+      "source_after": true,
+      "log": "static.txt"
+    }
+  ],
+  "automatic_retries_requested": false,
+  "source_after": true,
+  "finished": "2026-11-11T03:31:54.769839+00:00"
+}

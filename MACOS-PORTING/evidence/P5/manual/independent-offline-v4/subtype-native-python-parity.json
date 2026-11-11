@@ -1,0 +1,346 @@
+[
+  {
+    "label": "omitted",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4
+      }
+    ],
+    "expectedAccepted": true,
+    "nativeAccepted": true,
+    "nativeCode": null,
+    "pythonAccepted": true,
+    "pythonCode": null
+  },
+  {
+    "label": "zero",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 0
+      }
+    ],
+    "expectedAccepted": true,
+    "nativeAccepted": true,
+    "nativeCode": null,
+    "pythonAccepted": true,
+    "pythonCode": null
+  },
+  {
+    "label": "touch",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 3
+      }
+    ],
+    "expectedAccepted": true,
+    "nativeAccepted": true,
+    "nativeCode": null,
+    "pythonAccepted": true,
+    "pythonCode": null
+  },
+  {
+    "label": "zero-float",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 0.0
+      }
+    ],
+    "expectedAccepted": true,
+    "nativeAccepted": true,
+    "nativeCode": null,
+    "pythonAccepted": true,
+    "pythonCode": null
+  },
+  {
+    "label": "touch-float",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 3.0
+      }
+    ],
+    "expectedAccepted": true,
+    "nativeAccepted": true,
+    "nativeCode": null,
+    "pythonAccepted": true,
+    "pythonCode": null
+  },
+  {
+    "label": "tablet",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 1
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "proximity",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 2
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "unknown",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 4
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "negative",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": -1
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "large-unknown",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 255
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "true",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": true
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "false",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": false
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "null",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": null
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "string",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": "3"
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  },
+  {
+    "label": "fraction",
+    "events": [
+      {
+        "type": "move",
+        "at_us": 0,
+        "flags": 0,
+        "x": 25,
+        "y": 35,
+        "button": 0,
+        "click_state": 2,
+        "pressure": 0.5,
+        "delta_x": 7,
+        "delta_y": -4,
+        "subtype": 3.5
+      }
+    ],
+    "expectedAccepted": false,
+    "nativeAccepted": false,
+    "nativeCode": "invalid_args",
+    "pythonAccepted": false,
+    "pythonCode": "invalid_args"
+  }
+]

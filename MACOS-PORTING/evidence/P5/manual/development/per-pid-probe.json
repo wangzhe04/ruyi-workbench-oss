@@ -1,0 +1,274 @@
+{
+  "receiverPID": 22992,
+  "tapPID": 23019,
+  "calls": [
+    {
+      "name": "type_text",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "change_count": 531,
+        "protocolVersion": 1,
+        "restore": "none",
+        "verification": "events_posted",
+        "length": 7,
+        "method": "typewrite",
+        "route": "explicit"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "mouse_click",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 560,
+        "actual_y": 742,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "events_posted"
+      }
+    }
+  ],
+  "tapRows": [
+    {
+      "current_id": "com.apple.inputmethod.SCIM.ITABC",
+      "current_type": "TISTypeKeyboardInputMode",
+      "listen": true,
+      "event": "status",
+      "sources": [
+        {
+          "id": "com.apple.keylayout.ABC",
+          "type": "TISTypeKeyboardLayout",
+          "selectable": true
+        },
+        {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode",
+          "selectable": true
+        },
+        {
+          "id": "com.apple.inputmethod.SCIM",
+          "type": "TISTypeKeyboardInputMethodModeEnabled",
+          "selectable": false
+        },
+        {
+          "id": "com.apple.CharacterPaletteIM",
+          "type": "TISTypeCharacterPalette",
+          "selectable": true
+        }
+      ]
+    },
+    {
+      "event": "ready"
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "窗",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "窗",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "口",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "口",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "内",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "内",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "中",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "中",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "文",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "文",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "探",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "探",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "针",
+      "keycode": 0,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "针",
+      "keycode": 0,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "\u001b",
+      "keycode": 53,
+      "type": 10,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "\u001b",
+      "keycode": 53,
+      "type": 11,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "",
+      "keycode": 0,
+      "type": 1,
+      "flags": 0,
+      "source_pid": 23018
+    },
+    {
+      "event": "tap",
+      "target_pid": 22992,
+      "text": "",
+      "keycode": 0,
+      "type": 2,
+      "flags": 0,
+      "source_pid": 23018
+    }
+  ],
+  "receiver": [
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 531,
+      "counts": {
+        "key_down": 8,
+        "key_up": 8,
+        "left_down": 1,
+        "left_up": 1
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "state",
+      "id": 3869,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 22992,
+      "temporaryClipboardOwned": false,
+      "text": "窗口内中文探针",
+      "title": "Ruyi P5 Input 22992"
+    }
+  ]
+}
