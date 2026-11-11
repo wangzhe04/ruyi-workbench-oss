@@ -71,3 +71,5 @@ P5-05 受控原生录制切片已通过当前主机独立验收，二十一条�
 正常会话入口切片 `5e246343` 已通过当前主机独立验收：默认审批允许、拒绝和待审批取消；真实 `window_screenshot`/`get_clipboard_image` 各自新建与覆盖的同 session/turn 检查点和实际回滚。离线 13、真实桌面 31、静态 80/80，单元 2499/18 既有跳过；最终冻结独立各一次、无自动重试。修复普通 provider 代理桥接图片写入遗漏当前会话检查点的问题。Node 服务启动范围、开发失败/清册修复历史及 App/锁屏/撤权/Windows 未验边界见 [入口记录](evidence/P5/entry/README.md)。P5 仍为 `in_progress`。
 
 当前源码选定应用场景已补验：独立默认31/renderer33/Finder10，共74项各一次，106来源绑定5e246343/76248e2b及六次成功场景前后快照。实际临时helper与默认1cc限定字节等价，不称raw/TCC身份相同；Chromium renderer动作拒绝边界保留。Finder用户窗口前置拒绝与关闭后通过分别归档。[当前应用记录](evidence/P5/selected-current/README.md)。
+
+229a9021新增实际能力状态与嵌套策略回归，独立40项通过：Node/ACC缺helper状态及目录、真实registry隐藏input_sequence后的保存宏/batch拒绝、Node两总闸普通会话拒绝及实际生成CLI隐藏配置。产品源码未变；最终工程四门和14源/2产物绑定通过。CLI运行、TCC拒权/撤权、系统锁屏、真实布局过渡与原环境门不在该切片。[记录](evidence/P5/readiness/README.md)。

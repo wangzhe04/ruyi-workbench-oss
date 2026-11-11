@@ -1,0 +1,18 @@
+[
+  {
+    "check": "facts",
+    "exitCode": 0
+  },
+  {
+    "check": "fixture-home",
+    "exitCode": 0
+  },
+  {
+    "check": "process-safety",
+    "exitCode": 0
+  },
+  {
+    "check": "route-inventory",
+    "exitCode": 0
+  }
+]

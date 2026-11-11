@@ -1,0 +1,31 @@
+{
+  "executor": "/root/p5_acceptance",
+  "argv": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-native-readiness.e2e.js"
+  ],
+  "pid": 26289,
+  "cwd": "/tmp/ruyi-p5-readiness-worktree",
+  "environment": {
+    "HOME": "/tmp/p5ri-458begi4/h",
+    "USERPROFILE": "/tmp/p5ri-458begi4/u",
+    "APPDATA": "/tmp/p5ri-458begi4/a",
+    "LOCALAPPDATA": "/tmp/p5ri-458begi4/l",
+    "WCW_DATA_DIR": "/tmp/p5ri-458begi4/w",
+    "RUYI_HOME": "/tmp/p5ri-458begi4/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5ri-458begi4/c",
+    "TMPDIR": "/tmp/p5ri-458begi4/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_P5_READINESS_REQUIRED": "1",
+    "RUYI_P5_READINESS_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_READINESS_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/independent-v1/native",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "PYTHONPATH": "/tmp/ruyi-p5-readiness-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "at": "2026-11-11T09:21:28.467694+00:00",
+  "attempt": 1,
+  "policy": "First unexpected failure stops; no retry, no blind forced cleanup."
+}

@@ -1660,7 +1660,12 @@
             "evidence/P5/entry/independent-v1/report.json",
             "evidence/P5/entry/commit-binding.json",
             "evidence/P5/entry/independent-commit-binding.json",
-            "evidence/P5/remaining-resolution-2026-11-11.json"
+            "evidence/P5/remaining-resolution-2026-11-11.json",
+            "evidence/P5/readiness/README.md",
+            "evidence/P5/readiness/code-review-v3.json",
+            "evidence/P5/readiness/independent-v1/report.json",
+            "evidence/P5/readiness/commit-binding.json",
+            "evidence/P5/readiness/independent-commit-binding.json"
           ],
           "composedSliceAcceptance": {
             "date": "2026-11-10",
@@ -1733,7 +1738,7 @@
             "commitBinding": "evidence/P5/audit/commit-binding.json",
             "commitBindingReview": "evidence/P5/audit/independent-commit-binding.json"
           },
-          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。能力总闸与隐藏工具路径、实际撤权、动作中锁屏、原环境门继续开放。当前选定应用74项复验另见P5-03。",
+          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。缺helper readiness、真实registry-hidden保存宏/batch以及Node桌面/命令总闸普通会话拒绝已在229a9021独立40项通过；CLI仅验证实际生成配置。实际撤权/拒权readiness、动作中锁屏、真实布局过渡及原环境门继续开放。当前选定应用74项复验另见P5-03。",
           "manualEventSlice": {
             "status": "implemented_independently_validated_supported_subset",
             "date": "2026-11-11",
@@ -1809,9 +1814,35 @@
               "No LaunchServices App acceptance or rebuild/re-sign in this slice",
               "Pending-permission cancellation does not establish action-time hard-kill cleanup",
               "No actual TCC revoke/OS lock or Windows runtime in this slice",
-              "Master-switch/hidden-tool readiness paths remain open; selected applications were outside this slice and their later refresh is tracked in P5-03"
+              "Master-switch/hidden-tool missing-helper paths later pass the readiness slice; actual permission revocation readiness remains open; selected application refresh is tracked in P5-03"
             ],
             "evidence": "evidence/P5/entry/independent-v1/report.json"
+          },
+          "readinessAndNestedPolicySlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_missing_helper_hidden_registry_and_node_policy_scope",
+            "testImplementationCommit": "229a9021f2ae96e493b9a10c99ea1d50ea22b619",
+            "productRuntimeSourceChanged": false,
+            "sourceFiles": 14,
+            "changedFiles": 8,
+            "independentAssertions": 40,
+            "independentRetries": 0,
+            "independentObservedIdentities": 61,
+            "sourceBinding": "evidence/P5/readiness/commit-binding.json",
+            "independentBinding": "evidence/P5/readiness/independent-commit-binding.json",
+            "evidence": "evidence/P5/readiness/independent-v1/report.json",
+            "engineeringSyntaxFiles": 1154,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringStaticLiveSkipped": 7,
+            "limits": [
+              "CLI policy is actual generated configuration only, not runtime execution",
+              "No actual TCC revoke/denied-state or OS lock test",
+              "No clipboard snapshot/restoration assertion",
+              "Node launch only; no new App LaunchServices/signing acceptance",
+              "Original display/OS/Windows/formal identity and other phase gates remain"
+            ]
           }
         }
       ],
