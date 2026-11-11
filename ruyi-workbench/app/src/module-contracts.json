@@ -1333,6 +1333,8 @@
         "BRIDGED_WRITE_PATH_ARGS",
         "IMPORTED_MESSAGE_ROLE_MAX",
         "INTERVENTION_TERMINAL",
+        "IRREVERSIBLE_COMPOUND_TOOLS",
+        "IRREVERSIBLE_RESULT_TEXT_MAX",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -1437,6 +1439,9 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
+        "irreversibleEntryMetadata",
+        "irreversibleReportedState",
+        "irreversibleResultObject",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -1540,6 +1545,7 @@
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
+        "projectBridgedIrreversible",
         "providerHistoryToolCalls",
         "readInterventions",
         "readInterventionsWithMeta",
@@ -1974,6 +1980,13 @@
         {
           "provider": "02f-turn-effect-kinds.js",
           "symbol": "ARTIFACT_OUTPUT_PATH_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_BRIDGED_KIND",
           "kinds": [
             "read"
           ]
@@ -9525,6 +9538,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "projectBridgedIrreversible",
           "kinds": [
             "call"
           ]

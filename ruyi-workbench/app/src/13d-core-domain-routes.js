@@ -1484,7 +1484,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       truncated: cpEntries.length > ledgerEntries.length,
       totalEntries: cpEntries.length,
       nonRevertibleFiles: nonRevertibleFiles.slice(-80),
-      irreversible: { items: fold.irreversible.items.slice(-80), legacyCommands: fold.irreversible.legacyCommands },
+      irreversible: { items: fold.irreversible.items.slice(-80), legacyCommands: fold.irreversible.legacyCommands, ...(fold.irreversible.incomplete ? { incomplete: true } : {}) },
       rollbackTargetTurnSeq: controls.rollbackTargetTurnSeq,
       recoverability: reversibleEntries === 0 ? 'none' : (recoveryBlockers > 0 ? 'partial' : 'full'),
       reversibleEntries,
@@ -1517,7 +1517,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         runs: runs.map((run, index) => missionRunDigest(run, true, index < 6)),
         changes: { filesChanged: filesChangedList, artifacts: artifactsList, commands },
         // 第72波:不可逆操作正向账(活任务也随快照下发;终态任务以 mission.result 盖章版为准)
-        irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
+        irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands, ...(fold.irreversible.incomplete ? { incomplete: true } : {}) },
         // 第72波:任务结果快照(终态盖章;active/paused 为 null,看 acceptance/changes/irreversible 实时投影)
         result: (session.mission && session.mission.result) || null,
         // 历史轮次验收报告(next_turn/retry/rollback/再武装前归档的旧 result,有界 last 10)
