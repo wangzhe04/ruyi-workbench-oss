@@ -1,0 +1,180 @@
+[
+  {
+    "label": "stable-before",
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/independent-v1/native/stable-before.png",
+    "bytes": 165393,
+    "sha256": "8d0ca0ae968c55d5563111d2e02b0e7c3385c8f1fb9b9466e33eb3327128fc79",
+    "width": 1280,
+    "height": 896,
+    "pngChannels": 4,
+    "independentNSWindowBackingScale": 2,
+    "actualCGFrame": {
+      "y": 492,
+      "x": 100,
+      "width": 640,
+      "height": 448
+    },
+    "rawCaptureLogicalBounds": {
+      "height": 448,
+      "width": 640,
+      "x": 100,
+      "y": 492
+    },
+    "samples": [
+      {
+        "pixel": [
+          60,
+          116
+        ],
+        "expectedRGB": [
+          255,
+          0,
+          0
+        ],
+        "decodedRGB": [
+          255,
+          3,
+          0
+        ]
+      },
+      {
+        "pixel": [
+          1220,
+          116
+        ],
+        "expectedRGB": [
+          0,
+          255,
+          0
+        ],
+        "decodedRGB": [
+          3,
+          255,
+          0
+        ]
+      },
+      {
+        "pixel": [
+          60,
+          836
+        ],
+        "expectedRGB": [
+          0,
+          0,
+          255
+        ],
+        "decodedRGB": [
+          0,
+          1,
+          255
+        ]
+      },
+      {
+        "pixel": [
+          1220,
+          836
+        ],
+        "expectedRGB": [
+          255,
+          255,
+          0
+        ],
+        "decodedRGB": [
+          255,
+          255,
+          0
+        ]
+      }
+    ],
+    "decoder": "Independent Python stdlib PNG chunk CRC, zlib and filters0-4; no fixture PNG decoder or GUI used."
+  },
+  {
+    "label": "stable-after",
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/independent-v1/native/stable-after.png",
+    "bytes": 165395,
+    "sha256": "86e1afda17a6c10977e69669ebb62b559ac2842fd670599293bd5d5ef5d3146c",
+    "width": 1280,
+    "height": 896,
+    "pngChannels": 4,
+    "independentNSWindowBackingScale": 2,
+    "actualCGFrame": {
+      "y": 492,
+      "x": 211,
+      "width": 640,
+      "height": 448
+    },
+    "rawCaptureLogicalBounds": {
+      "height": 448,
+      "width": 640,
+      "x": 211,
+      "y": 492
+    },
+    "samples": [
+      {
+        "pixel": [
+          60,
+          116
+        ],
+        "expectedRGB": [
+          255,
+          0,
+          0
+        ],
+        "decodedRGB": [
+          255,
+          3,
+          0
+        ]
+      },
+      {
+        "pixel": [
+          1220,
+          116
+        ],
+        "expectedRGB": [
+          0,
+          255,
+          0
+        ],
+        "decodedRGB": [
+          3,
+          255,
+          0
+        ]
+      },
+      {
+        "pixel": [
+          60,
+          836
+        ],
+        "expectedRGB": [
+          0,
+          0,
+          255
+        ],
+        "decodedRGB": [
+          0,
+          1,
+          255
+        ]
+      },
+      {
+        "pixel": [
+          1220,
+          836
+        ],
+        "expectedRGB": [
+          255,
+          255,
+          0
+        ],
+        "decodedRGB": [
+          255,
+          255,
+          0
+        ]
+      }
+    ],
+    "decoder": "Independent Python stdlib PNG chunk CRC, zlib and filters0-4; no fixture PNG decoder or GUI used."
+  }
+]

@@ -73,3 +73,5 @@ P5-05 受控原生录制切片已通过当前主机独立验收，二十一条�
 当前源码选定应用场景已补验：独立默认31/renderer33/Finder10，共74项各一次，106来源绑定5e246343/76248e2b及六次成功场景前后快照。实际临时helper与默认1cc限定字节等价，不称raw/TCC身份相同；Chromium renderer动作拒绝边界保留。Finder用户窗口前置拒绝与关闭后通过分别归档。[当前应用记录](evidence/P5/selected-current/README.md)。
 
 229a9021新增实际能力状态与嵌套策略回归，独立40项通过：Node/ACC缺helper状态及目录、真实registry隐藏input_sequence后的保存宏/batch拒绝、Node两总闸普通会话拒绝及实际生成CLI隐藏配置。产品源码未变；最终工程四门和14源/2产物绑定通过。CLI运行、TCC拒权/撤权、系统锁屏、真实布局过渡与原环境门不在该切片。[记录](evidence/P5/readiness/README.md)。
+
+1b03da04新增真实自有窗口水平平移期间的生产helper捕获测试，独立18项通过；8次有actual CG位置变化见证的window_changed拒绝，静止前后exact bounds/backingScale2/PNG色点通过独立解码。仅测试/夹具/清册变化，12源/2产物和工程门绑定通过；不覆盖resize、物理display布局或移动成功瞬时origin。[记录](evidence/P5/transition/README.md)。

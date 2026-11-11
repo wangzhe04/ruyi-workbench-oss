@@ -1400,12 +1400,38 @@
           "status": "in_progress",
           "owner": "Codex（实施）；/root/p5_acceptance（独立验收）",
           "evidence": [
-            "evidence/P5/capture/README.md"
+            "evidence/P5/capture/README.md",
+            "evidence/P5/transition/README.md",
+            "evidence/P5/transition/independent-v1/report.json",
+            "evidence/P5/transition/commit-binding.json",
+            "evidence/P5/transition/independent-commit-binding.json"
           ],
           "startedDate": "2026-11-08",
           "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
           "implementationCommit": "0de6d03e",
-          "implementationScope": "当前macOS27.0.1 arm64单Retina主机实现与独立复核完成；物理多屏、撤权、捕获中布局变化、Windows同候选继续待验"
+          "implementationScope": "当前macOS27.0.1 arm64单Retina主机实现与独立复核完成；物理多屏、撤权、实际显示拓扑变化、Windows同候选继续待验；1b03da04当前源码的真实窗口水平平移捕获已独立18项通过，8次均有实际位置见证的window_changed拒绝，静止前后坐标/Retina比例/像素通过，不计resize或动态成功origin。",
+          "windowTranslationCaptureSlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_owned_horizontal_translation_refusal",
+            "testImplementationCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+            "productRuntimeSourceChanged": false,
+            "sourceFiles": 12,
+            "changedFiles": 6,
+            "independentAssertions": 18,
+            "motionRequests": 8,
+            "witnessedWindowChangedRefusals": 8,
+            "movingSuccesses": 0,
+            "independentRetries": 0,
+            "nativeHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+            "commitBinding": "evidence/P5/transition/commit-binding.json",
+            "independentBinding": "evidence/P5/transition/independent-commit-binding.json",
+            "evidence": "evidence/P5/transition/independent-v1/report.json",
+            "limits": [
+              "Actual owned horizontal translation only, no window resize or physical display reconfiguration",
+              "Moving-success branch not executed; no instant origin tracking claim",
+              "Raw production capture helper only, no new provider/App/TCC/lock/input/clipboard or Windows runtime acceptance"
+            ]
+          }
         },
         {
           "id": "P5-02",
@@ -1738,7 +1764,7 @@
             "commitBinding": "evidence/P5/audit/commit-binding.json",
             "commitBindingReview": "evidence/P5/audit/independent-commit-binding.json"
           },
-          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。缺helper readiness、真实registry-hidden保存宏/batch以及Node桌面/命令总闸普通会话拒绝已在229a9021独立40项通过；CLI仅验证实际生成配置。实际撤权/拒权readiness、动作中锁屏、真实布局过渡及原环境门继续开放。当前选定应用74项复验另见P5-03。",
+          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。缺helper readiness、真实registry-hidden保存宏/batch以及Node桌面/命令总闸普通会话拒绝已在229a9021独立40项通过；CLI仅验证实际生成配置。实际撤权/拒权readiness、动作中锁屏、硬杀及原环境门继续开放；自有窗口平移捕获18项复验见P5-01。当前选定应用74项复验另见P5-03。",
           "manualEventSlice": {
             "status": "implemented_independently_validated_supported_subset",
             "date": "2026-11-11",

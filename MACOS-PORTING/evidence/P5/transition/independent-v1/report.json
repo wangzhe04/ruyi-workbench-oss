@@ -1,0 +1,430 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:11:25.594890+00:00",
+  "status": "passed_independent_transition_freeze_v3",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/freeze-v3.json",
+    "bytes": 2790,
+    "sha256": "6f08fb8139c64f60ea981cad75754db98ef239069f4afaab122a0c122fab8628"
+  },
+  "sourceCount": 12,
+  "artifactCount": 2,
+  "counts": {
+    "pass": 18,
+    "fail": 0,
+    "skip": 0
+  },
+  "nativeInvocationCount": 1,
+  "exitCode": 0,
+  "error": null,
+  "childStillRunning": false,
+  "observedOuterRootBirth": 1794391775179220,
+  "observedOuterIdentities": 14,
+  "remainingOuterObservedIdentities": [],
+  "remainingInnerObservedIdentities": [],
+  "GUIReleased": true,
+  "engineeringRerun": false,
+  "scope": "Independent actual default1cc raw helper and owned-window capture transition with8 serial moving requests and exact static controls. Dynamic success origin is bounded, not instant-exact. No physical displays/scale change, App/provider/Workbench entry, keyboard/mouse/clipboard/TCC/lock or environment acceptance.",
+  "phaseStatus": "in_progress",
+  "manualRetries": 0,
+  "automaticRetries": 0,
+  "sourceArtifactCheckpoints": 4,
+  "motion": {
+    "serialMovingRequests": 8,
+    "acceptedMovingImages": 0,
+    "normalWindowChangedRefusals": 8,
+    "witnessCounts": [
+      18,
+      12,
+      9,
+      9,
+      14,
+      18,
+      11,
+      8
+    ],
+    "ownerPid": 43741,
+    "ownerWindowId": 5217,
+    "translation": "Owned window horizontal translation only",
+    "startCGFrame": {
+      "y": 492,
+      "x": 100,
+      "width": 640,
+      "height": 448
+    },
+    "stoppedCGFrame": {
+      "y": 492,
+      "x": 211,
+      "width": 640,
+      "height": 448
+    },
+    "ticksAtStop": 309,
+    "dynamicPASSRule": "18+movingSuccesses; this run movingSuccesses=0 and pass=18. Success is not required; >=1 actual witnessed window_changed is required.",
+    "witnessRecord": {
+      "path": "motion-witnesses.json",
+      "bytes": 12166,
+      "sha256": "d333e3b56ca27b43cf1147fc1eca38c63b93a0b88d303bbbc2ed17ce29bd9be5"
+    },
+    "traceRetention": "Original full receiver CG reports and raw helper metadata retained in native/results.json."
+  },
+  "staticControls": [
+    {
+      "label": "stable-before",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/independent-v1/native/stable-before.png",
+      "bytes": 165393,
+      "sha256": "8d0ca0ae968c55d5563111d2e02b0e7c3385c8f1fb9b9466e33eb3327128fc79",
+      "width": 1280,
+      "height": 896,
+      "pngChannels": 4,
+      "independentNSWindowBackingScale": 2,
+      "actualCGFrame": {
+        "y": 492,
+        "x": 100,
+        "width": 640,
+        "height": 448
+      },
+      "rawCaptureLogicalBounds": {
+        "height": 448,
+        "width": 640,
+        "x": 100,
+        "y": 492
+      },
+      "samples": [
+        {
+          "pixel": [
+            60,
+            116
+          ],
+          "expectedRGB": [
+            255,
+            0,
+            0
+          ],
+          "decodedRGB": [
+            255,
+            3,
+            0
+          ]
+        },
+        {
+          "pixel": [
+            1220,
+            116
+          ],
+          "expectedRGB": [
+            0,
+            255,
+            0
+          ],
+          "decodedRGB": [
+            3,
+            255,
+            0
+          ]
+        },
+        {
+          "pixel": [
+            60,
+            836
+          ],
+          "expectedRGB": [
+            0,
+            0,
+            255
+          ],
+          "decodedRGB": [
+            0,
+            1,
+            255
+          ]
+        },
+        {
+          "pixel": [
+            1220,
+            836
+          ],
+          "expectedRGB": [
+            255,
+            255,
+            0
+          ],
+          "decodedRGB": [
+            255,
+            255,
+            0
+          ]
+        }
+      ],
+      "decoder": "Independent Python stdlib PNG chunk CRC, zlib and filters0-4; no fixture PNG decoder or GUI used."
+    },
+    {
+      "label": "stable-after",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/independent-v1/native/stable-after.png",
+      "bytes": 165395,
+      "sha256": "86e1afda17a6c10977e69669ebb62b559ac2842fd670599293bd5d5ef5d3146c",
+      "width": 1280,
+      "height": 896,
+      "pngChannels": 4,
+      "independentNSWindowBackingScale": 2,
+      "actualCGFrame": {
+        "y": 492,
+        "x": 211,
+        "width": 640,
+        "height": 448
+      },
+      "rawCaptureLogicalBounds": {
+        "height": 448,
+        "width": 640,
+        "x": 211,
+        "y": 492
+      },
+      "samples": [
+        {
+          "pixel": [
+            60,
+            116
+          ],
+          "expectedRGB": [
+            255,
+            0,
+            0
+          ],
+          "decodedRGB": [
+            255,
+            3,
+            0
+          ]
+        },
+        {
+          "pixel": [
+            1220,
+            116
+          ],
+          "expectedRGB": [
+            0,
+            255,
+            0
+          ],
+          "decodedRGB": [
+            3,
+            255,
+            0
+          ]
+        },
+        {
+          "pixel": [
+            60,
+            836
+          ],
+          "expectedRGB": [
+            0,
+            0,
+            255
+          ],
+          "decodedRGB": [
+            0,
+            1,
+            255
+          ]
+        },
+        {
+          "pixel": [
+            1220,
+            836
+          ],
+          "expectedRGB": [
+            255,
+            255,
+            0
+          ],
+          "decodedRGB": [
+            255,
+            255,
+            0
+          ]
+        }
+      ],
+      "decoder": "Independent Python stdlib PNG chunk CRC, zlib and filters0-4; no fixture PNG decoder or GUI used."
+    }
+  ],
+  "independentPixelChecks": {
+    "path": "independent-png-checks.json",
+    "bytes": 3279,
+    "sha256": "d3682c5802ea4e59bcb61719fdf6e9ead99ae80a8248c1e2c66917a16efbc635"
+  },
+  "cleanup": {
+    "fixtureAndHelperOwnBirthIdentities": 12,
+    "outerSampledBirthIdentities": 14,
+    "remainingInnerObservedIdentities": [],
+    "remainingOuterObservedIdentities": [],
+    "forcedCleanupReceipts": [],
+    "retainedRoot": null,
+    "observationScope": "Fixture confirms each of its12 observed direct-child roots; outer sampler separately observes14 birth identities. This does not prove absence of arbitrary transient/reparented or system capture-service processes."
+  },
+  "helperSignatureVerification": {
+    "before": [
+      {
+        "argv": [
+          "/usr/bin/codesign",
+          "--verify",
+          "--strict",
+          "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+        ],
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/usr/bin/codesign",
+          "--verify",
+          "--strict",
+          "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper"
+        ],
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "after": [
+      {
+        "argv": [
+          "/usr/bin/codesign",
+          "--verify",
+          "--strict",
+          "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper"
+        ],
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "/usr/bin/codesign",
+          "--verify",
+          "--strict",
+          "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper"
+        ],
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    ]
+  },
+  "engineeringReuse": {
+    "syntaxFiles": 1155,
+    "buildFreshnessExitZero": true,
+    "unitPassed": 2499,
+    "unitExistingSkipped": 18,
+    "fastPassed": 80,
+    "fastFailed": 0,
+    "fastFlaky": 0,
+    "fastLiveSkipped": 7,
+    "sourceArtifactCheckpoints": 8,
+    "sourceFilesPerCheckpoint": 12,
+    "artifactsPerCheckpoint": 2,
+    "independentEngineeringReruns": 0,
+    "binding": {
+      "path": "engineering-reuse.json",
+      "bytes": 2439,
+      "sha256": "1a1e4605eb4fded388628c094b20a2e18d47be2e74494935119831c81f2b17fb"
+    },
+    "note": "Primary fast includes its own unit preflight after primary separate unit; no overall zero-repeated-unit claim."
+  },
+  "originalIndependentExecutionReport": {
+    "path": "execution-report.json",
+    "bytes": 1165,
+    "sha256": "f04fc9e1e76aba7789a34a7227043dfb435fe2fb99005d290187886c06181c29"
+  },
+  "evidenceFiles": [
+    {
+      "path": "counts.json",
+      "bytes": 43,
+      "sha256": "85634c5deeffef33253673c2b4cfc21e99ae4dd94e131ddc399ffcb99d9ce4db"
+    },
+    {
+      "path": "engineering-reuse.json",
+      "bytes": 2439,
+      "sha256": "1a1e4605eb4fded388628c094b20a2e18d47be2e74494935119831c81f2b17fb"
+    },
+    {
+      "path": "execution-report.json",
+      "bytes": 1165,
+      "sha256": "f04fc9e1e76aba7789a34a7227043dfb435fe2fb99005d290187886c06181c29"
+    },
+    {
+      "path": "independent-png-checks.json",
+      "bytes": 3279,
+      "sha256": "d3682c5802ea4e59bcb61719fdf6e9ead99ae80a8248c1e2c66917a16efbc635"
+    },
+    {
+      "path": "invocation.json",
+      "bytes": 1016,
+      "sha256": "40135c47b5f68a9bfe11456e0f83d69985ba19bf93c5c7c45c51144961197688"
+    },
+    {
+      "path": "motion-witnesses.json",
+      "bytes": 12166,
+      "sha256": "d333e3b56ca27b43cf1147fc1eca38c63b93a0b88d303bbbc2ed17ce29bd9be5"
+    },
+    {
+      "path": "native/results.json",
+      "bytes": 162314,
+      "sha256": "1c92b15606073aaf0dbb60c6f6376902ac53584b5c9ca10ec01ff1289b40e455"
+    },
+    {
+      "path": "native/stable-after.png",
+      "bytes": 165395,
+      "sha256": "86e1afda17a6c10977e69669ebb62b559ac2842fd670599293bd5d5ef5d3146c"
+    },
+    {
+      "path": "native/stable-before.png",
+      "bytes": 165393,
+      "sha256": "8d0ca0ae968c55d5563111d2e02b0e7c3385c8f1fb9b9466e33eb3327128fc79"
+    },
+    {
+      "path": "observed-identities.json",
+      "bytes": 1095,
+      "sha256": "4b8203df840e96ab21c854cc8f9995b01ef288a520fb03697f3d630e799f3de6"
+    },
+    {
+      "path": "output.txt",
+      "bytes": 1394,
+      "sha256": "05d38e60a1e132ef65a1bb8397ed9d3c4e8e8ba5ff918d9ffb611bd2b165e7af"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 2162,
+      "sha256": "7a68be4e954dda8384ee68cb19658f6c895ff81ac89d13a1fe86d8c03eaa22ad"
+    },
+    {
+      "path": "runner.py",
+      "bytes": 10730,
+      "sha256": "11b5cb22082b7b49536e33ab8d7822ea7ac241760f174e0139e8f74f8a7747cb"
+    },
+    {
+      "path": "semantic-counts.json",
+      "bytes": 218,
+      "sha256": "1775c9665283f0d5c3e8e65cdc223d3d23f032ab35ad2fdfce67cd7274f9a6ac"
+    },
+    {
+      "path": "signatures.json",
+      "bytes": 1100,
+      "sha256": "d9eefa58a59cc4680031061f88dfe419625d7144d408ab3d979c2ae46bf8b186"
+    },
+    {
+      "path": "source-artifact-checks.json",
+      "bytes": 17620,
+      "sha256": "190eed2be6450f7dd2f86a354a5c188b419a2724d461327ed062795bd461f29c"
+    }
+  ],
+  "claimLimits": [
+    "Current host actual owned-window horizontal translation and capture refusal only. No window resize, physical display/topology/scale transition acceptance.",
+    "All8 moving requests returned valid no-image window_changed; no moving success was observed or accepted and no precise dynamic instantaneous origin is proved.",
+    "Motion witness times are an external enclosing interval; the production refusal additionally follows its own internal before/after mismatch check.",
+    "Static-before/after controls verify exact actual CG bounds, independently reported NSWindow backingScale2, raw PNG1280x896 and four-color content.",
+    "Raw production helper1cc only; no Workbench provider, Python wrapper or LaunchServices App integration refresh.",
+    "No input injection, clipboard recovery, real TCC revoke, OS lock, Windows/minimum-OS/formal identity or whole-P5 closure."
+  ]
+}

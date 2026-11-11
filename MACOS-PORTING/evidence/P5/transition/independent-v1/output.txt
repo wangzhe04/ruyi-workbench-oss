@@ -1,0 +1,20 @@
+PASS actual production capture helper is ready on an unlocked desktop
+PASS fixture reports its exact owned visible WindowServer identity
+PASS stable before motion matches actual owned WindowServer identity and logical bounds
+PASS stable before motion has coherent physical dimensions and all four content markers
+PASS only the owned fixture starts actual monotonic window movement
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS moving capture returns a bounded explicit refusal with no image
+PASS actual window movement ends at a changed owned position without touching display settings
+PASS at least one real geometry transition during a capture is refused as window_changed
+PASS stable after motion matches actual owned WindowServer identity and logical bounds
+PASS stable after motion has coherent physical dimensions and all four content markers
+PASS all observed owned fixture/helper birth identities exited
+
+MACOS CAPTURE TRANSITION E2E: ALL PASS
