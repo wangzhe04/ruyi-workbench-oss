@@ -651,6 +651,16 @@ function findToolImageFields(value) {
   const found = [];
   const walk = (n, path, depth) => {
     if (depth > 3 || !n || typeof n !== 'object' || Array.isArray(n)) return;
+    // Native file_read and document readers use images:[{mimeType,data}], also understood by
+    // VisualPipeline. Preserve those actual bytes as attachments instead of truncating base64 text.
+    if (Array.isArray(n.images)) for (let index = 0; index < n.images.length; index++) {
+      const item = n.images[index];
+      if (!item || typeof item.data !== 'string' || item.data.length < TOOL_IMAGE_B64_MIN || item.data.length > 4000000
+          || typeof item.mimeType !== 'string' || !/^image\//.test(item.mimeType)) continue;
+      const match = TOOL_IMAGE_B64_BODY_RE.exec(item.data);
+      if (match && (match[1] === undefined || /^image\//.test(match[1])))
+        found.push({ path: path.concat('images', index, 'data'), mime: match[1] || item.mimeType, b64: match[2] });
+    }
     for (const k of Object.keys(n)) {
       const v = n[k];
       if (typeof v === 'string') {
