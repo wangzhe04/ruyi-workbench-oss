@@ -1,0 +1,16 @@
+{
+  "reason": "missing worktree process helper caused fixture cleanup preparation failure; service had no MCP children",
+  "runner": {
+    "pid": 99097,
+    "ppid": 30678,
+    "created": "1794400341645067",
+    "name": ""
+  },
+  "service": {
+    "pid": 99100,
+    "ppid": 99097,
+    "created": "1794400341703210",
+    "name": ""
+  },
+  "signal": "SIGTERM"
+}

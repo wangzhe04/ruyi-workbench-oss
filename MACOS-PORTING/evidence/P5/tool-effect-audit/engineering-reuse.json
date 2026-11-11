@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-11T12:52:33.773786+00:00",
+  "engineeringSources": 207,
+  "currentSources": 208,
+  "allEngineeringSourcesByteUnchanged": true,
+  "allCurrentSourcesMatch": true,
+  "newBindings": [
+    "dev-harness/mission-result.e2e.js"
+  ],
+  "reuseScope": "Full engineering unit/fast/build gates bind unchanged207 source blobs; syntax rerun after single related-harness assertion update. Independent acceptance uses final208-source freeze."
+}

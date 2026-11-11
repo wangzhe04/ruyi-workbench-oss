@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T12:40:05.948370+00:00",
+  "status": "read_only_plan_ready_waiting_for_parent_freeze",
+  "worktree": "/tmp/ruyi-p5-effect-worktree",
+  "runtimeEvidenceRoot": "/tmp/ruyi-p5-effect-evidence/independent-v1",
+  "originalGap": "Both archived ENTRY_APPROVAL_allow turns returned successful focus_window plus input_sequence(action_sent=true,event_count=2), yet same-turn irreversible=[]; original31 assertion suite did not assert this requirement.",
+  "coverageReview": {
+    "unit12": "Actual returned steps and duplicates/call-step identity; direct/proxy leaf; schema-versioned Python attempt flags; local non-invocation/not_dispatched exclusion; uncertain false action_sent; conditional visual actions; read/wait/empty; malformed/oversized/missing and bounded/incomplete results; original request suffix excluded; display shrinking/fold; old native exec compatibility; conflicting receipts and bounded hashed IDs.",
+    "python5": "Prevalidation false, entered Python invocation true for success/exception, stop prefix, outer validation false, cancellation before invoke. These are Python call-attempt markers only.",
+    "offline16": "Real ordinary Node service HTTP/stdio bridge/disk/mission snapshot using synthetic MCP results: proxy+direct large result projections survive shrink; call/step attribution; bounded private-free projection; actual default deny invokes no MCP; wait empty; reported prefix+unknown error; unavailable compound unknown; direct leaf; owned cleanup.",
+    "native34": "Original31 retained plus same-turn actual allowed macro focus/input reported rows with exact call/step identity, denied empty ledger, pending-cancel empty ledger. Existing receiver click count/balance/native ACC audit, real image create/overwrite/checkpoint/rollback, clipboard/input-source restoration remain required."
+  },
+  "runPolicy": {
+    "startCondition": "Explicit parent frozen-source/hash notification and exclusive GUI availability. No test has been started by this review.",
+    "sequence": "unit then Python then offline then native, each once; all serial, especially GUI. No automatic retry; stop and retain artifacts on unexpected failure.",
+    "bindings": "Before and after each command compare all parent-frozen source/document blobs, generated server and actual process-helper, plus unchanged fixture dependencies and authorized automation helper. Record working-tree paths/hashes rather than infer main/helper equality.",
+    "engineeringReuse": "After parent gates complete, verify log/result hashes and source/artifact scope against freeze; reuse only explicitly bound final engineering results, preserve all earlier failures.",
+    "nativeHelper": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "requiredAutomationHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+    "AppSigning": "No App rebuild/re-sign or LaunchServices claim. Fixture may compile its owned receiver as already designed.",
+    "cleanup": "Use fixtures unchanged; require owned identity cleanup and neutral receiver state, original clipboard/input-source restored; record any failure without broad process killing."
+  },
+  "plannedCommands": [
+    {
+      "name": "unit",
+      "cwd": "/tmp/ruyi-p5-effect-worktree",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/compound-effect-audit.test.js"
+      ],
+      "expectedPassed": 12
+    },
+    {
+      "name": "python",
+      "cwd": "/tmp/ruyi-p5-effect-worktree",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_batch_invocation.py"
+      ],
+      "expectedPassed": 5
+    },
+    {
+      "name": "offline",
+      "cwd": "/tmp/ruyi-p5-effect-worktree",
+      "argv": [
+        "node",
+        "dev-harness/compound-effect-audit.e2e.js"
+      ],
+      "env": {
+        "RUYI_EFFECT_EVIDENCE": "/tmp/ruyi-p5-effect-evidence/independent-v1/offline"
+      },
+      "expectedPassed": 16
+    },
+    {
+      "name": "native",
+      "cwd": "/tmp/ruyi-p5-effect-worktree",
+      "argv": [
+        "node",
+        "dev-harness/macos-native-entry.e2e.js"
+      ],
+      "env": {
+        "RUYI_P5_ENTRY_REQUIRED": "1",
+        "RUYI_P5_ENTRY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_P5_ENTRY_EVIDENCE": "/tmp/ruyi-p5-effect-evidence/independent-v1/native"
+      },
+      "expectedPassed": 34
+    }
+  ],
+  "claimLimits": [
+    "tool-reported effect classification, not durable native dispatch/terminal receipt or application success",
+    "synthetic offline results explicitly separated from real ACC/native evidence",
+    "no full hard-abort/held-state release/unknown automatic continuation acceptance",
+    "no TCC revoke/OS lock/new App/CLI/minimum OS/physical display/Windows/release identity acceptance",
+    "P5 remains in_progress"
+  ],
+  "actionsSoFar": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "productEdits": 0,
+    "testEdits": 0
+  }
+}

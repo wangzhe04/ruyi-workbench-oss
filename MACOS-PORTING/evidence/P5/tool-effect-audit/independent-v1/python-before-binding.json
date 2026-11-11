@@ -1,0 +1,1897 @@
+{
+  "at": "2026-11-11T12:52:34.432555+00:00",
+  "freezeSha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e",
+  "sourceCount": 208,
+  "artifactCount": 2,
+  "allMatched": true,
+  "rows": [
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "sha256": "3ec25e82dd7e8cf8af28ec28421edec64c8649ab6e83cb7a9a46f2280b3cfc68",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/README.md",
+      "gitBlob": "5a9ad58b24f6f8a0d3a9bf204a35cf72b53f4538",
+      "matches": true
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "sha256": "9d50671643bf111155bd20fa91194f2b292be39f3079b7efde31d6371095cb4e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/README_EN.md",
+      "gitBlob": "7cf004991008579fda8c4ea7007b8c3774119946",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/compound-effect-audit.e2e.js",
+      "bytes": 10535,
+      "sha256": "654f53099d03b9e45b5619e8534b35d200c659321e53c1157c28d29d30cce922",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/compound-effect-audit.e2e.js",
+      "gitBlob": "22b8dbafeec1c22600998afd32a68026d08a3453",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "bytes": 42011,
+      "sha256": "eeaac3ca914c0b4426a4059acd92eea025841a6d9aee49d1b734705a0c1b8425",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/fixture-home.static.e2e.js",
+      "gitBlob": "329b87d6c9cfe6226e1ebbc9474c419cbc6801f6",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/fixtures/effect-audit-mcp.js",
+      "bytes": 2269,
+      "sha256": "550b63f37685cb104a79a43fc0423378af3c9490bd640046bc9a9b0726ed9686",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/fixtures/effect-audit-mcp.js",
+      "gitBlob": "20f9c823366f8a82467534f0135b1712a86e3ba1",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-abort-window.m",
+      "bytes": 6395,
+      "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/fixtures/macos-abort-window.m",
+      "gitBlob": "7615e5669a32ae9dce5146fdff7f87bf7f8d3ab2",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/free-port.js",
+      "bytes": 2370,
+      "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/free-port.js",
+      "gitBlob": "bf8a9e66240fc34de0a3e34450b92613a65c8039",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/lib/fake-openai-provider.js",
+      "gitBlob": "9a776a818d4061391a5450f59698e9e9f90853ff",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/lib/fixture-home.js",
+      "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/lib/harness.js",
+      "gitBlob": "4494cb248ff81a6274d885191c772d1f2480f685",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/lib/kill-own-tree.js",
+      "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/lib/self-isolate-home.js",
+      "gitBlob": "2121418a003fd170a93fce278da1c2a6140733e5",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/lib/server-internals.js",
+      "gitBlob": "5ce3c7076746a13ece00dd005a21fc2558bbddfd",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 23040,
+      "sha256": "0ff3118106addde25b2c10fdda8c88756e48c755ddab39254c550a934c2517a7",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/macos-native-entry.e2e.js",
+      "gitBlob": "936f609c97b714c97917b9244c6aa729aa4447f7",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/macos-neutral-abort.e2e.js",
+      "bytes": 25436,
+      "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/macos-neutral-abort.e2e.js",
+      "gitBlob": "46811d72b727374fda75de13f7c24744ffe2e8d6",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/mission-result.e2e.js",
+      "bytes": 25239,
+      "sha256": "bf2ff3321fe4e4104dd272f8bcbc3cd8aaaea0009e8472ed028fa2b1350d66e6",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/mission-result.e2e.js",
+      "gitBlob": "3af115eb1a0c2b4ffc856cd6877ef40096d98c32",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/parallel-read-island.e2e.js",
+      "bytes": 9102,
+      "sha256": "3d42bbcc204e23589b5d4f1cfffe8ae896fd38c22f9f81d7494690f2d3488d3a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/parallel-read-island.e2e.js",
+      "gitBlob": "2c294ba7d3a300a1a78c11ffa4a3fa9542a3d848",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14438,
+      "sha256": "1466869ebcda17bb70635ee2e81187c6b6d3bea1edd4c764aebcaec3e47ef7d9",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/process-safety.static.e2e.js",
+      "gitBlob": "90e072f50a67ee8f792845e98ea71c2085bf00a9",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/provider-tool-history.e2e.js",
+      "bytes": 12551,
+      "sha256": "c5f851f035902a9cbafd275f7bad1b64ac10d4de829c009b5624a51277dfc309",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/provider-tool-history.e2e.js",
+      "gitBlob": "2a2779f21406e162529eeea17fda3a5b9b1a6b26",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/provider-turnloop-hardening.e2e.js",
+      "bytes": 20932,
+      "sha256": "0ec2f2a1690f7121cf84149509bfa168cd5e0a4b2163bbce70f92ab400a7a0ba",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/provider-turnloop-hardening.e2e.js",
+      "gitBlob": "6b8b8395c293f3009b6ece430e64cdb2cf94dfa4",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "bytes": 9150,
+      "sha256": "af5529b5dd8b6e19bd34bc521ca6cb768fc54153f357db955b55a6b0259e1be7",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/session-save-census.static.e2e.js",
+      "gitBlob": "702b51ab5b05f9f0e01a9b0e1a56f35ae79c5478",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/turn-stop-supersede.e2e.js",
+      "bytes": 19470,
+      "sha256": "f56bdc8370c83f5aa0fd7aa8a61c665e6c873ef40bb8bbbdfb729be06932aa77",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/turn-stop-supersede.e2e.js",
+      "gitBlob": "78e7ef9518ce72c5305e1984a6122d2413fc0708",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/unit/compound-effect-audit.test.js",
+      "bytes": 11125,
+      "sha256": "41d6f8d85f2bc3eefe1fdc349fbbfbbcdeb07a541bb804334087d25639cdee04",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/unit/compound-effect-audit.test.js",
+      "gitBlob": "eba7c5703db7d64f78708122361d056f6d734714",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/unit/session-required-persistence.test.js",
+      "bytes": 12517,
+      "sha256": "939e1b4571185fa120e9460bf5d047f783e229cc3ef1773bb2f8a10c2216ca49",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/unit/session-required-persistence.test.js",
+      "gitBlob": "4065c478c88ac39f7cd56f4d66d05b2aa9fc36df",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/unit/tool-result-shrink.test.js",
+      "bytes": 18111,
+      "sha256": "b44a6249f622de3892faa5374e6f499f4747e01255cc3e40e010c6ff1b68ae67",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/unit/tool-result-shrink.test.js",
+      "gitBlob": "30de69c0bdc31011e70713cac49c5c843a1900f1",
+      "matches": true
+    },
+    {
+      "path": "dev-harness/visual-baselines/workbench-shell-v2-light.png",
+      "bytes": 138353,
+      "sha256": "9acce5e53558a08037e6e65e4bdbd23e5c98b51592915866819045b92ca74d1f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/dev-harness/visual-baselines/workbench-shell-v2-light.png",
+      "gitBlob": "f1a5ce411b7877140c01a9095400213edf71bd1d",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 924393,
+      "sha256": "a91410208da503fab3f0c18c3923799ca6ceabfbd1835419651e5c90820404fa",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/docs/architecture/module-dependency-graph.json",
+      "gitBlob": "34d6d21760b4783c4c81b515ae9b036183157b9e",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "bytes": 123121,
+      "sha256": "52f322f60f40f02d757f4dd1ddcfc8549d4afe954d1592f73b1a78f77352bbb8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/docs/architecture/module-dependency-graph.md",
+      "gitBlob": "ae83dcac5c09f45c0e19f43b27ef87466b9eb59e",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 209722,
+      "sha256": "22fbed6a281b15cc916cb8ae25671d5f1bdc55c74c028b9e7f394e9dc5f693fa",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/docs/architecture/route-inventory.json",
+      "gitBlob": "0b0a3378acb530bf32ab37834b09db99b3be99f0",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "6f306bda0a69623313547632f4d8d3395f1a6c420b5d788524511c4b4939f6c7",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/docs/architecture/route-inventory.md",
+      "gitBlob": "29272ca85adff3acbd9e4bda7562cd9be224036f",
+      "matches": true
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "2d02b0142fe0df96c011f2f0c3fdabc1057b6eb613116916d26f7205415026ab",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/facts.json",
+      "gitBlob": "9f7b3c145b373ad52e85e05bb8b79a6bbed086b0",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "bytes": 189,
+      "sha256": "5785518cfa8dfd434ef39bb0e08fcf7e6b0c1eef3ac6f14b5e4986c07ef5a6ea",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "gitBlob": "02d8d0a4fc394dbcae463b0510da0c3522e4857c",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__main__.py",
+      "bytes": 397,
+      "sha256": "e3532ff41fd74c729b5e42abcf6c411e4f5d7e2216c1136609028d9d08128d26",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/__main__.py",
+      "gitBlob": "395ff05253187d937611241b698b18ae387e52b6",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "bytes": 1539,
+      "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "gitBlob": "e73b7590536c6a903fb225d4bffbf42c2da2325c",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 23110,
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "gitBlob": "d37c4b1b395f562cb75425249ac6d2c0238fd44f",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/__init__.py",
+      "bytes": 44,
+      "sha256": "cec602ce29f18d99ea1af22336ed5739f0634191d65f57a01f8256fc5d867d3d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/__init__.py",
+      "gitBlob": "63f3dcf869a86c90b8c1754563115a74dba6a3e7",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "bytes": 11509,
+      "sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "gitBlob": "db45db3b6657f63d3dfde4a0a1c4952441fcd1ca",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/application.py",
+      "bytes": 16076,
+      "sha256": "0665d296c1266b726b91ce103d68d8c1447924570dcdc0b92a6048911fad7981",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/application.py",
+      "gitBlob": "6a131c30ff661ea4f45dd23757723ea0c41cd0e5",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audio.py",
+      "bytes": 2295,
+      "sha256": "aad83f7a7e8afc8c425c9b211d4fe86eaca9d804da947c968a6b7b0179ab5bab",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audio.py",
+      "gitBlob": "6837ec4b98cf7e717dccf0a969ea0ce7eb626e69",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 9948,
+      "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "gitBlob": "870c38d5670223c39e769bb8403c190e78a98f0e",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11351,
+      "sha256": "b4b650c2ffe9eacb5ea7384f561905cafb2074d775718f15ab387719a14649fb",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "gitBlob": "ade29a1c42a24d97ab591427a799108e33890f51",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+      "bytes": 29505,
+      "sha256": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+      "gitBlob": "9af98daa5d0f5158bb703c8e6cc0b38ec747ed56",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/capture.py",
+      "bytes": 4060,
+      "sha256": "cd25a59226edbe4ba0e6a0998da214a8a9f314233d8240e592f607d4dc93f3f1",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/capture.py",
+      "gitBlob": "340979286d73992da63f456b02122f1e8d747f5b",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/clipboard.py",
+      "bytes": 2853,
+      "sha256": "645d0be19ad9237f4ce8bbe3cd4f35874dbd5b38029d1329f85422ffe862d282",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/clipboard.py",
+      "gitBlob": "614e9fb0c4946e3f10ad7342ba9f39c4b1fccd0a",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/desktop_extra.py",
+      "bytes": 13544,
+      "sha256": "518a3134f71e6e6132b0c9538ce4614e2163aca897b757b11e0b18c361fc3a5e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/desktop_extra.py",
+      "gitBlob": "142485cde0881b70e46c4851af90b0c131cd56dc",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 11463,
+      "sha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "gitBlob": "dd767af5ce0179180ab5e068ff79ab32db7225b5",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/dialog.py",
+      "bytes": 5855,
+      "sha256": "fee53572527b3388e13a93b60f593d22447841b1de45a2472c495ae926f383a8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/dialog.py",
+      "gitBlob": "e26c1730f39a6bc0cc48803c4b3a2ef8ae7422f4",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+      "bytes": 79168,
+      "sha256": "6ca80952eac12ad9c3d11a50c06d6c7a9f51fa59fc255fe1f953a2847c09f456",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+      "gitBlob": "15f2db9aa062314a52d27ff9e559f278113f0823",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/editing.py",
+      "bytes": 14944,
+      "sha256": "26bcaea431dda18240fb590a3bd847d981fc254c3ee74ddaaee4f6a88f935e1a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/editing.py",
+      "gitBlob": "b6e8fd0cec94a481eb94617c86e7154639da939d",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/filesystem.py",
+      "bytes": 21680,
+      "sha256": "e58c29268ef58063b49857170f2c33700461d72928f17aacbe9a6578d5c2ae6e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/filesystem.py",
+      "gitBlob": "8523dfd8e35ad71d33d75e7108095b5d62a9f4eb",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/image_tools.py",
+      "bytes": 8342,
+      "sha256": "4160ce9528e037f531ec2d015279d5438ebb5a00ad8885d6eba4f8667a21f981",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/image_tools.py",
+      "gitBlob": "8b0fa806bc98449c0a164355a1373aa41820a4cf",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "bytes": 9275,
+      "sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "gitBlob": "2737d3eff6a8d8604e1e250e4a075fcf6f519333",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "bytes": 12096,
+      "sha256": "767942a58c53504bdfd59c1cd21101c0cc5b02901ebb1b48aa9408fcf92e00ca",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "gitBlob": "d50835cd1588019d7fa32b5bbfa10c391b767a80",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+      "bytes": 1685,
+      "sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+      "gitBlob": "3bd217b70d02483d4e684c406de816a7414c77de",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+      "bytes": 3163,
+      "sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+      "gitBlob": "f860a5472938b7204527c3eda03a37c37aaa2064",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "bytes": 5201,
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "gitBlob": "7071e92279c9c124136f5e083e52bfdbdb3184e4",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11174,
+      "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "gitBlob": "1c8fbadf0d417f501fe4299e520999f0e3537dd4",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "bytes": 5512,
+      "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "gitBlob": "fc47faa73e1a5f4a5fa0e0578f27342d8d13adfc",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+      "bytes": 9182,
+      "sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+      "gitBlob": "5138ab05e87c0a9f75c537509b0c63eedd922d62",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "bytes": 6119,
+      "sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "gitBlob": "bb5d0b2d4867230a519ca944d4c6056bf973ab63",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "bytes": 7462,
+      "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "gitBlob": "a45ce42f36029c27e97d41de7d23109b79e588d9",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "bytes": 6903,
+      "sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "gitBlob": "ee4b4a06e0d52e5e0d53879e68d194da10a8ca85",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/memory.py",
+      "bytes": 8459,
+      "sha256": "2f076a102656f7604106e6597340f5bd3063a6128048b678ba583e03a2b124d8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/memory.py",
+      "gitBlob": "38d56d7200b0100484fbb72d38ae19a0b4042280",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/mouse.py",
+      "bytes": 8369,
+      "sha256": "c4264670c233c5ba137cf6ee6792bcd2f2e55adfbaf46deff10f071e47b47b7a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/mouse.py",
+      "gitBlob": "44d4dbd56e00ba43cdb53718bc0cb0f139f789b5",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/observe.py",
+      "bytes": 19005,
+      "sha256": "1d1e425effc00ff81e77856bdfcb2b3b0c25db4defb279a17e6ad75b5c45a014",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/observe.py",
+      "gitBlob": "3640169241a11431b7da4607c4a3a5b56825d7ac",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "bytes": 32996,
+      "sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "gitBlob": "6cc90752f4532f3b98db9a4e99062e06971d3de5",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py",
+      "bytes": 28272,
+      "sha256": "e5cce5766a751dc4f14d64bc705dfb1ff19392ca0c54b5f6b80fd717f811b7cb",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py",
+      "gitBlob": "8214a326444152eb56d5b32393f340f8ceb0ec2c",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_excel.py",
+      "bytes": 26972,
+      "sha256": "7e9cdef2d030366a8c07728656e647f3e801f0dfda463119345a6d4f53bc3510",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_excel.py",
+      "gitBlob": "5f24da4e8bc1054bddde7d052976efe6d2d9bd5f",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_io.py",
+      "bytes": 5526,
+      "sha256": "4952c2f0f92bbd62095770cbeb8a4cafd85aa45fddaecfb364920a5a4b09b809",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_io.py",
+      "gitBlob": "84951c52b777cd57cfa741dddf5a5ac36a5b9f4a",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_markup.py",
+      "bytes": 10629,
+      "sha256": "fdad4422fb2256950e8a2382ad99b6b00edffe0341a79aab39aaf6989da3d694",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_markup.py",
+      "gitBlob": "5562c5bebe89c6a741a754105d42fa4fe53319e1",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_pptx.py",
+      "bytes": 53982,
+      "sha256": "aba8f918bc20d5aad1d900bbcec73001e4b3305600ec4e0f6a0a5c2e8c76442e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_pptx.py",
+      "gitBlob": "7e606bcd761155dddf594556f874c9966765ef69",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py",
+      "bytes": 23601,
+      "sha256": "433d93acf6ee8756a9d121c925d4c7942ec4461fffdc4ee7329e73274cac28e4",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py",
+      "gitBlob": "06d0ad55870b8c525ae331bab91a49969aea5666",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py",
+      "bytes": 18523,
+      "sha256": "5d40e1d164ebb65ec244a9cc989f91143f66c9f0e8ffe277607a379c70327bf7",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py",
+      "gitBlob": "60b12258f0f481117107be3d19d548ec2adc5cc9",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "bytes": 14860,
+      "sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "gitBlob": "cd3364109e01b5e6bf966c8bde680d74addb0105",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/safety.py",
+      "bytes": 13745,
+      "sha256": "ed7a288074843768dba0b2745d706dc2d98819e6e2257ce62ce60a2679aeed5d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/safety.py",
+      "gitBlob": "eb2cc085c469faf2d1ead5a688eaee44ff29ed5d",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/screen.py",
+      "bytes": 9651,
+      "sha256": "79ebf4919b496a6f04e3bb6fdfaa33c9e92db9b88ecc6705b8531ae040297e5c",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/screen.py",
+      "gitBlob": "76011d077383a5a6acda8ff0ac7f711b22140456",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/shell.py",
+      "bytes": 14779,
+      "sha256": "32cd73b1a9a560c05b5a5646c3b4a6b49c698e6d1520e107caa51caa2e99397e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/shell.py",
+      "gitBlob": "770c227ef735bab35e6d0030f11e73a9cbf85b53",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/sync.py",
+      "bytes": 3308,
+      "sha256": "e43d02ca8c24ee294ea9cede367035c443c492257f0929ff45a56df8dc948869",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/sync.py",
+      "gitBlob": "112cf2158ca87775463a08441bdc613ec1cf5cbe",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/system.py",
+      "bytes": 2723,
+      "sha256": "b18bff083ba9225ffa941a9f6544fba5feff1889c4549a3510e40a4e8a79925f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/system.py",
+      "gitBlob": "a8ae88a6da034310f9759061e3e83b19c359b824",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/thinking.py",
+      "bytes": 3807,
+      "sha256": "b76b1ef426037f09703b2c13498a90d64dc48887790d4d6e6d9795c895c339c3",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/thinking.py",
+      "gitBlob": "99adcc08d2ab0c4e8b71019e4593215e4849c0e1",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/uia.py",
+      "bytes": 29605,
+      "sha256": "9cf7e0d407310311443a40d2e8bd21e6e9b1cacc2d2e9a6e4efeef85043810e8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/uia.py",
+      "gitBlob": "8c7f726df144905143fcd0ad2d77824db0c862c8",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "bytes": 11015,
+      "sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "gitBlob": "95aba596b0c654c126d55d5614ef12e93b25fd74",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/web_fetch.py",
+      "bytes": 21827,
+      "sha256": "80cc46522129594c0371254962f8f22c698ff761a72ebe81f5a34fdc87b96afd",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/web_fetch.py",
+      "gitBlob": "d715344d0f8ada960b1da464cdc93457042165cd",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/window.py",
+      "bytes": 16785,
+      "sha256": "edce6d3fc4b1dca8d4839378c1ea8e0a9c34ac8c70b57b7215094229c6ee9af4",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/window.py",
+      "gitBlob": "dc930ae609d1fef993bab5bcaa64ddf9f20a0c90",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/__init__.py",
+      "bytes": 23,
+      "sha256": "ed29dbc69c4a10d2bed9e7142f935f9d9f6890623b08e298c38585e3ad7bd873",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/__init__.py",
+      "gitBlob": "183c974fd4ca1925d6278be86ffb6bc13652aaac",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py",
+      "bytes": 7011,
+      "sha256": "0ca189dc4bbc8fe2c89cb403f15f92b37d9bd991d7ab513fd8392e9bfceb4f6d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/errors.py",
+      "gitBlob": "c3fcca4bb4de35e894d4d60bee5f966c7fff8ed6",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/geometry.py",
+      "bytes": 2214,
+      "sha256": "65cb954c065e2b95d6582b4ecf007343653d77e9e17135738a97a780d002c7b5",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/geometry.py",
+      "gitBlob": "06671b30be6ef2aa4f6963fabb316f95cced5a8b",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/image.py",
+      "bytes": 10458,
+      "sha256": "c4b76a4f6fde5bb3ecb1d735bc3228a8aee3ca8d308ff5e27319a7e9dc830505",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/image.py",
+      "gitBlob": "fb64c01f82bdb1c0437a5949b9e027dc09ebcdfe",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13332,
+      "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "gitBlob": "fccd070ef03c66c146415843b3ad81bda9355804",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "bytes": 4493,
+      "sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "gitBlob": "dfa1410655484266f0dc23b127b8fa12cee37dcb",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "bytes": 11734,
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "gitBlob": "72602dc77eccf01d1a965972af09d1d616d9cbac",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "bytes": 7972,
+      "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "gitBlob": "2a95114a510c4f711244133bee2a99c5b1bc5840",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "gitBlob": "0af7a4f592209710d0f6831ead2291c8cd45465f",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "bytes": 4104,
+      "sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "gitBlob": "f018957486411e7c479b0aa6aaaf45daeffeac87",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "bytes": 3620,
+      "sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "gitBlob": "5990cbfd3fb8181c1464b19c9fe15ee2d4aeed8f",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "bytes": 8532,
+      "sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "gitBlob": "8bb46dbfd561a85e959e2cc02cc448935f9129d3",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "bytes": 8643,
+      "sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "gitBlob": "65188e6d7000c8242470a23933ab83d715440c1d",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/optional.py",
+      "bytes": 1032,
+      "sha256": "e1cac86b06d1be9068c8cac87683b6e317a5a4d53bdc655c6b076703a9174857",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/optional.py",
+      "gitBlob": "44a1a0fbfe29a1a7f3a9b00ce1a7f69f29696b27",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "bytes": 3820,
+      "sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "gitBlob": "21ccc7d4792137dd9ed97495b78a2a3224357927",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "bytes": 2694,
+      "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "gitBlob": "328e184bbbfebabe0405c1f67068905f0b721ff2",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+      "bytes": 5321,
+      "sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+      "gitBlob": "854804f8e190f2d4798f9034740c71e5cddcf309",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/waits.py",
+      "bytes": 1047,
+      "sha256": "dd34a7fd06832568d8f78e2b3e89946432d57111500bc0347bdd4d4c438beccf",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/waits.py",
+      "gitBlob": "cb6d2696db553bf8dfbf46657197dc1bd836586e",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/wincap.py",
+      "bytes": 12947,
+      "sha256": "e464ae003b3f1a47c2c9aa604cda09a4f90f9cc6cb60317f3b3726f03133d9fb",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/wincap.py",
+      "gitBlob": "6a190d1d87a814726080fc63fee7097133a36c6e",
+      "matches": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_batch_invocation.py",
+      "bytes": 3882,
+      "sha256": "e0d7bbb3b2eb92ca8d47aac1fa8df7597a919dd57a70b1e0f517bea915c453a0",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/mcp/ai-computer-control/tests/smoke_batch_invocation.py",
+      "gitBlob": "c164c11f9254f141354471b509099cf4d889c1e5",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6791822,
+      "sha256": "9318fde4792dbf9f82cf474ca13b4198f435c9000c4a7d0e48c01ad44ce0c146",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/server.js",
+      "gitBlob": "81b141252ca581afda28e06f29f5ff5c77500622",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "bytes": 96866,
+      "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/00-boot.js",
+      "gitBlob": "68fe3f24e1864cdafdadae2cf654953c64284831",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-platform-runtime.js",
+      "bytes": 1999,
+      "sha256": "6fc836ad79bbb2f33c049be258f89ea5d4a89dfa853051e3445ed34d781443ef",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/00-platform-runtime.js",
+      "gitBlob": "d62841a59f1985a7dda4a7cea56470bd39fdcc59",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/00b-ruyi-names.js",
+      "bytes": 1282,
+      "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/00b-ruyi-names.js",
+      "gitBlob": "5ee6536480124899a67891d3b07630fe831e529d",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "bytes": 290489,
+      "sha256": "6170dc98fa1f90bf2f14d7700f02d749603d135e8a154ad05f0753a62e8ef147",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01-config.js",
+      "gitBlob": "02f95c82248b241e2ec4028edf155c1b49074436",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01b-route-auth.js",
+      "bytes": 18757,
+      "sha256": "85e8b92340e16d83c927c77c00f178fa775834eccd3f0ecf6542597205dc3c88",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01b-route-auth.js",
+      "gitBlob": "cac0202e579beb4add8158400d3050d74926b4b0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01c-runtime-flags.js",
+      "bytes": 11739,
+      "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01c-runtime-flags.js",
+      "gitBlob": "96fe4fe12d7251ac84f2221fec90cd8262b9769e",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01d-win-cmdline.js",
+      "bytes": 7622,
+      "sha256": "ee1c5a7fe942332d8a75f5eaf6d8d589a37e935641b423c6a1be8ffa590e3456",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01d-win-cmdline.js",
+      "gitBlob": "4a99b567b836ea4aeee50ab2106f3cecd989b06c",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "bytes": 17867,
+      "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01e-permission-modes.js",
+      "gitBlob": "731ac5b8272ba398db7961cc1128a2e7a4f58ebb",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "bytes": 5291,
+      "sha256": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "gitBlob": "bf19986ddb0e83fd83168819356318e49e1fd149",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "bytes": 16411,
+      "sha256": "f99027cb8f24b5ea9fb0e88eb8e3cbe716cf116990ab5e683fad56a180acb50b",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01g-server-ownership.js",
+      "gitBlob": "bd18724c63388f68e1b34eee0a37c0d979c469af",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "bytes": 37693,
+      "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01h-privacy-core.js",
+      "gitBlob": "04745d142976d9142f6613619feb50c22807a5aa",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "bytes": 24619,
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01h-process-runtime.js",
+      "gitBlob": "aec7bd5e7e1a86fc11d7e9fe3ca6af860ca2660d",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01i-privacy-rules.js",
+      "bytes": 26429,
+      "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01i-privacy-rules.js",
+      "gitBlob": "d292e0bb23334a1ac06eb6e6d30d61a601ecdd16",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "bytes": 11387,
+      "sha256": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01j-local-crypto.js",
+      "gitBlob": "d3271c9e9caa078a9e071211da482cb1db4b20cc",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "bytes": 21421,
+      "sha256": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01k-credential-vault.js",
+      "gitBlob": "87460a7066e38856e338e6734274ad45f30ab4e1",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "bytes": 10900,
+      "sha256": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01l-credential-recovery.js",
+      "gitBlob": "5a0b02bd800aeca37eb3f3fa62e2f554b698a56d",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01m-privacy-regex.js",
+      "bytes": 5889,
+      "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01m-privacy-regex.js",
+      "gitBlob": "9df36076a2d6a976ab48d80f8a1f4037640c72ca",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "bytes": 5148,
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/01n-desktop-automation.js",
+      "gitBlob": "a51ba22103c27adc86758f8627f4e2f760abdccf",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 420694,
+      "sha256": "57e91b3b75d74b50d11c9aa69c8283404add1276b6eb1f57548c4246c97b976d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/02-session-store.js",
+      "gitBlob": "6d449ce5ce3d5b284d2e79a90df17f9a43ba18fd",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "bytes": 18918,
+      "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/02c-turn-segments.js",
+      "gitBlob": "c7d254be9bd87c31ac0ca13c8ecf847945314380",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "bytes": 5740,
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/02d-session-overrides.js",
+      "gitBlob": "cb31bb44da4e2295a89b93a895d7cff080c9a3a6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02e-session-engine-route.js",
+      "bytes": 3042,
+      "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/02e-session-engine-route.js",
+      "gitBlob": "b3035378eebf4b0b581d9ba7d996e45a68f9ce7e",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "bytes": 12107,
+      "sha256": "2bcf11e9fc95243da83addd0410efeede47ea2577aadd2849cb6c8000673509e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "gitBlob": "e204fe9de5f65368ab35a69f2a92d1809b73977e",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "bytes": 124245,
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/03-bridge-guard.js",
+      "gitBlob": "fc742c77ccb701f1c5762257c185489b82dfbf69",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "bytes": 84195,
+      "sha256": "8469f2b59f3dc6741e3734aac72fa341ac87f18d2d8115290703560d9d5904ce",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "gitBlob": "01f8e90c91b5ecd3db03453032800a77f7cb557d",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-desktop-shell.js",
+      "bytes": 40797,
+      "sha256": "198ee712a1fa49a23ff8a8365f13cb3c54020789d2260bcc3274a372d3d7a326",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04-desktop-shell.js",
+      "gitBlob": "f9e4a58090d5f950ffa9651666308147881ba677",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 195200,
+      "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04-permission-runtime.js",
+      "gitBlob": "e05a783d6f2673e17a665742f6ef0f2dd04ff0ad",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-visual-pipeline.js",
+      "bytes": 14720,
+      "sha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04-visual-pipeline.js",
+      "gitBlob": "7e0e17e3d6a167e60b22fcff157505a552b2cae7",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "bytes": 27430,
+      "sha256": "9c1865eed69ee7b8fce84ac8a5c25e11ef266a6339b88f6c435a3ac011766b18",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04f-toolbox-services.js",
+      "gitBlob": "2308388f15e7673bd7dc126c1d0d4f3355d6aaf4",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "bytes": 15736,
+      "sha256": "d563272e7576737417602ff98521be5fb9bff84e58151d8157310636637f88ab",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04h-provider-http.js",
+      "gitBlob": "d86abfefbbbd4723b4d597b186dedbe30674c10c",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "bytes": 40983,
+      "sha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "gitBlob": "fa7d1265247de0906b73a999fabeca60bc3df350",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "bytes": 51227,
+      "sha256": "c7d12d7866ab5a16451432955f1b10163292e7d5a51f108b04742842c7c3f12a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04i-provider-wire.js",
+      "gitBlob": "c4b1c120d147651d91200a04335c6e31f52cb8fb",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "bytes": 53142,
+      "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "gitBlob": "8f06e8051ab533fd33c56df09674f2b372b06e93",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-learn.js",
+      "bytes": 42013,
+      "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04j-voice-learn.js",
+      "gitBlob": "1fb34835284ac14279b0a560c8f7618790e66602",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "bytes": 28768,
+      "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "gitBlob": "75dc846aa0b64eea2811dbe18203288027f2f872",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "bytes": 181424,
+      "sha256": "bc742c8ddaf67af4334f01b8ab71d756e7e7160ca62bb2c01c99aa2e4d63c23f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/05-claude-engine.js",
+      "gitBlob": "dd48010b370bcba7b01e72be175f1c26fd1c2c97",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "bytes": 173002,
+      "sha256": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "gitBlob": "f313124ac44dc7d55b89fa10fa881073fe37b3d1",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "bytes": 35423,
+      "sha256": "eb60a621d764822820784b39c36e182ffd8ffdf6596c25bfdd9dacfa176589ca",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "gitBlob": "a4eae382951f4accd3f364bbaffccd958e0167a1",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "bytes": 10916,
+      "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "gitBlob": "c69ceff664f7566a56b52949953ae42c078a1086",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "bytes": 166256,
+      "sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06-provider-engine.js",
+      "gitBlob": "66ef3a8faec1da7df0bfb68e67f1d508c52d02a6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "bytes": 125407,
+      "sha256": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06b-prompt-registry.js",
+      "gitBlob": "9698c771d606fe366decddffd48748931eb4ea53",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "bytes": 7061,
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "gitBlob": "fde8efc43a6f8be55e703449b649b575060dc20e",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "bytes": 186948,
+      "sha256": "3b09710d349826f062e4616ab8934ed61fce2ba2fa1cf1fd4494bbf4916a23d1",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06d-memory-domain.js",
+      "gitBlob": "47607b70923b3d5041c4ba2d3615a98a497c8e9a",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06e-mission-domain.js",
+      "bytes": 10619,
+      "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06e-mission-domain.js",
+      "gitBlob": "08967643787cbf436e55d25069129cf16d4bb9c3",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "bytes": 21944,
+      "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "gitBlob": "6e19679feb0ef2a0e5f3daf3745fa336a782ae58",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "bytes": 18239,
+      "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06g-resource-leases.js",
+      "gitBlob": "8e92c6d329fd01c00bb4309f4d6efc244285ee8b",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06h-retrieval-index.js",
+      "bytes": 14952,
+      "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06h-retrieval-index.js",
+      "gitBlob": "160b13833f85aaa32fa71eceabe9af13ff1e5922",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06i-steward-core.js",
+      "bytes": 192997,
+      "sha256": "b1c6feb7d233cf8eeae35c3e98993741abdce10c8ddb849f2ee30c1239759e88",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06i-steward-core.js",
+      "gitBlob": "a84905551d71380e291321f042f7d31000ddc019",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06j-scheduler-core.js",
+      "bytes": 39228,
+      "sha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06j-scheduler-core.js",
+      "gitBlob": "68feaa6514e284b55d8f78908aade51f9467ae4e",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06k-config-patch.js",
+      "bytes": 16498,
+      "sha256": "3fa94c8584a9a65f23d858388f78c7e67472ebfe72ea9b165e120bc73ef42cbf",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/06k-config-patch.js",
+      "gitBlob": "345b4e756ac6ccadc8e749c0bb33058ea9dc2948",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234136,
+      "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/07-autonomy.js",
+      "gitBlob": "b030e59dbecf440c5024ad420bb02335ab675ee1",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 246586,
+      "sha256": "ffcde3d21347d86f6f5e6cd770e005272636828048e6ba23c173df15ba310d66",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/08-agent-runs.js",
+      "gitBlob": "0bbaad1d483464e8f4400ff58d7e97e64ab96459",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 360194,
+      "sha256": "feb6aa2e6396fa701e0fe0cbf44c96e23ab1561a903a4fe2a44d2b1b9945fa25",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/09-workflow.js",
+      "gitBlob": "ce2ffabf19f13ba895aebac3aafe8848fa7c4019",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "bytes": 12031,
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/09b-replan-ledger.js",
+      "gitBlob": "97de5df4d568ad772cdc1c7ec074f1a829a45275",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/09d-token-estimation.js",
+      "bytes": 17595,
+      "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/09d-token-estimation.js",
+      "gitBlob": "6e691e565257b614097cf4ed102b53a61b9656b6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 319691,
+      "sha256": "08f1e010fc652dd00de2e3aecf9e4a8365b48d13e53fd0c20e9c042aae19449c",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/10-context-governance.js",
+      "gitBlob": "ca999b6e63970f12bd13ab2a06c26ac1331feb94",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "bytes": 410013,
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/11-native-tools.js",
+      "gitBlob": "8222fdaab4a050505d0aced0b321400b620cb4de",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "bytes": 36770,
+      "sha256": "740cbf33bac9ffd5c967404940a47f78a2c760cc025b1a21227655651310f159",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/11b-file-text-io.js",
+      "gitBlob": "b1e5ab875789a032638c6e8db1e1c2e007c9ad96",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/11c-file-visual-io.js",
+      "bytes": 9213,
+      "sha256": "3427ec055e00f90a0fd6addf3bec5b540e9c5fb472e720a1ec34604a97aeee37",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/11c-file-visual-io.js",
+      "gitBlob": "61644ff5d065c974c69573f1bc802ee0244b62a6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/11d-media-inspection.js",
+      "bytes": 19979,
+      "sha256": "dd185f06ada6739bbfb8777de403d1df63778982c282155fbbc1206251934a85",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/11d-media-inspection.js",
+      "gitBlob": "ae05dba0935440e05e7c7c0b9266c993872333b0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301854,
+      "sha256": "7ab2a8d8b576bdbd3cf1cb2426487fdbfab105f846fe938e00c3088aded01902",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/12-tool-dispatch.js",
+      "gitBlob": "a527f7abcf8bfc9b9b90d82493a70d749f26b593",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13-http-router.js",
+      "gitBlob": "93f1d835362ef3e3f963106dc63f1097786f9220",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "bytes": 13107,
+      "sha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "gitBlob": "c2c3409dc171e3288dd3153ff51ff0b7b134d44d",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "bytes": 14851,
+      "sha256": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13ab-privacy-api.js",
+      "gitBlob": "dc559032fcc6991383889c91970a134135e88099",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "bytes": 77832,
+      "sha256": "b4b233812ab536d30c0e13a772e717dd9dfaa4f5fe4e5aef29196fdb174c1025",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "gitBlob": "c83ad7ec2eb782ece1d2cc53393fb1f388801c00",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "bytes": 14058,
+      "sha256": "1526ae2f03b56ca7b1a2d890718478ebacdcdeb5bb8e1b1f2d59a57e3e058c45",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13c-overlay-routes.js",
+      "gitBlob": "09fa3ae57c7fbf9c7442f31044b6a9f37fe57ad2",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "bytes": 190248,
+      "sha256": "95049eea61eec401efd65432f44f1831b5092bf180c681c3437ae8b419d1295e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "gitBlob": "05d914b0ae69b82736068b9ca72a80e0b738cdc0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "bytes": 52395,
+      "sha256": "ed3eae97a61b788cab3d19ed4423c3d2f519ba4f685663758079ba60910b3989",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13e-pretender-index.js",
+      "gitBlob": "e914732295b88898a13184090a53ed71fcc64428",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "bytes": 150843,
+      "sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "gitBlob": "a14b9815877d09fcd7910e77e31dba68c2cfc6c6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13g-steward.js",
+      "bytes": 34849,
+      "sha256": "6092fb91bfc27c79bc7602befcb3fa96bcdfbd2ced0e40995d1459d43ab33e36",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13g-steward.js",
+      "gitBlob": "aa34282f364a54f66d58ed610259ef97e5d7d969",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "bytes": 35776,
+      "sha256": "038af68eebf3e711c844d267a205af2b67ee6caaddefe0982181026b63eb1d92",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13h-steward-runner.js",
+      "gitBlob": "829b1c6bbfa5a996aac3e4a7fc126cfcf2c73b6b",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "bytes": 99735,
+      "sha256": "640580ad0b773efcaaf059f2bb5c740320b35e84f0228785e6a04f85e0ce4e92",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13i-steward-inbox.js",
+      "gitBlob": "a98fab891f0fe5d19d627ae7dc3db17f1f63f8b6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "bytes": 37377,
+      "sha256": "849e4cad376a6275cadf52b2f89e88e28a53c83acb2bea36111b78e5a871d0af",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "gitBlob": "6a02adfa6fc21a252fbce3649d1ccaa9ebc6baa1",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13k-steward-threads.js",
+      "bytes": 138835,
+      "sha256": "73b3e4898cc9e7f4e14e4cf511862f3a99be9ca6de95ebfe261be5bb58dcc6ac",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13k-steward-threads.js",
+      "gitBlob": "0b620e5d5e1e09f42b61fc61ad068185cbdae55a",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "bytes": 124618,
+      "sha256": "9559c5cb1968ddf3273dbc708d67fd9803f75e182b9e71c9eea1c7045c2f87fe",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13l-steward-ops.js",
+      "gitBlob": "34e3d22f4527a570d0067f8910c40afc15387ab0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "bytes": 27788,
+      "sha256": "9ccad7589001d88b0cf4379b79037c69e51cddef7ff94328c4d9a8d6db0b5a5d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "gitBlob": "121d4701c35f43af57b204ef5ca5eca8644b834a",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "bytes": 40223,
+      "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "gitBlob": "6b362abbd987c44f25d88a311b9ed9ace8031eea",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "bytes": 56821,
+      "sha256": "f1c1d24425f08b66cccc77d63c3fa7385c52ea51177c2d5eb6853915cb989758",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "gitBlob": "8a9a017e12f40698559c9d6acc9c0dd1763438a4",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "bytes": 69467,
+      "sha256": "dc98a4bf271e2fd4400cf90c2cbfc41e3a93ee4bb15ad45d2d1864c4004e7755",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "gitBlob": "ddffcef9e6c3e5bc70bfb0f4d79f0f4f00dda7c0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "bytes": 89677,
+      "sha256": "06099c999b674189b973bc75344132d25d23cd1a73f87777c92b89c17905f775",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "gitBlob": "725dff882d61edbc6c901d5a6925b7183716753f",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13r-event-stream.js",
+      "bytes": 26858,
+      "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13r-event-stream.js",
+      "gitBlob": "ecbe13c60016907dcbfeab87850d4f2e599ad9c6",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "bytes": 76468,
+      "sha256": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13s-scheduler.js",
+      "gitBlob": "87d1935169f0f54036b0caedcd80a3c6bbe98395",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "bytes": 34363,
+      "sha256": "14dbecff43342ff285faa8206ba0f164a4d2771df0291761a8b72fa0c8916b3a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13t-steward-schedule.js",
+      "gitBlob": "905b922904b929e62994376df9577234b2a6676c",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13u-migration-center.js",
+      "bytes": 59592,
+      "sha256": "ebf1f82fe28bad36f1822b577fee0cbb3667db1f025d7a3acd1da585d2beaa0d",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13u-migration-center.js",
+      "gitBlob": "4331ab9b821e15f481bef77ada80a8c88f3602fb",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "bytes": 14755,
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "gitBlob": "c8e7d58e06613f9112f3057a0e6328a3a3ff3b24",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "bytes": 63633,
+      "sha256": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13w-external-bots.js",
+      "gitBlob": "a2df168743bb2b7f3110974ad7baf9e2e3224616",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "bytes": 9465,
+      "sha256": "86fca44373a8ed7f434c6bb61ad5b2054dcea716d21178601ab929b680e8f8db",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "gitBlob": "b92ef02cdc14fea6e888fc271ad779a984baf477",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "bytes": 12055,
+      "sha256": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "gitBlob": "69954be414535d43494630911f117b4fa9a8f36a",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "bytes": 6315,
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "gitBlob": "6c95791ca236aa4051bf3f47e63130ed53a92fc3",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/14-main.js",
+      "bytes": 38366,
+      "sha256": "6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/14-main.js",
+      "gitBlob": "77669f64462e546f1d222fe7fdf215bbf86a3b05",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "sha256": "efd179eff5a1922aa9dd62fcff91eafb20b3ca9614926e43340ef69f7600be64",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/manifest.json",
+      "gitBlob": "957177e487b9da5a8ac0555e65dba90471ecc0e0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 698045,
+      "sha256": "d52ef1b08205293fac26f7df1f5ed67a69c99f2a9d9a410a79210ad8af1ef08a",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/app/src/module-contracts.json",
+      "gitBlob": "ca56014bae970bc28bbee9235d2dbcb505586123",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "bytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-ax.m",
+      "gitBlob": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-events.m",
+      "gitBlob": "82ab216b0568f56d92662356d6f0990b33f897d0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-helper.m",
+      "gitBlob": "6d32ea70c71a62713cb4c10b27330540a09441a0",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-input.m",
+      "gitBlob": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "bytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-ocr.m",
+      "gitBlob": "d17d67f9ac2a3a10791a53c3c706a67efc626e60",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-record-events.m",
+      "gitBlob": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-record.m",
+      "gitBlob": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-sequence.m",
+      "gitBlob": "5d0c13e99777641a62cb58ad5ace0f0432e423ca",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 8641,
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation-session.m",
+      "gitBlob": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4588,
+      "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-automation.h",
+      "gitBlob": "e2e80381d56c82e80a81778420876898cb92544b",
+      "matches": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+      "kind": "sources",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/resources/macos-process-helper.c",
+      "gitBlob": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+      "matches": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "kind": "artifacts",
+      "realpath": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "matches": true
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "402d561d3800362a490336055a559625797c0ca7b50f25f26a08a03d4acdd2af",
+      "kind": "artifacts",
+      "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "matches": true
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "label": "native",
+  "argv": [
+    "node",
+    "dev-harness/macos-native-entry.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-effect-worktree",
+  "envOverrides": {
+    "RUYI_P5_ENTRY_REQUIRED": "1",
+    "RUYI_P5_ENTRY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_P5_ENTRY_EVIDENCE": "/tmp/ruyi-p5-effect-evidence/independent-v1/native",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T12:53:56.461626+00:00",
+  "freezeSha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e",
+  "nodeVersion": "v24.15.0",
+  "retry": false,
+  "priorAttempt": null,
+  "finishedAt": "2026-11-11T12:54:01.060506+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 4.583401083989884,
+  "logSha256": "aafadb7288e72af1e39ceb30a929f90a66a67c216e25a777ffa27988c40559c5"
+}

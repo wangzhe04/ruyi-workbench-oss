@@ -1905,11 +1905,43 @@
             "evidence": "evidence/P5/durable-history/README.md",
             "independentReport": "evidence/P5/durable-history/independent-v1/report.json",
             "commitBinding": "evidence/P5/durable-history/commit-binding.json"
+          },
+          "compoundEffectLedgerSlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_returned_effect_summary_scope",
+            "implementationCommit": "75c593e3",
+            "productRuntimeSourceChanged": true,
+            "scope": "Bounded raw-result projection before display shrinking; returned compound children and known conditional leaves; reported/unknown and incomplete fields preserved through fold/API. Python invocation attempt metadata is not native dispatch/body-entry/terminal proof.",
+            "independentCases": {
+              "unit": 13,
+              "python": 5,
+              "offline": 16,
+              "nativeEntry": 34
+            },
+            "independentLaunchHistory": "First Python launch failed in dyld before tests due missing runner loader environment; corrected environment executed5 tests once. Original failure preserved.",
+            "finalEngineering": {
+              "syntax": 1161,
+              "unitPassed": 2521,
+              "unitExistingSkipped": 18,
+              "fastPassed": 80,
+              "fastFlaky": 0
+            },
+            "evidence": "evidence/P5/tool-effect-audit/README.md",
+            "independentReport": "evidence/P5/tool-effect-audit/independent-report-v1.json",
+            "commitBinding": "evidence/P5/tool-effect-audit/commit-binding.json",
+            "remainingRequirementMapping": "evidence/P5/remaining-resolution-2026-11-11-effects.json"
           }
         }
       ],
       "startedDate": "2026-11-08",
-      "owner": "Codex"
+      "owner": "Codex",
+      "unattendedExecution": {
+        "instruction": "后续开发无人值守，你完成后整体验收P5，然后恢复自动锁屏",
+        "status": "active",
+        "restoreAutomaticLockAfter": "full_P5_acceptance",
+        "restorationStatus": "pending",
+        "evidence": "evidence/P5/unattended-instruction-2026-11-11.json"
+      }
     },
     {
       "id": "P6",

@@ -79,3 +79,5 @@ P5-05 受控原生录制切片已通过当前主机独立验收，二十一条�
 96db15f6新增零输入根进程强杀校准，主执行与独立各12项通过：原5个已观察身份退出、输入中性、GET重启不重放。权限请求名/参数及allow意图仍在；dispatch/ACC wait-entry与执行终局持久归属未确认，完整hard-abort门保持开放。仅测试/夹具/清册变化。[记录](evidence/P5/hard-abort/README.md)。
 
 7f95d654修复普通Provider主回合工具意图/逐结果持久化及严格保存屏障，未知与确未派发收尾分开，恢复并行展示有界并支持原生图片数组附件。独立新unit9/offline11/零输入12/入口31通过，最终工程语法1158、单元2508/18既有skip、fast80/80；初次保存普查79/80失败及修正保留。请求记录不等于实际ACC派发/入口/终局或held门通过，Node范围未新验App。[记录](evidence/P5/durable-history/README.md)。
+
+75c593e3修复已执行宏内部动作漏入不可逆摘要的问题：在展示压缩前提取有界返回步骤，保留reported/unknown、call/step及incomplete，经跨回合折叠和API不丢失；等待/只读/本地拒绝不虚报已执行。独立unit13/Python5/离线16/真实入口34通过，工程语法1161、单元2521/18既有跳过、fast80/80。首次独立Python因runner缺加载环境未进测试，修正后执行一次；开发初败、审查修正及旧静态锁失败均保留。208来源/2实际产物绑定，不代表native派发/终局、held释放或整体验收。按用户要求继续无人值守，P5整体验收后恢复自动锁屏。[分类记录](evidence/P5/tool-effect-audit/README.md) [最新剩余映射](evidence/P5/remaining-resolution-2026-11-11-effects.json)。

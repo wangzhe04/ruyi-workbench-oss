@@ -1,0 +1,18 @@
+{
+  "label": "unit",
+  "argv": [
+    "node",
+    "--test",
+    "dev-harness/unit/compound-effect-audit.test.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-effect-worktree",
+  "envOverrides": {},
+  "startedAt": "2026-11-11T12:52:30.006556+00:00",
+  "freezeSha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e",
+  "nodeVersion": "v24.15.0",
+  "retry": false,
+  "finishedAt": "2026-11-11T12:52:30.164907+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 0.1423720000020694,
+  "logSha256": "108f37e204dc047feecbb35123d35148a082cd9c664213820c80c7079ad9a7ff"
+}

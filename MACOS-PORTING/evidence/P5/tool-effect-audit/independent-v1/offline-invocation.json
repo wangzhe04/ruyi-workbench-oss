@@ -1,0 +1,20 @@
+{
+  "label": "offline",
+  "argv": [
+    "node",
+    "dev-harness/compound-effect-audit.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-effect-worktree",
+  "envOverrides": {
+    "RUYI_EFFECT_EVIDENCE": "/tmp/ruyi-p5-effect-evidence/independent-v1/offline"
+  },
+  "startedAt": "2026-11-11T12:53:40.736273+00:00",
+  "freezeSha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e",
+  "nodeVersion": "v24.15.0",
+  "retry": false,
+  "priorAttempt": null,
+  "finishedAt": "2026-11-11T12:53:42.037857+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 1.286628166999435,
+  "logSha256": "ec2182369d589d2bb95f88d74cb08bd5b5bff4eb5e25cf3ec85e1235b1a04eb9"
+}
