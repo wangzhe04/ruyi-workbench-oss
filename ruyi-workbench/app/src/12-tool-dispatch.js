@@ -293,7 +293,8 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
-    if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
+    // Provider proxies carry their live session/turn in ctx; CLI MCP children use the loaded fallback.
+    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, ctx || { sessionId: sid, turnSeq: sidSession.turnSeq });
     const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
