@@ -1,5 +1,6 @@
 // Atomic, target-bound input sequences. No held key or button survives a request.
 #import "macos-automation.h"
+#import <Carbon/Carbon.h>
 #include <pthread.h>
 
 static pthread_mutex_t eventLock = PTHREAD_MUTEX_INITIALIZER;
@@ -7,12 +8,21 @@ static CGEventSourceRef source;
 static NSMutableSet<NSNumber *> *heldKeys;
 static NSMutableSet<NSNumber *> *heldButtons;
 static CGPoint lastPoint;
+static CGEventFlags pointerInitialModifiers;
+static BOOL pointerRestorePending;
+static CGEventFlags pointerOwnedModifiers;
 static BOOL stopping;
 static pid_t keyboardPID;
+static NSString *keyboardIdentity;
 static NSArray *pendingClipboard;
 static NSInteger pendingClipboardVersion;
 static NSString *clipboardRestoreState = @"none";
 static BOOL clipboardWriteActive;
+#ifdef RUYI_AUTOMATION_TESTING
+static BOOL testBlockedSequence;
+static BOOL testReleaseAllocationFailure;
+static BOOL testReleasePermissionDenied;
+#endif
 static CGPoint Pointer(void);
 
 BOOL RuyiAutomationEventsStopping(void) {
@@ -76,30 +86,83 @@ static CGEventType ButtonEvent(CGMouseButton button, BOOL down) {
     return down ? kCGEventOtherMouseDown : kCGEventOtherMouseUp;
 }
 
-void RuyiAutomationReleaseEvents(void) {
+static CGEventFlags PointerModifierMask(void) {
+    CGEventFlags flags = 0;
+    for (CGKeyCode code = 54; code <= 63; code++)
+        flags |= RuyiAutomationSequenceModifier(code) | RuyiAutomationSequenceDeviceModifier(code);
+    return flags;
+}
+
+static CGEventFlags RestoredPointerFlags(void) {
+    // HID state also includes our injected events. Clear only the last owned modifier/device bits,
+    // preserving current independent flags and any other modifier introduced during the request.
+    CGEventFlags flags = (CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState) & ~pointerOwnedModifiers)
+        | (pointerInitialModifiers & pointerOwnedModifiers);
+    for (CGKeyCode code = 54; code <= 63; code++)
+        if (flags & RuyiAutomationSequenceDeviceModifier(code)) flags |= RuyiAutomationSequenceModifier(code);
+    return flags;
+}
+
+BOOL RuyiAutomationReleaseEvents(void) {
     @autoreleasepool {
         pthread_mutex_lock(&eventLock);
-        for (NSNumber *key in heldKeys) {
-            CGEventRef event = CGEventCreateKeyboardEvent(source, key.unsignedShortValue, false);
+        BOOL pending = heldKeys.count || heldButtons.count || pointerRestorePending;
+        if (!pending) { pthread_mutex_unlock(&eventLock); return YES; }
+        BOOL canPost = AXIsProcessTrusted() && CGPreflightPostEventAccess();
+#ifdef RUYI_AUTOMATION_TESTING
+        if (testReleaseAllocationFailure) canPost = YES;
+        if (testReleasePermissionDenied) canPost = NO;
+#endif
+        if (!canPost) { pthread_mutex_unlock(&eventLock); return NO; }
+        for (NSNumber *key in [heldKeys copy]) {
+            if (![keyboardIdentity isEqual:RuyiAutomationProcessIdentity(keyboardPID)]) continue;
+            CGEventRef event = NULL;
+#ifdef RUYI_AUTOMATION_TESTING
+            if (!testReleaseAllocationFailure)
+#endif
+                event = CGEventCreateKeyboardEvent(source, key.unsignedShortValue, false);
             if (event) {
                 CGEventSetFlags(event, 0);
+                if (RuyiAutomationSequenceModifier(key.unsignedShortValue)) CGEventSetType(event, kCGEventFlagsChanged);
                 CGEventPostToPid(keyboardPID, event);
                 CFRelease(event);
+                [heldKeys removeObject:key];
             }
         }
         CGPoint current = Pointer();
         CGPoint releasePoint = isfinite(current.x) && isfinite(current.y) ? current : lastPoint;
-        for (NSNumber *button in heldButtons) {
-            CGEventRef event = CGEventCreateMouseEvent(
-                source, ButtonEvent(button.unsignedIntValue, NO), releasePoint, button.unsignedIntValue);
+        for (NSNumber *button in [heldButtons copy]) {
+            CGEventRef event = NULL;
+#ifdef RUYI_AUTOMATION_TESTING
+            if (!testReleaseAllocationFailure)
+#endif
+                event = CGEventCreateMouseEvent(source, ButtonEvent(button.unsignedIntValue, NO), releasePoint, button.unsignedIntValue);
             if (event) {
+                // The private pointer source may still carry a modifier from the interrupted drag.
+                CGEventSetFlags(event, RestoredPointerFlags());
                 CGEventPost(kCGHIDEventTap, event);
+                pointerRestorePending = NO;
                 CFRelease(event);
+                [heldButtons removeObject:button];
             }
         }
-        [heldKeys removeAllObjects];
-        [heldButtons removeAllObjects];
+        if (pointerRestorePending) {
+            // Target-directed keyboard releases do not reset WindowServer's pointer modifier state.
+            CGEventRef reset = NULL;
+#ifdef RUYI_AUTOMATION_TESTING
+            if (!testReleaseAllocationFailure)
+#endif
+                reset = CGEventCreateMouseEvent(source, kCGEventMouseMoved, releasePoint, kCGMouseButtonLeft);
+            if (reset) {
+                CGEventSetFlags(reset, RestoredPointerFlags());
+                CGEventPost(kCGHIDEventTap, reset);
+                CFRelease(reset);
+                pointerRestorePending = NO;
+            }
+        }
+        BOOL cleaned = heldKeys.count == 0 && heldButtons.count == 0 && !pointerRestorePending;
         pthread_mutex_unlock(&eventLock);
+        return cleaned;
     }
 }
 
@@ -142,6 +205,8 @@ static BOOL PostMouse(CGEventType type, CGPoint point, CGMouseButton button, NSI
     CGEventRef event = source && !stopping ? CGEventCreateMouseEvent(source, type, point, button) : NULL;
     if (event) {
         CGEventSetFlags(event, 0);
+        pointerOwnedModifiers = 0;
+        pointerRestorePending = pointerInitialModifiers != 0;
         CGEventSetIntegerValueField(event, kCGMouseEventClickState, click);
         if (!heldButtons)
             heldButtons = [NSMutableSet set];
@@ -188,6 +253,8 @@ static NSDictionary *FocusGuard(NSDictionary *row, AXUIElementRef window, NSTime
     if (!AXIsProcessTrusted() || !CGPreflightPostEventAccess())
         return RuyiAutomationFailure(@"permission_denied",
                                      @"Enable Accessibility and event posting for the responsible application");
+    NSDictionary *sourceFailure = RuyiAutomationInputSourceGuard(row[@"expected_input_source"]);
+    if (sourceFailure) return sourceFailure;
     NSDictionary *current = RuyiAutomationCheckTarget(row[@"target"]);
     if (current[@"error"])
         return current;
@@ -245,7 +312,7 @@ NSDictionary *RuyiAutomationPointGuard(NSDictionary *row, AXUIElementRef window,
                                            @"Accessibility hit testing did not confirm the bound window");
 }
 
-static NSDictionary *KeyMap(void) {
+static NSDictionary *MacKeyMap(void) {
     return @{
         @"a" : @0,
         @"s" : @1,
@@ -333,6 +400,13 @@ static NSDictionary *KeyMap(void) {
     };
 }
 
+NSString *RuyiAutomationKeyName(CGKeyCode code) {
+    for (NSString *name in [MacKeyMap().allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        if ([MacKeyMap()[name] unsignedShortValue] == code) return name;
+    }
+    return nil;
+}
+
 static CGEventFlags Modifier(CGKeyCode key) {
     switch (key) {
     case 55:
@@ -348,8 +422,7 @@ static CGEventFlags Modifier(CGKeyCode key) {
     }
 }
 
-static BOOL Chord(NSArray<NSNumber *> *keys) {
-    CGEventFlags flags = 0;
+static BOOL Chord(NSArray<NSNumber *> *keys, CGEventFlags flags) {
     for (NSNumber *key in keys) {
         flags |= Modifier(key.unsignedShortValue);
         if (!PostKey(key.unsignedShortValue, YES, flags, nil)) {
@@ -377,7 +450,7 @@ NSArray *RuyiAutomationChordKeys(id parts, NSDictionary **failure) {
     }
     NSMutableArray *keys = [NSMutableArray array];
     for (id part in parts) {
-        NSNumber *key = [part isKindOfClass:NSString.class] ? KeyMap()[[part lowercaseString]] : nil;
+        NSNumber *key = [part isKindOfClass:NSString.class] ? MacKeyMap()[[part lowercaseString]] : nil;
         if (!key || [keys containsObject:key]) {
             *failure = RuyiAutomationFailure(@"invalid_args", @"Unknown or repeated Mac key name"); return nil;
         }
@@ -410,8 +483,13 @@ NSDictionary *RuyiAutomationValidateText(NSDictionary *request) {
 }
 
 static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElementRef window) {
+    if (request[@"input_source"]) {
+        NSMutableDictionary *guarded = [row mutableCopy];
+        guarded[@"expected_input_source"] = request[@"input_source"]; row = guarded;
+    }
     pthread_mutex_lock(&eventLock);
     keyboardPID = [row[@"pid"] intValue];
+    keyboardIdentity = RuyiAutomationProcessIdentity(keyboardPID);
     pthread_mutex_unlock(&eventLock);
     NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 8;
     NSString *op = request[@"op"];
@@ -419,10 +497,15 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
         NSDictionary *failure = nil;
         NSArray *keys = RuyiAutomationChordKeys(request[@"keys"], &failure);
         if (!keys) return failure;
+        CGEventFlags eventFlags;
+        failure = RuyiAutomationKeyboardEventFlags(request[@"event_flags"], &eventFlags);
+        if (failure) return failure;
         failure = FocusGuard(row, window, deadline);
         if (failure)
             return failure;
-        BOOL sent = Chord(keys);
+        BOOL sent = Chord(keys, eventFlags);
+        failure = RuyiAutomationInputSourceGuard(row[@"expected_input_source"]);
+        if (failure) return InputFailure(failure, YES);
         return sent ? @{
             @"ok" : @YES,
             @"protocolVersion" : @1,
@@ -452,7 +535,7 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
                 return written;
             acted = YES;
             failure = FocusGuard(row, window, deadline);
-            if (!failure && !Chord(@[ @55, @9 ]))
+            if (!failure && !Chord(@[ @55, @9 ], 0))
                 failure = RuyiAutomationFailure(@"input_failed", @"Cannot create Cmd+V events");
             if (!failure)
                 Wait(MIN(2, 0.4 + text.length / 20000.0));
@@ -465,9 +548,9 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
                 NSString *unit = [text substringWithRange:range];
                 BOOL sent;
                 if ([unit isEqual:@"\n"] || [unit isEqual:@"\r"] || [unit isEqual:@"\r\n"])
-                    sent = Chord(@[ @36 ]);
+                    sent = Chord(@[ @36 ], 0);
                 else if ([unit isEqual:@"\t"])
-                    sent = Chord(@[ @48 ]);
+                    sent = Chord(@[ @48 ], 0);
                 else
                     sent = PostKey(0, YES, 0, unit) && PostKey(0, NO, 0, unit);
                 acted = YES;
@@ -483,7 +566,7 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
             failure = FocusGuard(row, window, deadline);
             if (!failure) {
                 acted = YES;
-                if (!Chord(@[ @36 ]))
+                if (!Chord(@[ @36 ], 0))
                     failure = RuyiAutomationFailure(@"input_failed", @"Cannot create Enter events");
             }
         }
@@ -649,6 +732,91 @@ static NSDictionary *Mouse(NSDictionary *request, NSDictionary *row, AXUIElement
     return out;
 }
 
+static NSDictionary *Sequence(NSDictionary *request, NSDictionary *row, AXUIElementRef window) {
+    NSDictionary *failure = RuyiAutomationValidateSequence(request[@"events"], row[@"target"][@"bounds"], YES);
+    if (failure) return failure;
+    if (!request[@"input_source"]) return RuyiAutomationFailure(@"invalid_args", @"Bind input.sequence to its keyboard input source");
+    failure = RuyiAutomationInputSourceGuard(request[@"input_source"]);
+    if (failure) return failure;
+    NSMutableDictionary *guarded = [row mutableCopy]; guarded[@"expected_input_source"] = request[@"input_source"]; row = guarded;
+    NSTimeInterval started = NSProcessInfo.processInfo.systemUptime, deadline = started + 8;
+    BOOL acted = NO;
+    NSMutableArray *nativeEvents = [NSMutableArray array];
+    pthread_mutex_lock(&eventLock);
+    if (!source) source = CGEventSourceCreate(kCGEventSourceStatePrivate);
+    keyboardPID = [row[@"pid"] intValue];
+    keyboardIdentity = RuyiAutomationProcessIdentity(keyboardPID);
+    if (!heldKeys) heldKeys = [NSMutableSet set];
+    if (!heldButtons) heldButtons = [NSMutableSet set];
+    pthread_mutex_unlock(&eventLock);
+    @try {
+        // Check the entire suffix and allocate every event before the first input can be sent.
+        for (NSDictionary *item in request[@"events"]) {
+            failure = FocusGuard(row, window, deadline);
+            if (!failure && IsSecureEventInputEnabled()) failure = RuyiAutomationFailure(@"secure_input", @"Sequence unavailable during secure input");
+            if (!failure && item[@"x"]) failure = RuyiAutomationPointGuard(row, window, CGPointMake([item[@"x"] doubleValue], [item[@"y"] doubleValue]));
+            if (failure) break;
+            CGEventRef event = source ? RuyiAutomationCreateSequenceEvent(item, source) : NULL;
+            if (!event) { failure = RuyiAutomationFailure(@"input_failed", @"Cannot allocate the complete input sequence"); break; }
+            [nativeEvents addObject:[NSValue valueWithPointer:event]];
+        }
+        NSTimeInterval replayStarted = NSProcessInfo.processInfo.systemUptime;
+        NSUInteger index = 0;
+        for (NSDictionary *item in request[@"events"]) {
+            if (failure) break;
+            NSTimeInterval due = replayStarted + [item[@"at_us"] doubleValue] / 1000000;
+            while (!failure && NSProcessInfo.processInfo.systemUptime < due) {
+                failure = FocusGuard(row, window, deadline);
+                if (!failure && IsSecureEventInputEnabled()) failure = RuyiAutomationFailure(@"secure_input", @"Secure input interrupted the sequence");
+                if (!failure) Wait(MIN(.01, due - NSProcessInfo.processInfo.systemUptime));
+            }
+            if (!failure) failure = FocusGuard(row, window, deadline);
+            if (!failure && IsSecureEventInputEnabled()) failure = RuyiAutomationFailure(@"secure_input", @"Secure input interrupted the sequence");
+            if (!failure && item[@"x"]) failure = RuyiAutomationPointGuard(row, window, CGPointMake([item[@"x"] doubleValue], [item[@"y"] doubleValue]));
+            if (failure) break;
+            CGEventRef event = (CGEventRef)[nativeEvents[index++] pointerValue];
+            NSString *type = item[@"type"];
+            pthread_mutex_lock(&eventLock);
+            if (stopping) {
+                pthread_mutex_unlock(&eventLock);
+                failure = RuyiAutomationFailure(@"input_cancelled", @"Input worker is stopping"); break;
+            }
+            if ([type isEqual:@"key_down"]) [heldKeys addObject:item[@"keycode"]];
+            if ([type isEqual:@"key_up"]) [heldKeys removeObject:item[@"keycode"]];
+            if ([type isEqual:@"flags"] && [item[@"keycode"] intValue] != 57) {
+                if ([heldKeys containsObject:item[@"keycode"]]) [heldKeys removeObject:item[@"keycode"]];
+                else [heldKeys addObject:item[@"keycode"]];
+            }
+            if ([type isEqual:@"mouse_down"]) [heldButtons addObject:item[@"button"]];
+            if ([type isEqual:@"mouse_up"]) [heldButtons removeObject:item[@"button"]];
+            CGEventSetTimestamp(event, (CGEventTimestamp)(NSProcessInfo.processInfo.systemUptime * 1000000000));
+            if ([type hasPrefix:@"key_"] || [type isEqual:@"flags"]) CGEventPostToPid(keyboardPID, event);
+            else {
+                lastPoint = CGEventGetLocation(event);
+                CGEventFlags flags = CGEventGetFlags(event);
+                pointerOwnedModifiers = flags & PointerModifierMask();
+                for (NSNumber *key in heldKeys)
+                    if (flags & RuyiAutomationSequenceModifier(key.unsignedShortValue))
+                        pointerOwnedModifiers |= RuyiAutomationSequenceDeviceModifier(key.unsignedShortValue);
+                pointerRestorePending = (flags & PointerModifierMask()) != pointerInitialModifiers;
+                CGEventPost(kCGHIDEventTap, event);
+            }
+            acted = YES;
+            pthread_mutex_unlock(&eventLock);
+#ifdef RUYI_AUTOMATION_TESTING
+            if (testBlockedSequence && [type isEqual:@"mouse_down"]) [NSThread sleepForTimeInterval:30];
+#endif
+        }
+        if (!failure) failure = FocusGuard(row, window, deadline);
+        if (!failure && IsSecureEventInputEnabled()) failure = RuyiAutomationFailure(@"secure_input", @"Secure input interrupted the sequence");
+    } @finally {
+        RuyiAutomationReleaseEvents();
+        for (NSValue *value in nativeEvents) CFRelease((CGEventRef)value.pointerValue);
+    }
+    return failure ? InputFailure(failure, acted) : @{@"ok":@YES, @"protocolVersion":@1,
+        @"acted":@(acted), @"action_sent":@(acted), @"verification":@"events_posted", @"event_count":@(nativeEvents.count)};
+}
+
 NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request) {
     NSSet *keys = [NSSet setWithArray:@[
         @"version",
@@ -667,11 +835,21 @@ NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request) {
         @"button",
         @"clicks",
         @"amount",
-        @"direction"
+        @"direction",
+        @"input_source",
+        @"event_flags",
+        @"events"
     ]];
     for (NSString *key in request)
         if (![keys containsObject:key])
             return RuyiAutomationFailure(@"invalid_args", @"Unexpected input field");
+    if ([request[@"op"] isEqual:@"input.sequence"]) {
+        NSSet *sequenceKeys = [NSSet setWithArray:@[@"op", @"version", @"target", @"events", @"input_source"]];
+        for (NSString *key in request) if (![sequenceKeys containsObject:key]) return RuyiAutomationFailure(@"invalid_args", @"Unexpected sequence field");
+        for (CGKeyCode key = 0; key < 128; key++)
+            if (CGEventSourceKeyState(kCGEventSourceStateHIDSystemState, key))
+                return RuyiAutomationFailure(@"physical_input_busy", @"Release physical keyboard keys before automated input");
+    }
     if (RuyiAutomationLocked())
         return RuyiAutomationFailure(@"session_locked", @"Unlock the desktop before querying or sending input");
     NSString *op = request[@"op"];
@@ -690,8 +868,16 @@ NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request) {
     if (!AXIsProcessTrusted() || !CGPreflightPostEventAccess())
         return RuyiAutomationFailure(@"permission_denied",
                                      @"Enable Accessibility and event posting for the responsible application");
+    BOOL cleanupPending = !RuyiAutomationReleaseEvents();
+    pthread_mutex_lock(&eventLock);
+    if (!cleanupPending) {
+        pointerOwnedModifiers = 0;
+        pointerInitialModifiers = CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState) & PointerModifierMask();
+    }
+    pthread_mutex_unlock(&eventLock);
+    if (cleanupPending) return RuyiAutomationFailure(@"input_cleanup_unconfirmed", @"Prior owned input has not been released");
     CGEventFlags modifiers =
-        kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift;
+        kCGEventFlagMaskCommand | kCGEventFlagMaskControl | kCGEventFlagMaskAlternate | kCGEventFlagMaskShift | kCGEventFlagMaskSecondaryFn;
     if (CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState) & modifiers)
         return RuyiAutomationFailure(@"physical_input_busy", @"Release physical modifier keys before automated input");
     for (CGMouseButton button = 0; button <= 2; button++)
@@ -706,16 +892,57 @@ NSDictionary *RuyiAutomationEventsRequest(NSDictionary *request) {
     if (!window)
         return failure;
     NSDictionary *result;
+    BOOL cleaned = NO;
     @try {
-        result = [op hasPrefix:@"keyboard."] ? Keyboard(request, row, window) : Mouse(request, row, window);
+        result = [op isEqual:@"input.sequence"] ? Sequence(request, row, window)
+            : [op hasPrefix:@"keyboard."] ? Keyboard(request, row, window) : Mouse(request, row, window);
     } @finally {
-        RuyiAutomationReleaseEvents();
+        cleaned = RuyiAutomationReleaseEvents();
         CFRelease(window);
+    }
+    if (!cleaned) {
+        NSMutableDictionary *out = [result mutableCopy];
+        [out addEntriesFromDictionary:InputFailure(RuyiAutomationFailure(@"input_cleanup_unconfirmed", @"Owned input release could not be completed"),
+            [result[@"acted"] boolValue] || [result[@"action_sent"] boolValue])];
+        out[@"outcome"] = @"unknown";
+        return out;
     }
     return result;
 }
 
 #ifdef RUYI_AUTOMATION_TESTING
+NSDictionary *RuyiAutomationTestReleaseAllocation(void) {
+    keyboardPID = NSProcessInfo.processInfo.processIdentifier;
+    keyboardIdentity = RuyiAutomationProcessIdentity(keyboardPID);
+    heldKeys = [NSMutableSet setWithObject:@0]; heldButtons = [NSMutableSet setWithObject:@0];
+    pointerRestorePending = YES; testReleaseAllocationFailure = YES;
+    BOOL cleaned = RuyiAutomationReleaseEvents();
+    BOOL retained = heldKeys.count == 1 && heldButtons.count == 1 && pointerRestorePending;
+    BOOL crossToolBlocked = YES;
+    for (NSString *operation in @[@"window.focus", @"window.move", @"clipboard.set", @"application.launch"]) {
+        NSDictionary *refused = RuyiAutomationInputRequest(@{@"op":operation, @"version":@1});
+        crossToolBlocked = crossToolBlocked && ![refused[@"ok"] boolValue]
+            && [refused[@"code"] isEqual:@"input_cleanup_unconfirmed"] && [refused[@"action_sent"] isEqual:@NO]
+            && [refused[@"outcome"] isEqual:@"unknown"];
+    }
+    crossToolBlocked = crossToolBlocked && heldKeys.count == 1 && heldButtons.count == 1 && pointerRestorePending;
+    testReleaseAllocationFailure = NO; testReleasePermissionDenied = YES;
+    BOOL permissionRetained = !RuyiAutomationReleaseEvents() && heldKeys.count == 1 && heldButtons.count == 1 && pointerRestorePending;
+    // These are memory-only fixture entries. No down event was ever posted.
+    [heldKeys removeAllObjects]; [heldButtons removeAllObjects]; pointerRestorePending = NO;
+    testReleasePermissionDenied = NO;
+    return @{@"ok":@YES, @"protocolVersion":@1, @"cleanup_refused":cleaned ? @NO : @YES,
+        @"ownership_retained":@(retained), @"permission_ownership_retained":@(permissionRetained),
+        @"cross_tool_blocked":@(crossToolBlocked)};
+}
+
+NSDictionary *RuyiAutomationTestBlockedSequence(NSDictionary *request) {
+    NSMutableDictionary *payload = [request mutableCopy]; payload[@"op"] = @"input.sequence";
+    testBlockedSequence = YES;
+    @try { return RuyiAutomationEventsRequest(payload); }
+    @finally { testBlockedSequence = NO; }
+}
+
 NSDictionary *RuyiAutomationTestBlockedClipboard(NSDictionary *request) {
     if (RuyiAutomationLocked()) return RuyiAutomationFailure(@"session_locked", @"Unlock the controlled clipboard fixture");
     NSString *text = request[@"text"];

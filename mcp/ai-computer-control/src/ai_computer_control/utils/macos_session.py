@@ -66,12 +66,18 @@ def _session():
     return _SESSION
 
 
-def request(payload, timeout=15):
+def request(payload, timeout=15, cancel_event=None, cancel_lock=None):
     """Send one frame, close an uncertain worker, and return a typed result without retrying a mutation."""
+    if cancel_event is not None and cancel_lock is None:
+        raise DesktopError("invalid_args", "Cancellable requests require their cancellation write lock",
+                           {"action_sent": False, "outcome": "not_dispatched"})
     if not _LOCK.acquire(blocking=False):
         raise DesktopError("desktop_busy", "Another native input request is already running")
     sent = False
+    cancel_requested = False
     try:
+        if cancel_event is not None and cancel_event.is_set():
+            raise DesktopError("input_cancelled", "Native input was cancelled before dispatch", {"action_sent": False, "outcome": "not_dispatched"})
         session = _session()
         child = session["child"]
         session["next_id"] += 1
@@ -84,12 +90,27 @@ def request(payload, timeout=15):
             streams.register(child.stdin, selectors.EVENT_WRITE)
             streams.register(child.stdout, selectors.EVENT_READ)
             while b"\n" not in output:
+                if cancel_event is not None and cancel_event.is_set() and not cancel_requested:
+                    cancel_requested = True
+                    # This request owns both the lock and this exact Popen object. Stop it without
+                    # waiting for close_input_session's lock, then collect the native cleanup result.
+                    child.terminate()
+                    deadline = min(deadline, time.monotonic() + 1.5)
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise DesktopError("input_session_timeout", "Native input request exceeded its deadline")
-                for key, _ in streams.select(min(remaining, 0.25)):
+                for key, _ in streams.select(min(remaining, 0.05 if cancel_event is not None else 0.25)):
                     if key.fileobj is child.stdin:
-                        written += os.write(child.stdin.fileno(), data[written:written + 4096])
+                        if cancel_event is None:
+                            written += os.write(child.stdin.fileno(), data[written:written + 4096])
+                        else:
+                            # Serialize the cancellation boundary with the actual write. Once the
+                            # event is set, a partial frame can never gain its terminating newline.
+                            with cancel_lock:
+                                if cancel_event.is_set():
+                                    streams.unregister(child.stdin)
+                                    continue
+                                written += os.write(child.stdin.fileno(), data[written:written + 4096])
                         if written == len(data):
                             streams.unregister(child.stdin)
                             sent = True
@@ -122,6 +143,8 @@ def request(payload, timeout=15):
     except (DesktopError, OSError) as error:
         if isinstance(error, OSError):
             error = DesktopError("input_session_failed", "Native input session communication failed")
+        if cancel_event is not None and cancel_event.is_set() and not sent:
+            error.details.update(action_sent=False, outcome="not_dispatched")
         uncertain = error.code.startswith("input_session_") or error.code == "dependency_changed"
         if uncertain:
             _close_input_session()
@@ -129,6 +152,8 @@ def request(payload, timeout=15):
                 error.details.update(action_sent=True, outcome="unknown")
         raise error
     finally:
+        if cancel_requested:
+            _close_input_session()
         _LOCK.release()
 
 

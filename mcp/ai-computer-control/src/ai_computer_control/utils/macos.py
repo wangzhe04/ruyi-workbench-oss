@@ -20,7 +20,7 @@ WINDOW_TOOLS = frozenset({"get_active_window", "focus_window", "minimize_window"
                           "move_window", "resize_window", "maximize_window"})
 WINDOW_QUERY_TOOLS = frozenset({"list_windows"})
 CLIPBOARD_TOOLS = frozenset({"get_clipboard", "set_clipboard", "get_clipboard_image", "set_clipboard_image"})
-INPUT_TOOLS = frozenset({"type_text", "press_key", "hotkey", "mouse_click", "mouse_move", "mouse_drag", "mouse_scroll", "scroll_at"})
+INPUT_TOOLS = frozenset({"type_text", "press_key", "hotkey", "input_sequence", "mouse_click", "mouse_move", "mouse_drag", "mouse_scroll", "scroll_at"})
 POINTER_QUERY_TOOLS = frozenset({"get_mouse_position"})
 APPLICATION_TOOLS = frozenset({"launch_application"})
 AX_TOOLS = frozenset({"ui_inspect", "ui_find", "ui_invoke"})
@@ -74,7 +74,7 @@ def _failure_details(result):
     for key in ("actual_x", "actual_y"):
         if type(result.get(key)) in (int, float) and math.isfinite(result[key]):
             details[key] = result[key]
-    if result.get("outcome") in ("unknown", "unconfirmed", "rolled_back"):
+    if result.get("outcome") in ("unknown", "unconfirmed", "rolled_back", "not_dispatched"):
         details["outcome"] = result["outcome"]
     for key in ("actual_bounds", "window", "control"):
         if isinstance(result.get(key), dict):
@@ -188,6 +188,14 @@ def capability():
         out.update(recordSupported=status.get("recordSupported") is True,
                    recordReady=bool(status.get("recordSupported") is True and status.get("recordReady")
                                     and out.get("inputReady")), recordSource=status.get("recordSource"))
+        out.update(inputSequenceSupported=status.get('inputSequenceSupported') is True,
+                   inputSequenceReady=bool(status.get('inputSequenceSupported') is True and status.get('inputSequenceReady')
+                                           and out.get('inputReady')))
+        out.update(manualRecordSupported=status.get('manualRecordSupported') is True,
+                   manualRecordReady=bool(status.get('manualRecordSupported') is True and status.get('manualRecordReady')
+                                         and out.get('recordReady')),
+                   listenAuthorization=status.get('listenAuthorization', 'unknown'),
+                   recordSources=status.get('recordSources', []), recordInputSource=status.get('recordInputSource'))
         out.update(authorization=status.get("authorization", "unknown"), locked=status.get("locked"),
                    ready=bool(status.get("ready") and status.get("authorization") == "granted"
                               and status.get("locked") is False and status["monitors"]))

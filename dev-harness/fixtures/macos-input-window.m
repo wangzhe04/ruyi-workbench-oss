@@ -2,7 +2,7 @@
 #import "macos-clipboard-fixture.h"
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
-#ifdef RUYI_RECORD_FIXTURE
+#if defined(RUYI_RECORD_FIXTURE) || defined(RUYI_MANUAL_FIXTURE)
 #import <Carbon/Carbon.h>
 #endif
 
@@ -19,6 +19,24 @@ static BOOL reportPaste;
 static BOOL reportDrag;
 static NSString *trackedClipboardText;
 static void Report(NSString *event);
+#ifdef RUYI_MANUAL_FIXTURE
+static TISInputSourceRef originalSource;
+static NSString *selectedSource;
+static NSString *SourceID(void) {
+    TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
+    NSString *identifier = source ? [(__bridge NSString *)TISGetInputSourceProperty(source, kTISPropertyInputSourceID) copy] : @"";
+    if (source) CFRelease(source);
+    return identifier;
+}
+static void RestoreSource(void) {
+    if (!originalSource) return;
+    NSString *original = (__bridge NSString *)TISGetInputSourceProperty(originalSource, kTISPropertyInputSourceID);
+    BOOL owned = [SourceID() isEqual:selectedSource];
+    BOOL restored = owned && TISSelectInputSource(originalSource) == noErr && [SourceID() isEqual:original];
+    printf("{\"event\":\"input-source-restore\",\"restored\":%s,\"skipped_external_change\":%s}\n", restored ? "true" : "false", owned ? "false" : "true"); fflush(stdout);
+    CFRelease(originalSource); originalSource = NULL;
+}
+#endif
 static void ChangeClipboard(void) {
     [NSPasteboard.generalPasteboard clearContents];
     [NSPasteboard.generalPasteboard setString:@"P5 controlled concurrent clipboard change"
@@ -190,6 +208,15 @@ static void Report(NSString *event) {
         @"title" : primary.title,
         @"text" : editor.string ?: @"",
         @"counts" : counts,
+#ifdef RUYI_MANUAL_FIXTURE
+        @"inputSource":SourceID(), @"marked":@(editor.hasMarkedText),
+        @"cursorX":@(NSEvent.mouseLocation.x),
+        @"cursorY":@(CGDisplayBounds(CGMainDisplayID()).size.height - NSEvent.mouseLocation.y),
+        @"hidFlags":@(CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState)),
+        @"combinedFlags":@(CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState)),
+        @"hidShift":@(CGEventSourceKeyState(kCGEventSourceStateHIDSystemState, 56)),
+        @"hidLeft":@(CGEventSourceButtonState(kCGEventSourceStateHIDSystemState, 0)),
+#endif
         @"editor" : Bounds(editor),
         @"pad" : Bounds(pad),
         @"clipboardSnapshot" : @(clipboardSnapshot),
@@ -222,6 +249,17 @@ static void ShowCover(void) {
 }
 
 static void Command(NSString *command) {
+#ifdef RUYI_MANUAL_FIXTURE
+    if ([command isEqual:@"clear-neutral"]) { [editor unmarkText]; [editor setString:@""]; }
+    if ([command isEqual:@"source-abc"] || [command isEqual:@"source-pinyin"]) {
+        NSString *identifier = [command isEqual:@"source-abc"] ? @"com.apple.keylayout.ABC" : @"com.apple.inputmethod.SCIM.ITABC";
+        NSArray *sources = CFBridgingRelease(TISCreateInputSourceList((__bridge CFDictionaryRef)@{(__bridge NSString *)kTISPropertyInputSourceID:identifier}, false));
+        if (sources.count) {
+            if (!originalSource) originalSource = TISCopyCurrentKeyboardInputSource();
+            if (TISSelectInputSource((__bridge TISInputSourceRef)sources[0]) == noErr) selectedSource = identifier;
+        }
+    }
+#endif
 #ifdef RUYI_RECORD_FIXTURE
     if ([command isEqual:@"record-move"]) [primary setFrameOrigin:NSMakePoint(primary.frame.origin.x + 40, 80)];
     if ([command isEqual:@"record-resize"]) [primary setContentSize:NSMakeSize(780, 500)];
@@ -314,6 +352,9 @@ int main(int argc, const char *argv[]) {
                       styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
                         backing:NSBackingStoreBuffered
                           defer:NO];
+#ifdef RUYI_MANUAL_FIXTURE
+        [primary setFrameOrigin:NSMakePoint(180, 60)];
+#endif
         primary.releasedWhenClosed = NO;
         primary.title = [NSString stringWithFormat:@"Ruyi P5 Input %d", NSProcessInfo.processInfo.processIdentifier];
         editor = [[NSTextView alloc] initWithFrame:NSMakeRect(20, 220, 720, 260)];
@@ -337,6 +378,9 @@ int main(int argc, const char *argv[]) {
                                                     usingBlock:^(NSNotification *note) {
                                                       (void)note;
                                                       RestoreClipboard();
+#ifdef RUYI_MANUAL_FIXTURE
+                                                      RestoreSource();
+#endif
                                                     }];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
           Report(@"ready");

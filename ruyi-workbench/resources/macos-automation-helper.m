@@ -300,6 +300,12 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
         return;
     }
 #ifdef RUYI_AUTOMATION_TESTING
+    if ([op isEqual:@"test_pointer_subtypes"]) { done(RuyiAutomationTestPointerSubtypes()); return; }
+    if ([op isEqual:@"test_stopped_mutations"]) { done(RuyiAutomationTestStoppedMutations()); return; }
+    if ([op isEqual:@"test_validate_sequence"]) {
+        done(RuyiAutomationValidateSequence(request[@"events"], request[@"bounds"], YES) ?: @{@"ok":@YES, @"protocolVersion":@1}); return;
+    }
+    if ([op isEqual:@"test_release_allocation"]) { done(RuyiAutomationTestReleaseAllocation()); return; }
     if ([op isEqual:@"test_input_state"]) { done(RuyiAutomationTestInputState()); return; }
     if ([op isEqual:@"test_ax_state"]) { done(RuyiAutomationTestAXState(request)); return; }
     // This operation exists only in a separately named test binary. It exercises the production planner.
@@ -307,7 +313,7 @@ static void HandleRequest(NSDictionary *request, void (^done)(NSDictionary *)) {
         done(PlanDisplays(request, request[@"displays"])); return;
     }
 #endif
-    if ([op hasPrefix:@"window."] || [op hasPrefix:@"clipboard."] || [op hasPrefix:@"keyboard."] || [op hasPrefix:@"mouse."]
+    if ([op hasPrefix:@"window."] || [op hasPrefix:@"clipboard."] || [op isEqual:@"input.sequence"] || [op hasPrefix:@"keyboard."] || [op hasPrefix:@"mouse."]
         || [op hasPrefix:@"application."] || [op hasPrefix:@"ax."]) {
         done(RuyiAutomationInputRequest(request)); return;
     }

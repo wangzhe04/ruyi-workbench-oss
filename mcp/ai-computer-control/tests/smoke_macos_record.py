@@ -48,6 +48,69 @@ class RecordingContracts(unittest.TestCase):
         return {'ok': True, 'target': copy.deepcopy(self.target),
                 'application': self.recording()['application'], 'recording_pending': False, **changes}
 
+    def manual_recording(self, actions=None):
+        return {**self.recording(actions if actions is not None else [self.sequence()]), 'schema': 2, 'source': 'native_window_events',
+                'input_source': {'id': 'com.apple.inputmethod.SCIM.ITABC', 'type': 'TISTypeKeyboardInputMode'}}
+
+    def sequence(self, **changes):
+        return {'op': 'input.sequence', 'at': .1, 'ended': .2, 'events': [
+            {'type': 'key_down', 'at_us': 0, 'flags': 0, 'keycode': 45, 'keyboard_type': 91, 'repeat': 0},
+            {'type': 'key_up', 'at_us': 100000, 'flags': 0, 'keycode': 45, 'keyboard_type': 91, 'repeat': 0}], **changes}
+
+    def test_manual_schema_binds_root_input_source_to_every_keyboard_step(self):
+        recording = self.manual_recording()
+        with patch.object(self.core, 'request', return_value=self.current()) as native:
+            steps = self.core.prepare_recording(recording, self.target)
+        self.assertEqual(native.call_args.args[0]['input_source'], recording['input_source'])
+        self.assertEqual(steps[0]['tool'], 'input_sequence')
+        self.assertEqual(steps[0]['args']['input_source'], recording['input_source'])
+        self.assertEqual(steps[0]['args']['events'], recording['actions'][0]['events'])
+
+    def test_explicit_input_source_is_preserved_through_text_and_separate_enters(self):
+        source = {'id': 'com.apple.keylayout.ABC', 'type': 'TISTypeKeyboardLayout'}
+        action = {'op': 'keyboard.text', 'at': 0, 'ended': .2, 'text': '中文', 'paste': True,
+                  'interval': 0, 'enters': 2, 'input_source': source}
+        with patch.object(self.core, 'request', return_value=self.current()):
+            steps = self.core.prepare_recording(self.recording([action]), self.target)
+        self.assertEqual(len(steps), 3)
+        self.assertTrue(all(step['args']['input_source'] == source for step in steps))
+
+    def test_manual_schema_source_pairs_and_metadata_refuse_before_any_native_work(self):
+        invalid = [self.manual_recording(), self.manual_recording(), self.manual_recording(), self.manual_recording()]
+        invalid[0]['schema'] = 1
+        invalid[1].pop('input_source')
+        invalid[2]['input_source']['type'] = 'TISTypeCharacterPalette'
+        invalid[3]['input_source']['pid'] = 123
+        invalid.append({**self.recording(), 'schema': 2})
+        for recording in invalid:
+            with self.subTest(recording=recording), patch.object(self.core, 'request') as native, self.assertRaises(self.macos.DesktopError):
+                self.core.prepare_recording(recording, self.target)
+            native.assert_not_called()
+
+    def test_keyboard_flags_are_typed_and_allow_only_nonposting_modifier_bits(self):
+        for flags in (True, -1, 1 << 17, 1 << 20, 1 << 31, '65536'):
+            action = {'op': 'keyboard.chord', 'at': 0, 'ended': .2, 'keys': ['a'], 'event_flags': flags}
+            with self.subTest(flags=flags), self.assertRaises(self.macos.DesktopError):
+                self.core.validate_recording(self.recording([action]))
+        for flags in (0, 1 << 16, 1 << 21, 1 << 22, 1 << 23):
+            action = {'op': 'keyboard.chord', 'at': 0, 'ended': .2, 'keys': ['a'], 'event_flags': flags}
+            self.core.validate_recording(self.recording([action]))
+
+    def test_input_source_preflight_failure_never_reaches_batch_dispatch(self):
+        error = self.macos.DesktopError('input_source_changed', 'controlled source switch')
+        with patch.object(self.core, 'request', side_effect=error), patch.object(self.batch, '_run_batch') as run:
+            result = asyncio.run(self.batch.macro_run(recording=self.manual_recording(), target=self.target))
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['code'], 'input_source_changed')
+        run.assert_not_called()
+
+    def test_manual_start_selects_the_native_event_source_explicitly(self):
+        with patch.object(self.record, 'request', return_value={'ok': True}) as native:
+            result = self.record.record_start(self.target, source='native_window_events')
+        self.assertTrue(result['ok'])
+        self.assertEqual(native.call_args.args[0], {'op': 'record.start', 'target': self.target,
+                         'max_seconds': 60, 'source': 'native_window_events'})
+
     def test_rebind_translates_global_points_and_drops_old_private_identity(self):
         with patch.object(self.core, 'request', return_value=self.current()) as native:
             steps = self.core.prepare_recording(self.recording(), self.target)
@@ -136,6 +199,19 @@ class RecordingContracts(unittest.TestCase):
         self.assertFalse(list(path.parent.glob('*.tmp')))
         listing = self.record.macro_list()
         self.assertTrue(any(m['name'] == '中文 test' and m['valid'] and m['steps'] == 1 for m in listing['macros']))
+
+    def test_large_manual_recording_remains_readable_after_indented_save(self):
+        event = {'type': 'scroll', 'at_us': 0, 'flags': 0, 'x': -50, 'y': 40, 'continuous': True,
+                 'delta': [1, 2, 0], 'fixed': [1.25, 2.5, 0], 'point': [5, 10, 0], 'phase': 0, 'momentum': 0, 'scroll_count': 1}
+        recording = self.manual_recording([{'op': 'input.sequence', 'at': 0, 'ended': 3,
+            'events': [{**event, 'at_us': index * 10000} for index in range(280)]}])
+        with patch.object(self.record, 'request', return_value={'ok': True, 'recording': recording}):
+            result = self.record.record_stop('large manual')
+        saved = Path(result['path'])
+        self.assertGreater(saved.stat().st_size, 128000)
+        self.assertEqual(json.loads(saved.read_text()), recording)
+        entry = next(macro for macro in self.record.macro_list()['macros'] if macro['name'] == 'large manual')
+        self.assertTrue(entry['valid'])
 
     def test_save_failure_retains_collected_recording(self):
         recording = self.recording()

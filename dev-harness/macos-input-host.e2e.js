@@ -3,6 +3,7 @@ require('./lib/self-isolate-home');
 // LaunchServices Ruyi.app -> owned workbench -> normal HTTP invoke -> real ACC -> native input worker.
 // RUYI_P5_APP_COMPOSED=1 verifies shared-frame observation, action verification and macro readback.
 // RUYI_P5_APP_RECORD=1 verifies native controlled recording and fresh-target replay.
+// RUYI_P5_APP_MANUAL=1 verifies App-origin listen-only recording with an independent synthetic demonstrator.
 // RUYI_P5_APP_VISUAL=1 verifies Vision OCR and OpenCV clicks against the owned bilingual receiver.
 // All injected events target a self-owned fixture. RUYI_P5_APP_PASTE=1 also verifies guarded Cmd+V.
 // RUYI_P5_APP_EXIT_FAILURE=1 forces an owned App crash after input and expects one injected failure.
@@ -16,14 +17,20 @@ const { fixtureChildEnv } = require('./lib/fixture-home');
 const { killOwnTree, snapshotProcessTable, ownDescendants } = require('./lib/kill-own-tree');
 const { buildMacAutomationHelper } = require('../ruyi-workbench/tools/build-macos-automation-helper');
 const { buildMacDesktop } = require('../ruyi-workbench/tools/build-macos-desktop');
+const { loadServerInternals } = require('./lib/server-internals');
 const t = createRunner('MACOS INPUT HOST');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-p5-input-host-'));
 const data = path.join(root, 'data'); fs.mkdirSync(data);
 let fixture, launcher, owned, ownedTree = [];
+let manualPeer, manualRuntime, manualControl, manualControlError, manualBefore;
+let stopManualControl = false;
+let appExecutable, acceptanceReport, serviceInvocation = '';
+let beforeApp = new Set();
 const paste = process.env.RUYI_P5_APP_PASTE === '1';
 const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
 const ax = process.env.RUYI_P5_APP_AX === '1';
 const recording = process.env.RUYI_P5_APP_RECORD === '1';
+const manual = process.env.RUYI_P5_APP_MANUAL === '1';
 const composed = process.env.RUYI_P5_APP_COMPOSED === '1';
 const visual = composed || process.env.RUYI_P5_APP_VISUAL === '1';
 const events = [];
@@ -38,6 +45,24 @@ async function until(read, timeout = 45000) {
 async function fixtureCommand(command = 'state') {
   const offset = events.length; fixture.stdin.write(command + '\n');
   return until(() => events.slice(offset).find(event => event.event === command), 3000);
+}
+function observeOwnedApp(report) {
+  if (!launcher || !appExecutable || !acceptanceReport) return;
+  const table = snapshotProcessTable();
+  if (!table) throw new Error('Cannot observe the App process identities');
+  const candidates = table.filter(row => row.pid === report?.nativePID || !beforeApp.has(row.pid + '/' + row.created));
+  for (const row of candidates) {
+    const command = cp.spawnSync('/bin/ps', ['-p', String(row.pid), '-o', 'command='], { encoding: 'utf8', timeout: 1000 }).stdout;
+    if (!command.startsWith(appExecutable + ' ') || !command.includes('--acceptance-report ' + acceptanceReport + ' ')) continue;
+    owned = row;
+    for (const member of [row, ...ownDescendants(table, row.pid).descendants]) {
+      if (!ownedTree.some(prior => member.pid === prior.pid && member.created === prior.created)) ownedTree.push(member);
+      if (!serviceInvocation) {
+        const invocation = cp.spawnSync('/bin/ps', ['-p', String(member.pid), '-o', 'command='], { encoding: 'utf8', timeout: 1000 }).stdout.trim();
+        if (invocation.includes(path.resolve(__dirname, '../ruyi-workbench/app/server.js') + ' serve ')) serviceInvocation = invocation;
+      }
+    }
+  }
 }
 function remainingOwned() {
   if (!ownedTree.length) return [];
@@ -65,10 +90,16 @@ async function cleanupOwned() {
 (async () => {
   try {
     if (process.platform !== 'darwin') { console.log('SKIP Mac App input launch chain'); return; }
-    const helper = (recording && process.env.RUYI_P5_RECORD_HELPER) || (visual && process.env.RUYI_P5_OCR_HELPER)
+    if (manual && (recording || visual || ax || paste || forceAppExit)) throw new Error('Select the manual App scenario by itself');
+    const helper = (manual && process.env.RUYI_P5_MANUAL_HELPER) || (recording && process.env.RUYI_P5_RECORD_HELPER) || (visual && process.env.RUYI_P5_OCR_HELPER)
       || buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
+    if (manual) {
+      const state = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'status' }), encoding: 'utf8', timeout: 5000 });
+      if (JSON.parse(state.stdout).locked) { t.fail('App manual acceptance requires an unlocked desktop'); return; }
+    }
     const receiver = path.join(root, 'receiver');
     const compiled = cp.spawnSync('/usr/bin/xcrun', ['clang', '-fobjc-arc', '-fblocks', '-Wall', '-Wextra', '-Werror',
+      ...(manual ? ['-DRUYI_MANUAL_FIXTURE=1', '-framework', 'Carbon'] : []),
       '-mmacosx-version-min=14.0', '-framework', 'AppKit', '-framework', 'ApplicationServices',
       path.join(__dirname, visual ? 'fixtures/macos-ocr-window.m' : 'fixtures/macos-input-window.m'), '-o', receiver], { encoding: 'utf8', timeout: 60000 });
     if (compiled.status !== 0) throw new Error(compiled.stderr);
@@ -92,16 +123,18 @@ async function cleanupOwned() {
     const bundle = process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing) ? existing : buildMacDesktop(path.join(root, 'Ruyi.app')));
     const executable = path.join(bundle, 'Contents/MacOS/RuyiDesktop');
     const report = path.join(root, 'report.json');
+    appExecutable = executable; acceptanceReport = report;
     const script = path.join(root, 'script.js');
     const repo = path.resolve(__dirname, '../mcp/ai-computer-control');
     const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python');
     const isolated = fixtureChildEnv();
+    const manualMarkers = Object.fromEntries(['prepare', 'prepared', 'ready', 'done', 'collected', 'cleared'].map(name => [name, path.join(root, 'manual-' + name + '.json')]));
     const accEnv = { HOME: isolated.HOME, USERPROFILE: isolated.USERPROFILE, LOCALAPPDATA: isolated.LOCALAPPDATA,
       APPDATA: isolated.APPDATA, PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
       ...(process.env.DYLD_FRAMEWORK_PATH ? { DYLD_FRAMEWORK_PATH: process.env.DYLD_FRAMEWORK_PATH } : {}),
       ...(process.env.DYLD_LIBRARY_PATH ? { DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH } : {}),
       PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
-      ACC_TOOLSETS: composed ? 'desktop,uia,ocr,observe,macro' : recording ? 'desktop,macro' : visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
+      ACC_TOOLSETS: manual ? 'desktop,macro,filesystem' : composed ? 'desktop,uia,ocr,observe,macro' : recording ? 'desktop,macro' : visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
     const schema = require('../ruyi-workbench/app/server').CONFIG_SCHEMA;
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: schema, permissionMode: 'bypass',
       defaultWorkspace: root, workspaces: [{ path: root }], allowDesktopTools: true, allowCommandTools: true,
@@ -109,7 +142,7 @@ async function cleanupOwned() {
       autoImportClaudeCodeMcp: false, enableMcpDropIn: false, desktopMcp: { enabled: false, autodetect: false },
       externalMcpServers: [{ id: 'ai-computer-control', label: 'Controlled ACC', command: python,
         args: ['-X', 'utf8', '-m', 'ai_computer_control.server'], cwd: repo, env: accEnv, enabled: true }] }));
-    const sample = '如意 App 输入链 中文😀';
+    const sample = manual ? '你好' : '如意 App 输入链 中文😀';
     if (paste) {
       const seed = await fixtureCommand('seed-clipboard');
       t.ok(seed.clipboardSnapshot && seed.clipboardPreserved, 'App paste fixture preserves the pre-test clipboard before seeding owned formats');
@@ -125,11 +158,41 @@ const invoke=async(name,args={})=>{
 const diag=await invoke('diagnostics');
 const capabilities=diag.capabilities?.['desktop.capture'];
 if(!capabilities || (${ax} ? !capabilities.axReady : !capabilities.inputReady)) return {capabilities,diagOK:diag.ok,unavailable:true};
+if(${manual}&&!diag.capabilities?.['desktop.recording']?.manualReady) return {capabilities,manualCapabilities:diag.capabilities?.['desktop.recording'],unavailable:true};
 const warm=${visual}?await invoke('ocr_image',{path:${JSON.stringify(ocrImage)}}):null;
 const listed=await invoke('list_windows');
 const row=listed.windows?.find(window=>window.pid===${fixture.pid}&&window.handle===${ready.id});
 if(!row) return {capabilities,error:'owned_window_missing'};
 const focused=await invoke('focus_window',{target:row.target});
+if(${manual} && focused.ok){
+  const markers=${JSON.stringify(manualMarkers)};
+  const mark=async(name)=>{
+    const value=await invoke('write_file',{path:markers[name],content:'ready'});
+    if(!value.ok) throw new Error('Manual App marker write failed '+name);
+  };
+  const waitMarker=async(name)=>{
+    const deadline=Date.now()+20000;
+    while(Date.now()<deadline){
+      if((await invoke('read_file',{path:markers[name]})).ok) return;
+      await new Promise(resolve=>setTimeout(resolve,30));
+    }
+    throw new Error('Manual App marker timed out '+name);
+  };
+  await mark('prepare');
+  await waitMarker('prepared');
+  const started=await invoke('record_start',{target:row.target,source:'native_window_events',max_seconds:30});
+  if(!started.ok) return {capabilities,focused,manual:{capabilities:diag.capabilities?.['desktop.recording'],started}};
+  await mark('ready');
+  await waitMarker('done');
+  const collected=await invoke('record_stop',{save_as:'App手动示范宏'});
+  await mark('collected');
+  await waitMarker('cleared');
+  const current=await invoke('get_active_window');
+  const replayed=collected.complete&&current.ok?await invoke('macro_run',{recording:collected.recording,target:current.window.target}):null;
+  const listed=await invoke('macro_list');
+  const audit=await invoke('audit_tail',{n:100});
+  return {capabilities,focused,manual:{capabilities:diag.capabilities?.['desktop.recording'],started,collected,replayed,listed,audit}};
+}
 if(${composed} && focused.ok){
   const observed=await invoke('observe',{target:row.target,max_width:400});
   const b=${JSON.stringify(ready.buttons?.[2]?.bounds || {})};
@@ -174,39 +237,86 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
     const env = { ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, RUYI_NODE_PATH: process.execPath };
     const launchEnv = { HOME: env.HOME, USERPROFILE: env.USERPROFILE, LOCALAPPDATA: env.LOCALAPPDATA, APPDATA: env.APPDATA,
       RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, RUYI_NODE_PATH: process.execPath };
+    if (manual) {
+      const S = loadServerInternals(['McpStdioClient', 'ProcessRuntime']);
+      manualRuntime = S.ProcessRuntime;
+      manualPeer = new S.McpStdioClient({ id: 'ai-computer-control', command: python,
+        args: ['-X', 'utf8', '-m', 'ai_computer_control.server'], cwd: repo,
+        env: { ...accEnv, WCW_DATA_DIR: path.join(root, 'peer-data'), ACC_TOOLSETS: 'desktop,macro' } });
+      await manualPeer.start();
+      const waitForMarker = name => until(() => {
+        if (stopManualControl) throw new Error('Manual App controller stopped');
+        return fs.existsSync(manualMarkers[name]);
+      }, 30000);
+      manualControl = (async () => {
+        await waitForMarker('prepare');
+        const selected = await fixtureCommand('source-pinyin');
+        await fixtureCommand('clear-neutral');
+        await fixtureCommand('focus-text');
+        fs.writeFileSync(manualMarkers.prepared, JSON.stringify({ source: selected.inputSource }));
+        await waitForMarker('ready');
+        const listed = await manualPeer.callTool('list_windows', {});
+        const peerTarget = listed.windows.find(window => window.pid === fixture.pid && window.handle === ready.id)?.target;
+        if (!peerTarget) throw new Error('Independent App demonstrator cannot observe its receiver');
+        const demonstrated = [45, 34, 4, 0, 31, 49].flatMap((keycode, index) => [
+          { type: 'key_down', keycode, keyboard_type: 91, repeat: 0, flags: 0, at_us: index * 80000 },
+          { type: 'key_up', keycode, keyboard_type: 91, repeat: 0, flags: 0, at_us: index * 80000 + 40000 }
+        ]);
+        const sent = await manualPeer.callTool('input_sequence', { target: peerTarget,
+          input_source: { id: selected.inputSource, type: 'TISTypeKeyboardInputMode' }, events: demonstrated });
+        if (!sent.ok) throw new Error('Independent App demonstration failed ' + JSON.stringify(sent));
+        manualBefore = await until(async () => {
+          const state = await fixtureCommand('state');
+          return state.text === sample && !state.marked ? state : null;
+        }, 5000);
+        fs.writeFileSync(manualMarkers.done, JSON.stringify({ text: manualBefore.text, marked: manualBefore.marked }));
+        await waitForMarker('collected');
+        await fixtureCommand('clear-neutral');
+        await fixtureCommand('focus-text');
+        fs.writeFileSync(manualMarkers.cleared, 'ready');
+      })().catch(error => { manualControlError = error; });
+    }
+    beforeApp = new Set((snapshotProcessTable() || []).map(row => row.pid + '/' + row.created));
     launcher = cp.spawn('/usr/bin/open', ['-n', '-W', '-a', bundle,
       ...Object.entries(launchEnv).flatMap(([key, value]) => ['--env', key + '=' + value]),
-      '--args', '--acceptance-report', report, '--acceptance-script', script,
+      '--args', '--workbench-root', path.resolve(__dirname, '../ruyi-workbench'), '--acceptance-report', report, '--acceptance-script', script,
       ...(forceAppExit ? [] : ['--acceptance-auto-quit'])],
     { env, cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
     launcher.stdout.resume(); launcher.stderr.resume();
     const result = await until(() => {
+      if (manualControlError) throw manualControlError;
       const value = fs.existsSync(report) ? JSON.parse(fs.readFileSync(report, 'utf8')) : null;
-      const table = snapshotProcessTable();
-      for (const row of table?.filter(row => row.pid === value?.nativePID) || []) {
-        const command = cp.spawnSync('/bin/ps', ['-p', String(row.pid), '-o', 'command='], { encoding: 'utf8', timeout: 1000 }).stdout;
-        if (command.startsWith(executable + ' ') && command.includes('--acceptance-report ' + report + ' ')) {
-          owned = row;
-          for (const member of [row, ...ownDescendants(table, row.pid).descendants]) {
-            if (!ownedTree.some(prior => member.pid === prior.pid && member.created === prior.created)) ownedTree.push(member);
-          }
-        }
-      }
+      observeOwnedApp(value);
       if (!value) return null;
       if (value.state === 'failed') throw new Error(JSON.stringify(value));
       return value.state === 'ready' && value;
     }, visual ? 100000 : 45000);
     const extra = result.page.additional;
-    const state = await fixtureCommand();
+    if (manualControl && !extra.unavailable && extra.manual?.started?.ok) await manualControl;
+    if (manualControlError) throw manualControlError;
+    if (manual && (extra.unavailable || !extra.manual?.started?.ok || !extra.manual?.collected?.complete || !extra.manual?.replayed?.ok)) {
+      if (process.env.RUYI_P5_EVIDENCE) {
+        fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
+        fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, 'manual-host-error.json'), JSON.stringify(extra, null, 2) + '\n');
+      }
+      throw new Error('App manual chain failed ' + JSON.stringify(extra));
+    }
+    const state = manual ? await until(async () => {
+      const current = await fixtureCommand();
+      return current.text === sample && !current.marked && !current.leftHeld && current.modifierFlags === 0 ? current : null;
+    }, 5000) : await fixtureCommand();
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
-      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, composed ? 'composed-host.json' : recording ? 'record-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
-        servicePID: result.servicePID, launch: 'LaunchServices', ...extra,
+      fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, manual ? 'manual-host.json' : composed ? 'composed-host.json' : recording ? 'record-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
+        servicePID: result.servicePID, launch: 'LaunchServices', serviceInvocation, workbenchRoot: path.resolve(__dirname, '../ruyi-workbench'), ...extra,
+        manualDemonstration: manual ? { kind: 'independent synthetic input through a real event tap', before: manualBefore } : null,
         observedProcesses: ownedTree.map(row => ({ pid: row.pid, ppid: row.ppid, created: row.created.toString() })),
         receiver: { textMatches: state.text === sample, counts: state.counts, pad: state.pad,
           leftHeld: state.leftHeld, modifierFlags: visual ? state.modifiers : state.modifierFlags, clipboardPreserved: state.clipboardPreserved } }, null, 2) + '\n');
     }
     t.ok(result.nativePID > 0 && result.servicePID > 0, 'LaunchServices Ruyi App owns the actual workbench service');
+    t.ok(serviceInvocation.includes(path.resolve(__dirname, '../ruyi-workbench/app/server.js') + ' serve '),
+      'the authorized App launches the server from this exact candidate worktree');
     t.ok(owned?.pid === result.nativePID && ownedTree.some(row => row.pid === result.servicePID),
       'App and service process identities were observed before shutdown');
     if (!(ax ? extra.capabilities?.axReady : extra.capabilities?.inputReady)) console.log('App input readiness ' + JSON.stringify(extra));
@@ -214,7 +324,7 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
       extra.capabilities.inputReady && extra.capabilities.eventAuthorization === 'granted'),
     ax ? 'App-launched ACC has actual Accessibility authorization for native AX' : 'App-launched ACC has its own actual Accessibility and event authorization');
     t.ok(extra.focused?.ok && extra.focused.foreground_verified, 'normal App HTTP tool route focuses the exact owned receiver');
-    if (!ax && !visual) t.ok(extra.typed?.ok && extra.typed.method === (paste ? 'clipboard' : 'typewrite'),
+    if (!ax && !visual && !manual) t.ok(extra.typed?.ok && extra.typed.method === (paste ? 'clipboard' : 'typewrite'),
       paste ? 'normal App HTTP tool route sends Chinese through Cmd+V' : 'normal App HTTP tool route sends Chinese Unicode events');
     if (paste && !ax) t.ok(extra.typed?.restore === 'done' && state.clipboardPreserved, 'App Cmd+V restores the prior image and private clipboard formats');
     if (ax) {
@@ -223,11 +333,25 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
       t.ok(extra.ax?.written?.confirmed && extra.ax?.restored?.confirmed && state.text === sample,
         'App-origin AXValue writes change and restore the real receiver with confirmed readback');
     }
-    if (!ax && !visual) {
+    if (!ax && !visual && !manual) {
       t.ok(extra.clicked?.ok && extra.scrolled?.ok, 'App launch chain sends guarded pointer and wheel events');
       t.ok(state.text === sample && state.counts.key_down > 0, 'real receiver confirms the App-originated Chinese text');
       t.ok(state.counts.left_down === (recording ? 4 : 1) && state.counts.left_up === (recording ? 4 : 1) && state.counts.vertical_scroll > 0,
         'real receiver confirms the App-originated balanced click and wheel events');
+    }
+    if (manual) {
+      t.ok(extra.manual?.capabilities?.manualReady && extra.manual.capabilities.listenAuthorization === 'granted',
+        'the real App identity has listening and input readiness for manual recording');
+      t.ok(extra.manual?.started?.source === 'native_window_events' && extra.manual.collected?.complete
+        && extra.manual.collected.recording.schema === 2 && extra.manual.collected.path,
+        'the normal App HTTP route captures and saves a complete schema2 event demonstration');
+      t.ok(extra.manual?.replayed?.ok && manualBefore?.text === sample && !manualBefore.marked
+        && state.text === sample && !state.marked,
+        'the App clears and replays raw Pinyin events to the same committed Chinese text');
+      t.ok(extra.manual?.listed?.macros?.some(macro => macro.name === 'App手动示范宏' && macro.valid && macro.source === 'native_window_events'),
+        'the App macro catalog reads its saved manual recording');
+      t.ok(['record_start', 'record_stop', 'input_sequence'].every(name => extra.manual?.audit?.records?.some(row => row.tool === name && row.ok)),
+        'App-origin recording, collection and native sequence replay keep their actual audit rows');
     }
     if (recording) {
       t.ok(extra.recording?.started?.source === 'controlled_native_requests' && extra.recording.collected?.complete
@@ -272,8 +396,16 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
     t.ok(true, 'observed App, service, ACC and helper identities are absent after App shutdown');
   } catch (error) { t.fail(error.stack || String(error)); }
   finally {
+    stopManualControl = true;
+    if (manualPeer?.child) {
+      const child = manualPeer.child;
+      manualPeer.kill();
+      const cleaned = await manualRuntime.waitForCleanup(child, 3000);
+      t.ok(cleaned && !cleaned.incomplete, 'independent App demonstrator and its native worker are reaped');
+    }
+    if (manualControl) await manualControl;
     let appCleaned = false;
-    try { await cleanupOwned(); appCleaned = true; }
+    try { observeOwnedApp(); await cleanupOwned(); appCleaned = true; }
     catch (error) { t.fail('App subtree cleanup ' + error.message); }
     if (ownedTree.length) t.ok(appCleaned, 'all observed App subtree identities are reaped on the final cleanup path');
     if (launcher && launcher.exitCode === null && launcher.signalCode === null) killOwnTree(launcher);
@@ -285,6 +417,8 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
     if (fixture) t.ok(fixture.exitCode !== null || fixture.signalCode !== null, 'self-owned App event receiver is reaped');
     if (paste && events.some(event => event.event === 'seed-clipboard' && event.clipboardSnapshot))
       t.ok(events.some(event => event.event === 'clipboard-restore' && event.restored), 'App paste fixture restores its pre-test clipboard snapshot');
+    if (manual && events.some(event => event.event === 'source-pinyin'))
+      t.ok(events.some(event => event.event === 'input-source-restore' && event.restored), 'App manual fixture restores its original keyboard source');
     if (appCleaned) fs.rmSync(root, { recursive: true, force: true });
     else t.fail('Owned App processes remain. Isolated evidence retained at ' + root);
     t.done();

@@ -41077,7 +41077,7 @@ async function acquireResourceLease(group, resources, signal, onWait, timeoutMs)
 function releaseResourceLease(token) { if (token && resourceLeases.delete(token)) drainResourceWaiters(); }
 // 审计 A9:ACC 桌面工具的租约分类。write = 改变桌面/输入状态(独占);read = 只观察屏幕或窗口状态(共享)。
 const ACC_DESKTOP_WRITE_TOOLS = new Set([
-  'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',
+  'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'type_text', 'press_key', 'hotkey', 'input_sequence', 'key_down', 'key_up',
   'focus_window', 'resize_window', 'move_window', 'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
   'ui_invoke', 'ocr_click', 'vision_click', 'macro_run', 'batch_actions', 'act_and_verify', 'launch_application',
   'set_clipboard', 'set_clipboard_image', 'message_box', 'show_notification',
@@ -41125,7 +41125,7 @@ function inferToolResources(name, args, bridge, cwd, tier) {
   }
   // 桌面锁(审计 A9):修前是一条名字正则 —— 漏掉 macro_run / batch_actions(回放鼠标键盘)、key_down/up、ui_invoke、act_and_verify、
   // launch_application、剪贴板写、message_box,两个 agent 可以交错点击;又把只读的 get_screen_info / list_windows 也当独占写锁。
-  // 现在按 ACC 的真实工具名(mcp/ai-computer-control 的 108 个注册名逐个分过类)显式分两张表:会动桌面的 → 独占写锁,
+  // 现在按 ACC 的真实工具名(mcp/ai-computer-control 平台源码注册名并集 109 个逐个分过类)显式分两张表:会动桌面的 → 独占写锁,
   // 只看桌面的 → 共享读锁(读读可并发、与写互斥),其余 ACC 工具(文件/Office/记忆/网络/浏览器…)不占桌面。
   // 表外的名字(第三方 MCP)仍走旧正则兜底 —— 未知的保守当写。原生 keyboard_send_keys 修前完全没锁,一并补上。
   const deskMode = name === 'keyboard_send_keys' ? 'write'
@@ -42140,7 +42140,7 @@ function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
 // 2026-10 能力总闸补上桥接面。设置页承诺「关掉之后,对应的工具在所有线程里既不提供给模型、也不会执行」,修前只兑现了上面
 // 两张原生名单 —— 内置桌面 MCP(ACC:serverId 'ai-computer-control',桥接名前缀 ai_computer_control__)的 run_command /
 // screenshot / mouse_click 等在两个开关都关掉之后照常提供、照常执行。下面按 ACC 的【裸工具名】补两族(逐个对过
-// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:108 件里收 55 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
+// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:平台源码注册名并集 109 件里收 56 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
 // 哪怕有同名工具也不受影响(它们的语义由用户接入时自己负责,工作台不替它猜)。判据收在 toolDisabledByPolicy 一个函数里,
 // offer 面(09 目录 / 08 子代理 / 11 MCP 子进程目录 / 07 createToolLoadingState)与分发面(09 / 08 / 12 代理 / 13d CLI 权限桥)
 // 都调它;CLI 直挂 ACC 的那一路(01 addExternalMcpServersToMap / syncMcpServersToClaude)按同一张表算出 ACC_HIDE_TOOLS 交给
@@ -42165,7 +42165,7 @@ const ACC_POLICY_TOOL_FAMILIES = Object.freeze({
     'screenshot', 'screenshot_region', 'get_screen_info', 'find_on_screen',                                    // screen
     'window_screenshot',                                                                                       // capture
     'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'get_mouse_position',              // mouse
-    'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',                                                  // keyboard
+    'type_text', 'press_key', 'hotkey', 'input_sequence', 'key_down', 'key_up',                                                  // keyboard
     'list_windows', 'get_active_window', 'focus_window', 'resize_window', 'move_window',                       // window
     'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
     'ui_inspect', 'ui_find', 'ui_invoke',                                                                      // uia
@@ -42627,7 +42627,7 @@ function toolPackForName(name, bridgedRoute) {
   const bridge = resolveBridge(bridgedRoute || {}, name);
   const raw = String(bridge ? bridge.toolName : name || '').toLowerCase();
   if (/(excel|spreadsheet|workbook|worksheet|word|docx|document|ppt|powerpoint|slide|pdf|chart_image)/.test(raw)) return 'office';
-  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|type_text|scroll|drag)/.test(raw)) return 'desktop';
+  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|input_sequence|type_text|scroll|drag)/.test(raw)) return 'desktop';
   if (/(archive|zip|unzip|compress|extract)/.test(raw)) return 'archive';
   if (/(search|fetch|http|url|browser|download|web)/.test(raw)) return 'web';
   if (/^memory_(save|read|list|delete)$/.test(raw)) return 'memory';

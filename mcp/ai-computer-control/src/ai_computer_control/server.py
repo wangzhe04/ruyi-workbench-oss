@@ -88,6 +88,7 @@ class PlatformMCP(FastMCP):
                 and (info.name not in macos.WINDOW_QUERY_TOOLS or state.get("windowQueryReady"))
                 and (info.name not in macos.CLIPBOARD_TOOLS or state.get("clipboardReady"))
                 and (info.name not in macos.INPUT_TOOLS or state.get("inputReady"))
+                and (info.name != "input_sequence" or state.get("inputSequenceReady"))
                 and (info.name != "record_start" or state.get("recordReady"))
                 and (info.name not in macos.POINTER_QUERY_TOOLS or state.get("pointerQueryReady"))
                 and (info.name not in macos.APPLICATION_TOOLS or state.get("applicationReady"))

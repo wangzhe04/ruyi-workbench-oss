@@ -4,6 +4,7 @@
 # "\n" is a real Enter that editors answer with auto-indent / auto-closing brackets (corrupting pasted
 # code). So long or multi-line text goes through the clipboard, which pastes verbatim.
 _CLIPBOARD_MIN_CHARS = 200
+MACOS_RECORDED_KEY_FLAGS = (1 << 16) | (1 << 21) | (1 << 22) | (1 << 23)  # Caps Lock, keypad, Help, Fn.
 
 
 def _route_clipboard(text: str, use_clipboard: bool | None) -> tuple[bool, str]:

@@ -147,6 +147,9 @@ def diagnostics() -> dict:
             "authorization": state.get("eventAuthorization", "unknown"),
             "ready": bool(verify and state.get("ready") and state.get("inputReady")),
             "verification": "screen_change_observation", "coordinate_space": "macos_global_points"}
+        desktop["desktop.input_sequence"] = {"supported": state.get("inputSequenceSupported", False),
+            "installed": bool(state.get("installed") and state.get("inputSequenceSupported")),
+            "ready": bool(state.get("inputSequenceReady")), "backend": "bounded CGEvent sequence"}
         desktop["desktop.macro_replay"] = {"supported": True, "installed": replay, "ready": replay,
             "inputReady": bool(replay and state.get("inputReady")), "backend": "ACC tool registry"}
         record = bool(sys.modules.get(_TOOLS_PKG + "macos_record"))
@@ -154,6 +157,9 @@ def diagnostics() -> dict:
             "installed": bool(record and state.get("installed") and state.get("recordSupported")),
             "authorization": state.get("eventAuthorization", "unknown"),
             "ready": bool(record and state.get("recordReady")), "source": "controlled_native_requests",
+            "sources": state.get('recordSources', []), "manualSupported": state.get('manualRecordSupported', False),
+            "manualReady": bool(record and state.get('manualRecordReady')),
+            "listenAuthorization": state.get('listenAuthorization', 'unknown'), "inputSource": state.get('recordInputSource'),
             "coordinate_space": "macos_global_points"}
     return {
         "ok": True,

@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import stat
 import uuid
+from typing import Literal
 from pydantic import StrictFloat, StrictInt
 
 from ai_computer_control.paths import data_dir
@@ -12,6 +13,8 @@ from ai_computer_control.server import mcp
 from ai_computer_control.utils.macos import DesktopError
 from ai_computer_control.utils.macos_recording import validate_recording, recording_gate
 from ai_computer_control.utils.macos_session import request
+
+_MACRO_FILE_LIMIT = 256000
 
 
 def _name(value):
@@ -51,16 +54,27 @@ def _save(name, recording):
 
 
 @mcp.tool(audit=True)
-def record_start(target: dict, max_seconds: StrictFloat | StrictInt = 60) -> dict:
-    """Record this MCP worker's controlled Mac inputs into one currently focused window.
+def record_start(target: dict, max_seconds: StrictFloat | StrictInt = 60,
+                  source: Literal['controlled_native_requests', 'native_window_events'] = 'controlled_native_requests') -> dict:
+    """Record Mac inputs into one currently focused window using the selected source.
 
     Pass a complete current target. Captures successful native text, shortcuts, clicks, pointer movement,
     drags and scroll requests, including those issued by composed tools. Source is controlled_native_requests.
     Bounds are 1–300 seconds, 100 actions and 48000 action JSON bytes. Focus/identity/geometry changes,
     secure input, lock, permission loss or a failed input invalidate the recording. Call record_stop to collect it.
+    native_window_events listens to live keyboard/pointer events routed to the bound process and exact window.
+    Its bounded event sequences preserve key ownership, timing, pointer gestures and the recorded input source.
+    Start from neutral/committed IME or dead-key composition. Complete groups are limited to five seconds/512 events.
+    Keep pointer movements inside the target bounds. Ordinary mouse-touch events are supported;
+    tablet events and pressure-associated Force Touch sequences are refused as incomplete.
+    Clipboard shortcuts consume replay-time clipboard contents, including earlier copy steps.
+    Keep the bound window focused until collection. Its buffer contains sensitive input intentionally recorded there.
     """
     with recording_gate():
-        return request({'op': 'record.start', 'target': target, 'max_seconds': max_seconds})
+        payload = {'op': 'record.start', 'target': target, 'max_seconds': max_seconds}
+        if source != 'controlled_native_requests':
+            payload['source'] = source
+        return request(payload)
 
 
 @mcp.tool(audit=True)
@@ -69,7 +83,7 @@ def record_stop(save_as: str | None = None) -> dict:
 
     save_as optionally atomically saves a complete recording in the internal data/macros directory.
     An interrupted recording is returned with complete=false and its reason. Save failures retain the
-    collected in-memory recording in this response. The source contains text supplied to controlled input.
+    collected in-memory recording in this response. The recording contains input supplied or demonstrated in the bound window.
     """
     name = _name(save_as) if save_as is not None else None
     result = request({'op': 'record.stop'})
@@ -109,11 +123,11 @@ def macro_list() -> dict:
                 descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
                 with os.fdopen(descriptor, 'rb') as stream:
                     before = os.fstat(stream.fileno())
-                    if not stat.S_ISREG(before.st_mode) or before.st_size > 128000:
+                    if not stat.S_ISREG(before.st_mode) or before.st_size > _MACRO_FILE_LIMIT:
                         raise ValueError('invalid macro file')
-                    data = stream.read(128001)
+                    data = stream.read(_MACRO_FILE_LIMIT + 1)
                     after = os.fstat(stream.fileno())
-                    if len(data) > 128000 or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                    if len(data) > _MACRO_FILE_LIMIT or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
                         raise ValueError('macro changed during read')
                 recording = json.loads(data)
                 validate_recording(recording)

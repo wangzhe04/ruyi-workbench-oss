@@ -796,9 +796,10 @@ static NSDictionary *HandleInputRequest(NSDictionary *request) {
     if ([op hasPrefix:@"record."]) return RuyiAutomationRecordRequest(request);
     if ([op hasPrefix:@"ax."]) return RuyiAutomationAXRequest(request);
 #ifdef RUYI_AUTOMATION_TESTING
+    if ([op isEqual:@"test_stall_sequence"]) return RuyiAutomationTestBlockedSequence(request);
     if ([op isEqual:@"test_stall_clipboard"]) return RuyiAutomationTestBlockedClipboard(request);
 #endif
-    if ([op hasPrefix:@"keyboard."] || [op hasPrefix:@"mouse."]) return RuyiAutomationEventsRequest(request);
+    if ([op isEqual:@"input.sequence"] || [op hasPrefix:@"keyboard."] || [op hasPrefix:@"mouse."]) return RuyiAutomationEventsRequest(request);
     if ([op isEqual:@"application.launch"]) {
         if (RuyiAutomationLocked()) return RuyiAutomationFailure(@"session_locked", @"Unlock the desktop before launching an application");
         return OpenBoundApplication(request);
@@ -824,11 +825,26 @@ static NSDictionary *HandleInputRequest(NSDictionary *request) {
 }
 
 NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
+    NSString *operation = request[@"op"];
+    BOOL mutation = [@[@"record.start", @"input.sequence", @"keyboard.text", @"keyboard.chord",
+        @"mouse.click", @"mouse.move", @"mouse.drag", @"mouse.scroll", @"ax.invoke", @"application.launch",
+        @"clipboard.set", @"clipboard.image.set", @"window.focus", @"window.minimize", @"window.close",
+        @"window.move", @"window.resize", @"window.maximize"] containsObject:operation];
+    if (mutation && RuyiAutomationEventsStopping()) {
+        NSMutableDictionary *out = [RuyiAutomationFailure(@"input_cancelled", @"Native input session is stopping") mutableCopy];
+        out[@"acted"] = @NO; out[@"action_sent"] = @NO; out[@"outcome"] = @"not_dispatched";
+        return out;
+    }
+    if (mutation && !RuyiAutomationReleaseEvents()) {
+        NSMutableDictionary *out = [RuyiAutomationFailure(@"input_cleanup_unconfirmed", @"Prior owned input has not been released") mutableCopy];
+        out[@"acted"] = @NO; out[@"action_sent"] = @NO; out[@"outcome"] = @"unknown";
+        return out;
+    }
     NSTimeInterval began = NSProcessInfo.processInfo.systemUptime;
     RuyiAutomationBeforeRecordedRequest(request);
     NSDictionary *result = HandleInputRequest(request);
     NSString *op = request[@"op"];
-    BOOL events = [op hasPrefix:@"keyboard."] || ([op hasPrefix:@"mouse."] && ![op isEqual:@"mouse.position"]);
+    BOOL events = [op isEqual:@"input.sequence"] || [op hasPrefix:@"keyboard."] || ([op hasPrefix:@"mouse."] && ![op isEqual:@"mouse.position"]);
     BOOL accessibility = events || [op hasPrefix:@"ax."] || ([op hasPrefix:@"window."] && ![op isEqual:@"window.list"]);
     BOOL locked = RuyiAutomationLocked();
     BOOL denied = (accessibility && !AXIsProcessTrusted()) || (events && !CGPreflightPostEventAccess());
@@ -846,3 +862,16 @@ NSDictionary *RuyiAutomationInputRequest(NSDictionary *request) {
     RuyiAutomationAfterRecordedRequest(request, result, began);
     return result;
 }
+
+#ifdef RUYI_AUTOMATION_TESTING
+NSDictionary *RuyiAutomationTestStoppedMutations(void) {
+    RuyiAutomationStopEvents();
+    NSMutableArray *results = [NSMutableArray array];
+    for (NSString *operation in @[@"window.focus", @"window.move", @"window.resize", @"window.maximize",
+        @"window.minimize", @"window.close", @"clipboard.set", @"clipboard.image.set", @"application.launch",
+        @"keyboard.text", @"keyboard.chord", @"mouse.click", @"mouse.move", @"mouse.drag", @"mouse.scroll",
+        @"input.sequence", @"ax.invoke", @"record.start"])
+        [results addObject:@{@"op":operation, @"result":RuyiAutomationInputRequest(@{@"op":operation, @"version":@1})}];
+    return @{@"ok":@YES, @"protocolVersion":@1, @"results":results};
+}
+#endif

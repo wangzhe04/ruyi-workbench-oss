@@ -199,6 +199,62 @@ class InputSession(unittest.TestCase):
         finally:
             changer.join()
 
+    def test_pre_cancelled_frame_never_starts_a_worker(self):
+        cancel, lock = threading.Event(), threading.Lock()
+        cancel.set()
+        with patch.object(macos_session, '_session') as start, self.assertRaises(macos.DesktopError) as caught:
+            macos_session.request({'op': 'input.sequence'}, cancel_event=cancel, cancel_lock=lock)
+        self.assertEqual(caught.exception.code, 'input_cancelled')
+        self.assertEqual(caught.exception.details, {'action_sent': False, 'outcome': 'not_dispatched'})
+        start.assert_not_called()
+
+    def test_cancel_before_first_write_reaps_without_sending_a_frame(self):
+        marker = self.root / 'dispatched'
+        self.worker('open(' + repr(str(marker)) + ', "w").close()')
+        cancel, lock = threading.Event(), threading.Lock()
+        encode = macos_session._request_bytes
+
+        def cancel_before_write(payload):
+            value = encode(payload)
+            with lock:
+                cancel.set()
+            return value
+
+        with patch.object(macos_session, '_request_bytes', side_effect=cancel_before_write), \
+                patch.object(macos_session.os, 'write', wraps=os.write) as write, \
+                self.assertRaises(macos.DesktopError) as caught:
+            macos_session.request({'op': 'input.sequence'}, timeout=3, cancel_event=cancel, cancel_lock=lock)
+        self.assertFalse(caught.exception.details['action_sent'])
+        self.assertEqual(caught.exception.details['outcome'], 'not_dispatched')
+        self.assertFalse(marker.exists())
+        self.assertIsNone(macos_session._SESSION)
+        write.assert_not_called()
+
+    def test_cancel_after_partial_write_never_completes_the_frame(self):
+        marker = self.root / 'dispatched'
+        self.worker('open(' + repr(str(marker)) + ', "w").close()')
+        cancel, lock = threading.Event(), threading.Lock()
+        original_write = os.write
+        workers = []
+
+        def partial_write(descriptor, data):
+            workers.append(macos_session._SESSION['child'])
+            written = original_write(descriptor, data[:7])
+            # request owns the cancellation lock during this callback. Linearize cancellation
+            # immediately after a successful partial write, before any suffix can be sent.
+            cancel.set()
+            return written
+
+        with patch.object(macos_session.os, 'write', side_effect=partial_write) as write, \
+                self.assertRaises(macos.DesktopError) as caught:
+            macos_session.request({'op': 'input.sequence'}, timeout=3, cancel_event=cancel, cancel_lock=lock)
+        self.assertEqual(write.call_count, 1)
+        self.assertFalse(caught.exception.details['action_sent'])
+        self.assertEqual(caught.exception.details['outcome'], 'not_dispatched')
+        self.assertFalse(marker.exists())
+        self.assertIsNone(macos_session._SESSION)
+        self.assertTrue(workers and all(worker.poll() is not None for worker in workers))
+
     def test_shutdown_serializes_with_an_inflight_request(self):
         marker = self.root / "sent"
         self.worker("open(" + repr(str(marker)) + ", 'w').close()\ntime.sleep(0.2)\n"

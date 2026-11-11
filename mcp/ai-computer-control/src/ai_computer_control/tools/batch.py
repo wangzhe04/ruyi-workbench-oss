@@ -179,7 +179,7 @@ async def macro_run(steps: list[dict] | None = None, on_error: str = "stop", del
     (focus -> type -> click sequences). See batch_actions for the step schema.
     On Mac, alternatively pass recording from record_stop plus a fresh complete target. The whole
     recording is validated and bound to the same application executable and window size before replay.
-    Points follow a moved window. Interrupted recordings are refused. Recorded idle gaps are capped at 5s.
+    Points follow a moved window. Interrupted recordings are refused. Controlled-request idle gaps are capped at 5s. Manual-event gaps retain their recorded duration.
     Omitted delay_ms uses 120ms for authored steps and zero additional delay for timed recordings.
     """
     if recording is not None:

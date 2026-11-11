@@ -89,6 +89,10 @@ class EventTools(unittest.TestCase):
         self.assertEqual(result["restore"], "skipped_changed")
         self.assertTrue(result["action_sent"])
 
+    def test_native_stop_before_dispatch_preserves_exact_negative_state(self):
+        details = self.macos._failure_details({'acted': False, 'action_sent': False, 'outcome': 'not_dispatched'})
+        self.assertEqual(details, {'acted': False, 'action_sent': False, 'outcome': 'not_dispatched'})
+
     def test_pointer_failure_preserves_finite_actual_position(self):
         details = self.macos._failure_details({"actual_x":12.5,"actual_y":34,"reached":False})
         self.assertEqual(details, {"actual_x":12.5,"actual_y":34,"reached":False})
