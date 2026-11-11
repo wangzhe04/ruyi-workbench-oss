@@ -19,10 +19,11 @@ Ruyi.app has not been rebuilt/re-signed. Keep App historical evidence and curren
 Subsequent entry slice is committed at 5e24634307e2b5a3301409e5c8a1f2efa670cbe0: ordinary default-mode
 session allow/deny/pending-cancel and actual image create/overwrite checkpoint/rollback passed independent
 offline13/native31/fast80. See ../entry/README.md and independent-v1/report.json; Node launch only, not new App
-acceptance. Next local work: actual readiness/registry-hidden nested tools, selected current-candidate apps,
-and controlled real layout transitions. Historical entry/development failures remain archived.
+acceptance. Selected current-source scenes subsequently passed independent default31/renderer33/Finder10; see
+../selected-current/README.md. Next local work: actual readiness/registry-hidden nested tools and controlled
+real layout transitions. Historical entry/development failures remain archived.
 Remaining P5 gates include actual TCC revoke/regrant, approved action-time lock/unlock and cleanup,
-current selected-app bindings, readiness/hidden nested tool paths, plus multi-display/nonRetina, macOS14,
+readiness/hidden nested tool paths, plus multi-display/nonRetina, macOS14,
 Windows current-candidate, and formal app identity. P3/P4 Windows waivers do not automatically apply to P5.
 Do not lock the desktop without a specific new user choice; the standing instruction is to keep it awake.
 

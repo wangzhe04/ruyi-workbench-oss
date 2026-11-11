@@ -1,0 +1,144 @@
+{
+  "at": "2026-11-11T08:29:13.239087+00:00",
+  "executor": "/root/p5_acceptance",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "productionImplementation": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "documentationOnlyAdvanceFiles": [
+    "MACOS-PORTING/06-P5-AUTOMATION.md",
+    "MACOS-PORTING/10-TRACKING.md",
+    "MACOS-PORTING/README.md",
+    "MACOS-PORTING/TASKS.json",
+    "MACOS-PORTING/evidence/P5/entry/README.md",
+    "MACOS-PORTING/evidence/P5/entry/code-review-v1.json",
+    "MACOS-PORTING/evidence/P5/entry/commit-binding.json",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v1/build.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v1/fast.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v1/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v1/syntax.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v1/unit.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v2/build.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v2/fast.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v2/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v2/static-syntax.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/build.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/checkpoint-mcpchild.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/delta-syntax.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/fast.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/static-syntax.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/engineering-v3/tool-loading.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/inventory-fixes/facts.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/inventory-fixes/fixture-home.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/inventory-fixes/process-safety.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/inventory-fixes/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/inventory-fixes/route-inventory.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/offline-after-v1.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/offline-after-v2.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/offline-before.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/offline-reviewed-v1.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/report-v1.json",
+    "MACOS-PORTING/evidence/P5/entry/development/report-v2.json",
+    "MACOS-PORTING/evidence/P5/entry/development/reviewed-v1.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/reviewed-v1/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/v1.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/v1/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/v2.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/v2/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/v3.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/v3/results.json",
+    "MACOS-PORTING/evidence/P5/entry/development/v4.txt",
+    "MACOS-PORTING/evidence/P5/entry/development/v4/results.json",
+    "MACOS-PORTING/evidence/P5/entry/freeze-v1.json",
+    "MACOS-PORTING/evidence/P5/entry/freeze-v2.json",
+    "MACOS-PORTING/evidence/P5/entry/freeze-v3.json",
+    "MACOS-PORTING/evidence/P5/entry/freeze-v4.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-commit-binding.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/artifact-signatures.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/fast/invocation.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/fast/observed-process-identities.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/fast/output.txt",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/fast/report.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/native/invocation.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/native/observed-process-identities.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/native/output.txt",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/native/report.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/native/results.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/offline/invocation.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/offline/observed-process-identities.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/offline/output.txt",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/offline/report.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/report.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/results.json",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/runner.py",
+    "MACOS-PORTING/evidence/P5/entry/independent-v1/source-artifact-checks.json",
+    "MACOS-PORTING/evidence/P5/entry/next-selected-apps-plan.json",
+    "MACOS-PORTING/evidence/P5/entry/status-evidence-review-v1.json",
+    "MACOS-PORTING/evidence/P5/manual/NEXT-STEPS.txt",
+    "MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json"
+  ],
+  "sourceCount": 106,
+  "sourceWorkingAndBothCommitBlobsMatch": true,
+  "observerScript": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer.py",
+    "bytes": 10316,
+    "sha256": "bfc538b1d3930389d188850b4985c7894c1ac589030de2e598936ba4bdd218c0"
+  },
+  "serialCases": [
+    "default",
+    "renderer"
+  ],
+  "finderRun": false,
+  "policy": "One invocation per case. First unexpected failure stops later cases; no retry or external GUI intervention.",
+  "node": {
+    "argv": [
+      "/Users/jiming/.local/bin/node",
+      "--version"
+    ],
+    "stdout": "v24.15.0\n",
+    "stderr": ""
+  },
+  "os": {
+    "argv": [
+      "/usr/bin/sw_vers"
+    ],
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+    "stderr": ""
+  },
+  "sdk": {
+    "argv": [
+      "/usr/bin/xcrun",
+      "--show-sdk-version"
+    ],
+    "stdout": "15.2\n",
+    "stderr": ""
+  },
+  "TextEdit": {
+    "bundleId": "com.apple.TextEdit",
+    "version": "1.21",
+    "build": "419"
+  },
+  "Finder": {
+    "bundleId": "com.apple.finder",
+    "version": "27.0",
+    "build": "1865"
+  },
+  "CFT": {
+    "bundleId": "com.google.chrome.for.testing",
+    "version": "148.0.7778.96",
+    "build": "7778.96"
+  },
+  "runtimeFiles": [
+    {
+      "path": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "bytes": 119944608,
+      "sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32"
+    },
+    {
+      "path": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/bin/python3.12",
+      "bytes": 152096,
+      "sha256": "d4f152f2a753c94e0e7935c8ebbe6b2609979e1df7898422b577d0076383d08b"
+    }
+  ],
+  "pythonResolved": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/bin/python3.12",
+  "pythonVersion": "Python 3.12.10\n"
+}

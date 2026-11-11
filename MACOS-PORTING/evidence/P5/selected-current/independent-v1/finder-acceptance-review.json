@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "reviewerAndRuntimeExecutor": "/root/p5_acceptance",
+  "at": "2026-11-11T08:35:08.066831+00:00",
+  "status": "passed_independent_finder_current_host",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "productionImplementation": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "sourceCount": 106,
+  "sourceBeforeAfterAndFinalMatch": true,
+  "fourArtifactsBeforeAfterMatch": true,
+  "independentInvocations": 1,
+  "naturalExitCode": 0,
+  "pass": 10,
+  "fail": 0,
+  "skip": 0,
+  "manualRetries": 0,
+  "automaticRetries": 0,
+  "preconditionHistory": {
+    "previousPrimaryAttempt": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/report.json",
+      "bytes": 916,
+      "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77",
+      "status": "failed_before_controlled_folder_open_and_automation_helper_build",
+      "pass": 0,
+      "fail": 1,
+      "cause": "Existing Finder AXWindow expanded beyond1000-node bounded verifier. Subsequent shallow diagnosis confirmed an existing content window.",
+      "originalLog": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/output.txt",
+        "bytes": 993,
+        "sha256": "68e695496d35e1c64b8225da1cc7012fd81c9731ceba14740895a050bd427018"
+      }
+    },
+    "userDecision": "我关闭现有 Finder 窗口后，再补验",
+    "actualChange": "User closed pre-existing Finder content windows. Parent shallow diagnostic and primary finder-v2 confirmed changed precondition before explicit independent authorization.",
+    "diagnostic": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/after-user-response.json",
+      "bytes": 650,
+      "sha256": "fcc549e7cf8c1a2538bfc9a748e68c942e5f226e050bbde540dd24a2d48f5b15"
+    },
+    "independentCurrentBaseline": {
+      "finderPid": 692,
+      "version": "27.0",
+      "build": "1865",
+      "roles": [
+        "AXScrollArea"
+      ],
+      "cgWindows": 5,
+      "allCGWindowsUntitledAndOffscreen": true
+    },
+    "classification": "New authorized execution under changed external precondition; no product/source fix and no overwrite or erasure of prior failure."
+  },
+  "semanticEvidence": {
+    "ownedContentPaths": [
+      "/private/tmp/p5sa-0rwzmtml/t/ruyi-p5-finder-lmvFVQ/Ruyi P5 Finder 中文 7844/P5 child 中文",
+      "/private/tmp/p5sa-0rwzmtml/t/ruyi-p5-finder-lmvFVQ/Ruyi P5 Finder 中文 7844/P5 proof.txt"
+    ],
+    "noAdditionalTabSurface": true,
+    "ownershipVerifierNegativeControlsPassed": [
+      "duplicate content URL",
+      "additional Finder content window",
+      "AXTabGroup",
+      "multiple AXTabs"
+    ],
+    "treeBoundedAndCompleteAssertionPassed": true,
+    "selectedView": "列表视图",
+    "AXPress": {
+      "actionSent": true,
+      "nativeOutcome": "unconfirmed",
+      "nativeConfirmed": null,
+      "verification": "accessibility_action_accepted"
+    },
+    "independentNativeReadback": {
+      "selectedValue": 1,
+      "role": "AXRadioButton"
+    },
+    "ownedWindowCleanup": {
+      "cleaned": true,
+      "sharedFinderPidBefore": 692,
+      "sharedFinderPidAfter": 692,
+      "noFinalAXWindow": true
+    }
+  },
+  "actualExecutedHelper": {
+    "originalPath": "/tmp/p5sa-0rwzmtml/t/ruyi-p5-finder-lmvFVQ/helper",
+    "preservedOutsideGit": "/tmp/p5sa-0rwzmtml/artifacts/38fdb1f41675f3ff4e9baa378df5fc4cc3691ff218d758b50923a733d1caa019",
+    "bytes": 291712,
+    "sha256": "38fdb1f41675f3ff4e9baa378df5fc4cc3691ff218d758b50923a733d1caa019",
+    "codesignExit": 0
+  },
+  "helperComparison": {
+    "defaultReferenceSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+    "normalizedBodySha256": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+    "excluded": [
+      {
+        "kind": "LC_UUID payload",
+        "offset": 2808,
+        "bytes": 16
+      },
+      {
+        "kind": "LC_CODE_SIGNATURE blob",
+        "offset": 290864,
+        "bytes": 848
+      }
+    ],
+    "allStrictSignaturesExitZero": true,
+    "rawIdentityWithDefaultClaimed": false
+  },
+  "processEvidence": {
+    "observedBirthIdentities": 21,
+    "remainingObservedIdentities": [],
+    "scope": "Only externally sampled birth-verified descendants are proved absent; fixture separately passed MCP/native cleanup. Shared Finder is neither claimed as owned process nor terminated."
+  },
+  "GUIReleased": true,
+  "evidenceFiles": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/action.json",
+      "bytes": 29822,
+      "sha256": "0d6d6837507eeddd32dcceee202deb10e243c5e6c86afe173c81a383f7aa782f"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-after.json",
+      "bytes": 515,
+      "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/artifacts-before.json",
+      "bytes": 515,
+      "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/baseline.json",
+      "bytes": 1599,
+      "sha256": "1ec849302fca77c72102dfa8f8a00b53b96c23735380143d91fa828072c3e224"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/cleanup.json",
+      "bytes": 1817,
+      "sha256": "be0fc99e0a3b9528c5658ff31ba808c1fe0d4b33e12562d7e8d9b864bf40ab37"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/helpers.json",
+      "bytes": 334,
+      "sha256": "3175b19c516e0eea0b6890008ff25e348679b9b421350f5808f3e4adfab839eb"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/invocation.json",
+      "bytes": 1565,
+      "sha256": "2f003d700ef4facc1a25ff80406e9bfc5bc79e6e2f617b92a58f92907720c653"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/observed-identities.json",
+      "bytes": 1599,
+      "sha256": "9e9d1afda0e56c8704027d1b898d81b03225b329caf133e8c948db8bf7458979"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/output.txt",
+      "bytes": 850,
+      "sha256": "363a62391a792076a901d4dd7555ccac43f0912b990d6d859ab35e453ce3988a"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/owned-identity.json",
+      "bytes": 25559,
+      "sha256": "6bbe2ccfb1c6803e4251141748497e4353de7b438d1a318d59b37326df2dddee"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/report.json",
+      "bytes": 6179,
+      "sha256": "cd02eadd3b552f36169716e27741bac5a5db031ba477680bfe755c0c660cc09c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-after.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/source-before.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder/tree.json",
+      "bytes": 110666,
+      "sha256": "46f17e283fa15ffea42bb8b6172ccbbeb525a8a8739978807d8494eddebc3cda"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-preflight.json",
+      "bytes": 2176,
+      "sha256": "63bf7992f41bbfef03ce31fd70afa3bada382fe32872f0f1990d284e63d5872d"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-dispatch.json",
+      "bytes": 461,
+      "sha256": "0ecadfdd60131db9263c5253000cd720cc47819187cde2f58405888969943136"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-runner.py",
+      "bytes": 2846,
+      "sha256": "056be99ce5ee8b4d2949e6ee2cc379edf76e0b2bdc5283447aac78162471f94d"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-outer.txt",
+      "bytes": 146,
+      "sha256": "5de39aea2034d19e47d0a08863fff3aca40d4cdb85b18ed765a28a9e60764b9d"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-independent-run.json",
+      "bytes": 7170,
+      "sha256": "b89657ae5cdfdc68e7f893b69e9289ba1f24b4a73c59e89dd3a7f12798e89a16"
+    }
+  ],
+  "earlierDefaultRendererEvidenceUntouched": true,
+  "originalPointInTimeAcceptanceReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+    "bytes": 14970,
+    "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576"
+  },
+  "scope": "Single independent selected Finder27.0 owned-folder AX scene on current host after the windowless precondition changed. No default/renderer/core/manual/engineering rerun; no App-origin AX, real TCC revoke, OS lock or environment acceptance.",
+  "phaseStatus": "in_progress"
+}

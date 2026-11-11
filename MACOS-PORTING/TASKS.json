@@ -1482,11 +1482,15 @@
           "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
           "evidence": [
             "evidence/P5/ax/README.md",
-            "evidence/P5/ax/apps/README.md"
+            "evidence/P5/ax/apps/README.md",
+            "evidence/P5/selected-current/README.md",
+            "evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+            "evidence/P5/selected-current/current-source-binding.json",
+            "evidence/P5/selected-current/independent-source-binding.json"
           ],
           "startedDate": "2026-11-10",
           "baselineCommit": "c1b90ad2",
-          "progress": "真实应用切片当前主机实现已提交649556f0，63份提交blob独立逐项匹配交付指纹。有效350条E2E、8项focused unit、62项Python及三负向通过，完整单元2499通过/18既有跳过、静态80/80、语法1146和构建新鲜度通过。三层测试/清册差异及提交前校验缓冲失败后的补验均登记。Chromium页面AX动作限制、历史未定启动挂起与原环境门保留，P5-03整体in_progress。",
+          "progress": "真实应用切片当前主机实现已提交649556f0，63份提交blob独立逐项匹配交付指纹。有效350条E2E、8项focused unit、62项Python及三负向通过，完整单元2499通过/18既有跳过、静态80/80、语法1146和构建新鲜度通过。三层测试/清册差异及提交前校验缓冲失败后的补验均登记。Chromium页面AX动作限制、历史未定启动挂起与原环境门保留，P5-03整体in_progress。 当前5e246343源码在76248e2b执行HEAD补验选定应用，独立默认31/renderer33/Finder10共74项各首跑通过；106来源与两提交raw blob、六次成功场景12个前后快照一致。实际临时helper与默认1cc限定字节等价，非raw/TCC identity。原Finder前置拒绝与用户关闭窗口后的环境变化保留。",
           "coreSlice": {
             "status": "committed_current_host",
             "baselineCommit": "c1b90ad2",
@@ -1558,6 +1562,28 @@
             "implementationCommit": "649556f0d5aeaf587d1b73337aa5b3da0833fe0c",
             "commitBinding": "evidence/P5/ax/apps/commit-binding.json",
             "commitBindingReview": "evidence/P5/ax/apps/commit-binding-review.json"
+          },
+          "currentSourceSelectedScenes": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_selected_scenes",
+            "runtimeImplementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+            "executionHead": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+            "sourceFiles": 106,
+            "independentDefaultAssertions": 31,
+            "independentRendererAssertions": 33,
+            "independentFinderAssertions": 10,
+            "independentScenarioRuns": 3,
+            "independentRetries": 0,
+            "newProductCode": false,
+            "sourceBinding": "evidence/P5/selected-current/current-source-binding.json",
+            "independentBinding": "evidence/P5/selected-current/independent-source-binding.json",
+            "evidence": "evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+            "limits": [
+              "Only three unchanged selected scenes refreshed; old350 core suite not rerun",
+              "Actual per-case helper normalized full-byte equality to default1cc excludes UUID/signature, not raw/TCC identity",
+              "Renderer AXValue/AXPress remain refused as element_stale",
+              "App LaunchServices, TCC revoke, lock and original environment gates not covered"
+            ]
           }
         },
         {
@@ -1707,7 +1733,7 @@
             "commitBinding": "evidence/P5/audit/commit-binding.json",
             "commitBindingReview": "evidence/P5/audit/independent-commit-binding.json"
           },
-          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。能力总闸与隐藏工具路径、实际撤权、动作中锁屏、当前应用绑定和原环境门继续开放。",
+          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。能力总闸与隐藏工具路径、实际撤权、动作中锁屏、原环境门继续开放。当前选定应用74项复验另见P5-03。",
           "manualEventSlice": {
             "status": "implemented_independently_validated_supported_subset",
             "date": "2026-11-11",
@@ -1783,7 +1809,7 @@
               "No LaunchServices App acceptance or rebuild/re-sign in this slice",
               "Pending-permission cancellation does not establish action-time hard-kill cleanup",
               "No actual TCC revoke/OS lock or Windows runtime in this slice",
-              "Master-switch/hidden-tool readiness paths and current selected-app acceptance remain open"
+              "Master-switch/hidden-tool readiness paths remain open; selected applications were outside this slice and their later refresh is tracked in P5-03"
             ],
             "evidence": "evidence/P5/entry/independent-v1/report.json"
           }

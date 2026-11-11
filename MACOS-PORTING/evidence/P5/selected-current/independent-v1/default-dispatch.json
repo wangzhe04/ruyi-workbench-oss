@@ -1,0 +1,11 @@
+{
+  "executor": "/root/p5_acceptance",
+  "pid": 6971,
+  "argv": [
+    "/usr/bin/python3",
+    "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/observer.py",
+    "default",
+    "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/default"
+  ],
+  "at": "2026-11-11T08:29:25.080105+00:00"
+}

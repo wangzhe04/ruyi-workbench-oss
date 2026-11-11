@@ -1,0 +1,184 @@
+[
+  {
+    "pid": 6003,
+    "ppid": 5998,
+    "created": 1794385275474046
+  },
+  {
+    "pid": 6008,
+    "ppid": 6007,
+    "created": 1794385275617198
+  },
+  {
+    "pid": 6007,
+    "ppid": 6003,
+    "created": 1794385275598925
+  },
+  {
+    "pid": 6016,
+    "ppid": 6007,
+    "created": 1794385276132752
+  },
+  {
+    "pid": 6022,
+    "ppid": 6007,
+    "created": 1794385276502100
+  },
+  {
+    "pid": 6027,
+    "ppid": 6007,
+    "created": 1794385276866904
+  },
+  {
+    "pid": 6031,
+    "ppid": 6007,
+    "created": 1794385277193715
+  },
+  {
+    "pid": 6038,
+    "ppid": 6007,
+    "created": 1794385277661768
+  },
+  {
+    "pid": 6042,
+    "ppid": 6007,
+    "created": 1794385277955854
+  },
+  {
+    "pid": 6046,
+    "ppid": 6007,
+    "created": 1794385278223942
+  },
+  {
+    "pid": 6052,
+    "ppid": 6007,
+    "created": 1794385278521675
+  },
+  {
+    "pid": 6059,
+    "ppid": 6003,
+    "created": 1794385278862179
+  },
+  {
+    "pid": 6072,
+    "ppid": 6071,
+    "created": 1794385279682059
+  },
+  {
+    "pid": 6073,
+    "ppid": 6072,
+    "created": 1794385279682747
+  },
+  {
+    "pid": 6071,
+    "ppid": 6003,
+    "created": 1794385279680723
+  },
+  {
+    "pid": 6083,
+    "ppid": 6003,
+    "created": 1794385280271017
+  },
+  {
+    "pid": 6098,
+    "ppid": 6073,
+    "created": 1794385280320904
+  },
+  {
+    "pid": 6088,
+    "ppid": 1,
+    "created": 1794385280290237,
+    "command": "/System/Applications/TextEdit.app/Contents/MacOS/TextEdit -ApplePersistenceIgnoreState YES -RuyiP5Fixture /tmp/p5sa-ta15rvj7/t/ruyi-p5-apps-ntkquF",
+    "ownership": "complete exact fixture tag; birth unchanged across command observation"
+  },
+  {
+    "pid": 6135,
+    "ppid": 6003,
+    "created": 1794385281859863
+  },
+  {
+    "pid": 6137,
+    "ppid": 6135,
+    "created": 1794385281892366
+  },
+  {
+    "pid": 6142,
+    "ppid": 6003,
+    "created": 1794385282342894
+  },
+  {
+    "pid": 6162,
+    "ppid": 6003,
+    "created": 1794385283890654
+  },
+  {
+    "pid": 6171,
+    "ppid": 6162,
+    "created": 1794385284165653
+  },
+  {
+    "pid": 6177,
+    "ppid": 6162,
+    "created": 1794385284436149
+  },
+  {
+    "pid": 6179,
+    "ppid": 6162,
+    "created": 1794385284447635
+  },
+  {
+    "pid": 6182,
+    "ppid": 6162,
+    "created": 1794385284522149
+  },
+  {
+    "pid": 6183,
+    "ppid": 6162,
+    "created": 1794385284522483
+  },
+  {
+    "pid": 6188,
+    "ppid": 6162,
+    "created": 1794385284802504
+  },
+  {
+    "pid": 6189,
+    "ppid": 6162,
+    "created": 1794385284803115
+  },
+  {
+    "pid": 6193,
+    "ppid": 6162,
+    "created": 1794385285016195
+  },
+  {
+    "pid": 6224,
+    "ppid": 6162,
+    "created": 1794385286961519
+  },
+  {
+    "pid": 6230,
+    "ppid": 6162,
+    "created": 1794385287303701
+  },
+  {
+    "pid": 6233,
+    "ppid": 6003,
+    "created": 1794385287526251
+  },
+  {
+    "pid": 6234,
+    "ppid": 6233,
+    "created": 1794385287527795
+  },
+  {
+    "pid": 6235,
+    "ppid": 6234,
+    "created": 1794385287528237
+  },
+  {
+    "pid": 6243,
+    "ppid": 6235,
+    "created": 1794385287923308
+  }
+]

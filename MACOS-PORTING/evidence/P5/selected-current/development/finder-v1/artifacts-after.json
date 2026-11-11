@@ -1,0 +1,18 @@
+{
+  "defaultHelper": {
+    "bytes": 291712,
+    "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+  },
+  "processHelper": {
+    "bytes": 35520,
+    "sha256": "e11c9765d90eadc7ae84990d37906a59f35ab2ada6fbd7fccc99191cd9b2027d"
+  },
+  "browserLauncher": {
+    "bytes": 68624,
+    "sha256": "2447c7bdea8e8ad38b52594f1ba53e18821c05445e8a07ad1cf3b0f23931d89d"
+  },
+  "observerScript": {
+    "bytes": 10298,
+    "sha256": "ecdf207a3125a05252c34b39d642718e487fcd681e51e0f633b74ad9177229a2"
+  }
+}
