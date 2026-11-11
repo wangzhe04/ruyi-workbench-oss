@@ -206,6 +206,7 @@ async function stopNativeWorkers() {
         { tool: 'focus_window', args: { target } }, { tool: 'input_sequence', args: sequence }] } };
       specs.push(spec); const events = await turn(spec, action);
       const after = await command('state'), auditAfter = await invoke('audit_tail', { n: 100 });
+      const ledger = events.find(event => event.type === 'turn_summary')?.irreversible;
       t.ok(events.filter(event => event.type === 'permission_request').length === 1, action + ' crosses actual default-mode permission entry exactly once');
       if (action === 'allow') {
         const result = toolResult(events).result;
@@ -213,11 +214,16 @@ async function stopNativeWorkers() {
           && after.counts.left_up === (before.counts.left_up || 0) + 1, 'allowed session macro performs one actual balanced native click');
         t.ok(['macro_run', 'input_sequence', 'focus_window'].every(name => auditAfter.records.slice(auditBefore.records.length).some(row => row.tool === name && row.ok)),
           'normal allowed session preserves actual enclosing and native ACC audit rows');
+        t.ok(ledger?.length === 2 && ledger.every((row, i) => row.effectStatus === 'reported' && row.step === i
+          && row.callId === spec.callId && row.parentTool === 'ai_computer_control__macro_run')
+          && ledger[0].name === 'ai_computer_control__focus_window' && ledger[1].name === 'ai_computer_control__input_sequence',
+          'actual completed macro focus and input appear in the same-turn irreversible ledger with call and step attribution');
       } else {
         const mutations = records => records.filter(row => ['macro_run', 'input_sequence', 'focus_window'].includes(row.tool));
         t.ok(JSON.stringify(before.counts) === JSON.stringify(after.counts)
           && mutations(auditAfter.records).length === mutations(auditBefore.records).length,
           action + ' has no receiver side effect or dispatched ACC mutation');
+        t.ok(Array.isArray(ledger) && ledger.length === 0, action + ' does not falsely record a reported irreversible action');
         const pending = await request('GET', '/api/interventions');
         t.ok(Array.isArray(pending.json.pending) && pending.json.pending.length === 0,
           action + ' leaves no live permission request after the actual session settles');

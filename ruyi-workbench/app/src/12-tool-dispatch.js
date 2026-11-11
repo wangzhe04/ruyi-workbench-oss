@@ -295,6 +295,9 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     if (readRefusal) return readRefusal;
     // Provider proxies carry their live session/turn in ctx; CLI MCP children use the loaded fallback.
     if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, ctx || { sessionId: sid, turnSeq: sidSession.turnSeq });
+    // Provider audit observes only the local MCP invocation attempt. Never treat this as
+    // acknowledgement from ACC/the native helper. Local policy/argument refusals never reach it.
+    if (typeof ctx?.onBridgedInvocationAttempt === 'function') ctx.onBridgedInvocationAttempt();
     const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {

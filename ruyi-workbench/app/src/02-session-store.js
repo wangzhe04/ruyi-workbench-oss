@@ -2490,9 +2490,11 @@ function foldTurnSummaries(session) {
   const filesChanged = new Map(), artifacts = new Map();
   const irreversible = [];
   let commands = 0, legacyCommands = 0;
+  let irreversibleIncomplete = false;
   for (const msg of ((session && session.messages) || [])) {
     const ts = msg && msg.turnSummary;
     if (!ts) continue;
+    irreversibleIncomplete ||= ts.irreversibleIncomplete === true;
     for (const f of (ts.filesChanged || [])) {
       if (f && f.path) filesChanged.set(f.path, { path: f.path, op: f.op || '', revertible: f.revertible === true, turnSeq: ts.turnSeq, entrySeq: f.entrySeq });
     }
@@ -2501,8 +2503,9 @@ function foldTurnSummaries(session) {
     }
     commands += (ts.commands || []).length || Number(ts.commands) || 0;
     if (Array.isArray(ts.irreversible)) {
+      if (irreversible.length + ts.irreversible.length > 200) irreversibleIncomplete = true;
       for (const iv of ts.irreversible) {
-        if (iv && iv.name && irreversible.length < 200) irreversible.push({ turnSeq: ts.turnSeq, kind: iv.kind || 'exec', name: String(iv.name), detail: String(iv.detail || ''), ok: iv.ok !== false });
+        if (iv && iv.name && irreversible.length < 200) irreversible.push({ turnSeq: ts.turnSeq, kind: iv.kind || 'exec', name: String(iv.name), detail: String(iv.detail || ''), ok: iv.effectStatus === 'unknown' ? false : iv.ok !== false, ...irreversibleEntryMetadata(iv) });
       }
     } else {
       legacyCommands += (ts.commands || []).length || Number(ts.commands) || 0;
@@ -2512,7 +2515,7 @@ function foldTurnSummaries(session) {
   for (const iv of irreversible) byKind[iv.kind] = (byKind[iv.kind] || 0) + 1;
   return {
     filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands,
-    irreversible: { total: irreversible.length, byKind, items: irreversible, legacyCommands },
+    irreversible: { total: irreversible.length, byKind, items: irreversible, legacyCommands, ...(irreversibleIncomplete ? { incomplete: true } : {}) },
   };
 }
 // 任务结果快照(EC-E 立项:验收状态 + 成果引用 + 未完成项 + 变更摘要 + 真实回滚能力 + 不可逆显式标注)。
@@ -2562,7 +2565,7 @@ async function buildMissionResult(session, opts) {
     },
     checkpoints: { entries: cpEntries.length, turnSeqs: cpTurnSeqs.slice(0, 50), rollbackAvailable: cpEntries.length > 0 },
     audit: { commands: fold.commands, irreversible: fold.irreversible.total, checkpoints: cpEntries.length, openTodos: ((session.todos) || []).filter(t => t && t.status !== 'done').length },
-    irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
+    irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands, ...(fold.irreversible.incomplete ? { incomplete: true } : {}) },
   };
 }
 // 终态盖章/再武装清理。在【任何 mission 突变点】调用(/api/mission check/update、09 回合内 mission_update):
@@ -3032,13 +3035,123 @@ function asResultObject(result) {
   if (typeof result === 'string') { try { return JSON.parse(result); } catch { return null; } }
   return null;
 }
+// A small result-derived ledger survives display shrinking. These are tool-reported effects,
+// not a durable native dispatch receipt, nor proof that the target application accepted input.
+// Never infer a macro's completed children from requested arguments (saved recordings may rewrite them).
+const IRREVERSIBLE_COMPOUND_TOOLS = new Set(['macro_run', 'batch_actions']);
+const IRREVERSIBLE_RESULT_TEXT_MAX = 2 * 1024 * 1024;
+function irreversibleResultObject(result) {
+  if (typeof result === 'string' && (result.length > IRREVERSIBLE_RESULT_TEXT_MAX || Buffer.byteLength(result, 'utf8') > IRREVERSIBLE_RESULT_TEXT_MAX)) return null;
+  if (Array.isArray(result)) {
+    if (result.length > 200) return null;
+    let text = '', bytes = 0;
+    for (const part of result.slice(0, 200)) {
+      if (typeof part?.text !== 'string') continue;
+      if (part.text.length > IRREVERSIBLE_RESULT_TEXT_MAX) return null;
+      bytes += Buffer.byteLength(part.text, 'utf8');
+      if (bytes > IRREVERSIBLE_RESULT_TEXT_MAX) return null;
+      text += part.text;
+    }
+    try { return JSON.parse(text); } catch { return null; }
+  }
+  return asResultObject(result);
+}
+function irreversibleReportedState(bare, r, depth = 0) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return 'unknown';
+  // Positive prefix evidence survives enclosing cancellation/failure. Contradictory receipts
+  // remain unknown. action_sent:false on its own is not proof that no prefix ran.
+  if (r.action_sent === true || r.acted === true) return r.outcome === 'not_dispatched' ? 'unknown' : 'reported';
+  if (r.outcome === 'unknown' || r.outcome === 'unconfirmed' || r.outcome === 'rolled_back') return 'unknown';
+  if (r.outcome === 'not_dispatched') return 'none';
+  if (bare === 'act_and_verify' && r.action_result && depth < 2) return irreversibleReportedState('input_sequence', r.action_result, depth + 1);
+  if (bare === 'input_sequence' || bare === 'act_and_verify') return 'unknown';
+  if (bare === 'ocr_click' || bare === 'vision_click' || bare === 'ocr_find_text') {
+    if (r.clicked === true || (r.clicked && typeof r.clicked === 'object' && !Array.isArray(r.clicked))) return 'reported';
+    if (r.click_error) return 'unknown';
+    if (bare === 'ocr_find_text' && r.ok === true && r.clicked === undefined) return 'none';
+    if (r.clicked === false || r.clicked === null || r.found === false || r.not_found === true) return 'none';
+    return 'unknown';
+  }
+  if (r.acted === false && (r.ok === true || r.success === true)) return 'none';
+  return r.ok === true || r.success === true ? 'reported' : 'unknown';
+}
+function irreversibleEntryMetadata(row) {
+  const out = {};
+  if (row?.effectStatus === 'reported' || row?.effectStatus === 'unknown') out.effectStatus = row.effectStatus;
+  for (const key of ['callId', 'callIdHash', 'parentTool', 'reason', 'outcome']) {
+    if (typeof row?.[key] === 'string') out[key] = row[key].slice(0, key === 'parentTool' ? 200 : 120);
+  }
+  if (Number.isInteger(row?.step) && row.step >= 0 && row.step < 200) out.step = row.step;
+  return out;
+}
+function projectBridgedIrreversible(tc0, invocationAttempted) {
+  const tc = unwrapToolInvokeCall(tc0);
+  const name = typeof tc?.name === 'string' ? tc.name : '';
+  const bare = unprefixedBridgedName(name);
+  const compound = IRREVERSIBLE_COMPOUND_TOOLS.has(bare);
+  // Bare CLI/native names must not acquire bridge semantics by collision.
+  if (bare === name || (!compound && !Object.hasOwn(IRREVERSIBLE_BRIDGED_KIND, bare))) return null;
+  const projection = { schemaVersion: 1, items: [], incomplete: false };
+  // This flag comes from the actual local call boundary, never from model arguments.
+  if (invocationAttempted === false) return projection;
+  const r = irreversibleResultObject(tc.result);
+  const callId = typeof tc.id === 'string' && tc.id.length <= 120 ? tc.id : '';
+  const callIdHash = typeof tc.id === 'string' && tc.id.length > 120 ? crypto.createHash('sha256').update(tc.id).digest('hex') : '';
+  const note = (tool, result, step, kind, reason) => {
+    const state = reason ? 'unknown' : irreversibleReportedState(unprefixedBridgedName(tool), result);
+    if (state === 'none') return;
+    if (projection.items.length >= IRREVERSIBLE_LEDGER_MAX) { projection.incomplete = true; return; }
+    projection.items.push({ kind, name: tool.slice(0, 200), detail: '',
+      ok: !!result && result.ok !== false && result.success !== false && !result.error && state === 'reported',
+      effectStatus: state, ...(callId ? { callId } : {}), ...(callIdHash ? { callIdHash } : {}), ...(step === undefined ? {} : { parentTool: name.slice(0, 200), step }),
+      ...(reason ? { reason } : {}), ...(typeof result?.outcome === 'string' ? { outcome: result.outcome.slice(0, 120) } : {}) });
+  };
+  if (!compound) { note(name, r, undefined, IRREVERSIBLE_BRIDGED_KIND[bare]); return projection; }
+  if (r?.step_invocation_schema === 1 && r.invocation_attempted === false && !Array.isArray(r.results)) return projection;
+  if (!Array.isArray(r?.results)) {
+    if (r?.outcome !== 'not_dispatched') note(name, r, undefined, 'unknown', 'compound_result_unavailable');
+    return projection;
+  }
+  const seen = new Set();
+  for (const [index, child] of r.results.slice(0, 200).entries()) {
+    // Malformed rows cannot certify either execution or a no-effect result.
+    if (!child || !Number.isInteger(child.step) || child.step < 0 || child.step >= 200 || seen.has(child.step) || typeof child.tool !== 'string') {
+      projection.incomplete = true; continue;
+    }
+    seen.add(child.step);
+    if (child.step !== index) projection.incomplete = true;
+    if (r.step_invocation_schema === 1 && child.invocation_attempted === false) {
+      if (Object.hasOwn(child, 'result')) { projection.incomplete = true; note(name, null, child.step, 'unknown', 'conflicting_invocation_result'); }
+      continue;
+    }
+    // Nested compounds are prohibited by ACC. Unexpected nested results stay unknown.
+    if (IRREVERSIBLE_COMPOUND_TOOLS.has(child.tool)) {
+      note(name, null, child.step, 'unknown', 'unexpected_nested_compound'); continue;
+    }
+    if (!Object.hasOwn(IRREVERSIBLE_BRIDGED_KIND, child.tool)) continue;
+    const prefix = name.slice(0, name.lastIndexOf('__') + 2);
+    const result = irreversibleResultObject(child.result);
+    note(prefix + child.tool, result, child.step, IRREVERSIBLE_BRIDGED_KIND[child.tool], result ? '' : 'step_result_unavailable');
+  }
+  // A complete returned prefix may end early on an error. Missing requested suffixes are not
+  // presumed to have run. Only malformed/omitted returned rows make this projection incomplete.
+  if (r.outcome === 'unknown' || r.outcome === 'unconfirmed' || r.outcome === 'rolled_back') note(name, r, undefined, 'unknown', 'compound_outcome_unknown');
+  if (r.outcome === 'not_dispatched' && projection.items.length) projection.incomplete = true;
+  if (r.results.length > 200 || (Number.isInteger(r.completed) && Number.isInteger(r.failed)
+      && r.completed + r.failed !== r.results.length)) projection.incomplete = true;
+  if (projection.incomplete && projection.items.length < IRREVERSIBLE_LEDGER_MAX) note(name, null, undefined, 'unknown', 'compound_results_incomplete');
+  return projection;
+}
+
 function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
   const byPath = new Map(); // path → {path, op, revertible} — journal entries take precedence over records
   let commands = 0;
+  let irreversibleIncomplete = false;
   const irreversible = []; // 第72波:不可逆操作正向账(收录判据见 IRREVERSIBLE_*_KIND 头注)
   const noteIrreversible = (name, input, result) => {
     const kind = irreversibleToolKind(name);
-    if (!kind || irreversible.length >= IRREVERSIBLE_LEDGER_MAX) return;
+    if (!kind) return;
+    if (irreversible.length >= IRREVERSIBLE_LEDGER_MAX) { irreversibleIncomplete = true; return; }
     const r = asResultObject(result);
     irreversible.push({ kind, name: String(name || ''), detail: irreversibleDetail(input), ok: !(r && r.ok === false) });
   };
@@ -3047,7 +3160,16 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     if (!tc || !tc.name) continue;
     const name = String(tc.name);
     const input = (tc.input && typeof tc.input === 'object') ? tc.input : {};
-    noteIrreversible(name, input, tc.result);
+    const projected = tc0.irreversibleProjection?.schemaVersion === 1 && Array.isArray(tc0.irreversibleProjection.items)
+      ? tc0.irreversibleProjection : projectBridgedIrreversible(tc0);
+    if (projected) {
+      irreversibleIncomplete ||= projected.incomplete === true;
+      for (const item of projected.items.slice(0, IRREVERSIBLE_LEDGER_MAX)) {
+        if (irreversible.length >= IRREVERSIBLE_LEDGER_MAX) { irreversibleIncomplete = true; break; }
+        irreversible.push({ kind: String(item.kind || 'unknown').slice(0, 32), name: String(item.name || name).slice(0, 200),
+          detail: String(item.detail || '').slice(0, 120), ok: item.ok === true, ...irreversibleEntryMetadata(item) });
+      }
+    } else noteIrreversible(name, input, tc.result);
     if (TURN_SUMMARY_FILE_TOOLS.has(name)) {
       const r = asResultObject(tc.result);
       // Path: prefer the tool input; fall back to the parsed result (claude workbench tools echo .path).
@@ -3123,7 +3245,7 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     }
   }
   const artifacts = [...artByPath.values()];
-  return { turnSeq: Number(turnSeq) || 0, filesChanged, commands, artifacts, irreversible };
+  return { turnSeq: Number(turnSeq) || 0, filesChanged, commands, artifacts, irreversible, ...(irreversibleIncomplete ? { irreversibleIncomplete: true } : {}) };
 }
 
 // v0.8-S0 A6: detect an interrupted (dangling) turn from providerHistory. Dangling shapes:

@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 90,
-    "providedSymbols": 3897,
-    "requiredSymbols": 3507,
+    "providedSymbols": 3903,
+    "requiredSymbols": 3509,
     "edges": 645,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -1389,6 +1389,8 @@
         "BRIDGED_WRITE_PATH_ARGS",
         "IMPORTED_MESSAGE_ROLE_MAX",
         "INTERVENTION_TERMINAL",
+        "IRREVERSIBLE_COMPOUND_TOOLS",
+        "IRREVERSIBLE_RESULT_TEXT_MAX",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -1493,6 +1495,9 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
+        "irreversibleEntryMetadata",
+        "irreversibleReportedState",
+        "irreversibleResultObject",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -1596,6 +1601,7 @@
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
+        "projectBridgedIrreversible",
         "providerHistoryToolCalls",
         "readInterventions",
         "readInterventionsWithMeta",
@@ -2030,6 +2036,13 @@
         {
           "provider": "02f-turn-effect-kinds.js",
           "symbol": "ARTIFACT_OUTPUT_PATH_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_BRIDGED_KIND",
           "kinds": [
             "read"
           ]
@@ -9645,6 +9658,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "projectBridgedIrreversible",
           "kinds": [
             "call"
           ]
@@ -29792,6 +29812,7 @@
       "to": "02f-turn-effect-kinds.js",
       "symbols": [
         "ARTIFACT_OUTPUT_PATH_KEYS",
+        "IRREVERSIBLE_BRIDGED_KIND",
         "IRREVERSIBLE_LEDGER_MAX",
         "TURN_SUMMARY_COMMAND_TOOLS",
         "TURN_SUMMARY_FILE_TOOLS",
@@ -31938,6 +31959,7 @@
         "mutateSession",
         "normalizeMetaToolArgs",
         "normalizeTodoItems",
+        "projectBridgedIrreversible",
         "providerHistoryToolCalls",
         "readSessionNotes",
         "readSessionScratchpad",
