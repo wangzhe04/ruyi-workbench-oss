@@ -1,37 +1,37 @@
 {
-  "schemaVersion": 7,
-  "at": "2026-11-11T23:28:42.649129+00:00",
+  "schemaVersion": 8,
+  "at": "2026-11-12T00:22:23.867690+00:00",
   "phaseStatus": "in_progress",
-  "featureStatus": "committed_integrated_default_off_core_foreground_and_selected_native_capture_scope_not_full_P5_accepted",
-  "mainHead": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+  "featureStatus": "committed_integrated_default_off_core_capture_and_selected_normal_balanced_input_not_full_P5_accepted",
+  "mainHead": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
   "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
   "branch": "codex/p5-execution-receipts",
-  "base": "f671a00461450b3b144fb6fd93b52badb4141b80",
-  "previousCheckpoint": "current-state-pre-native-qualified-20261111T2318Z.json",
+  "base": "56c970cf885de4a249c637fe10d3419115ffa979",
+  "previousCheckpoint": "current-state-before-balanced-input-20261112T0020Z.json",
   "historicalQualificationCheckpoint": "current-state-20261111T201029Z.json",
   "originalRequirementMapping": "../remaining-resolution-2026-11-11-effects.json",
   "originalLocalIDsPreserved": 10,
   "originalExternalIDsPreserved": 4,
   "sourceSnapshot": {
-    "archive": "evidence/native-capture-source-freeze-v2.tar.gz",
-    "sha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448",
-    "manifest": "evidence/native-capture-source-freeze-v2.archive.json",
-    "files": 125,
+    "archive": "evidence/balanced-input-source-freeze-v4.tar.gz",
+    "sha256": "9aeac2a6bd1f8b95d33054dcc9f3b214779d76d02011126e26d223717ea33085",
+    "manifest": "evidence/balanced-input-freeze-v4.json",
+    "files": 127,
     "artifacts": 4,
-    "qualification": "Explicit selected native capture/Vision source review and independent runtime; no completeP5 acceptance."
+    "qualification": "Selected normal balanced root input receipt/history/effect/no-replay only;receiver separately compiled from frozen source and hashed before spawn. No fullP5/held/rescue/App qualification."
   },
   "sources": [
     {
       "path": "README.md",
       "bytes": 66010,
-      "sha256": "6ee714a1b62b9e0756333c7de99f696009039b429973361c17ced617a356eba5",
-      "gitBlob": "259d591af929839d1f9e172e549585f974a38fc1"
+      "sha256": "382d736630c7c4793b993244cab979e4983dbbca0e9a7a7e48013a5671d1b374",
+      "gitBlob": "719f79fe6ec10be7d3430a2f3093bb11c3b649f3"
     },
     {
       "path": "README_EN.md",
       "bytes": 73111,
-      "sha256": "88c24796c34dabf9825f2123bb86d11e83328cab16860106293db1e1b3205247",
-      "gitBlob": "2a0249761511728a76a408c6799fea3fb3dc7dfa"
+      "sha256": "6803c9e45db39e813132ebdcb9cb6d964cb4a4041c9520f14ad49232e3e4b0f7",
+      "gitBlob": "1a8316ba46ed6522ff2f1bb1b825912f68ca995a"
     },
     {
       "path": "dev-harness/desktop-execution-root.e2e.js",
@@ -47,9 +47,9 @@
     },
     {
       "path": "dev-harness/facts.static.e2e.js",
-      "bytes": 9928,
-      "sha256": "e06b00534e4d21951e3322a9d6fc83bc31546db649a2b2068daa3d28bf6361c3",
-      "gitBlob": "2dead9ccfd2f4dfb5f13ab569d539e682c1c8241"
+      "bytes": 9960,
+      "sha256": "9055e3d20ff3e996973362a54d9ad7a7c4a24b0de77771f13674f01d5cfd9a48",
+      "gitBlob": "76f23cdea7b0db8687d9bd0abb0b22be676f07af"
     },
     {
       "path": "dev-harness/fixtures/execution-argument-vectors.json",
@@ -86,6 +86,12 @@
       "bytes": 2401,
       "sha256": "dbcd6952e6f3c9dc699192082648955976d0f09ea3ec3fd2220dcc8d53669e53",
       "gitBlob": "5ff53c2afb36da430ac397b263c628b2526a80c5"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-balanced-input-window.m",
+      "bytes": 14521,
+      "sha256": "8bec0d3dd566b7fabffe77085fd71b8b9fc8c841ae6271db2bac0323b7bf6575",
+      "gitBlob": "8f61db5d30315a7bb146530adcdaac4dfde63b4e"
     },
     {
       "path": "dev-harness/fixtures/macos-ocr-window.m",
@@ -304,6 +310,12 @@
       "gitBlob": "0ad0fd474d2957a6c4dbfcffc7218d4d015f3eba"
     },
     {
+      "path": "dev-harness/macos-execution-input.e2e.js",
+      "bytes": 34692,
+      "sha256": "95c3801ba7656cd523aaf0e003c2244bd428f842e5232717c4e943a04410fa2f",
+      "gitBlob": "6f8698ca145edbb878053f0b60aeda7663ad3165"
+    },
+    {
       "path": "dev-harness/macos-execution-subagents.e2e.js",
       "bytes": 23359,
       "sha256": "4dd58e0361f9872f431095ea0f62b14ea052d049cd54c827b96322d71d3f255c",
@@ -317,15 +329,15 @@
     },
     {
       "path": "dev-harness/process-safety.static.e2e.js",
-      "bytes": 14714,
-      "sha256": "19802bad84da86bdd75bc303c405331b9a63360e2e8f4b62819787f29b09efae",
-      "gitBlob": "24dd6ebc32dc178fe93636795ebe94c6170e6962"
+      "bytes": 14813,
+      "sha256": "80a0591f7766779b5fb3b90ef5055204cf49a5bb07b7e731ad70622d95646e13",
+      "gitBlob": "6735a6bc0c5d0296dd951542dfb5b4b7c05a7987"
     },
     {
       "path": "dev-harness/run-all.js",
-      "bytes": 48735,
-      "sha256": "e1604efaa9ad6ea9de22487057b19f5b51e4d3bb0da433cc2f7a561aa4e8081f",
-      "gitBlob": "09ec7adee3ab2d9ae5553087368bc8d65a1cc85c"
+      "bytes": 48769,
+      "sha256": "f0c065f6925496ec0644a8f8ac9c5459a00216e17bc2456d07dc7244b7c75712",
+      "gitBlob": "39ac9925e75475289acc47cb237dbbac01688c8c"
     },
     {
       "path": "dev-harness/session-save-census.static.e2e.js",
@@ -425,21 +437,21 @@
     },
     {
       "path": "docs/architecture/route-inventory.json",
-      "bytes": 211611,
-      "sha256": "039d4014fc1e39d47ba387d9f51319fc9a2c233a206ea9351be6f6838032f38d",
-      "gitBlob": "c57cba792551551e69852724b52eb4ae9b93c0f5"
+      "bytes": 212406,
+      "sha256": "292639a8958853f55ecbca30df3001e35262b157bfcc7369c34d1fafb6c40e98",
+      "gitBlob": "21f364d8e5efb8537fc35ecfcdf935850f723737"
     },
     {
       "path": "docs/architecture/route-inventory.md",
       "bytes": 34115,
-      "sha256": "8d6ec1d77d40b420a58afdd1390b99b9e21c2120b42a7419e152db17f4d28bad",
-      "gitBlob": "2c2717c4ac52aea8ba1ab5c89d40320ec126126b"
+      "sha256": "414f656fb3186ff6872e024eb9467f6ea7fd96da6d1dda10841ec3b97dbea0d6",
+      "gitBlob": "81cc4454e5c752c0e4476e962e8421b9248f5149"
     },
     {
       "path": "facts.json",
       "bytes": 1337,
-      "sha256": "d784193c8cf15d8b575980298e791fb661eb581936a375ccfb26e550b9a1204e",
-      "gitBlob": "8a70d5afa311ee5d920c0f9be09fa6952dec2dad"
+      "sha256": "6fc6c3cc32155c99aeb5710516b2bef4c4ceec5ea0bb66d02fd6e16b7a76ed5a",
+      "gitBlob": "b155af155da74aa0191667c194dc0676da1ad9c6"
     },
     {
       "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
@@ -773,14 +785,14 @@
     }
   ],
   "lastFrozenQualification": {
-    "path": "evidence/native-capture-freeze-v2.json",
-    "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b",
-    "sourceFiles": 125,
+    "path": "evidence/balanced-input-freeze-v4.json",
+    "sha256": "94bc1e70850f2146fdb5ea6edd2c8187b79051b6532088204ceead56d4de0a02",
+    "sourceFiles": 127,
     "artifacts": 4
   },
   "lastIndependentReport": {
-    "path": "evidence/independent-native-capture-v1/report.json",
-    "sha256": "91b954b015031630142d4a6d96b256001fb161a6653e81b05809d80e56d76a8d"
+    "path": "evidence/independent-balanced-input-v1/report.json",
+    "sha256": "2812387103df5c5043851cfeec441305e2a129530b57f725a49ddd98bc5f31f6"
   },
   "sourceReviews": [
     {
@@ -799,6 +811,18 @@
     {
       "path": "evidence/native-capture-source-review-v2.json",
       "sha256": "8442608650b46ee7173406bbe61d7dddca4d45b4dd2348a5b987eb1149579e65"
+    },
+    {
+      "path": "evidence/balanced-input-window-source-review-v3.json",
+      "sha256": "3387a89ae4e3b367e9d8125f82a2b86e9508e10b34ae411c1ef00508244e223c"
+    },
+    {
+      "path": "evidence/root-input-harness-source-review-v3.json",
+      "sha256": "e10f44baf417a9dc8a84bf776391d92739fb28ef1ee46296ef388979210a6d3b"
+    },
+    {
+      "path": "evidence/root-input-harness-source-review-v4.json",
+      "sha256": "556756da17a6b4276646792d4f1519c3881b1300b234883e0447a01252565e1c"
     }
   ],
   "independentlyQualifiedScopes": [
@@ -966,27 +990,46 @@
         "Actual smallchild PNG ACK/modelrequest/coldvalid reopen and actual large16MiB snapshot refusal; no complete child restart replay/model consumption/performance claim.",
         "All original10local+4external retained; background/API0/resume/CLI/manual, reconciliation/retention/global quotas, native input/held/rescue, lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain."
       ]
+    },
+    {
+      "id": "selected_owned_normal_balanced_root_input_receipts",
+      "report": "evidence/independent-balanced-input-v1/report.json",
+      "commands": 1,
+      "assertions": 51,
+      "failed": 0,
+      "skipped": 0,
+      "retries": 0,
+      "sourceFiles": 127,
+      "namedArtifacts": 4,
+      "beforeAfterSnapshots": 2,
+      "actualInputEvents": 2,
+      "observerIntervals": 3,
+      "fullP5": false
     }
   ],
   "implementedInThisSlice": [
-    "Explicit actual native generic4 feature negotiation and captured-frame once-only async completion; actual root screenshot/Vision and immutable result/image delivery.",
-    "Actual copied SDK request cancellation and bounded observer-join retirement of exact old worker before successor reuse.",
-    "Real balanced query lock sharing; selected rootStop/terminal/historyEIO/no later tool or any model/cold holds; native small child ACK/reopen and actual large-image quota refusal.",
-    "FullP5/input/held/backgroundAPI0/CLI/retention and original environment gates remain; no activation by default."
+    "New passive bounded private-journal owned receiver and opt-in real default-permission root/provider input qualification;no production runtime delta.",
+    "Same admitted target-list worker -> actual macro input.sequence+wait;allow onepair,deny and predispatch cancel no input;strict receipts/history/effect/API/cold no-replay.",
+    "Independent source reviews and once-only51assertion runtime,127source+4namedartifact bindings;separately compiled receiver dev/independent exact bytes.",
+    "Central live inventory603e2e/14optin/589default/289unit/44smoke;strict owned-process census378. All originalP5 gates retained and candidate remains default-off."
   ],
   "engineeringChecks": {
-    "report": "development/native-final-gates-v2.json",
+    "report": "evidence/balanced-input-final-gates-v2.json",
     "unitTests": 2644,
     "unitPass": 2626,
     "unitExistingSkip": 18,
     "unitFail": 0,
     "fastPass": 80,
     "fastFail": 0,
-    "centralLiveSkip": 13,
-    "syntax": 1179,
+    "fastFlaky": 0,
+    "centralLiveSkip": 14,
+    "syntax": 1180,
     "syntaxFail": 0,
     "buildFresh": true,
-    "threeChecks129BeforeAfterMatched": true
+    "commands": 4,
+    "all127Sources4ArtifactsMatched": true,
+    "beforeAfterChecks": 8,
+    "bindingEvidenceLevel": "8 engineering before/after verification checks recorded as empty mismatch lists;only independent runtime has2full131-row before/after snapshots. No claim engineering JSON stores complete row snapshots."
   },
   "developmentFailuresPreserved": [
     {
@@ -1028,27 +1071,31 @@
     {
       "path": "development/subagent-main-dispatch-regression-v2.log",
       "reason": "Fixture sampled phase after conservative unknown was already committed; original dispatching assertion now captured at actual rejected rename boundary, with additional final unknown assertion. No failure waived."
+    },
+    {
+      "path": "evidence/development-balanced-input-v1.log",
+      "reason": "Native C int readiness1 was wrongly required to be literalJSONtrue;zero receiver/provider/GUI/input. Narrow typed compatibility + explicit auth/unlocked/no permission-request checks fixed and reviewed."
+    },
+    {
+      "path": "evidence/balanced-input-final-fast-v1.log",
+      "reason": "Only strict owner census377vs378 stale;existing automatic runner rerun also failed and preserved. Exact count + comment updated,source reviewed;all four engineering gates passed frozenv4."
     }
   ],
   "priorFailuresAndLogsRetained": true,
   "nextRequiredWork": [
-    "Continue actual runtime integration, not another standalone foundation. Root main direct/proxy text path is real and independently qualified. Candidate stays default-off until all required paths are complete.",
-    "Implement independent background/API0/persisted-resume workflow authority using an explicit versioned scope/schema, exact real run origin including0, actual root/runtime/controller ownership and durable actual consumer transcript lifecycle. Foreground provider support does not cover these paths. Never invent a parent driver/turn or implicitly relax schema1.",
-    "Implement authenticated root-owned CLI MCP relay and actual CLI response persistence. Main CLI and CLI subagent candidates refuse business ACC before unimplemented dispatch; explicit refusal is not support.",
-    "Preserve core foreground freeze-v3 and selected native-capture-freeze-v2 exact sources/artifacts and independent reports. Both are now committed/integrated. Actual native capture/Vision selected main/node success, Stop/storage/quota/cold-hold scopes passed; broader original gates and balanced input remain next.",
-    "Inspect manual API-tools/MCP/standalone surfaces before default activation: calls with no genuine admission currently refuse ACC in candidate mode. A real user HTTP action/CLI/agent must get its actual host request lifetime and proper durable response/history; do not fabricate a parent turn or silently fall back.",
-    "Implement actual root restart reconciliation using stored peer/worker/arguments and independent strict reader. Complete ACC terminal without saved result/history cannot recreate lost output or prove application consumption. Unknown effects and lost delivery remain separate and must block automatic mutation replay.",
-    "Implement exact trusted history/ACC-retention confirmation, ACKed private-trace lifecycle/global bytes-files quotas/session deletion/rewind. Current Node256 rows/4MiB/4096 watermarks and ACC256*32MiB limits will exhaust; no automatic unknown eviction. Root prepare still lacks persisted connector/data-root locator for historical worker recovery.",
-    "Selected actual native capture/Vision paths independently qualified and integrated b7930bde. Preserve all frozen byte and raw history. Continue balanced-only actual root/provider owned input using genuine same-turn list_windows target identity, receipt/history/effect audit/cold no-replay. Before any held root fault independently design/review/qualify bounded out-of-tree rescue; current aggregate hardware state is insufficient to prove external release noninterference. No intentional lock/revoke or physical demonstrations.",
-    "Qualify balanced ordinary owned input through normal root paths next, then reviewed faults. Before any held-state root fault independently source-review and qualify bounded out-of-tree rescue; never historical Shift/left or UserNotificationCenter. No repeat physical你好/drag/Finder demonstrations or unattended TCC revoke/lock.",
-    "Current README/census602 e2e/289unit/44PythonSmoke/13centralLive are inventory only; source/platform registry runtime counts and final same-candidate Windows/Mac remain separate gates.",
-    "Current native source125/artifacts4, independent18commands/36bindings and finalfrozen unit2626/18skip, fast80/13live skip, syntax1179/0/build passed. Other original paths and final full-feature acceptance remain; no finalP5 acceptance.",
-    "Preserve every original10 local+4 external ID. Actual permission revoke/OS-lock, displays/nonRetina/mixedscale/negativeorigin/macOS14, same-final-candidate Windows, formal identity/App/release/credentials/clean-install gates remain open. Do not infer waivers.",
-    "Restore original screensaver idleTime300 and stop only owned keep-awake after whole-P5 acceptance. Current idle0; owned caffeinate19820 started Nov12 04:53:16 local for12h; verify exact identity/remaining lifetime before renewal."
+    "Implement genuine independent background/API0/persisted-resume workflow authority with explicit versioned schema/scope,actual origin including0,root/runtime/run/node/controller ownership,and durable actual consumer transcript lifecycle. Never fabricate a parent driver/turn or weaken schema1.",
+    "Implement authenticated root-owned CLI MCP relay and real CLI response persistence. MainCLI/CLI child currently refuse candidate businessACC before unsupported dispatch;refusal is not support.",
+    "Inspect manual HTTP/MCP/standalone entry lifetimes and genuine user request admissions before default activation;no fabricated parent turn or untraced fallback.",
+    "Implement historical reconciliation with persisted trusted connector/data-root locator and strict independent reader. CompleteACC terminal alone cannot recreate lost output or prove consumption;unknown effects/lost delivery separately block mutation replay.",
+    "Implement exact trusted history/ACC-retention ACK,private-trace lifecycle/global byte-file quotas,session deletion/rewind;never evict unknown automatically. Current limits are bounded refusals,not completed capacity management.",
+    "Selected normal owned balanced input is independently qualified:one allow pair,deny,predispatch cancel,actual receipts/history/effect/API/cold no-replay. Broader input/held faults remain open. Independently design/review/qualify bounded out-of-tree rescue before any held-state root fault;aggregate hardware state does not prove safe cross-process release ownership.",
+    "Keep all core/capture/input frozen bytes,raw evidence,source reviews,failures and per-slice scopes. Candidate remains default-off;Node serve selected helper tests do not qualify finalApp/signing/release or all workflow modes.",
+    "All original10local+4external IDs remain,including actual permission revoke/action-time lock,nonRetina/mixedscale/negativeorigin displays,macOS14,same final Windows candidate,App/formal identity/credentials/clean install. No unattended lock/revoke/physical demo or implicit waiver.",
+    "Restore original screensaver idleTime300 and stop only exact owned keep-awake after wholeP5 acceptance. Currentidle0;ownedcaffeinate19820 startNov12 04:53:16local12h;verify identity/lifetime before renewal or stop."
   ],
   "nextStageDesign": {
-    "path": "evidence/next-implementation-plan-v11.json",
-    "sha256": "5234d004b998998643ec88240f9627fc55274378609d918e6d6642538136634c"
+    "path": "evidence/next-implementation-plan-v12.json",
+    "sha256": "ecfced8e11fd04c2ffb710a3504af633a5995c76243c74eb4c86f98f54379837"
   },
   "standingInstructions": {
     "unattended": true,
@@ -1057,10 +1104,11 @@
     "originalSettingProvenance": "../manual/development/sequence/current-source-v2.json settings.screensaver_idleTime_before",
     "lastObservedIdleTime": 0,
     "caffeinatePid": 19820,
-    "caffeinateElapsedAtLastRead": "02:24:17 of12h; exact PID/start/command verified ThuNov12 04:53:16local; originalidle300,current0,restore onlyafter fullP5",
+    "caffeinateElapsedAtLastRead": "19820 Thu Nov 12 04:53:16 2026     03:29:07 /usr/bin/caffeinate -d -i -u -t 43200",
     "noIntentionalLockWithoutSpecificChoice": true,
     "noMorePhysical你好DragOrFinderSetup": true,
-    "originalHelperUnchanged": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    "originalHelperUnchanged": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+    "lastObservedAt": "2026-11-12T00:22:23.867690+00:00"
   },
   "runtime": {
     "candidateHelper": "/tmp/ruyi-p5-native-capture-receipts-helper",
@@ -1082,25 +1130,22 @@
   },
   "fullP5Completion": "not_proved_open_gates_remain",
   "proofLimits": [
-    "Node serve and named frozen development helper only; no final App or release identity scope.",
-    "Actual rootStop before continue/after continue before native terminal observation proves exact observed cleanup and durable unknown; not nativebody interruption.",
-    "Forced duplicate/old-frame callback and nativeOCR>12<60s watchdog are source-only; actual caller deadline separately tested.",
-    "Activegeneric shares nativeinput lock; contextless legacy one-shot2slots retained.",
-    "Actual smallchild PNG ACK/modelrequest/coldvalid reopen and actual large16MiB snapshot refusal; no complete child restart replay/model consumption/performance claim.",
-    "All original10local+4external retained; background/API0/resume/CLI/manual, reconciliation/retention/global quotas, native input/held/rescue, lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain."
+    "Selected owned passive middle-button receiver and ordinary positive-turn Node serve/provider only;no App/release identity or arbitrary application consumption claim.",
+    "Only allow sends one balanced pair;deny and predispatch pending-permission Stop send no macro/input. No active-input cancellation,fault,held state,hard abort or external rescue qualification.",
+    "Payload at_us40000 is planned relative scheduling. Actual receiver CG interval was28.221708ms independent and28.735875ms development;no measured40ms timing SLA.",
+    "Observer nonce is bookkeeping only;event sourcePID/birth,planned coordinates,flags,frame/hit/front/TIS and actual receipt/history/effect provide separate witnesses.",
+    "Independent readonly receipt/history/journal checks and11observed owned PID exits;no global unobserved process-escape completeness claim.",
+    "Named frozen artifacts4 and separately compiled passive receiver are distinct. Receiver compiled from frozen source before use,hash recorded pre-spawn,and dev/independent actual bytes match.",
+    "All original10local+4external IDs remain. Background/API0/resume/CLI/manual admission,reconciliation/retention/global quotas/delete/rewind,held/rescue,lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain open.",
+    "Failure halt/no-new-dispatch and preserving armed witnesses when unresolved are source-reviewed only. Runtime measured successful settled-neutral cleanup;no active-input failure or unresolved live-state drill."
   ],
-  "evidenceIndex": "evidence-index-v11.json",
-  "thisGoalTurnClassification": "progress: actual rootStop/native/history storage faults, real native child ACK/reopen and actual oversized PNG quota refusal; source7 fixed/independently qualified, committed+integrated. All originalP5 scope remains active; next safe balanced root input chain.",
-  "nextStageSourceDesignReview": {
-    "path": "evidence/root-input-hard-abort-next-stage-design-v1.json",
-    "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5",
-    "status": "readonly_design_only_no_balanced_input_or_held_qualification"
-  },
+  "evidenceIndex": "evidence-index-v12.json",
+  "thisGoalTurnClassification": "progress: new normal balanced root input independently qualified51,source reviewed,committed+integrated;no production runtime delta,no held/rescue/fullP5 acceptance. Next independent workflow/API0/resume authority.",
   "keepAwakeRenewalRecord": {
     "path": "evidence/keep-awake-renewal-20261111T205332Z.json",
     "sha256": "169123427ad25e83e36bfdd96c14dbc22bccbfbe077009108feda67ce1bcda58"
   },
-  "implementationCommit": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+  "implementationCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
   "additionalEvidenceOutsideV8Cutoff": [
     {
       "path": "evidence/native-capture-receipts-design-review-v1.json",
@@ -1111,21 +1156,14 @@
       "sha256": "62d9dbcc52ebdcb456b971d6206bf92f61d47a99ddd79282329762c021825a5a"
     }
   ],
-  "checkpointDocumentReview": {
-    "path": "evidence/native-capture-checkpoint-document-review-v1.json",
-    "sha256": "48379f6beec6b91d24d4ce6848a4219992f469535327cb296b27485a713d3d2b",
-    "reviewedStateSnapshot": "current-state-reviewed-native-document-checkpoint.json",
-    "reviewedStateSha256": "4cdee1a86cdb145c3ea71aa3a4bd3bfdc4ba5ce18945864f3d59f331831bf8e7",
-    "pointerUpdate": "Only review/index references added after reviewed immutable state; previous state bytes preserved."
-  },
-  "candidateSourceCommit": "56c970cf885de4a249c637fe10d3419115ffa979",
+  "candidateSourceCommit": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
   "lastCommitBinding": {
-    "path": "evidence/independent-native-capture-v1/postqualification-commit-binding.json",
-    "sha256": "f822584be5741e9609b97c78e970d696b20408224dda254651d28cc97c5ea39d"
+    "path": "evidence/independent-balanced-input-v1/postqualification-commit-binding.json",
+    "sha256": "26ecb4e68ced22d7a61011767e6b0725d6ae17708334a0b442b3410ac326edad"
   },
   "latestSliceSummary": {
-    "path": "evidence/native-capture-final-summary-v1.json",
-    "sha256": "203de6bdfd2063053e38d046d406fa3df42b04e057fae6eaf6a23ea965135d87"
+    "path": "evidence/balanced-input-final-summary-v1.json",
+    "sha256": "ce6f8d9eda1ab771b69e1308c63de3e764b454e5b72302fe0f182da016ebee72"
   },
   "nativeDevelopmentFailures": [
     {
@@ -1149,14 +1187,6 @@
       "cause": "Primary mutated a smoke test during frozen gate. Unit2626/static80 ran successfully but after-binding failed; this is not valid finalfreeze qualification. Traceback/session43140 and gate-v1 records retained. Freezev2 finalgate rerun after source locked passed all before/after."
     }
   ],
-  "nativeProofLimits": [
-    "Node serve and named frozen development helper only; no final App or release identity scope.",
-    "Actual rootStop before continue/after continue before native terminal observation proves exact observed cleanup and durable unknown; not nativebody interruption.",
-    "Forced duplicate/old-frame callback and nativeOCR>12<60s watchdog are source-only; actual caller deadline separately tested.",
-    "Activegeneric shares nativeinput lock; contextless legacy one-shot2slots retained.",
-    "Actual smallchild PNG ACK/modelrequest/coldvalid reopen and actual large16MiB snapshot refusal; no complete child restart replay/model consumption/performance claim.",
-    "All original10local+4external retained; background/API0/resume/CLI/manual, reconciliation/retention/global quotas, native input/held/rescue, lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain."
-  ],
   "additionalEvidenceOutsideV10Cutoff": [
     {
       "path": "evidence/next-implementation-plan-v10.json",
@@ -1169,6 +1199,110 @@
     {
       "path": "evidence/native-capture-checkpoint-document-review-v1.json",
       "sha256": "48379f6beec6b91d24d4ce6848a4219992f469535327cb296b27485a713d3d2b"
+    }
+  ],
+  "productionRuntimeChangedInLatestSlice": false,
+  "productionImplementationCommits": [
+    "f671a00461450b3b144fb6fd93b52badb4141b80",
+    "b7930bde0ad44e4f50f0b5553f206623433f3079"
+  ],
+  "historicalNativeCaptureSourceSnapshot": {
+    "archive": "evidence/native-capture-source-freeze-v2.tar.gz",
+    "sha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448",
+    "manifest": "evidence/native-capture-source-freeze-v2.archive.json",
+    "files": 125,
+    "artifacts": 4,
+    "qualification": "Explicit selected native capture/Vision source review and independent runtime; no completeP5 acceptance."
+  },
+  "historicalNativeEngineeringChecks": {
+    "report": "development/native-final-gates-v2.json",
+    "unitTests": 2644,
+    "unitPass": 2626,
+    "unitExistingSkip": 18,
+    "unitFail": 0,
+    "fastPass": 80,
+    "fastFail": 0,
+    "centralLiveSkip": 13,
+    "syntax": 1179,
+    "syntaxFail": 0,
+    "buildFresh": true,
+    "threeChecks129BeforeAfterMatched": true
+  },
+  "historicalCheckpointDocumentReview": {
+    "path": "evidence/native-capture-checkpoint-document-review-v1.json",
+    "sha256": "48379f6beec6b91d24d4ce6848a4219992f469535327cb296b27485a713d3d2b",
+    "reviewedStateSnapshot": "current-state-reviewed-native-document-checkpoint.json",
+    "reviewedStateSha256": "4cdee1a86cdb145c3ea71aa3a4bd3bfdc4ba5ce18945864f3d59f331831bf8e7",
+    "pointerUpdate": "Only review/index references added after reviewed immutable state; previous state bytes preserved."
+  },
+  "artifacts": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-helper",
+      "bytes": 309344,
+      "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+      "bytes": 309968,
+      "sha256": "ec6b11c1e4ff7cb4bbeb1bc4ee138b0e1e49c6b003327937669e240fccdc7ff0"
+    }
+  ],
+  "historicalNativeProofLimits": [
+    "Node serve and named frozen development helper only; no final App or release identity scope.",
+    "Actual rootStop before continue/after continue before native terminal observation proves exact observed cleanup and durable unknown; not nativebody interruption.",
+    "Forced duplicate/old-frame callback and nativeOCR>12<60s watchdog are source-only; actual caller deadline separately tested.",
+    "Activegeneric shares nativeinput lock; contextless legacy one-shot2slots retained.",
+    "Actual smallchild PNG ACK/modelrequest/coldvalid reopen and actual large16MiB snapshot refusal; no complete child restart replay/model consumption/performance claim.",
+    "All original10local+4external retained; background/API0/resume/CLI/manual, reconciliation/retention/global quotas, native input/held/rescue, lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain."
+  ],
+  "historicalStageADesignReview": {
+    "path": "evidence/root-input-hard-abort-next-stage-design-v1.json",
+    "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5",
+    "status": "readonly_design_only_no_balanced_input_or_held_qualification"
+  },
+  "nextConcreteImplementation": {
+    "status": "balanced_normal_scope_done_next_independent_workflow_API0_resume_authority_design_and_implementation",
+    "firstSlice": "Inspect actual background/API0/resume run lifecycle;define versioned genuine scope and durable transcript admission without invented parent turns;independently source-review design,then implement and qualify real runtime.",
+    "balancedQualified": {
+      "scope": "current_selected_balanced_owned_root_input_only_no_runtime_production_delta",
+      "summary": "evidence/balanced-input-final-summary-v1.json",
+      "summarySha256": "ce6f8d9eda1ab771b69e1308c63de3e764b454e5b72302fe0f182da016ebee72",
+      "implementationCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
+      "freeze": "evidence/balanced-input-freeze-v4.json",
+      "sourceReview": "evidence/root-input-harness-source-review-v4.json",
+      "independentReport": "evidence/independent-balanced-input-v1/report.json",
+      "fullP5": false
+    },
+    "heldFault": "Still not qualified: no independently qualified bounded out-of-tree rescue. Do not run held faults. No hardware release noninterference proved.",
+    "later": [
+      "Implement authenticated root-owned CLI MCP relay and real CLI response persistence. MainCLI/CLI child currently refuse candidate businessACC before unsupported dispatch;refusal is not support.",
+      "Inspect manual HTTP/MCP/standalone entry lifetimes and genuine user request admissions before default activation;no fabricated parent turn or untraced fallback.",
+      "Implement historical reconciliation with persisted trusted connector/data-root locator and strict independent reader. CompleteACC terminal alone cannot recreate lost output or prove consumption;unknown effects/lost delivery separately block mutation replay.",
+      "Implement exact trusted history/ACC-retention ACK,private-trace lifecycle/global byte-file quotas,session deletion/rewind;never evict unknown automatically. Current limits are bounded refusals,not completed capacity management.",
+      "Selected normal owned balanced input is independently qualified:one allow pair,deny,predispatch cancel,actual receipts/history/effect/API/cold no-replay. Broader input/held faults remain open. Independently design/review/qualify bounded out-of-tree rescue before any held-state root fault;aggregate hardware state does not prove safe cross-process release ownership.",
+      "Keep all core/capture/input frozen bytes,raw evidence,source reviews,failures and per-slice scopes. Candidate remains default-off;Node serve selected helper tests do not qualify finalApp/signing/release or all workflow modes.",
+      "All original10local+4external IDs remain,including actual permission revoke/action-time lock,nonRetina/mixedscale/negativeorigin displays,macOS14,same final Windows candidate,App/formal identity/credentials/clean install. No unattended lock/revoke/physical demo or implicit waiver.",
+      "Restore original screensaver idleTime300 and stop only exact owned keep-awake after wholeP5 acceptance. Currentidle0;ownedcaffeinate19820 startNov12 04:53:16local12h;verify identity/lifetime before renewal or stop."
+    ]
+  },
+  "historicalFieldsMeaning": "Prior slices,failed runs,old qualification arrays and checkpoint references retain their original per-source scope. Current latestSliceSummary,lastFrozenQualification,lastIndependentReport,nextStageDesign govern this checkpoint.",
+  "additionalEvidenceOutsideV12Cutoff": [
+    {
+      "path": "evidence/balanced-input-checkpoint-document-review-v1.json",
+      "bytes": 22936,
+      "sha256": "bf5205a09703fb2e47a8bec88c19f5fc89210e13e4c0d01844f2c9b7b7412e0d",
+      "kind": "independent_checkpoint_document_archive_review",
+      "scope": "Read-only review of checkpoint docs and existing runtime/archive evidence;3documentation clarifications closed. Created after evidence-index-v12 cutoff;index and998 indexed raw bytes unchanged."
     }
   ]
 }

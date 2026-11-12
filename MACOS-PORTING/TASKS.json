@@ -2024,6 +2024,50 @@
             "interpretation": "Root Stop proves cleanup and unknown before terminal observation, not interruption of capture body. Active generic shares input lock; legacy contextless one-shot2slots unchanged.",
             "originalRequirementMapping": "evidence/P5/execution-receipts-wip/../remaining-resolution-2026-11-11-effects.json",
             "fullP5Accepted": false
+          },
+          "balancedInputReceiptsSlice": {
+            "date": "2026-11-12",
+            "status": "passed_default_off_selected_normal_balanced_root_input_scope_full_P5_open",
+            "testImplementationCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
+            "candidateSourceCommit": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+            "productRuntimeSourceChanged": false,
+            "productionDefault": "off",
+            "scope": "Ordinary positive-turn provider/default-permission Node serve and named helper;genuine same-turn target-list worker then one owned balanced middle pair;deny/predispatch cancel no input;actual receipt/receiver/history/effect/API/cold no-replay.",
+            "sourceReview": "evidence/P5/execution-receipts-wip/evidence/root-input-harness-source-review-v4.json",
+            "fixtureSourceReview": "evidence/P5/execution-receipts-wip/evidence/balanced-input-window-source-review-v3.json",
+            "freeze": "evidence/P5/execution-receipts-wip/evidence/balanced-input-freeze-v4.json",
+            "independentReport": "evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/report.json",
+            "commitBinding": "evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/postqualification-commit-binding.json",
+            "independentCommands": 1,
+            "independentAssertions": 51,
+            "failures": 0,
+            "skips": 0,
+            "retries": 0,
+            "bindings": {
+              "sourceFiles": 127,
+              "namedArtifacts": 4,
+              "beforeAfterSnapshots": 2,
+              "allMatched": true
+            },
+            "receiverArtifact": "Separate compiled owned receiver;pre-spawn hash;independent and development bytes match6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da.",
+            "engineering": {
+              "unitPassed": 2626,
+              "unitExistingSkipped": 18,
+              "unitFailed": 0,
+              "staticPassed": 80,
+              "centralLiveSkipped": 14,
+              "syntax": 1180,
+              "buildFresh": true
+            },
+            "timing": "40000us is planned relative event offset;independent actual CG interval28221708ns. No40ms measuredSLA.",
+            "limits": [
+              "No active-input Stop/fault,held/root hard abort or external rescue qualification.",
+              "No new App/release identity or all-application acceptance.",
+              "Background/API0/resume/CLI/manual authority,reconciliation/retention/capacity and all original10local+4external gates remain.",
+              "Candidate default-off;fullP5 still in_progress;restore automatic lock only after whole-phase acceptance."
+            ],
+            "evidence": "evidence/P5/execution-receipts-wip/current-state.json",
+            "fullP5Accepted": false
           }
         }
       ],

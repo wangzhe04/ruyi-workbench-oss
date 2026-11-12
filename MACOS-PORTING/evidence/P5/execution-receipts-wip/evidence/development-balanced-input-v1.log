@@ -1,0 +1,15 @@
+Owned raw input evidence: /tmp/rei-15TZ8i
+FAIL authorized unlocked real desktop available without changing TCC or lock
+FAIL Error: Stopped after authorized unlocked real desktop available without changing TCC or lock
+    at check (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:26:31)
+    at /private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:227:5
+    at Object.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:416:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+MACOS EXECUTION INPUT E2E: FAIL (2)

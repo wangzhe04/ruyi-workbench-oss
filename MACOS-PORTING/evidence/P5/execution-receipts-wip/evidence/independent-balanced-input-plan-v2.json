@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-12T00:10:49.004402+00:00",
+  "status": "freeze_v4_readonly_preparation_complete_waiting_parent_final_engineering_gate_completion_and_explicit_native_exclusive_release",
+  "freeze": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-freeze-v4.json",
+    "bytes": 24629,
+    "sha256": "94bc1e70850f2146fdb5ea6edd2c8187b79051b6532088204ceead56d4de0a02"
+  },
+  "sourceCount": 127,
+  "artifactCount": 4,
+  "currentAllBytesShaMatch": true,
+  "sourceApprovals": [
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-window-source-review-v3.json",
+      "bytes": 4567,
+      "sha256": "3387a89ae4e3b367e9d8125f82a2b86e9508e10b34ae411c1ef00508244e223c"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/root-input-harness-source-review-v3.json",
+      "bytes": 41818,
+      "sha256": "e10f44baf417a9dc8a84bf776391d92739fb28ef1ee46296ef388979210a6d3b"
+    }
+  ],
+  "primaryDevelopmentReadOnlyAudit": {
+    "artifacts": [
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v2.json",
+        "bytes": 1784207,
+        "sha256": "6a76e79c877ee87f20b2cf7c48b37c60fc86b65e75c16a8a6323c90c2148615a"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v2.log",
+        "bytes": 4493,
+        "sha256": "86defd85adf4faa9e205c8149d24df2441b0b0ba7ce96a2dd3db28de3f75c4c2"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v2-binding.json",
+        "bytes": 172,
+        "sha256": "118dcf671d279edbac30f74e5f275153de35f9396a3be5c0915263bcbce595e0"
+      }
+    ],
+    "ownedRawRoot": "/tmp/rei-BSsxce",
+    "count": 51,
+    "logFinal": "MACOS EXECUTION INPUT E2E: ALL PASS",
+    "reports": 23,
+    "actualInputEvents": 2,
+    "receiverJournalBytes": 32949,
+    "receiverJournalMode": "0600",
+    "receiverJournalSha256": "a97502942573f249c96c8612c047a79ee3ce774e5f3f41c82122088b27bb9ded",
+    "receiverJournalExactlyMatchesStdout": true,
+    "healthyQuitSeal": true,
+    "strictRawACCCommittedPrefixesChecked": 9,
+    "allow": "One genuine admitted macro input_sequence middle/button2 pair,actual native sourcePID+birth matches list_windows worker,native/ACC terminal and root saved history ACK,reported step0 effect.",
+    "denyCancel": "No macro invocation/native input dispatch or receiver event;cancel only pending permission before preparation.",
+    "observedPairDuration": "Requested event offset40000us;primary received CG timestamp delta28735875ns.Measurement is recorded rather than represented as a measured40ms dwell SLA.",
+    "errors": 0,
+    "cleanupSafe": true,
+    "scopeLimit": "Primary evidence is not independent acceptance.Raw source binding summary itself lists only post-run rows;new independent before+after full row snapshots will be written."
+  },
+  "execution": {
+    "attempts": 1,
+    "automaticRetries": 0,
+    "command": [
+      "node",
+      "dev-harness/macos-execution-input.e2e.js"
+    ],
+    "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+    "newEvidenceDirectory": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1",
+    "newResultJSON": "/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/result.json",
+    "newRawRoot": "Harness mkdtemp /tmp/rei-*;must differ from every prior raw root and remain preserved.",
+    "requiredEnvironment": {
+      "RUYI_EXECUTION_INPUT_REQUIRED": "1",
+      "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+      "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "isolation": "Fresh invocation-only private HOME/USERPROFILE/APPDATA/LOCALAPPDATA/TMPDIR and explicit RUYI_REAL_HOME guard;harness then creates separate fresh0700 raw root/data/home.Ambient NODE_OPTIONS/PYTHONPATH/test overrides must be removed or explicitly recorded.None of existing evidence or raw roots reused.",
+    "allowedCompilation": "Harness compiles only the new passive receiver into its new raw root;no production helper/process-helper/App rebuilding or re-signing.",
+    "beforeAndAfter": "Write full131-row(127sources+4artifacts) bytes/SHA snapshots against freeze-v4 immediately before the single spawn and after terminal execution.No source mutation/retry or extra test command.",
+    "noForcedTimeoutKill": "Do not impose wrapper process-kill timeout.If the reviewed harness preserves unresolved owned state,no external killing,unqualified release or retries;retain control pipes and tell parent immediately."
+  },
+  "afterRuntimeReadOnlyVerification": [
+    "Require exactly51PASS/ALLPASS,exit0,no skips/retries/caughtErrors and cleanupSafe true.",
+    "Fresh result root and receiver journal0600/sequence/nonce/report equality/healthy final quitseal;all3fresh arm intervals and only allow pair;actual sourcePID/nonempty birth/coordinates/flags/time,state front/hit/geometry/TIS and post-neutral.",
+    "Full observed native/ACC traces with strict commit prefix bytes/SHA/sequence,native prepared/entered/continue/terminal,input result event_count2,and same target-list worker identity.",
+    "Read actual root ledger/history digests/effect attribution,deny and predispatch cancel absence of macro/input,cold same ACKs and exactly one explicit model continuation,no input replay.",
+    "Inspect recorded own root/receiver/descendant exit identities and cleanup receipts;do not claim unobserved global process completeness.",
+    "Preserve all new raw results/logs/source bindings and first development failure.No existing record overwritten."
+  ],
+  "prohibited": [
+    "Any test/native/GUI before parent explicit native-exclusivity release.",
+    "Any command other than the single reviewed balanced suite and required readonly original evidence/binding checks.",
+    "Source edits,retries,production helper/App compile or resign.",
+    "Held/root hardfault,postallow Stop/kill/rescue,unqualified hardware release,clipboard/key/source changes,deliberate TCC/lock/physicaldemonstrations."
+  ],
+  "scope": "Controlled ordinary positive-turn root/provider realACC/native input plus actual default allow/deny and predispatch pending-permission cancel,cold no-replay/history/effect audit.Not rescue/held/body-interruption/background/API0/resume/CLI/manual/schema2/retention/globalquota/environment/App/fullP5 acceptance.",
+  "fullP5Accepted": false,
+  "productionDefault": "off",
+  "restoreAutomaticLock": "only_after_fullP5_acceptance",
+  "revision": 2,
+  "previousPlan": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-plan-v1.json",
+    "bytes": 6812,
+    "sha256": "e695afe61e1b195a2644d935057076e32b903f843d0e904afdc240c16e43e1fa"
+  },
+  "freezeDelta": {
+    "previous": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-freeze-v3.json",
+      "bytes": 24549,
+      "sha256": "bbca7ce9e122e2fc300db38875c6e6b2b67c1da0c22aaf0d5cd72b766e21fe8f"
+    },
+    "sourcesChanged": [
+      "dev-harness/process-safety.static.e2e.js"
+    ],
+    "meaning": "Only process-safety KILL_OWNERS377->378+comment;inverse exact full-source hash reviewed.No scanner/cleanup behavior,harness or fixture change.",
+    "review": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-census-source-review-v1.json",
+      "bytes": 2095,
+      "sha256": "4b4323cc3cc711ead4e6e16aea2f291fc08ad1065328c9c0b5929d70d8e1f2c8"
+    },
+    "all4ArtifactsIdentical": true,
+    "harnessSha256": "95c3801ba7656cd523aaf0e003c2244bd428f842e5232717c4e943a04410fa2f",
+    "fixtureSha256": "8bec0d3dd566b7fabffe77085fd71b8b9fc8c841ae6271db2bac0323b7bf6575"
+  },
+  "sourceArchive": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-source-freeze-v4.tar.gz",
+    "bytes": 4454556,
+    "sha256": "9aeac2a6bd1f8b95d33054dcc9f3b214779d76d02011126e26d223717ea33085",
+    "all127SourceAnd4ArtifactPayloadMembersVerified": true,
+    "payloadMembers": 131,
+    "extraFreezeManifestMatches": true,
+    "totalRegularFiles": 132
+  },
+  "engineeringHistory": "Original primary fast static census mismatch377vs378 and its runner automatic retry retained;not independent balanced run or cleanup behavior failure.Final primaryv2 engineering still pending.This reviewer has not run any test/native/GUI."
+}

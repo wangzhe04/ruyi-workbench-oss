@@ -1,0 +1,54 @@
+Owned raw input evidence: /tmp/rei-HxJJZa
+PASS authorized unlocked real desktop available without changing TCC or lock
+PASS fresh independent receiver has neutral input, actual TIS, private session and owned interior
+PASS independent receiver is outside actual root supervised tree, group and session
+PASS BALANCED_INPUT_ALLOW_1a7f6590d51ad3552d805fbc83060b71 exact known macro proxy is the sole permission request
+PASS BALANCED_INPUT_ALLOW_1a7f6590d51ad3552d805fbc83060b71 independent neutral owned target/source immediately before decision
+PASS BALANCED_INPUT_ALLOW_1a7f6590d51ad3552d805fbc83060b71 target binding native worker remains the same incarnation
+PASS BALANCED_INPUT_ALLOW_1a7f6590d51ad3552d805fbc83060b71 passive receiver durably arms exact native process
+PASS BALANCED_INPUT_ALLOW_1a7f6590d51ad3552d805fbc83060b71 final pre-decision state is neutral and inside owned pad
+PASS BALANCED_INPUT_ALLOW_1a7f6590d51ad3552d805fbc83060b71 real default-mode decision accepted
+PASS allow actual receiver returns to neutral with no foreign input or source change
+PASS allowed real macro and wait finish with strict receipt and durable saved result
+PASS actual native input has exact prepared/entered/continue/terminal frame on target-list worker
+PASS independent fsynced receiver observes exactly one matching middle down/up from birth-verified native worker
+PASS every independent input witness keeps frozen geometry, foreground, hit, TIS and bounded arm interval
+PASS actual saved input_sequence result reports exactly two posted events
+PASS genuine admitted audit reads retain successful macro and input_sequence
+PASS same-turn irreversible ledger attributes only input step zero to actual macro call
+PASS actual mission API retains the same input effect and macro attribution
+PASS allow all dispatched reads retain durable ACKs
+PASS allow receiver disarms only while neutral
+PASS BALANCED_INPUT_DENY_83a28b6b3aec125259c34b9eff308071 exact known macro proxy is the sole permission request
+PASS BALANCED_INPUT_DENY_83a28b6b3aec125259c34b9eff308071 independent neutral owned target/source immediately before decision
+PASS BALANCED_INPUT_DENY_83a28b6b3aec125259c34b9eff308071 target binding native worker remains the same incarnation
+PASS BALANCED_INPUT_DENY_83a28b6b3aec125259c34b9eff308071 passive receiver durably arms exact native process
+PASS BALANCED_INPUT_DENY_83a28b6b3aec125259c34b9eff308071 final pre-decision state is neutral and inside owned pad
+PASS BALANCED_INPUT_DENY_83a28b6b3aec125259c34b9eff308071 real default-mode decision accepted
+PASS deny actual receiver returns to neutral with no foreign input or source change
+PASS deny performs no input preparation, native dispatch or receiver effect
+PASS deny reports no irreversible effect
+PASS deny leaves no live permission request
+PASS deny all dispatched reads retain durable ACKs
+PASS deny receiver disarms only while neutral
+PASS BALANCED_INPUT_CANCEL_3b437db1ada26475548df813496bbbe0 exact known macro proxy is the sole permission request
+PASS BALANCED_INPUT_CANCEL_3b437db1ada26475548df813496bbbe0 independent neutral owned target/source immediately before decision
+PASS BALANCED_INPUT_CANCEL_3b437db1ada26475548df813496bbbe0 target binding native worker remains the same incarnation
+PASS BALANCED_INPUT_CANCEL_3b437db1ada26475548df813496bbbe0 passive receiver durably arms exact native process
+PASS BALANCED_INPUT_CANCEL_3b437db1ada26475548df813496bbbe0 final pre-decision state is neutral and inside owned pad
+PASS pending cancel occurs before any macro preparation or native dispatch
+PASS pending permission exact execution Stop accepted
+PASS cancel actual receiver returns to neutral with no foreign input or source change
+PASS cancel performs no input preparation, native dispatch or receiver effect
+PASS cancel reports no irreversible effect
+PASS cancel leaves no live permission request
+PASS cancel all dispatched reads retain durable ACKs
+PASS cancel receiver disarms only while neutral
+PASS cold actual service retains exact ACKs and admits explicit new model request without input replay
+PASS actual cross-turn fold and cold mission API retain one input effect without duplication
+PASS independent receiver stdout exactly matches bounded private fsynced journal
+PASS three fresh observer intervals contain only the single allowed pair
+PASS receiver final healthy fsync ACK precedes normal exit
+PASS final independent durable journal includes every ACK through healthy seal
+
+MACOS EXECUTION INPUT E2E: ALL PASS
