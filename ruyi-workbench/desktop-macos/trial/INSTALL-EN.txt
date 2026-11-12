@@ -1,0 +1,24 @@
+Ruyi Workbench for Mac — local/internal trial
+
+This trusted-source trial uses ad-hoc signing. It has no Developer ID and is not notarized by Apple. Checksums verify matching bytes, not publisher identity.
+
+Installation
+1. Compare the DMG SHA256 with the value supplied by the sender (the macOS shasum -a 256 command is available).
+2. Open the DMG and copy Ruyi.app into Applications. If that location is not writable, use your personal ~/Applications folder.
+3. Quit an existing Ruyi instance and keep the old application before choosing a new installation location. Replacement upgrades and rollback are a separate acceptance scope.
+4. Wait for the copy to complete, eject the DMG, then open the installed app. Normal use does not require the disk image or separately installed Node, Python, Homebrew or Xcode.
+
+First launch
+Downloaded or transferred applications may be blocked by Gatekeeper. After verifying the source, follow the system's Privacy & Security settings if an Open Anyway action is available. Managed-device policy may prevent an override; follow your organization's process.
+Do not disable Gatekeeper, SIP or global security policy. No bypass script is included. If macOS reports a damaged application, verify the checksum and obtain a fresh copy first.
+
+Permissions and data
+Screen recording, accessibility and microphone permissions belong to the user and OS; they are not supplied by this image. Declining permission can disable the corresponding feature. Grant permission and restart as directed. An initialized window does not prove these permissions have been granted.
+The trial keeps the current development bundle identifier. Run one Ruyi instance per data directory. A different build can prompt again for OS permissions or Keychain access; stable upgrade authorization is not qualified here.
+Data stays in ~/.ruyi-workbench or the explicit RUYI_HOME. Quit and move only the installed Ruyi.app to Trash to uninstall while retaining business data.
+
+Variants
+Full bundles standalone Python, ACC, Office/chart/vision dependencies and Chromium. Select bundled in browser settings to use it. Slim omits those dependencies. Neither variant includes official agent CLIs, Git or model weights. Configure your model service separately; local/intranet models can work without public internet, while cloud APIs require a network.
+
+Acceptance scope
+Current-account isolated installation on macOS27.0.1 arm64 is distinct from a clean standard user or a machine without development tools. macOS14 is a target, not runtime-qualified. Developer ID, notarization, actual downloaded-origin first approval, Keychain/TCC recovery, upgrades/rollback and original unverified P5 environments remain separate gates.

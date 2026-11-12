@@ -16,6 +16,7 @@
     "build:desktop:macos": "node tools/build-macos-desktop.js",
     "package:offline:macos:full": "node tools/package-macos-offline.js --variant full",
     "package:offline:macos:slim": "node tools/package-macos-offline.js --variant slim",
+    "package:trial:macos": "node tools/package-macos-trial.js",
     "package:offline": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -IncludeAcc -Variant full",
     "package:offline:full": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -IncludeAcc -Variant full",
     "package:offline:full:fresh": "powershell -ExecutionPolicy Bypass -File tools/package-offline.ps1 -IncludeAcc -BuildAccOffline -Variant full",

@@ -2147,9 +2147,22 @@
             "high": 3
           },
           "deliverable": "递归处理 App/helper/原生依赖签名、hardened runtime 与必要 entitlement；公证与票据附加；干净标准用户安装/首次运行验证。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex; independent p6_02_review",
+          "evidence": [],
+          "scopeDecision": {
+            "date": "2026-11-12",
+            "userRequest": "进行本地／内部试用版的P6-02的实现和验收",
+            "standardUserAnswer": "暂没有，先做隔离安装验收",
+            "acceptedScope": "ad-hoc 内部DMG、当前账号隔离安装与离线业务验证",
+            "deferred": [
+              "Developer ID、公证与票据",
+              "真实下载来源Gatekeeper首次手动允许",
+              "干净标准用户/无开发工具另一主机",
+              "正式身份Keychain/TCC及升级稳定性"
+            ]
+          },
+          "fullOriginalScopeAccepted": false
         },
         {
           "id": "P6-03",

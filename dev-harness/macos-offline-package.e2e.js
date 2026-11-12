@@ -37,7 +37,9 @@ function readJson(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8'))
   const modes = [];
   try {
     const manifest = verifyPackage(candidate);
-    ok(manifest.signing === 'ad-hoc-development' && manifest.notarized === false && !manifest.minimumSystemRuntimeVerified,
+    const expectedSigning = process.env.RUYI_OFFLINE_EXPECT_SIGNING || 'ad-hoc-development';
+    if (!['ad-hoc-development', 'ad-hoc-internal-trial'].includes(expectedSigning)) throw new Error('Invalid expected signing policy');
+    ok(manifest.signing === expectedSigning && manifest.notarized === false && !manifest.minimumSystemRuntimeVerified,
       'candidate declares its development identity and unverified minimum-system boundary');
     // APFS clone copies keep this 1GB-scale acceptance independent without duplicating disk blocks.
     run('/bin/cp', ['-cR', path.resolve(candidate), moved]);
