@@ -1,0 +1,211 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 线程「周报-W36」已建（sess_58f7dcea01573416）
+PASS A4 Edge/Chrome found
+PASS A5 browser target available
+PASS A6 应用就绪（组合根绑完、status 到达）
+PASS B1 进壳即到访：第一句是问候（确定性文案，不调模型）
+PASS B2 「你不在的这段时间里」要点行在场（本次收件箱为空 → 明说没有新事）
+PASS B3 一行按钮 = 「打开焦点线程」＋「知道了」（实测 ["打开「周报-W36」","知道了"]）
+PASS B4 feed 里没有上次对话（零用户气泡；上次对话已归档进行动流水）
+PASS B5 一次回合的主动作只有一个
+PASS B6 到访走的是既有的 POST /api/steward/visit（后端零改动）
+PASS C1 管家思考时对话流末尾出「···」占位（不是转圈）
+PASS C2 用户的话立刻上屏（乐观气泡）
+PASS C3 steward_reply 的 say 上屏（流式文字替换了占位）
+PASS C4 回合结束后「···」占位已消失
+PASS C5 一行按钮 ≤2（剧本给了 4 个，屏上只剩「知道了」＋「再看看」，「改一下」「第四个」被丢弃；实测本回合非主动作那几枚 ["再看看"]）
+PASS W2-3a「···」占位一出现，头像就已经在那一行旁边（它是这一回合管家所在的位置）
+PASS W2-3b 回合结束后头像住在 36px 的槽里（实测父节点 class「steward-avslot」）
+PASS W2-3c 头像在【最后一条】管家的话旁边
+PASS W2-3d 全页只有一个头像节点 —— 是【搬】不是【复制】（实测 1 个）
+PASS W2-3e 每一条管家的话都有槽（历史那些是空槽，靠 CSS 的 :empty::before 画静态点；实测槽 2 个）
+PASS W2-3f 头部那枚 6px 状态点有态（头像搬走之后它是头部唯一的状态投影；实测「listening」）
+PASS D1 按钮落定：整行按钮换成灰字回执「知道了」
+PASS D2 落定后原来那一行按钮整体消失（不是只禁用）
+PASS E1 什么都不像时 chip 显示「→ 如意 · 另起一件」
+PASS F1 预判命中时 chip 是【提示】而不是目标：「→ 如意 · 像是接着「周报-W36」」（实测「→ 如意 · 像是接着「周报-W36」」）
+PASS F2 预判命中的那句话仍然【经过管家回合】（管家自己回了一句）
+PASS F3 这一发打的是 POST /api/steward/message，【不是】 /api/steward/act（实测 ["/api/steward/message","/api/steward/state"]）
+PASS F3b 请求体带 routeHint，命中里有那条线程的 sessionId（实测 {"kind":"thread","hits":[{"sessionId":"sess_58f7dcea01573416","reason":"命中词：w36、周报；近期更新"}],"picked":null}）
+PASS F3c 用户那句话逐字不动，且 routeHint 里【没有】标题（服务端只信 sessionId，标题自己重查）
+PASS Q1 第二句立刻上屏并标「排队中」（修前它被静默丢弃）
+PASS Q1b 排队的是【第二句】，第一句照常在跑（实测 ["第二句：顺便把结论写下来"]）
+PASS Q1c 「排队中」是真节点（读屏念得到），不是 CSS 生成内容
+PASS Q1d 两句都在对话流里（一句都没丢）
+PASS Q2 排队那一句最终真的发出去并拿到了回复
+PASS Q3 两条回复【按序】落在对话流里（实测 7 / 9）
+PASS Q3b 轮到它发的时候「排队中」那一档被摘掉
+PASS P1 候选列表里能手选那条线程
+PASS P2 手选之后 chip 才是【目标态】「→ 周报-W36」
+PASS P3 手选之后 Enter 仍然直递：管家只回一行「递给了『周报-W36』。」
+PASS P3b 手选那一发走 POST /api/steward/act（直递这条路仍在，只是要用户明示）
+PASS F4 回执按钮的文字恒是「撤回」，秒数不写进文字（实测 "撤回"）
+PASS F4b ※ 浮层里有「依据」小标题（实测 ["依据"]）
+PASS F5 撤回按钮在 10 秒窄窗内可点
+PASS G1 撤回落定：灰字「已撤回…」（引擎无检查点时如实标注「改动请看 2.0 视窗」）
+PASS G2 撤回后管家追问「那递给谁？」（i18n，不调模型）
+PASS G2a 撤回后就地打开候选列表（「那递给谁？」问完能立刻挑；实测 2 项）
+PASS G3 撤回只发一次guarded rewind，携原执行身份和锚点，不另发stop（实测 {"sessionId":"sess_58f7dcea01573416","targetTurnSeq":1,"rollbackFiles":true,"guardExecution":true,"expectedExecution":{"serverInstanceId":"dc30c3a47a30","driverRunId":"drun_c2ea06c4bec2107d","phase":"starting"}}）
+PASS G4 线程回退到递话前（这句话视为没发出去，剩余消息 0 条）
+PASS D3-0 长标题线程（37 字）已建（sess_ee684467c3ad3823）
+PASS D3-1 长标题线程命中之后 chip 走 stewardShortTitle 截短：「→ 如意 · 像是接着「帮我查一下AMD超威半导体NASDAQ最新收盘价…」」（实测「→ 如意 · 像是接着「帮我查一下AMD超威半导体NASDAQ最新收盘价…」」，原标题 37 字）
+PASS D3-2 长标题命中时输入框没被挤没：输入框 592.0px / 行宽 732.0px（要求 ≥60%）
+PASS D3-2b 输入框宽度也过一个不依赖行宽的绝对下限 200px（实测 592.0px）
+PASS D3-2c 自动命中时 × 是可见的（显隐判据不再只看有没有手选）
+PASS D3-3 点 × 之后 chip 回到「→ 如意」（实测「→ 如意」）
+PASS D3-4 撤掉之后追加输入，预判不会自己回来（实测「→ 如意」）
+PASS D3-5 清空输入框、重打一句新的话之后，预判正常回来（实测「→ 如意 · 像是接着「帮我查一下AMD超威半导体NASDAQ最新收盘价…」」）
+PASS R1 剧本跑到这里至少有三条管家消息（实测 7 条）
+PASS R2 只有【最后一行】有真头像（其余行的槽是空的）
+PASS R3 除最新那一条之外全部 .is-stale（判据＝头像在谁那儿，markStale 一处维护）
+PASS R4 第一行是组首（.is-group-start）
+PASS R5 撤回后那两条连着的管家消息成【一组】（组首/组尾各一，实测 [[true,false],[false,true]]）
+PASS R6 空槽不再画那个 8px 灰点（用户说的「边边那个点」；实测 ["none"]）
+PASS R7 竖线只画给「多行且不是头像所在那一组」的组（6 组，逐组核对 ["ok","ok","ok","ok","ok","ok"]）
+PASS R7b companion：头像所在的最新那一组【整组】不画（它有 2 行，是多行组，只因为有头像才不画）
+PASS R8 旧行的按钮降成幽灵档（底色透明）但【仍然可点】（零 disabled；实测 1 行，底色 ["rgba(0, 0, 0, 0)"]）
+PASS S0 管家那条 markdown 回复上屏了（实测最后一条话「结论先行
+偏空，理由三条：
+
+量能没跟上
+外盘走弱
+北向连续净卖
+
+const risk = 1;
+复制
+graph TD; A-->B;
+
+ alert(2)」，全部 says ["好的，我接着做。※\n","说说你的看法","结论先行\n偏空，理由三条：\n\n量能没跟上\n外盘走弱\n北向连续净卖\n\nconst risk = 1;\n复制\ngraph TD; A-->B;\n\n alert(2)※\n"]）
+PASS S1 markdown 真的成了 DOM：h2/strong/li/pre>code 各就各位（实测 {"md":true,"h2":1,"strong":1,"li":3,"preCode":2}）
+PASS S2 mermaid 围栏拿到了图表容器 .mermaid-block（vendor 里没有 mermaid.min.js 时它退化成「原代码块 + 一行提示」，容器仍在——这一条钉的正是「制图这条路真的接上了」；实测 1 个）
+PASS S3 注入被净化：零 script 元素、零 onerror 属性、最终 DOM 里连 onerror 这几个字符都不剩（实测 script 0 / onerror属性 0 / 源码里还有 onerror: false）
+PASS S3b 样式层跟上了：markdown 一来 white-space 就从 pre-wrap 退场（否则块与块之间那些结构性换行 会被画成一片真空行；实测「normal」）
+PASS S3c ※ 仍然挂在句尾那一段里（markdown 之后它若掉出段落就会自己占一行）
+PASS S4 ※ 里的依据【不】走渲染器：井号原样在，浮层里零 h1/h2/h3/strong/li（它是机器回执，被 markdown 吃掉就变形了；实测 {"lines":["## 依据不该被渲染 **也不该加粗**"],"headings":0}）
+PASS R7c 正面分支：多行且非末组的组【真的画】竖线（此刻 8 组，其中多行非末组 1 个，逐组画线情况 [[true,true]]）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-117s-C-shots/117s-C-markdown.png
+PASS T0 三条上屏（收件箱那条系统消息不冒充用户气泡，老纪律不动；实测 3）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-117s-C-shots/117s-C-source-chip.png
+PASS T1 只有【收件箱触发】的那条回复带来源小头，用户自己问的那条不带（实测 1 枚）
+PASS T2 小头指向事件里那条线程的 sessionId（实测「sess_58f7dcea01573416」，应为「sess_58f7dcea01573416」）
+PASS T3 小头念的是线程【显示名】而不是 id（实测「stewardShell.chat.fromThread|周报-W36」）
+PASS T4 小头在话的【上面】（先说这是哪条线程，再说话）
+PASS T5 点小头派发 steward:focus-thread，带的是那条线程的 id（实测 ["sess_58f7dcea01573416"]）
+PASS T6 没有注入渲染器的实例全线回落 textContent（缺席那条路真的走得通；实测 md=false）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-117s-H-shots/117s-H-deliverable.png
+PASS U0 交付卡【只】长在收件箱触发的那条回复上，用户自己问的那条一个都没有（实测每行 [1,0]）
+PASS U1 卡头是「它交付的原文 · 第 N 回合」，N 取自事件行里的「线程第 3 回合」（实测「stewardShell.chat.deliverableHead|3」）
+PASS U2 交付原文走【同一条】渲染器成了 DOM：h2/li/table 各就各位（实测 {"md":true,"h2":1,"li":3,"table":1}）
+PASS U2b 挑的是【第 3 回合】那条助手话，不是整份会话里随便一条（旧回合的答案没混进来）
+PASS U3 默认折叠（真的被裁掉了一截），全文展开是主入口且工作台导航仍保留（实测 ["stewardShell.chat.deliverableExpand","delivery.revise"]，clamped=true）
+PASS U4 点「展开」全文展开、按钮换成「收起」（实测 clamped=false / 溢出=false / ["stewardShell.chat.deliverableCollapse","delivery.revise"]）
+PASS U5 版面次序：来源小头 → 管家的按语 → 交付卡（管家的话在原件【上面】，只是一句按语）
+PASS U6 「看全文」走的是与抽屉同一个入口 openClassicWindow(sessionId)，带的是那条线程的 id（实测 ["sess_deliver_1"]）
+PASS U7 取原文是【懒】的：两条管家回复只发了一发信封请求（收件箱那条），且走既有的 GET /api/sessions/<id>（实测 ["/api/sessions/steward?since=2000-01-01T00%3A00%3A00.000Z","/api/sessions/sess_deliver_1"]）
+PASS U8 ※ 浮层仍然零 h1/h2/strong/li —— 交付卡进了 markdown，机器回执没有（实测 0）
+PASS U9 对象形状的 trigger：来源小头直接读回执里的 sessionId 与 title，不必再去抠中文事件行（实测 {"text":"stewardShell.chat.fromThread|回执里的线程名","sessionId":"sess_stamped_2"}）
+PASS U9b 交付卡也认回执里的 turnSeq：钉的是第 2 回合那条助手话（实测卡头「stewardShell.chat.deliverableHead|2」）
+PASS U10 取不到原文时画一句兜底＋只留「看全文」，回复本身照常上屏（实测「stewardShell.chat.deliverableMissing」，按钮 ["stewardShell.chat.deliverableFull"]）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-117s-H-shots/117s-H-deliverable-fallback.png
+PASS W0 前置：两条回放行都画出来了（实得 rendered=2，行数 2）
+PASS W1 只说不做那一轮【零】回执徽标 —— say 里说得再满，系统一个字都不替它背书（实得 []）
+PASS W2 三态逐行对上（done / failed / no_receipt；实得 ["done","failed","no_receipt"]）
+PASS W3 落盘老章里没有 result 的那一行判成 no_receipt，不是 done（修前它被算成做成了；实得「no_receipt」）
+PASS W4 ※ 浮层里的「已办」行数与可见徽标数相等（同一份 actionReceipts() 两处渲染，不是两份判据；实得 3 vs 3）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-F1F4-shots/F1-thread-cards.png
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-F1F4-shots/F1-two-threads-and-clamp.png
+PASS V0 六条上屏（五条管家的话 ＋ 一条用户的话；实测 rendered=6 / 管家行 5）
+PASS V1 连着的两条【同一线程】合成一张卡：一个卡头、组首组尾各一（实测 [[true,false,1],[false,true,0]]）
+PASS V2 两条不同线程＝两张卡，色条不是同一个颜色（实测 rgb(115, 211, 152) ／ rgb(143, 115, 211)）
+PASS V3 同一条线程隔了几条之后再出现，仍是同一个色（实测 2 vs 2，rgb(115, 211, 152)）
+PASS V4 管家【本人】说的话没有色条、没有卡头、没有来源小头（实测 isThread=false / 色条=false）
+PASS V4b 一行只有一个锚：有色条的那几行不再画那道组竖线（实测 [[true,true,false],[true,true,false],[true,true,false],[false,false,false],[true,true,false]]）
+PASS V5a 夹具这条回复够长（19 行 ≥ 12，远超那个 8 行的折叠线）——不然「没折叠」这件事验不出什么
+PASS V5 管家的话【说得完】：一条 19 行的回复整段可见，没有 is-clamped、没被裁掉一截、一枚「展开」都没有（实测 clamped=false / 溢出=false / 按钮 [] / 展开钮 0）
+PASS V5b 反向保护：交付卡【仍然】折叠、仍然有「展开」（clampIfLong 只是从两个调用方减到交付卡这一个；实测 clamped=true / ["stewardShell.chat.deliverableExpand"]）
+PASS V6 首句抬成引子（第一个段落加粗）而正文逐字未变、且【不点任何按钮】就已经全在 DOM 里（引子 P/600，文字相同=true）
+PASS V7 117s-H 的交付卡与来源小头照旧长在卡里：小头仍在 DOM（它的聚焦通道没动），只是让位给卡头右端的「打开」（实测 交付卡 1 / 小头 1 / 可见 false）
+PASS V8 卡头只剩 线程名／五态／相对时间，模型名已退出（§2.4；实测 {"name":"博纳影业怎么看","state":"mission.state.running","stateAttr":"running","meta":"20秒钟前","opens":1,"openText":"","openLabel":"stewardShell.chat.openInWorkbench","openGlyphs":1,"crumbHidden":true}）
+PASS V8b 另一条线程的药丸走 relay.channel（13h 那条递话阶梯的输出）说「等你」，那一格同样不印模型（实测 {"name":"大A接下来的走势","state":"mission.state.needs_you","stateAttr":"needs_you","meta":"20秒钟前","opens":1,"openText":"","openLabel":"stewardShell.chat.openInWorkbench","openGlyphs":1,"crumbHidden":true}）
+PASS V8c 卡头那枚「在工作台打开」是图标钮（零文字＋一枚字形＋可访问名），单线程任务不出面包屑（实测 文字「」字形 1 名「stewardShell.chat.openInWorkbench」面包屑 hidden=true）
+PASS V9 卡头零新增请求：它与同一行的交付原文 await 同一个被缓存的 promise（实测 ["/api/sessions/steward?since=2000-01-01T00%3A00%3A00.000Z","/api/sessions/sess_v_alpha","/api/sessions/sess_v_alpha","/api/sessions/sess_v_beta","/api/sessions/sess_v_alpha"]）
+PASS X0 频道条在真浏览器里零残留（chip／滚动容器等节点 0 个、过滤类 0 处），而线程卡照旧在（9 行 ／ 8 个卡头）
+PASS X8b ① 四档间距的序关系在【真样式表算出来的计算值】上成立：卡间 28px ＞ 组间 16px ＞ 卡内块间 12px ＞ 组内 4px —— F1 之后对话流的单位是一张几百像素高的线程卡，修前卡与卡之间却只有组内那一档
+PASS X8b2 ① 卡间的两个落点算出来是同一个数：卡的第一行 28px、卡后面那一行 28px —— 一档两处，不是两个各调各的数
+PASS Z0 递话走的是 handOff 那条真路径，撤回按钮就位（实测 ["/api/steward/act"]）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-F5b-shots/F5b-1-counting-down.png
+PASS Z1 倒计时里按钮的文字【逐字节不变】：四次采样跨 3.3 秒都是「撤回」（实测 ["撤回","撤回","撤回","撤回"]）
+PASS Z2 按钮宽度一动不动，且每秒在变的那个东西自己也占着一块【定死的】地方（改前位数从 10 掉到 9 时按钮跟着跳一下；实测 按钮 [76.531,76.531,76.531,76.531] / 环 [12,12,12,12]）
+PASS Z3 环真的在退：驱动它的那个自定义属性从满格 1 一路单调变小、四次采样至少三个不同的值（实测 ["1","0.9","0.8","0.7"]）
+PASS Z3b 那个数不是写给测试看的：算完的 background-image 每秒跟着换（把 .steward-undo-face 整条规则删掉，本条立刻转红而 Z3 照样绿——那正是「删掉被测代码断言还过」的假绿）（实测 ["conic-gradient(rgb(233, 237, 245) 360deg, rgba(190, 208, 248, 0.15) 0deg)","conic-gradient(rgb(233, 237, 245) 324deg, rgba(190, 208, 248, 0.15) 0deg)","conic-gradient(rgb(233, 237, 245) 288deg, rgba(190, 208, 248, 0.15) 0deg)","conic-gradient(rgb(233, 237, 245) 252deg, rgba(190, 208, 248, 0.15) 0deg)"]）
+PASS Z4 copy-P2-2 的无障碍契约原样：按钮 aria-label 恒是「撤回」，每秒在变的那个元素整棵子树 aria-hidden（实测 aria ["撤回"] / hidden ["true"]）
+PASS Z4b 秒数没消失，只是从「文字」挪到了那枚 aria-hidden 元素的 title（鼠标停上去仍看得到；实测 ["撤回 10","撤回 9","撤回 8","撤回 7"]）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-F5b-shots/F5b-2-expired-switch.png
+PASS Z5 到点变成「换一条」，且换上了一枚图标 —— 图标这一下变化就是那次改口的过渡（改前是文字无声地换掉；实测 文字「换一条」/ 图标 1 枚 / 环还在=false）
+PASS Z6 「换一条」可点（它的行为仍是「先回退再递」——同一个 undoHandOff）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-F5b-shots/F5b-3-undone.png
+PASS Z7 第三态：整行按钮退成一句安静的「✓ 已撤回」——按钮一个不剩，对勾一枚（实测「已撤回」/ 剩余按钮 0 / 图标 1）
+PASS Z7b companion：换一条只发一次guarded rewind，保留原执行身份和锚点（实测 [{"sessionId":"sess_58f7dcea01573416","targetTurnSeq":1,"rollbackFiles":true,"guardExecution":true,"expectedExecution":{"serverInstanceId":"synthetic-instance","driverRunId":"synthetic-driver","phase":"starting"}}]）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-117v-V1-shots/V1-1-history-chips.png
+PASS AA1 ③ 回放：用户问的那一轮（trigger:'user'）只要真开出了线程，就照样长线程卡（实测 卡头 1 枚、名字「博通那件事」）
+PASS AA2 ③ 回放真的给这两条线程各长出一张卡（实测 ["英伟达那件事","","博通那件事"]；频道条节点 0 个）
+PASS AA3 ③ 的边界：交付卡【没有】跟着放出来 —— 收件箱那一行有（1），刚开的线程那一行没有（0），它这一回合还没有任何交付
+PASS AA4 ③ 的代价是【一条线程一发信封】（卡头要线程名与药丸），交付卡与卡头 await 同一个被缓存的 promise 所以零新增（实测 ["/api/steward/visit","/api/sessions/steward","/api/sessions/sess_v1_inbox","/api/sessions/sess_v1_asked"]）
+PASS AA5 ⑨ 交付卡那枚「看全文」用的是自己的词并写明去处（实测「在工作台看全文」，抽屉那枚仍是「看全文」）
+  截图：/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-GZ3KZc/ruyi-117v-V1-shots/V1-2-live-chip.png
+PASS AA6 ③「当场」：用户问 → 管家开线程 → 对话流【就地】多出那一条线程的卡（实测 2 条 → 3 条：["英伟达那件事","博通那件事","中芯国际那件事"]）
+PASS AA7 ② 点「看英伟达分析全文」之后：没有灰字回执（0）、两枚按钮都还在（["看英伟达分析全文","知道了"]）、且都还按得动（disabled=[false,false]）
+PASS AA8 ② 同一枚按钮点第二次照样真去开线程（从 2.0 视窗回来还要再点一次的就是它；实测派出的 steward:open-thread ["sess_v1_inbox","sess_v1_inbox"]）
+PASS AA9 ② 的对照面没坏：「知道了」这类【表态】点完仍然整行换成灰字回执、按钮一个不剩（实测 回执 1 / 剩余按钮 0）
+PASS AB1 ① 用户自己发的那一轮把水位推到了本回合之后：随后那一发 appendSince()（收件箱回合走的就是它）实得 rendered 0，应为 0
+PASS AB2 ① 用户那句话在屏上恰一枚气泡（修前是两枚 —— 用户 2026-09-13 贴出来的正是它；实测 1 枚）
+PASS AB3 ③ 防御的正面：按到访起点硬拉，服务端回 3 条，只有【没盖过 data-created-at】的那条用户消息被画（实测 r2=1）—— 问候与刚才那条回复都被认了出来
+PASS AB4 ③ 同一发再来一次：三条全都盖过身份，一条都不再画（实测 r3=0，用户气泡 2 → 2）
+PASS AC0 两条历史都上屏了（实测 rendered 2，认出 2 行）
+PASS AC1 ② 回放只画【导航】那一枚（实测 ["打开线程"]，应为 ["打开线程"]）—— 修前是把落盘的 acts 整份重画
+PASS AC2 ② 同一行里那枚【表态】不重画（117v-V1 ②「导航不是表态」；它点过一次就落了灰字回执，而落盘的章里没有「点过没有」这个记录，重画等于让它复活）
+PASS AC3 契约完整那一行不出系统回执（实测 []）—— 旗子缺省不写，老回合读不到即为 false
+PASS AC4 ① 契约不完整那一行画出灰字系统回执（实测 [{"text":"stewardShell.chat.contractIncomplete","kind":"contract"}]）—— 用的是既有 .steward-receipt 那一族，不是按钮
+PASS AC5 ① 那一行一枚按钮都没有（实测 []）—— 话里说的「按钮就在下面」本来就不存在，回执要说的正是这件事
+PASS AC6 ② enterVisit 那个入口同样只画导航（实测 ["打开线程"]）—— 进壳与切视角走的是它，AB 那次事故的教训是「只钉一个入口不够」
+PASS AC7 ① enterVisit 这条路上灰字回执也在（实测 [{"text":"stewardShell.chat.contractIncomplete","kind":"contract"}]）
+PASS AD1 第一档照旧：等你的那条赢过在跑的（哪怕它更旧；实得「等你的」）
+PASS AD2 第三档是「最近发生的那一件」，不给 dispatching 插队 —— 与右栏逐字同一份判据（实得「刚做完的」）
+PASS AD3 一条线程都没有时不编一枚「打开这一件」出来（实得「」）
+PASS S1-0 两枚按钮就位：按钮上写的是服务端派生的说明（实测 [["改设置:permissionMode=auto"],["打开「周报-W36」"]]）
+PASS S1-1 面板弹出之前**一个请求都没发**（实测 open=true calls=[]）
+PASS S1-2 面板的标题与引子取自 locale（实测 {"t":"要按下这个改动吗？","b":["如意要替你改下面这几项。按下「确认」才会生效："]}）
+PASS S1-3 面板逐条列出「键 = 新值」，且是纯文本（li 里零子元素 = 零 innerHTML；实测 [["permissionMode = auto"],0]）
+PASS S1-3b 面板开着时那一枚按钮是置灰的（点不出第二张面板；实测 [{"text":"改设置:permissionMode=auto","disabled":true}]）
+PASS S1-4 取消 → **一个请求都没发**、也没落回执（实测 {"calls":[],"receipts":0}）
+PASS S1-4b 取消之后按钮恢复可点（用户可以再想想；实测 [{"text":"改设置:permissionMode=auto","disabled":false}]）
+PASS S1-5 面板再次弹出
+PASS S1-6 确认之后才 POST 一发 /api/steward/act，载荷就是那个 act（实测 {"calls":["/api/steward/act"],"body":"{\"act\":{\"label\":\"改设置:permissionMode=auto\",\"kind\":\"tool\",\"tool\":\"steward_config_set\",\"args\":{\"patch\":{\"permissionMode\":\"a"}）
+PASS S1-7 open_thread 那一枚行为一个字没变：零面板、按下去直接发（实测 {"open":false,"calls":["/api/steward/act","/api/steward/act"]}）
+PASS P4 另建一条同名线程（同名、不同 session）
+PASS P5 两条同名线程都在候选里（实得 2 行）
+PASS P6 同名两行的显示标签不同，用户能分辨
+PASS P7 区分后缀追加在原标题之后，不吞掉原话
+PASS P8 响应丢失时只说「未确认」，原话留在提示里
+PASS P9 这一次其实已经到达服务端
+PASS P10 未确认的提示上给出「核对是否已递到」
+PASS P11 核对读到回执：上一次已经递到
+PASS P12 核对之后没有第二次执行
+PASS P13 请求没发出去时同样只说「未确认」
+PASS P14 这一次确实没有到达服务端
+PASS P15 失败的提示上同样给出核对按钮
+PASS P16 核对说没有递到
+PASS P17 给出「重发这一次」
+PASS P18 重发之后才真正执行并给出递送回执
+PASS P19 重发只执行一次
+PASS P20 重发没有造出重复的用户消息
+PASS P21 服务端明确拒绝（409）时显示真实错误
+PASS P22 被拒绝的这一次没有到达服务端
+PASS P23 明确拒绝不会冒充「未确认」，也不会多出核对按钮
+PASS H1 回经典后管家状态轮询计时器被清
+PASS H2 回经典后没有残留的撤回倒计时（1000ms 计时器不多于基线 1）
+PASS H3 117j W2-3：回经典之后头像节点仍然只有一个、且还活着（clearFeed / 移除失败行之前都先 park 过；
+        它一旦跟着某一行被销毁，presence 从此再也画不出来。实测 1 个）
+
+STEWARD CONVERSATION E2E: ALL PASS

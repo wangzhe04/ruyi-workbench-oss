@@ -1,0 +1,100 @@
+PASS A0 fake-openai（聊天＋ASR 桩）已起
+PASS A0b workbench started
+PASS A1 Edge/Chrome found
+PASS A2 CDP target found
+PASS A3 首屏就绪（config 已到、两个输入框都建好）
+PASS A4 显示判据的三件环境事实都成立（实得 {"secure":true,"gum":true,"opus":true,"wav":false}；audio/wav 录不了是 §1.5 的先验，这里只打印）
+PASS A5 ASR 已配置 → 两个输入框里的麦克风节点都建了
+PASS B0 工作台视角
+PASS B1 工作台：麦克风是 .composer-actions 里紧挨 #sendBtn 前面的 <button>，字形来自 icons.js、自带 .sr-only aria-live=polite 节点（实得 {"nextIsSend":true,"host":"composer-actions","type":"button","label":"语音输入","pressed":"false","glyph":true,"live":{"className":"sr-only","role":"status","ariaLive":"polite"}}）
+PASS B2a 点一下进入录音态、aria-pressed=true（实得 {"state":"recording","pressed":"true","title":"结束录音（Esc 取消）","text":"0:00"}）
+PASS B2b 录音中可见计时 m:ss 在走（实得「0:01」）
+PASS B2c 恰好一发转写请求：filename=voice.wav、Content-Type 覆盖成 audio/wav、请求体是真 WAV（RIFF 魔数）（实得 [{"url":"/api/audio/transcribe?filename=voice.wav","contentType":"audio/wav","size":48044,"magic":"52494646","riff":"RIFF","wave":"WAVE","rate":16000,"channels":1,"bits":16}]）
+PASS B2c2 WAV 头就是 16 kHz／单声道／16 bit（实得 riff=RIFF wave=WAVE rate=16000 ch=1 bits=16）
+PASS B2d 服务端收到的就是这段录音：回显 model=whisper-1 filename=voice.wav bytes=48044（>0，且与请求体 48044 字节相等）
+PASS B2e 回填在光标处：「前缀 」＋转写＋「后缀」（实得 "前缀 [fake-asr] model=whisper-1 filename=voice.wav bytes=48044后缀"）
+PASS B2f 光标落在插入之后、焦点回到输入框、aria-pressed 翻回 false（实得 caret=60 期望 60，active=true，pressed=false）
+PASS B2g 不自动发送：发送计数 0（[]）
+PASS B2h aria-live 节点依次播报「录音中／转写中／已填入」（实得 ["正在录音，再按一次结束，Esc 取消","正在转成文字…","已填入输入框，看一眼再发送"]）
+PASS B3 回填派发了 input 事件：工作台输入框自己的监听器把草稿存成了新值（实得 draft="前缀 [fake-asr] model=whisper-1 filename=voice.wav bytes=48044后缀"）
+PASS C1 从输入框按 Tab 3 下焦点落到麦克风（实得 activeElement=composerVoiceBtn）
+PASS C2 Space 开始录音，aria-pressed=true（实得 {"state":"recording","pressed":"true","title":"结束录音（Esc 取消）","text":"0:00"}）
+PASS C3 Space 结束 → 转写回填到光标处（末尾），aria-pressed=false（实得 {"value":"键盘路径[fake-asr] model=whisper-1 filename=voice.wav bytes=42284","pressed":"false"}）
+PASS C4 aria-live 播报过（实得 ["正在录音，再按一次结束，Esc 取消","正在转成文字…","已填入输入框，看一眼再发送"]）
+PASS C5 键盘路径同样不自动发送（发送计数增量 0）
+PASS C6 录音中按 Esc → 回到空闲，aria-pressed=false（实得 {"state":"idle","pressed":"false","title":"语音输入：点一下开始说，再点一下结束；Esc 取消。每停顿一下，刚说的那句就填进输入框，不会自动发送","text":""}）
+PASS C7 Esc 取消 = 丢弃：零转写请求（增量 0），输入框一个字不变（true）
+PASS C8 播报「已取消」（实得 ["正在录音，再按一次结束，Esc 取消","已取消录音，输入框没有改动"]）
+PASS D1 录满 3 分钟（时钟拨快 181 s）不用再点就自动结束、转写、回填，且不发送（实得 value="[fake-asr] model=whisper-1 filename=voice.wav bytes=40364"，播报 ["正在录音，再按一次结束，Esc 取消","已录满 3 分钟，自动结束","已填入输入框，看一眼再发送"]）
+PASS E10 设置页选择器切到 upstream500（实得 {"ok":true,"asrModel":"upstream500"}）
+PASS E11 按钮进错误态：可见短词「未成功」、title 是本地化原因（实得 {"state":"error","pressed":"false","title":"语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动","text":"未成功"}）
+PASS E12 aria-live 播报「语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动」（实得 ["正在录音，再按一次结束，Esc 取消","正在转成文字…","语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动"]）
+PASS E13 输入框一个字不动（"原样保留 不许动"）、不发送（增量 0）
+PASS E1-4 上游 5xx 那一趟确实发出了 1 发转写请求（实得 1）
+PASS E20 设置页选择器切到 emptytext（实得 {"ok":true,"asrModel":"emptytext"}）
+PASS E21 按钮进错误态：可见短词「未成功」、title 是本地化原因（实得 {"state":"error","pressed":"false","title":"没有听出文字，输入框没有改动","text":"未成功"}）
+PASS E22 aria-live 播报「没有听出文字，输入框没有改动」（实得 ["正在录音，再按一次结束，Esc 取消","正在转成文字…","没有听出文字，输入框没有改动"]）
+PASS E23 输入框一个字不动（"原样保留 不许动"）、不发送（增量 0）
+PASS E2-4 转写为空那一趟确实发出了 1 发转写请求（实得 1）
+PASS E3-0 选择器切回 whisper-1（实得 {"ok":true,"asrModel":"whisper-1"}）
+PASS E31 按钮进错误态：可见短词「未成功」、title 是本地化原因（实得 {"state":"error","pressed":"false","title":"没有拿到麦克风权限，输入框没有改动","text":"未成功"}）
+PASS E32 aria-live 播报「没有拿到麦克风权限，输入框没有改动」（实得 ["没有拿到麦克风权限，输入框没有改动"]）
+PASS E33 输入框一个字不动（"原样保留 不许动"）、不发送（增量 0）
+PASS E3-4 麦克风被拒（桌面壳没放行麦克风是同一条路）→ 零转写请求（实得 0）
+PASS E4 三种失败全程零未捕获异常（CDP exceptionThrown 增量 []；页面 error/unhandledrejection 增量 []）
+PASS S1 停顿之后第一段的字已经落进输入框，而麦克风【还在录】（实得 {"value":"头|[fake-asr] model=whisper-1 filename=voice.wav bytes=101804尾","state":"recording","pressed":"true"}，此刻转写请求 1 发）
+PASS S2 第一段落在光标处（「头|」与「尾」之间）（实得 "头|[fake-asr] model=whisper-1 filename=voice.wav bytes=101804尾"）
+PASS S3 整次录音恰好两发转写请求（两段各一发、都是真 WAV）—— 每一秒音频只转一次，不是越录越贵的整段重发（实得 [101804,38444]）
+PASS S4 第二段接在第一段后面、顺序就是说话的顺序、原来的字一个没动（实得 "头|[fake-asr] model=whisper-1 filename=voice.wav bytes=101804[fake-asr] model=whisper-1 filename=voice.wav bytes=38444尾"）
+PASS S5 光标落在最后一段之后、按钮回到可录（实得 caret=117 期望 117）
+PASS S6 切段落字全程不自动发送（发送计数增量 0）
+PASS S7 说完之后安静着点结束：收尾那段静音不再出一次网（本趟转写请求 1 发，按钮 idle）
+PASS S8 还原响度取样、清掉回填草稿
+PASS J0 把 OfflineAudioContext 换成抛异常的桩（模拟这段字节解不开）
+PASS J1 转码失败 → 原样发 webm（EBML 魔数、Content-Type 回退 audio/webm）（实得 [{"url":"/api/audio/transcribe?filename=voice.webm","contentType":"audio/webm","size":16516,"magic":"1a45dfa3","riff":"\u001aEß£","wave":"\u0001B÷","rate":1835165047,"channels":33922,"bits":641}]）
+PASS J2 回退路径照样转写成功并回填在光标处（实得 "回退 [fake-asr] model=whisper-1 filename=voice.webm bytes=16516前后"）
+PASS J3 还原 OfflineAudioContext
+PASS J4 清掉回填草稿（否则后面的窄屏高度断言量的是两行输入框）
+PASS F0 管家视角
+PASS F1 管家输入行：麦克风紧挨发送键前面，同样自带 aria-live 节点（实得 {"nextIsSend":true,"host":"steward-composer-row","pressed":"false","live":"polite"}）
+PASS F2a 点一下进入录音态、aria-pressed=true（实得 {"state":"recording","pressed":"true","title":"结束录音（Esc 取消）","text":"0:00"}）
+PASS F2b 录音中可见计时 m:ss 在走（实得「0:01」）
+PASS F2c 恰好一发转写请求：filename=voice.wav、Content-Type 覆盖成 audio/wav、请求体是真 WAV（RIFF 魔数）（实得 [{"url":"/api/audio/transcribe?filename=voice.wav","contentType":"audio/wav","size":48044,"magic":"52494646","riff":"RIFF","wave":"WAVE","rate":16000,"channels":1,"bits":16}]）
+PASS F2c2 WAV 头就是 16 kHz／单声道／16 bit（实得 riff=RIFF wave=WAVE rate=16000 ch=1 bits=16）
+PASS F2d 服务端收到的就是这段录音：回显 model=whisper-1 filename=voice.wav bytes=48044（>0，且与请求体 48044 字节相等）
+PASS F2e 回填在光标处：「前缀 」＋转写＋「后缀」（实得 "前缀 [fake-asr] model=whisper-1 filename=voice.wav bytes=48044后缀"）
+PASS F2f 光标落在插入之后、焦点回到输入框、aria-pressed 翻回 false（实得 caret=60 期望 60，active=true，pressed=false）
+PASS F2g 不自动发送：发送计数 0（[]）
+PASS F2h aria-live 节点依次播报「录音中／转写中／已填入」（实得 ["正在录音，再按一次结束，Esc 取消","正在转成文字…","已填入输入框，看一眼再发送"]）
+PASS G0 dark：重载后就绪、两枚麦克风都在
+PASS G1 dark/classic 视角
+PASS G2 dark/classic：视口 390px、data-theme=dark、整页横向溢出 0px
+PASS G3 dark/classic：麦克风看得见、点得中（mic {"l":250,"r":284,"t":788,"w":34,"h":34}，send {"l":288,"r":367,"t":787,"w":79,"h":36}，中心命中 true）
+PASS G4 dark/classic：输入框可用宽度 278px ≥ 120px（行 {"l":72,"r":374,"t":750,"w":302,"h":81}）
+PASS G5 dark/classic：录音态麦克风变宽到 62px（空闲 34px），输入框仍有 278px、横向溢出 0px；Esc 收回
+PASS G1 dark/steward 视角
+PASS G2 dark/steward：视口 390px、data-theme=dark、整页横向溢出 0px
+PASS G3 dark/steward：麦克风看得见、点得中（mic {"l":291,"r":327,"t":789,"w":36,"h":36}，send {"l":331,"r":367,"t":789,"w":36,"h":36}，中心命中 true）
+PASS G4 dark/steward：输入框可用宽度 128px ≥ 120px（行 {"l":119,"r":367,"t":789,"w":248,"h":36}）
+PASS G5 dark/steward：录音态麦克风变宽到 62px（空闲 36px），输入框仍有 142px、横向溢出 0px；Esc 收回
+PASS G0 light：重载后就绪、两枚麦克风都在
+PASS G1 light/classic 视角
+PASS G2 light/classic：视口 390px、data-theme=light、整页横向溢出 0px
+PASS G3 light/classic：麦克风看得见、点得中（mic {"l":250,"r":284,"t":788,"w":34,"h":34}，send {"l":288,"r":367,"t":787,"w":79,"h":36}，中心命中 true）
+PASS G4 light/classic：输入框可用宽度 278px ≥ 120px（行 {"l":72,"r":374,"t":750,"w":302,"h":81}）
+PASS G5 light/classic：录音态麦克风变宽到 62px（空闲 34px），输入框仍有 278px、横向溢出 0px；Esc 收回
+PASS G1 light/steward 视角
+PASS G2 light/steward：视口 390px、data-theme=light、整页横向溢出 0px
+PASS G3 light/steward：麦克风看得见、点得中（mic {"l":291,"r":327,"t":789,"w":36,"h":36}，send {"l":331,"r":367,"t":789,"w":36,"h":36}，中心命中 true）
+PASS G4 light/steward：输入框可用宽度 128px ≥ 120px（行 {"l":119,"r":367,"t":789,"w":248,"h":36}）
+PASS G5 light/steward：录音态麦克风变宽到 62px（空闲 36px），输入框仍有 142px、横向溢出 0px；Esc 收回
+PASS G6 两套主题的麦克风字形色确实不同（dark rgb(143, 160, 184) ／ light rgb(95, 108, 133)）—— 走的是主题 token，不是写死的色
+PASS H0 设置页选择器切到「不启用」（实得 {"ok":true,"asrModel":""}）
+PASS H1 ASR 关掉 → 两枚麦克风当场变成待开启（data-state="setup"），播报节点与发送键都在（实得 {"buttons":2,"wbStatus":true,"stStatus":true,"promptInput":true,"sendBtn":true,"stewardInput":true,"stewardSend":true,"asr":["",""]}）
+PASS H2 重载后就绪
+PASS H3 未配置冷启动：两个输入框都在，各有一枚待开启的麦克风（实得 {"buttons":2,"wbStatus":true,"stStatus":true,"promptInput":true,"sendBtn":true,"stewardInput":true,"stewardSend":true,"asr":["",""]}）
+PASS H4a 未配置 × 390px 工作台视角
+PASS H4 未配置时 390px 工作台胶囊里有待开启的麦克风 → 折两行，输入框 ≥ 120px（实得 {"rowH":81,"rowW":302,"inputW":278,"wrap":"wrap"}）
+PASS Z1 全程 composer-voice.js 零未捕获异常（实得 []）
+
+COMPOSER VOICE BROWSER E2E: ALL PASS

@@ -1,0 +1,88 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS S0 两家服务商已写进配置
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S1a 设置弹窗打开了
+PASS S1b 18 枚页签按新结构排（实见 ["basic","security","limits","steward","models","providers","voice","claude","agents","network","integrations","toolbox","skills","migration","doctor","storage","advanced","update"]）
+PASS S1c 点「basic」面板真的切过去且不是空的（629 字）
+PASS S1c 点「security」面板真的切过去且不是空的（1205 字）
+PASS S1c 点「limits」面板真的切过去且不是空的（1500 字）
+PASS S1c 点「steward」面板真的切过去且不是空的（1847 字）
+PASS S1c 点「models」面板真的切过去且不是空的（1037 字）
+PASS S1c 点「providers」面板真的切过去且不是空的（1269 字）
+PASS S1c 点「voice」面板真的切过去且不是空的（406 字）
+PASS S1c 点「claude」面板真的切过去且不是空的（1048 字）
+PASS S1c 点「agents」面板真的切过去且不是空的（119 字）
+PASS S1c 点「network」面板真的切过去且不是空的（282 字）
+PASS S1c 点「integrations」面板真的切过去且不是空的（825 字）
+PASS S1c 点「toolbox」面板真的切过去且不是空的（285 字）
+PASS S1c 点「skills」面板真的切过去且不是空的（292 字）
+PASS S1c 点「migration」面板真的切过去且不是空的（158 字）
+PASS S1c 点「doctor」面板真的切过去且不是空的（561 字）
+PASS S1c 点「storage」面板真的切过去且不是空的（350 字）
+PASS S1c 点「advanced」面板真的切过去且不是空的（445 字）
+PASS S1c 点「update」面板真的切过去且不是空的（136 字）
+PASS S1d 「MCP 运维」并进了「集成与 MCP」：旧页签与旧面板都不在，连接器清单在集成页，导入按钮只剩一枚
+PASS S1e 迁移中心住自己的页签 #stab-migration（不再追加在「集成与 MCP」末尾）；页脚不再有整份「保存」（保存键在服务商卡片下方）
+PASS S2a 主模型选「Qwen」→ activeProvider 落盘
+PASS S2b 主模型的模型选 qwen-turbo → providers[qwen].model 落盘
+PASS S2c 两个命令行引擎在主模型下拉里各是一项（引擎三处合一处；实见 ["Claude Code（命令行引擎）","Kimi Code（命令行引擎）","Fake","Qwen"]）
+PASS S2d 选 Kimi Code → 一次写 activeProvider:"" ＋ agentCliType:kimi
+PASS S2e Agent CLI 页顶上那句跟着说「这里是 Kimi Code 的设置」
+PASS S2f 换回 Qwen（它的缺省模型仍是刚才选的 qwen-turbo）
+PASS S2g 新线程默认引擎即存
+PASS S2h 管家用的服务商即存
+PASS S2i 管家用的模型即存
+PASS S2j 复杂任务 · 强模型两枚即存
+PASS S2k 简单任务 · 快速模型两枚即存（强模型那一档没被冲掉）
+PASS S2l 子代理两枚即存（换服务商时模型一并清空）
+PASS S2m 上下文压缩两枚即存（与电量表弹层写同一对键）
+PASS S2n 句尾改错那一行（运行时追加在表末）两枚即存
+PASS S2o 表里八行、顺序固定（实见 ["main","newThread","steward","strong","fast","subagent","compact","asrFix"]）
+PASS S2p 主模型选的是服务商：留空那一项说「不指定（用清单第一个）」（true）
+PASS S2q 主模型选的是命令行引擎：留空那一项说「Kimi Code 自带的默认模型」，换回 Qwen 不丢它的模型（true）
+PASS S2r 管家、压缩两行选了服务商：留空那一项说「用这家服务商的默认模型」（[true,true]）
+PASS S2s 管家服务商选「跟随对话主模型」：模型留空那一项与同页别的行一样说「（跟随）」（true）
+PASS S2t 模型分配页（含每枚下拉的全部选项与说明）不再出现「缺省」「主端点」「Provider」（实见 []）
+PASS S2u 服务商卡片：模型那一格叫「默认模型」，留空那一项说「不指定（用清单第一个）」，不再写成「CLI 缺省模型」（实见 ["不指定（用清单第一个）","不指定（用清单第一个）"]）
+PASS S3a 在「权限与安全」页把默认权限切到「智能自动」
+PASS S3b 确认就地展开在本页（看得见），确认前不落盘（仍是 default）
+PASS S3c 点「确认」后落盘 auto（带 confirm:true 过了服务端那道门）
+PASS S3d 权限请求等多久即存（60000 ms）
+PASS S3e 提问等多久即存（300000 ms）
+PASS S3f 改回「不限时」= 0
+PASS S4a 月度预算即存
+PASS S4b 回合看门狗（分钟）即存为 300000 ms
+PASS S4c 并发上限（管家那一格搬来了，仍由管家域接线）即存
+PASS S5a 关掉设置（草稿此前已播种过）
+PASS S5b 弹窗外改了 fake 的推理强度与缺省模型
+PASS S5c 重新打开设置、到服务商页
+PASS S5d 没动卡片时保存条是干净的（保存键灰着）
+PASS S5e 改第一张卡的名字
+PASS S5f 有没存的改动：保存条亮起、导航「服务商」带小圆点
+PASS S5g 卡片改到一半时，弹窗外又改了 qwen 的推理强度
+PASS S5h 按「保存服务商」后卡片上的改名落盘
+PASS S5i 弹窗外那次改动没被旧草稿回滚（fake.reasoningEffort=high model=fake-pro）
+PASS S5j 编辑期间的外部改动、以及「模型分配」主模型那一行写的 qwen-turbo 都在（qwen.reasoningEffort=medium model=qwen-turbo）
+PASS S5k 密钥没被掩码或空值冲掉
+PASS S5l 保存之后保存条回到干净、小圆点消失
+PASS S6a 再改一次名字
+PASS S6b 「放弃改动」把卡片还原成落盘值，盘上不动
+PASS S7a 基础页把界面模式切成简易：即存且当场生效
+PASS S7b 简易档看得见全部 18 枚页签（实见 ["basic","security","limits","steward","models","providers","voice","claude","agents","network","integrations","toolbox","skills","migration","doctor","storage","advanced","update"]）
+PASS S7c 没有空组头（实见 []）
+PASS S7d 模型分配：子代理那一行简易档也看得见（不再收起），管家那一行照常
+PASS S7e 用量与限额：工具调用上限、工作流、月度预算简易档都看得见
+PASS S7f 权限与安全：全局默认权限简易档够得着；命令行引擎那一段不再被简易档藏（只按命令行引擎显隐）
+PASS S7g 简易档点「高级」就落在「高级」（不再被拦回「基础」）
+PASS S7h 切回专家档
+PASS S9a 主模型换到「fake」
+PASS S9b 那次保存被扣在请求阶段（服务端还没收到）
+PASS S9c 保存在飞期间，一次状态刷新回来了
+PASS S9d 放行后那次保存落了盘
+PASS S9e 主模型下拉与落盘一致，没被在飞期间的旧状态画回「qwen」（实测下拉 fake，配置 fake）
+PASS S8a 页面没有未捕获异常（无）
+PASS S8b 页面没有 console.error（无）
+SETTINGS IA BROWSER E2E: ALL PASS

@@ -1,0 +1,75 @@
+── (A) 建速查线程 ──
+PASS A1 正向返回(got ok)
+PASS A2 返回 kind:'quick_ask'
+PASS A3 undoRef 指向新建的线程
+PASS A3b undoRef 带显式撤回锚点 rewindTargetTurnSeq(新建会话 turnSeq=0 -> 1;got 1)
+PASS A4 会话头 kind === 'quick_ask'
+PASS A5 头上打了 stewardQuick 标(askedAt/question/stewardTurnKey/closedAt:null;got {"schema":1,"askedAt":"2026-11-12T14:16:32.567Z","question":"我那个仓库现在有几个分支？","stewardTurnKey":"u1","closedAt":null})
+PASS A6 不进任何事项(没有事项容器文件被建出来)
+PASS A7 回合真的跑起来了(fake-openai 收到请求)
+PASS A8 用户那条消息就是问题原文
+PASS A9 线程给出了答案
+── (B) 配额 ──
+PASS B1 同一回合第二条照常建
+PASS B2 同一回合第三条 -> quota_exceeded(got quota_exceeded)
+PASS B3 下一回合配额重置
+── (F) 边界 ──
+PASS F1 空问题 -> invalid_request
+PASS F2 超长问题 -> invalid_request
+── (C) 收件箱增强 ──
+PASS C1 速查会话的 done 行带 quick:true
+PASS C2 answer 是最后一句助手原话
+PASS C3 answer ≤1200 字符
+PASS C4 原有 payload 字段不被覆盖(只加不改)
+PASS C5 普通线程的 done 行不带 quick/answer
+PASS C6 非 done 的行(failed)不加增强
+── (D) 收工 ──
+PASS D0 收工前 closedAt 仍是 null
+PASS D1 quickClose 写 closedAt
+PASS D2 落在会话头上
+PASS D2b 其余 stewardQuick 字段原样保留
+PASS D3 幂等(已收工再调是无操作)
+PASS D4 普通线程不能被「收工」(它不是速查)
+PASS D5 源码顺序:收工在本回合拿到模型回复【之后】(先收工会让管家转述时线程凭空消失)
+── (E) 总览与搜索排除 ──
+PASS E0 搜索可用
+PASS E1 已收工的速查线程默认搜不到
+PASS E2 includeClosed:true 能搜回来
+PASS E3 未收工的速查线程照常出现
+PASS E4 经典壳会话列表里仍然有它(收工只影响管家的注意力预算)
+── (G) 第四源:线程跑完真的入箱 ──
+PASS G0 冷启动那一轮只建基线,箱子仍是空的(got 0 行)
+PASS G0b 游标已落盘(冷启动的基线本身必须存下来)
+PASS G0c 游标里有第四源 sessionTurns 段(schema 号不变,老游标缺这段 = 每条会话都算首见)
+PASS G1 又开了一条速查线程
+PASS G2 速查线程跑完 -> 箱子里正好一条(got 1;修前恒为 0)
+PASS G3 kind === 'done'(got done)
+PASS G4 来源是第四源 session_turn(got session_turn)
+PASS G5 去重游标就是 turnSeq(got seq=1)
+PASS G6 会话头上有 launchedBy:steward(第四源的「管家关心」判据之一)
+PASS G7 done 行带 quick:true
+PASS G8 done 行带 answer(13g 的 enrichInboxRows 补的)
+PASS G9 用户自己的普通会话跑完不入箱
+PASS G10 递话成功(got ok)
+PASS G11 被递过话的普通会话跑完入箱一条(got 1)
+PASS G12 递话把 launchedBy 补写到了会话头上
+PASS G13 再连跑两轮不重复(2 -> 2)
+PASS G14 state.lastTickAt 非空(轮询活着)
+PASS G15 state.lastInboxAt 非空(箱子真的收到过东西 —— 修前这两件事分不开)
+PASS G16 state.sourcesSeen.sessionTurns 计到了第四源的条数(got 2)
+── (H) 闭环:速查答完自动收工 ──
+PASS H1 速查线程被自动收工(closedAt 落盘)—— 修前它挂在一条永远不会来的 done 行上
+PASS H2 收工时记下了当时的回合数(用户续聊可自动重开)
+PASS H3 管家会话里真的多了一个回合(收件箱触发)
+── (I) 117p-S1:首见即活回合,done 事件不能被永久吞掉 ──
+PASS I1 建线程成功(got ok)
+PASS I2 回合真的起手了(provider 收到了这条线程的问题;此刻闸关着,回合卡在等响应)
+PASS I3 会话头上 turnSeq === 1(回合已起手;got 1)
+PASS I4 箱子里这条会话 0 行(修前:此刻会把正在跑的 turnSeq 记成基线,回合结束后再没人报)
+PASS I5 游标基线是「这一回合之前」的 0,不是正在跑的那个 1(修前这里是 1;got 0)
+PASS I6 回合真的跑完之后,箱子里正好一条(got 1;修前恒为 0)
+PASS I7 kind === 'done'(got done)
+PASS I8 seq === 1(去重游标就是 turnSeq;got 1)
+PASS I9 来源是第四源 session_turn(got session_turn)
+
+STEWARD QUICK ASK E2E: ALL PASS

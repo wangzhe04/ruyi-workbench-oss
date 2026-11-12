@@ -1,0 +1,465 @@
+PASS B0 前置:memory_read 不给 scope 读得到只在 global 的记忆(got {"ok":true,"memory":{"id":"glob-one","scope":"global","name":"Glob One","description":"global only m)
+PASS B1 memory_revise 不给 scope 时自动判到 global(修前:目标记忆不存在;got {"ok":true,"proposalId":"proposal_51218f00a6c67230","pendingUserConfirmation":true,"proposal":{"kind":"memory_revise","targetId":"glob-one","targetScope":"globa)
+PASS B1b 找不到时错误说明两个 scope 都查过(got 目标记忆不存在(id=no-such-mem,已在 project 与 global 两个 scope 里查找))
+PASS B1c 显式给错 scope 时错误点名 scope=project(got 目标记忆不存在(id=glob-one,scope=project))
+PASS B2 relation_propose 不给 scope 时自动判到 global(got {"ok":true,"proposalId":"proposal_0fc3758e0b2aab0e","pendingUserConfirmation":true,"proposal":{"kind":"relation_propose","relationType":"supports","from":"glob-)
+PASS B3 前置:preference/convention 条目没词命中也照常列出(got ["glob-one","glob-three"])
+PASS B3b 没命中 query 的条目不记使用(修前 useCount/lastUsedAt 被刷;usage={
+  "schema": 1,
+  "updatedAt": "2026-11-12T13:45:09.282Z",
+  "entries": {
+    "global:glob-one": {
+      "useCount": 1,
+      "lastUsedAt": "2026-11-12T13:45:0)
+PASS B3c 真命中的条目照常记使用(usage={
+  "schema": 1,
+  "updatedAt": "2026-11-12T13:45:09.292Z",
+  "entries": {
+    "global:glob-one": {
+      "useCount": 1,
+      "lastUsedAt": "2026-11-12T13:45:0)
+PASS B4 重复候选的错误点名已有记忆 id 并指向 workbench_memory_revise(got {"ok":false,"duplicate":true,"existingId":"glob-one","existingScope":"global","existingName":"Glob One","error":"same or very similar memory already exists: id=glob-one (global, \"Glob One\"). To change it call workbench)
+PASS C0 前置:upsert foo 成功(got {"ok":true,"operation":"upsert","id":"foo","removed":false,"server":{"id":"foo","label":"foo","command":"node","args":[")
+PASS C1 同一回合 upsert 后 mcp_list 看得到新连接器(修前读回合起点快照;got ["ai-computer-control","foo"])
+PASS C2 mode:'bogus' → 拒并列允许值,配置没动(got {"ok":false,"operation":"set-browser","error":"browser.mode 无效:\"bogus\";允许值 system / managed / custom / cdp / bundled"})
+PASS C3 合法的 custom + executable 照存(got {"ok":true,"operation":"set-browser","browserAutomation":{"mode":"custom","executable":"C:/x/chrome.exe","cdpUrl":"http://127.0.0.1:9222"},"note":"浏览器目标已保存；当前桌面)
+PASS C3b 只改 mode 时沿用盘上的 executable(修前整体重置成默认;got {"mode":"cdp","executable":"C:/x/chrome.exe","cdpUrl":"http://127.0.0.1:9222"})
+PASS C4 cdpUrl:'not a url' → 拒(got {"ok":false,"operation":"set-browser","error":"browser.cdpUrl 不是合法地址:\"not a url\";需要 http(s):// 或 ws(s):// 开头,如 http://127.0.0.1:9222"})
+PASS C5 缺 browser 对象 → 拒,不重置现有配置(got {"ok":false,"operation":"set-browser","error":"set-browser 需要 browser 对象:{mode: system|managed|custom|cdp|bundled, executable?, cdpUrl?}"})
+PASS C6 custom 没有 executable → 拒(got {"ok":false,"operation":"set-browser","error":"browser.mode 为 custom 时必须同时给出 executable(浏览器可执行文件的完整路径)"})
+PASS C7 args 给成字符串 → 按 shell 口径切开(修前静默存成 [];got ["a","b c","d"])
+PASS C8 args 数组里混非字符串 → 拒(got {"ok":false,"operation":"upsert","id":"bar2","error":"server.args 必须是字符串数组(或一个按空格切分的字符串)。"})
+PASS C9 id 含空格/斜杠 → 拒(got {"ok":false,"operation":"upsert","id":"bar baz/../x","error":"MCP id 只能含字母、数字、下划线、点和连字符(1-64 个字符),不能含空格或斜杠。"})
+PASS C10 remove 不受 id 形状校验影响(got {"ok":true,"operation":"remove","id":"bar","removed":true,"server":null,"note":"配置已原子保存并刷新工具目录；若工具仍不)
+PASS D1 runId 全不存在 → 顶层 ok:false + notFound(修前 ok:true settled:false,读起来像还在跑;got {"ok":false,"notFound":["run_doesnotexist"],"timedOut":false})
+PASS E1 permission_prompt 不出现在 list_tools / tool_search(它不能被调用)
+PASS E1b tool_invoke 调 permission_prompt → 控制面拒绝(got {"ok":false,"error":"control-plane tools cannot be invoked through a proxy"})
+PASS E2 skill_read(null) 回 invalid-arguments 信封,不抛 TypeError(got {"ok":false,"code":"invalid-arguments","tool":"skill_read","error":"skill_read: arguments must be a JSON object (got null)","hint":"pass arguments as an object )
+PASS E3 list_tools limit 0 与 -5 都回默认(修前 -5 → 1 条;got 160 / 160)
+PASS E3b tool_search limit 0 与 -5 都回默认(got 8 / 8)
+PASS E3c workbench_memory_list limit 0 / -5 都回默认(got [{"ok":true,"query":"","scope":"all","count":3,"core":{"total":3,"coreRequested":0,"active":0,"standby":0,"expired":0,"reviewDue":0,"charsUsed":0,"charLimit":16000,"itemLimit":200},"memories":[{"id":"glob-one","scope":"global","name":"Glob One","description":"global only memory","type":"preference","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T13:45:09.282Z","useCount":1},{"id":"glob-three","scope":"global","name":"Glob Three","description":"third convention entry","type":"convention","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T13:45:09.292Z","useCount":1},{"id":"glob-two","scope":"global","name":"Glob Two","description":"another global memory","type":"lesson","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"","useCount":0}]},{"ok":true,"query":"","scope":"all","count":3,"core":{"total":3,"coreRequested":0,"active":0,"standby":0,"expired":0,"reviewDue":0,"charsUsed":0,"charLimit":16000,"itemLimit":200},"memories":[{"id":"glob-one","scope":"global","name":"Glob One","description":"global only memory","type":"preference","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T13:45:09.282Z","useCount":1},{"id":"glob-three","scope":"global","name":"Glob Three","description":"third convention entry","type":"convention","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T13:45:09.292Z","useCount":1},{"id":"glob-two","scope":"global","name":"Glob Two","description":"another global memory","type":"lesson","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"","useCount":0}]}])
+PASS E4 tool_invoke 的 name 去首尾空白(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2meta-ws-2CMilk/a.txt","content":"hello a\n",")
+PASS E4b tool_invoke 的 arguments 给成 JSON 字符串时解析(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2meta-ws-2CMilk/a.txt","content":"hello a\n",")
+PASS F1 无会话时 todo_write 兜底 ok:false(修前 ok:true 却没落盘;got {"ok":false,"error":"todo_write 需要工作台会话上下文(没有会话可保存任务清单)","hint":"在对话回合中直接调用 todo_write"})
+PASS F1b 无会话时 mission_update 兜底 ok:false(got {"ok":false,"error":"mission_update 需要工作台会话上下文(没有会话可更新任务账本)","hint":"在对话回合中直接调用 mission_update"})
+PASS F1c 有会话上下文但不在回合内:仍校验通过,但明说 persisted:false(got {"ok":true,"count":1,"persisted":false,"note":"仅校验通过,未写入会话(当前不在对话回合内)"})
+PASS F2 计划阶段:代理到 todo_write / orchestrate_agents 的调用按目标判(被拦),代理到只读工具照放行
+PASS G0 Mac offers native shell and omits unsupported Windows tools
+FAIL G0 offered schema media_probe.refresh has a description
+FAIL G0 offered schema audio_inspect.path has a description
+FAIL G0 offered schema audio_inspect.stream has a description
+FAIL G0 offered schema audio_inspect.startSeconds has a description
+FAIL G0 offered schema audio_inspect.durationSeconds has a description
+PASS G0 offered schema audio_inspect.windowSeconds has a description
+FAIL G0 offered schema code_check.path has a description
+FAIL G0 offered schema code_check.content has a description
+PASS G0 offered schema acceptance_report.path has a description
+FAIL G0 offered schema acceptance_report.title has a description
+FAIL G0 offered schema acceptance_report.checks has a description
+PASS G0 offered schema workbench_memory_list.query has a description
+PASS G0 offered schema workbench_memory_list.scope has a description
+PASS G0 offered schema workbench_memory_list.limit has a description
+PASS G0 offered schema workbench_memory_read.id has a description
+PASS G0 offered schema workbench_memory_read.scope has a description
+PASS G0 offered schema workbench_memory_propose.name has a description
+PASS G0 offered schema workbench_memory_propose.description has a description
+PASS G0 offered schema workbench_memory_propose.type has a description
+PASS G0 offered schema workbench_memory_propose.scope has a description
+PASS G0 offered schema workbench_memory_propose.body has a description
+PASS G0 offered schema workbench_memory_propose.reason has a description
+PASS G0 offered schema workbench_memory_propose.items has a description
+PASS G0 offered schema workbench_memory_relation_propose.type has a description
+PASS G0 offered schema workbench_memory_relation_propose.from has a description
+PASS G0 offered schema workbench_memory_relation_propose.to has a description
+PASS G0 offered schema workbench_memory_relation_propose.scope has a description
+PASS G0 offered schema workbench_memory_relation_propose.note has a description
+PASS G0 offered schema workbench_memory_relation_propose.reason has a description
+PASS G0 offered schema workbench_memory_revise.id has a description
+PASS G0 offered schema workbench_memory_revise.scope has a description
+PASS G0 offered schema workbench_memory_revise.newScope has a description
+PASS G0 offered schema workbench_memory_revise.name has a description
+PASS G0 offered schema workbench_memory_revise.description has a description
+PASS G0 offered schema workbench_memory_revise.type has a description
+PASS G0 offered schema workbench_memory_revise.body has a description
+PASS G0 offered schema workbench_memory_revise.reason has a description
+PASS G0 offered schema workbench_memory_relation_revoke.relationId has a description
+PASS G0 offered schema workbench_memory_relation_revoke.note has a description
+PASS G0 offered schema workbench_memory_relation_revoke.reason has a description
+PASS G0 offered schema observation_recall.rawRef has a description
+PASS G0 offered schema observation_recall.offset has a description
+PASS G0 offered schema observation_recall.maxChars has a description
+PASS G0 offered schema shell_run.command has a description
+PASS G0 offered schema shell_run.language has a description
+PASS G0 offered schema shell_run.cwd has a description
+PASS G0 offered schema shell_run.timeoutMs has a description
+PASS G0 offered schema shell_start.language has a description
+PASS G0 offered schema shell_start.cwd has a description
+PASS G0 offered schema shell_start.name has a description
+PASS G0 offered schema shell_start.command has a description
+PASS G0 offered schema shell_start.timeoutMs has a description
+PASS G0 offered schema shell_start.shellId has a description
+PASS G0 offered schema shell_send.shellId has a description
+PASS G0 offered schema shell_send.input has a description
+PASS G0 offered schema shell_send.timeoutMs has a description
+PASS G0 offered schema shell_send.maxChars has a description
+PASS G0 offered schema shell_poll.shellId has a description
+PASS G0 offered schema shell_poll.cursor has a description
+PASS G0 offered schema shell_poll.maxChars has a description
+PASS G0 offered schema shell_poll.waitMs has a description
+FAIL G0 offered schema shell_kill.shellId has a description
+PASS G0 offered schema script_run.language has a description
+PASS G0 offered schema script_run.code has a description
+PASS G0 offered schema script_run.cwd has a description
+PASS G0 offered schema script_run.timeoutMs has a description
+PASS G0 offered schema file_read.path has a description
+PASS G0 offered schema file_read.as has a description
+PASS G0 offered schema file_read.offset has a description
+PASS G0 offered schema file_read.limit has a description
+PASS G0 offered schema file_read.lineOffset has a description
+PASS G0 offered schema file_read.lineLimit has a description
+PASS G0 offered schema file_read.encoding has a description
+PASS G0 offered schema file_read.annotate_non_ascii has a description
+PASS G0 offered schema file_read.includeImages has a description
+PASS G0 offered schema file_read.imageOffset has a description
+PASS G0 offered schema file_read.imageLimit has a description
+PASS G0 offered schema file_read.pageOffset has a description
+PASS G0 offered schema file_read.pageLimit has a description
+PASS G0 offered schema file_write.path has a description
+PASS G0 offered schema file_write.content has a description
+PASS G0 offered schema file_write.createDirs has a description
+PASS G0 offered schema file_write.validateSyntax has a description
+PASS G0 offered schema file_write.encoding has a description
+PASS G0 offered schema file_write.lineEnding has a description
+PASS G0 offered schema audio_transcribe.path has a description
+PASS G0 offered schema audio_transcribe.language has a description
+PASS G0 offered schema file_edit.path has a description
+PASS G0 offered schema file_edit.oldText has a description
+PASS G0 offered schema file_edit.newText has a description
+PASS G0 offered schema file_edit.replaceAll has a description
+PASS G0 offered schema file_edit.validateSyntax has a description
+FAIL G0 offered schema file_delete.path has a description
+FAIL G0 offered schema file_delete.paths has a description
+FAIL G0 offered schema file_delete.recursive has a description
+PASS G0 offered schema checkpoint_list.turnSeq has a description
+PASS G0 offered schema checkpoint_list.limit has a description
+PASS G0 offered schema file_move.from has a description
+PASS G0 offered schema file_move.to has a description
+FAIL G0 offered schema file_move.recursive has a description
+FAIL G0 offered schema file_move.items has a description
+PASS G0 offered schema file_move.overwrite has a description
+PASS G0 offered schema file_copy.from has a description
+PASS G0 offered schema file_copy.to has a description
+FAIL G0 offered schema file_copy.recursive has a description
+FAIL G0 offered schema file_copy.items has a description
+PASS G0 offered schema file_copy.overwrite has a description
+PASS G0 offered schema archive_zip.paths has a description
+PASS G0 offered schema archive_zip.dest has a description
+PASS G0 offered schema archive_zip.exclude has a description
+PASS G0 offered schema archive_zip.includeIgnored has a description
+PASS G0 offered schema archive_unzip.src has a description
+PASS G0 offered schema archive_unzip.destDir has a description
+PASS G0 offered schema archive_unzip.overwrite has a description
+PASS G0 offered schema archive_unzip.list has a description
+PASS G0 offered schema file_list.root has a description
+PASS G0 offered schema file_list.pattern has a description
+PASS G0 offered schema file_list.recursive has a description
+PASS G0 offered schema file_list.maxFiles has a description
+PASS G0 offered schema file_list.maxDepth has a description
+PASS G0 offered schema file_list.ignoreDirs has a description
+PASS G0 offered schema file_list.includeIgnored has a description
+PASS G0 offered schema file_list.absolute has a description
+PASS G0 offered schema file_list.ignoreCase has a description
+PASS G0 offered schema file_search.root has a description
+PASS G0 offered schema file_search.pattern has a description
+PASS G0 offered schema file_search.maxResults has a description
+PASS G0 offered schema file_search.maxFiles has a description
+PASS G0 offered schema file_search.maxDepth has a description
+PASS G0 offered schema file_search.ignoreDirs has a description
+PASS G0 offered schema file_search.includeIgnored has a description
+PASS G0 offered schema file_search.includeHidden has a description
+PASS G0 offered schema file_search.ignoreCase has a description
+PASS G0 offered schema file_search.maxFileBytes has a description
+PASS G0 offered schema file_search.context has a description
+PASS G0 offered schema file_search.glob has a description
+PASS G0 offered schema file_search.group has a description
+PASS G0 offered schema glob.pattern has a description
+PASS G0 offered schema glob.root has a description
+PASS G0 offered schema glob.maxResults has a description
+PASS G0 offered schema glob.maxDepth has a description
+PASS G0 offered schema glob.ignoreDirs has a description
+PASS G0 offered schema glob.includeIgnored has a description
+PASS G0 offered schema glob.absolute has a description
+FAIL G0 offered schema browser_open.url has a description
+PASS G0 offered schema mcp_configure.operation has a description
+PASS G0 offered schema mcp_configure.id has a description
+PASS G0 offered schema mcp_configure.enabled has a description
+PASS G0 offered schema mcp_configure.server has a description
+PASS G0 offered schema mcp_configure.browser has a description
+FAIL G0 offered schema office_open.path has a description
+PASS G0 offered schema desktop_screenshot.outputPath has a description
+PASS G0 offered schema desktop_screenshot.timeoutMs has a description
+PASS G0 offered schema project_snapshot.root has a description
+PASS G0 offered schema project_snapshot.maxFiles has a description
+PASS G0 offered schema project_snapshot.maxDepth has a description
+PASS G0 offered schema project_snapshot.ignoreDirs has a description
+PASS G0 offered schema project_snapshot.includeIgnored has a description
+PASS G0 offered schema project_snapshot.absolute has a description
+PASS G0 offered schema git_status.cwd has a description
+PASS G0 offered schema git_diff.cwd has a description
+PASS G0 offered schema git_diff.path has a description
+PASS G0 offered schema git_diff.staged has a description
+PASS G0 offered schema git_diff.ref has a description
+PASS G0 offered schema git_diff.contextLines has a description
+PASS G0 offered schema git_log.cwd has a description
+PASS G0 offered schema git_log.maxCount has a description
+PASS G0 offered schema git_log.path has a description
+PASS G0 offered schema git_log.ref has a description
+PASS G0 offered schema git_log.author has a description
+PASS G0 offered schema git_log.since has a description
+PASS G0 offered schema git_commit.cwd has a description
+PASS G0 offered schema git_commit.message has a description
+PASS G0 offered schema git_commit.addAll has a description
+PASS G0 offered schema git_commit.paths has a description
+PASS G0 offered schema git_commit.timeoutMs has a description
+FAIL G0 offered schema dependency_inventory.root has a description
+PASS G0 offered schema code_review_scan.root has a description
+PASS G0 offered schema code_review_scan.maxFiles has a description
+PASS G0 offered schema code_review_scan.maxDepth has a description
+PASS G0 offered schema code_review_scan.maxFindings has a description
+PASS G0 offered schema code_review_scan.ignoreDirs has a description
+PASS G0 offered schema code_review_scan.includeTests has a description
+PASS G0 offered schema frontend_audit.root has a description
+PASS G0 offered schema frontend_audit.maxFiles has a description
+PASS G0 offered schema frontend_audit.maxDepth has a description
+PASS G0 offered schema frontend_audit.ignoreDirs has a description
+FAIL G0 offered schema claude_md_audit.root has a description
+PASS G0 offered schema docs_search.root has a description
+PASS G0 offered schema docs_search.query has a description
+PASS G0 offered schema docs_search.maxResults has a description
+PASS G0 offered schema docs_search.maxFiles has a description
+PASS G0 offered schema docs_search.maxDepth has a description
+PASS G0 offered schema docs_search.maxFileBytes has a description
+PASS G0 offered schema docs_search.ignoreDirs has a description
+PASS G0 offered schema docs_search.includeIgnored has a description
+PASS G0 offered schema codebase_symbol_search.symbol has a description
+PASS G0 offered schema codebase_symbol_search.root has a description
+PASS G0 offered schema codebase_symbol_search.kind has a description
+PASS G0 offered schema codebase_symbol_search.maxResults has a description
+PASS G0 offered schema codebase_symbol_search.maxFiles has a description
+PASS G0 offered schema codebase_symbol_search.maxDepth has a description
+PASS G0 offered schema codebase_symbol_search.ignoreDirs has a description
+PASS G0 offered schema codebase_symbol_search.includeIgnored has a description
+PASS G0 offered schema codebase_symbol_search.caseSensitive has a description
+FAIL G0 offered schema codebase_symbol_search.absolute has a description
+PASS G0 offered schema debug_hypothesis.action has a description
+PASS G0 offered schema debug_hypothesis.hypotheses has a description
+PASS G0 offered schema debug_hypothesis.ledger has a description
+PASS G0 offered schema debug_hypothesis.hypothesisId has a description
+PASS G0 offered schema debug_hypothesis.result has a description
+PASS G0 offered schema debug_hypothesis.evidence has a description
+PASS G0 offered schema data_profile.path has a description
+PASS G0 offered schema data_profile.maxRows has a description
+PASS G0 offered schema data_profile.delimiter has a description
+PASS G0 offered schema data_profile.maxSampleValues has a description
+PASS G0 offered schema http_request.url has a description
+PASS G0 offered schema http_request.method has a description
+PASS G0 offered schema http_request.headers has a description
+PASS G0 offered schema http_request.body has a description
+PASS G0 offered schema http_request.timeoutMs has a description
+PASS G0 offered schema http_request.maxBodyChars has a description
+FAIL G0 offered schema request_user_input.questions has a description
+FAIL G0 offered schema todo_write.items has a description
+PASS G0 offered schema mission_update.milestones has a description
+PASS G0 offered schema mission_update.goal has a description
+PASS G0 offered schema workbench_self_status.section has a description
+PASS G0 offered schema playbook_list.query has a description
+PASS G0 offered schema playbook_list.limit has a description
+PASS G0 offered schema playbook_read.id has a description
+PASS G0 offered schema playbook_read.params has a description
+PASS G0 offered schema skill_list.query has a description
+PASS G0 offered schema skill_list.limit has a description
+PASS G0 offered schema threads_search.q has a description
+PASS G0 offered schema threads_search.limit has a description
+PASS G0 offered schema threads_search.includeClosed has a description
+PASS G0 offered schema thread_read.sessionId has a description
+PASS G0 offered schema thread_read.cursor has a description
+PASS G0 offered schema thread_read.beforeTurnSeq has a description
+PASS G0 offered schema thread_read.tail has a description
+PASS G0 offered schema thread_read.maxChars has a description
+PASS G0 offered schema orchestrate_agents.nodes has a description
+PASS G0 offered schema orchestrate_agents.poolPolicy has a description
+PASS G0 offered schema orchestrate_agents.followup has a description
+PASS G0 offered schema orchestrate_agents.task has a description
+PASS G0 offered schema orchestrate_agents.role has a description
+PASS G0 offered schema orchestrate_agents.agentKey has a description
+PASS G0 offered schema orchestrate_agents.toolTier has a description
+PASS G0 offered schema orchestrate_agents.maxIters has a description
+PASS G0 offered schema orchestrate_agents.model has a description
+PASS G0 offered schema orchestrate_agents.resources has a description
+PASS G0 offered schema orchestrate_agents.background has a description
+PASS G0 offered schema orchestrate_agents.providerId has a description
+PASS G0 offered schema orchestrate_agents.workflowId has a description
+PASS G0 offered schema orchestrate_agents.context has a description
+PASS G0 offered schema wait_agents.runIds has a description
+PASS G0 offered schema wait_agents.timeoutMs has a description
+PASS G0 offered schema agent_result.runId has a description
+PASS G0 offered schema agent_result.nodeId has a description
+PASS G0 offered schema agent_result.maxChars has a description
+PASS G0 offered schema agent_result.offset has a description
+PASS G0 offered schema skill_read.id has a description
+PASS G0 offered schema skill_read.file has a description
+PASS G0 offered schema steward_self_status.section has a description
+PASS G0 offered schema steward_threads_search.q has a description
+PASS G0 offered schema steward_threads_search.limit has a description
+PASS G0 offered schema steward_threads_search.includeClosed has a description
+PASS G0 offered schema steward_thread_status.sessionId has a description
+PASS G0 offered schema steward_thread_read.sessionId has a description
+PASS G0 offered schema steward_thread_read.cursor has a description
+PASS G0 offered schema steward_thread_read.beforeTurnSeq has a description
+PASS G0 offered schema steward_thread_read.tail has a description
+PASS G0 offered schema steward_thread_read.maxChars has a description
+PASS G0 offered schema steward_missions.includeArchived has a description
+PASS G0 offered schema steward_missions.limit has a description
+PASS G0 offered schema steward_runs_status.sessionId has a description
+PASS G0 offered schema steward_inbox_read.since has a description
+PASS G0 offered schema steward_inbox_read.order has a description
+PASS G0 offered schema steward_inbox_read.limit has a description
+PASS G0 offered schema steward_usage.sessionId has a description
+PASS G0 offered schema steward_usage.day has a description
+PASS G0 offered schema steward_audit_tail.limit has a description
+PASS G0 offered schema steward_audit_tail.kinds has a description
+PASS G0 offered schema steward_audit_tail.includeTelemetry has a description
+PASS G0 offered schema steward_thread_new.steps has a description
+PASS G0 offered schema steward_thread_new.title has a description
+PASS G0 offered schema steward_thread_new.missionId has a description
+PASS G0 offered schema steward_thread_new.cwd has a description
+PASS G0 offered schema steward_thread_new.relatedSessionId has a description
+PASS G0 offered schema steward_thread_new.tier has a description
+PASS G0 offered schema steward_thread_new.brief has a description
+PASS G0 offered schema steward_thread_continue.sessionId has a description
+PASS G0 offered schema steward_thread_continue.message has a description
+PASS G0 offered schema steward_thread_continue.deliverySource has a description
+PASS G0 offered schema steward_thread_continue.attachments has a description
+PASS G0 offered schema steward_thread_continue.answerBasis has a description
+PASS G0 offered schema steward_thread_rename.sessionId has a description
+PASS G0 offered schema steward_thread_rename.title has a description
+PASS G0 offered schema steward_thread_permission.sessionId has a description
+PASS G0 offered schema steward_thread_permission.permissionMode has a description
+PASS G0 offered schema steward_thread_permission.capabilities has a description
+PASS G0 offered schema steward_thread_note.sessionId has a description
+PASS G0 offered schema steward_thread_note.text has a description
+PASS G0 offered schema steward_thread_prioritize.sessionId has a description
+PASS G0 offered schema steward_decide.missionId has a description
+PASS G0 offered schema steward_decide.interventionId has a description
+PASS G0 offered schema steward_decide.action has a description
+PASS G0 offered schema steward_decide.payload has a description
+PASS G0 offered schema steward_decide.expectedVersion has a description
+PASS G0 offered schema steward_decide.riskNote has a description
+PASS G0 offered schema steward_run_action.sessionId has a description
+PASS G0 offered schema steward_run_action.runId has a description
+PASS G0 offered schema steward_run_action.action has a description
+PASS G0 offered schema steward_run_action.nodeId has a description
+PASS G0 offered schema steward_run_action.message has a description
+PASS G0 offered schema steward_thread_stop.sessionId has a description
+PASS G0 offered schema steward_thread_stop.expectedExecution has a description
+PASS G0 offered schema steward_thread_stop.reason has a description
+PASS G0 offered schema steward_thread_workspace.sessionId has a description
+PASS G0 offered schema steward_thread_workspace.cwd has a description
+PASS G0 offered schema steward_memory_write.kind has a description
+PASS G0 offered schema steward_memory_write.basis has a description
+PASS G0 offered schema steward_memory_write.text has a description
+PASS G0 offered schema steward_memory_write.confidence has a description
+PASS G0 offered schema steward_memory_write.scope has a description
+PASS G0 offered schema steward_memory_write.expiresAt has a description
+PASS G0 offered schema steward_memory_write.supersedesVetoed has a description
+PASS G0 offered schema steward_memory_write.sourceRef has a description
+PASS G0 offered schema steward_memory_veto.id has a description
+PASS G0 offered schema steward_memory_search.q has a description
+PASS G0 offered schema steward_memory_search.kind has a description
+PASS G0 offered schema steward_memory_search.limit has a description
+PASS G0 offered schema steward_memory_search.includeVetoed has a description
+PASS G0 offered schema steward_skills.sessionId has a description
+PASS G0 offered schema steward_skills.q has a description
+PASS G0 offered schema steward_playbooks.q has a description
+PASS G0 offered schema steward_notify.kind has a description
+PASS G0 offered schema steward_notify.text has a description
+PASS G0 offered schema steward_notify.sessionId has a description
+PASS G0 offered schema steward_web_search.q has a description
+PASS G0 offered schema steward_web_search.count has a description
+PASS G0 offered schema steward_web_fetch.offset has a description
+PASS G0 offered schema steward_web_fetch.maxChars has a description
+PASS G0 offered schema steward_web_fetch.url has a description
+PASS G0 offered schema steward_file_read.path has a description
+PASS G0 offered schema steward_file_read.lineOffset has a description
+PASS G0 offered schema steward_file_read.lineLimit has a description
+PASS G0 offered schema steward_file_read.offset has a description
+PASS G0 offered schema steward_file_read.imageOffset has a description
+PASS G0 offered schema steward_file_read.pageOffset has a description
+PASS G0 offered schema steward_file_read.includeImages has a description
+PASS G0 offered schema steward_thread_artifact_read.sessionId has a description
+PASS G0 offered schema steward_thread_artifact_read.path has a description
+PASS G0 offered schema steward_thread_artifact_read.lineOffset has a description
+PASS G0 offered schema steward_thread_artifact_read.lineLimit has a description
+PASS G0 offered schema steward_thread_artifact_read.offset has a description
+PASS G0 offered schema steward_thread_artifact_read.imageOffset has a description
+PASS G0 offered schema steward_thread_artifact_read.pageOffset has a description
+PASS G0 offered schema steward_thread_artifact_read.includeImages has a description
+PASS G0 offered schema steward_config_get.keys has a description
+PASS G0 offered schema steward_config_get.privacy has a description
+FAIL G0 offered schema steward_bot_setup.op has a description
+PASS G0 offered schema steward_bot_setup.connectionId has a description
+FAIL G0 offered schema steward_bot_setup.platform has a description
+FAIL G0 offered schema steward_bot_setup.appId has a description
+FAIL G0 offered schema steward_bot_setup.tenantId has a description
+PASS G0 offered schema steward_bot_setup.botUserId has a description
+FAIL G0 offered schema steward_bot_setup.label has a description
+PASS G0 offered schema steward_config_set.patch has a description
+PASS G0 offered schema steward_config_set.privacy has a description
+PASS G0 offered schema steward_config_set.scope has a description
+PASS G0 offered schema steward_config_set.sessionId has a description
+PASS G0 offered schema steward_config_set.expected has a description
+PASS G0 offered schema steward_config_set.undo has a description
+PASS G0 offered schema steward_config_set.basis has a description
+PASS G0 offered schema steward_playbook_draft.sessionId has a description
+PASS G0 offered schema steward_playbook_draft.mode has a description
+PASS G0 offered schema steward_playbook_draft.selection has a description
+PASS G0 offered schema steward_skill_toggle.sessionId has a description
+PASS G0 offered schema steward_skill_toggle.skills has a description
+PASS G0 offered schema steward_quick_ask.question has a description
+PASS G0 offered schema steward_quick_ask.cwd has a description
+PASS G0 offered schema steward_quick_ask.relatedSessionId has a description
+PASS G0 offered schema steward_quick_ask.basis has a description
+PASS G0 offered schema steward_schedule_create.title has a description
+PASS G0 offered schema steward_schedule_create.schedule has a description
+PASS G0 offered schema steward_schedule_create.payload has a description
+PASS G0 offered schema steward_schedule_create.target has a description
+PASS G0 offered schema steward_schedule_create.permissionMode has a description
+PASS G0 offered schema steward_schedule_create.tier has a description
+PASS G0 offered schema steward_schedule_create.basis has a description
+PASS G0 offered schema steward_schedule_pause.id has a description
+PASS G0 offered schema steward_schedule_pause.basis has a description
+PASS G0 offered schema steward_schedule_resume.id has a description
+PASS G0 offered schema steward_schedule_resume.basis has a description
+PASS G0 offered schema steward_schedule_run_now.id has a description
+PASS G0 offered schema steward_schedule_run_now.basis has a description
+PASS G0 offered schema steward_schedule_delete.id has a description
+PASS G0 offered schema steward_schedule_delete.basis has a description
+PASS G1 清单里每个入参都有描述(缺:无)
+PASS G2 http_request.body 不带多类型 type、描述说明两种形态(got {"description":"string as-is; object as JSON"})
+PASS G3 新补的入参描述保持简短(≤70 字符;超:无)
+PASS G4 orchestrate_agents 描述压到 <2000 字符且关键信息还在(911)
+PASS H0 前置:真服务起得来、能建会话
+PASS H0b 前置:建任务账本(got {"ok":true,"mission":{"goal":"代理路径验证","milestones":[{"id":"m1","desc":"第一步","status":"pending","chec)
+PASS P1 tool_invoke_read{todo_write} 在回合内真落盘到 session.todos(修前 ok:true 却没写;got [{"id":"t1","text":"查看代码","status":"in_progress"},{"id":"t2","text":"写测试","status":"pending"}])
+PASS P1b 代理的 todo_write 同样发出 todo 事件(进度条刷新)
+PASS P1c 事件里记的是真正执行的工具名 todo_write(got todo_write)
+PASS P2 tool_invoke_edit{mission_update} 真改了账本(修前「独立调用仅校验」;got [["m1","done"],["m2","pending"]])
+PASS P3 tool_invoke_read{tool_search} 回检索结果(got {"ok":true,"query":"read file","matches":[{"name":"file_read","pack":"files_read","tier":"read","des)
+PASS P4 回合内经代理的 wait_agents 走真实现、全不存在 → ok:false(修前「仅在 provider 回合可用」;got {"ok":false,"error":"没有找到这些后台代理 run:run_doesnotexist(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。","se)
+PASS P5 orchestrate_agents task+nodes 同给 → 拒(修前 task 被悄悄忽略;got {"ok":false,"error":"task(单代理简写)与 nodes 互斥,只给其一:单个代理只写 task;多个代理把各自的任务写进 nodes[].task","startedCount":0})
+PASS P6 toolTier:'superuser' → 拒并列允许值(修前静默按 read 档跑;got {"ok":false,"error":"toolTier 无效:\"superuser\";允许值 read / edit / exec","startedCount":0})
+PASS P7 经代理的 orchestrate_agents 真启动,且模型清单外的 model 只给 notes 提示、不拒(修前「需要在 OpenAI 对话回合中调用」;got {"ok":true,"kind":"agent_envelope","runId":"run_ec79f492bd11f113","status":"succeeded","nodes":[{"nodeId":"agent","agentKey":"agent","role":"","engine":"openai","status":"succeeded","summary":"node says hi","artifacts":[)
+PASS P8 回合内经代理的 agent_result 走真实现(got {"ok":false,"error":"agent run not found: run_doesnotexist"})
+PASS P9 回合正常收尾(配对没乱)
+
+TOOL AUDIT R2 META E2E: FAIL (29)

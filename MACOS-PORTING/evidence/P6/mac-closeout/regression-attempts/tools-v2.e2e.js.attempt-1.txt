@@ -1,0 +1,57 @@
+[fake] [fake-openai] listening on 8961
+PASS (a) workbench up
+PASS (a) file_read ok
+PASS (a) mode === 'lines' (got lines)
+PASS (a) totalLines === 20 (got 20)
+PASS (a) has line 5 prefix "5<tab>line-5"
+PASS (a) has lines 6 and 7
+PASS (a) excludes lines 4 and 8
+PASS (a) echoes effective lineOffset/lineLimit
+[fake] [fake-openai] listening on 8961
+PASS (b) workbench up
+PASS (b) valid PNG is read natively
+PASS (b) original PNG pixels reach the provider image channel
+PASS (b) truncated PNG returns a structured reader failure (got reader_unavailable)
+[fake] [fake-openai] listening on 8961
+PASS (c) workbench up
+PASS (c) glob returns files array
+PASS (c) covers nested files
+PASS (c) covers top-level files
+PASS (c) no node_modules
+PASS (c) .md excluded by pattern
+PASS (c) files sorted mtime DESC
+PASS (c) newest.txt first
+[fake] [fake-openai] listening on 8961
+PASS (d) workbench up (context)
+PASS (d) >=2 matches
+PASS (d) match carries context block
+PASS (d) match line flagged (line 3, match:true)
+PASS (d) context spans +/-2 lines with line numbers
+[fake] [fake-openai] listening on 9190
+PASS (d) workbench up (group)
+PASS (d) grouped into 2 files (got 2)
+PASS (d) group entries have {path, matches[]}
+[fake] [fake-openai] listening on 8961
+PASS (e) workbench up
+PASS (e) one match
+PASS (e) fields path/line/text as baseline
+PASS (e) no context field when not requested
+[fake] [fake-openai] listening on 8961
+PASS (f) workbench up
+PASS (f) edit ok:false (not found)
+PASS (f) closest.line present (got 3)
+PASS (f) closest points at line 3 (gamma)
+PASS (f) closest.snippet window contains gamma line
+PASS (f) snippet is +/-3 line window
+[fake] [fake-openai] listening on 8961
+PASS (g) workbench up
+PASS (g) (?i)pass does not error (ok:true)
+PASS (g) (?i)pass matches the mixed-case line 2 (got [2])
+PASS (g) no patternNote (valid regex after stripping)
+[fake] [fake-openai] listening on 8961
+PASS (h) workbench up
+PASS (h) invalid regex does not error (ok:true)
+PASS (h) literal fallback finds the ([x line (got {"path":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-tools-v2-e2e/h/src/weird.txt","relativePath":"weird.txt","line":2,"text":"literal ([x marker"})
+PASS (h) patternNote present (got: invalid regex; searched as literal text)
+
+TOOLS-V2 E2E: ALL PASS

@@ -1,0 +1,20 @@
+PASS workbench up
+PASS runtime token
+PASS start mission (change journal initialized)
+PASS 立单记录推进初始 changeSeq=1
+PASS (a) answer delivered
+PASS (a) 回合后 changeSeq>=3(立单+pending+settle 均未被回合 saveSession clobber;实际 5)
+PASS (b) transition #1 成功
+PASS (b) transition #1 推进 changeSeq(5 -> 6)
+PASS (b) transition #2 成功
+PASS (b) transition #2 单调推进(6 -> 7)
+PASS (b) POST /api/mission update
+PASS (b) update 后 changeSeq 不回写旧值(7 -> 8)
+
+── [c] 静态锁 ──
+PASS c 02 有携带 change record payload 的 bumpMissionChangeSeq
+PASS c 02 missionChangeSeqHighWater 高水位 Map
+PASS c 02 normalizeMission changeSeq 字段(持久单调)
+PASS c 02 saveSession 高水位 max-preserve(防 clobber)
+
+INTERVENTIONS CHANGESEQ E2E: ALL PASS

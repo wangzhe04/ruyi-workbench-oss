@@ -1,0 +1,33 @@
+PASS pre-registration rejection refunds admission; synchronous calls share one node budget
+PASS background manual launch reports actual selected policy
+PASS manual proposals never auto-expand despite configured auto-capped policy
+PASS manual run persists originating cap; discovery consumes no mail quota
+PASS child discovers own group and opaque parent without external session ids
+PASS child cannot enumerate other sessions
+PASS main live roster distinguishes active and terminal peers
+PASS live capability is derived from registered child tools
+PASS roster ownership rejects foreign runs
+PASS default roster only lists current session active groups
+PASS source run used a broader old permission mode
+PASS explicit followup creates a new run while the old group remains active
+PASS followup preserves execution settings and resource locking
+PASS followup uses current permission, independent DAG/mail and default-off pool
+PASS followup includes bounded reference output
+PASS real followup child provider receives new task and old bounded reference
+PASS paused group roster and actual send both allow queued reference mail
+PASS approval after later parent turns consumes remaining originating-turn budget
+PASS second approval cannot borrow budget from a later turn
+PASS duplicate approval never creates another agent
+PASS dry checks/failed approvals preserve pending proposal and admitted-node count
+PASS capability separates proposal tool from materialization budget
+PASS model auto policy rejects; cross-session mail returns precise failures
+PASS historical roster and final send check cannot resurrect terminal peers
+PASS cold restored bounded run preserves old nodes and rejects unaccounted expansion
+PASS HTTP-origin run without an originating-turn cap needs no lost closure
+PASS Claude and deterministic nodes never advertise unsupported mailbox tools
+PASS closing roster and send share the same runtime eligibility rejection
+PASS followup rejects a changed workspace
+PASS live succeeded node must finish finalization before its result can seed a followup
+PASS zero configured agent budget rejects hidden provider launch without creating a run
+
+AGENT COORDINATION E2E: ALL PASS

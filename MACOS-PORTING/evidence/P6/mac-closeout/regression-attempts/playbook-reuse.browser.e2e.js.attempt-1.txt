@@ -1,0 +1,28 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 真实来源线程显示可认可成果
+PASS 切换任务后迟到来源列表不会打开旧任务弹窗
+PASS 按钮绑定所点击成果，后补关键纠正也可选择
+PASS 起草中Esc关闭后，迟到响应不重新打开编辑器
+PASS 取消起草不保存任何做法
+PASS 真实非流式起草回到可编辑草稿
+PASS 1440px 编辑表单不溢出
+PASS 768px 编辑表单不溢出
+PASS 390px 编辑表单不溢出
+PASS 可恢复打开时规则，未保存改动可撤回
+PASS 保存失败保留编辑草稿并允许重试，不冒充已保存
+PASS 用户显式保存成功后关闭编辑器
+PASS 保存保留所选两条纠正，不把保存说成验证通过
+PASS 刷新后从原技能库读取已保存做法
+PASS 原执行表单显示验收项与新材料验证入口
+PASS 缺参数时保留执行表单，零写盘
+PASS 真实页面经普通Playbook执行工具生成新材料结果
+PASS 英文入口可复制修改，原版保留
+PASS 取消副本不改变已保存原版
+PASS 浏览器无未捕获异常
+ARTIFACTS /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-ez2VON/ruyi-playbook-reuse-ui-JF7MP7
+
+PLAYBOOK REUSE BROWSER E2E: ALL PASS

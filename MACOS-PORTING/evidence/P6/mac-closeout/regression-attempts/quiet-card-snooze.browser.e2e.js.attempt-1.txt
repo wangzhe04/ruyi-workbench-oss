@@ -1,0 +1,29 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 两条线程已建（{"seated":"sess_69b18aa67f9b92aa","other":"sess_aae1bd85a73fcaad"}）
+PASS A0c2 起点：定时任务表是空的
+PASS A0d Edge/Chrome found
+PASS A0e browser target available
+PASS A0f 首屏就绪（config 到达、安静卡挂点已在 DOM 里）
+PASS A0g 顶栏分段钮切到工作台视角（后续断言的前提）
+PASS A0h 左栏两条线程都已渲染
+PASS A1 坐在「seated」那条线程上（安静卡只对【别的】线程出）
+PASS A2 线程「other」真的停在待决了（服务端事实）
+PASS A3 安静卡出来了，且卡上有「稍后」那枚按钮
+PASS B1 卡收了（**成功才收卡**：建不成的话它会留在原地并 toast 一句）
+PASS B2 定时任务表真的多出一条（实得 1 条）—— 修前这里恒是 0
+PASS B3 它是一条 once（实得 once）
+PASS B4 载荷是 reminder（不调模型、永远安全；实得 reminder）
+PASS B5 sourceRef.sessionId 指回那张卡的线程（实得 sess_aae1bd85a73fcaad）
+PASS B6 sourceRef.kind 指回那张卡的类别（实得 needs_you）
+PASS B7 sourceRef.inboxSeq 指回它来源的那一行收件箱（实得 3）
+PASS B8 下次触发是 30 分钟之后（实得 2026-11-12T15:20:00.000Z，期望约 2026-11-12T15:20:15.932Z）
+PASS C1 假时钟拨过那个时点之后，安静卡再来一次（kind 是新类 reminder）
+PASS C2 卡上那句话带「稍后」（实得「来自你 30 分钟前按的「稍后」：other 那件事要等吗？」）
+PASS C3 它仍然指着原来那条线程（sourceRef 一路带过来的；实得 sess_aae1bd85a73fcaad）
+PASS C4 有线程可看，所以「去看」这枚按钮在（不属于任何线程的提醒才不画它）
+PASS D1 「×」把卡收了
+PASS D2 「×」不进调度器：任务表条数一条不变（前 1 后 1）
+SHOT /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-pXQu1A/ruyi-quiet-snooze-N2Frh5/quiet-card-snooze-final.png
+
+QUIET CARD SNOOZE BROWSER E2E: ALL PASS

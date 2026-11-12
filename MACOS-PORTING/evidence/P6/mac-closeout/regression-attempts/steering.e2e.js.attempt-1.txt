@@ -1,0 +1,32 @@
+[fake] [fake-openai] listening on 52253
+PASS workbench up on :52254
+PASS UI token scraped
+PASS session created
+PASS (no-turn) steer rejected — 当前没有进行中的回合 (got {"ok":false,"error":{"code":"steer.no_live_turn","message":"当前没有进行中的回合","params":{}}})
+PASS (no-turn) 这一拒带稳定码 steer.no_live_turn（前端兜底按码判；实得 "steer.no_live_turn"）
+PASS (no-token) steer → 403 (got 403)
+PASS (no-token) cancel steer → 403 (got 403)
+PASS (cancel) steer first enters queue
+PASS (cancel) DELETE is authorized and removes the queued steer
+PASS (cancel) withdrawn steer emits no steered event
+PASS (cancel) withdrawn steer is absent from persisted session messages
+PASS ① steer response {ok:true, queued:N} (got {"ok":true,"queued":1,"mode":"queue"})
+PASS ② a `steered` event was streamed
+PASS ② steered event text matches (got 顺便把结果写成表格)
+PASS ③ providerHistory contains a 「[用户插话] 」 user message (idx 3)
+PASS ③ the interjection is positioned after an assistant turn (pairing-safe boundary)
+PASS ③ interjection content is 「[用户插话] 」+ text
+PASS ③ providerHistory tool blocks CONTIGUOUS (no message wedged inside a block) — no 400 risk
+PASS ④ session.messages contains a steered:true message with the interjection text
+[fake2] [fake-openai] listening on 52253
+PASS ⑦ parallel fake respawned on :52253
+PASS ⑦ parallel session created
+PASS ⑦ parallel steer accepted (got {"ok":true,"queued":1,"mode":"queue"})
+PASS ⑦ two tool_use in one batch (got 2)
+PASS ⑦ steered event streamed in the parallel turn
+PASS ⑦ parallel providerHistory tool block CONTIGUOUS
+PASS ⑦ parallel providerHistory contains the interjection (idx 4)
+PASS ⑦ interjection immediately follows the tool block (prev role: tool)
+PASS ⑦ interjection at assistant(tc×2)+3 — after BOTH tool replies, not inside the block (batch@1, steer@4)
+
+STEERING E2E: ALL PASS

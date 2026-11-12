@@ -1,0 +1,41 @@
+PASS fake provider and workbench start
+PASS quality workflow starts with all nodes
+PASS node output is parsed and JSON-Schema validated
+PASS Reviewer automatically validates dependencies as a quality gate
+PASS deterministic vote gate passes with two approvals
+PASS dedupe gate merges duplicate findings
+PASS block policy prevents downstream execution
+PASS continue policy unlocks downstream in degraded mode
+PASS retry policy retries then applies continue fallback
+PASS Claude CLI loopback can launch the same persistent structured DAG through a configured provider
+PASS conditions take the matching branch and persist the skipped branch
+PASS loop stops after the configured consecutive no-progress limit
+PASS malformed vote inputs fail as a contract error instead of a false rejection
+PASS all_settled fan-in can consume a failed dependency without global continue policy
+PASS factual probe can require successful tool-call evidence
+PASS B8: a fail verdict marks the gate node rejected (not failed), and the verdict is recorded
+PASS B8: conditional downstream of a rejected gate RUNS (condition review.verdict==fail fires; not blocked)
+PASS B8: a pure dependsOn downstream treats a rejected predecessor as completed and runs
+PASS B8: a quality rejection is not reported as a run failure (run succeeded; no failed/blocked nodes)
+PASS M3: a pass verdict with non-empty coverage.unhandled is rejected as gate_uncovered
+PASS M3: rejection error lists the uncovered input items
+PASS M3: empty unhandled passes the coverage gate (full coverage)
+PASS R1: high-stakes gate (requireEvidence) rejects a pass verdict whose claims lack verifiable evidence (gate_unverified)
+PASS R1: rejection error reports the unverifiable claims
+PASS R1: non-high-stakes gate marks unverified claims but does NOT block (backwards-compatible)
+PASS R1: unverified claim status still recorded (marked, not deleted)
+PASS C1 e2e: downstream gate prompt exposes the upstream tool eventId and a legal reference verifies
+PASS C1 e2e: verified evidence does not trigger gate_unverified
+PASS C1 e2e: evidence catalog is injected into a non-gate model node too
+PASS C1 e2e adversarial: a forged out-of-catalog eventId is unverified and rejected
+PASS R4-S2 e2e: gate model emitted memoryRelations only after seeing both indexed ids
+PASS R4-S2 e2e: real workflow hook persisted the gate proposal as pending
+PASS C3 e2e: downstream gate can cite a digest-only deterministic_gap event
+PASS C3 e2e: deterministic gap traceability passes without exposing the raw gap value
+PASS M3 bonus: allowPartialCoverage=true downgrades uncovered from rejection to warning (was broken before normalizeAgentGate fix)
+PASS M2: deterministic coverage rejects an uncovered item without a model call
+PASS M2: deterministic coverage supports allowPartialCoverage
+PASS M2: deterministic propagate inherits assignments without a model call
+PASS M2: propagate cycle fails deterministically
+
+AGENT QUALITY WORKFLOW E2E: ALL PASS

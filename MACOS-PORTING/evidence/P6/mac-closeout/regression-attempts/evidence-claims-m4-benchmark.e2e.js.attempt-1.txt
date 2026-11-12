@@ -1,0 +1,15 @@
+PASS benchmark fixture indexes three upstream tool-call evidence events
+PASS B1 valid upstream refs: verified, no false rejection (漏项率=0)
+PASS B2 forged ref in mark-only mode: flagged but not blocked (compat)
+PASS B2 forged ref in blocking mode: rejected (gate_unverified), 伪造检出率=100%
+PASS B3 missing refs in mark-only: both unverified, not blocked
+PASS B3 missing refs in blocking mode: rejected
+PASS H1 cross-workspace ref rejected (防项目记忆泄漏)
+PASS H2 ref to evidence outside the dependency closure is unverified
+PASS H3 duplicate refs within one finding are rejected (anti-ambiguity, C1 hardening)
+PASS H4 non-string refs degrade safely without crash
+PASS H5 50 refs rejected safely without crash (cap enforced)
+PASS H6 empty findings pass even in blocking mode (零 unverified;无 claim 不构成拒绝)
+PASS M4 指标:漏项率=0 伪造检出率=100%
+
+EVIDENCE CLAIMS M4 BENCHMARK: ALL PASS

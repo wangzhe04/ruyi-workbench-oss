@@ -1,0 +1,35 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS A1 线程已建
+PASS A2 回合跑完(HTTP 200)
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS C1 重载后首屏就绪(CSP 去掉 unsafe-inline 后应用照常起来)
+PASS C2 零 CSP 违规(securitypolicyviolation [] / 日志 [])
+PASS C3 data-theme 由 <head> 里的预绘脚本在 <body> 出现之前写好(首帧不闪;实得 {"bodyExists":false,"readyState":"loading","value":"dark"})
+PASS C3 data-ui-mode 由 <head> 里的预绘脚本在 <body> 出现之前写好(首帧不闪;实得 {"bodyExists":false,"readyState":"loading","value":"simple"})
+PASS C3 data-density 由 <head> 里的预绘脚本在 <body> 出现之前写好(首帧不闪;实得 {"bodyExists":false,"readyState":"loading","value":"comfortable"})
+PASS C3 data-shell-mode 由 <head> 里的预绘脚本在 <body> 出现之前写好(首帧不闪;实得 {"bodyExists":false,"readyState":"loading","value":"steward"})
+PASS C4 页面上跑的 CSP 就是「self + 哈希」,没有 unsafe-inline
+PASS C5 对照:往页面里塞一段内联脚本会被 CSP 拦下(unsafe-inline 确实没了)
+PASS D1 左栏出现这条线程
+PASS D2 助手消息渲染出来了(文字还在)
+PASS E1 渲染结果里没有任何覆盖层类([])
+PASS E2 消息区里没有 position:fixed 的元素([])
+PASS E3 那三层 div 本身还在(白名单标签),但不带 class(含该文字的 div 3 个)
+PASS E4 这条消息没有撑成全屏(高 401px,窗口 900px)
+PASS E5 页面别处照常能点:左栏线程行中心点上的就是线程行,没有被盖住({"hit":"div.steward-board-thread-head < li.steward-board-thread.steward-tcard.is-sel < ul.rail-tasks < section.rail-group","row":[8,256,251,40],"vw":1280,"vh":900})
+PASS E6 对照:直接挂 modal-backdrop 类的节点是全屏 fixed(这些类在本页是活的,E1-E5 不是空转)
+PASS E7 普通链接不受影响
+PASS E8 围栏代码块的 language-js 保留且被高亮(hljs)——自己的渲染没被打坏({"hasJs":true,"hljsOnJs":true})
+PASS E9 mermaid 围栏照常走图表管线(language-mermaid 保留,或已渲染成图)
+PASS E10 混写的 class 只留白名单那几个(<p><span class="hljs-keyword">k</span> </p><p class="language-x">p</p><p></p>
+)
+PASS G1 点「导入线程」弹出了文件选择(被探针接住)
+PASS G2 导入成功(会话列表里有 Evil share)
+PASS G3 文件里的 cwd(/)没有生效:会话落在当前默认工作区(实得 /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-BGXrmg/ruyi-w2-surface-5JVDDn/work)
+PASS G4 导入的消息带 meta.imported,且文件自带的 meta 被丢掉
+PASS F1 零未捕获异常([])
+
+SURFACE HARDENING W2 BROWSER E2E: ALL PASS

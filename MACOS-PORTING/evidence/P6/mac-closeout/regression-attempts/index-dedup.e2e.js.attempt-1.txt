@@ -1,0 +1,22 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay a7dccd8dea4b)
+[wb] UI: http://127.0.0.1:49972/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-index-dedup-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (0) 工作台 listening :49972
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-index-dedup-e2e/generated/workbench.mcp.json
+PASS (A1) 首轮 meta.indexInjected=true 且带 hash (c1c812d2fd80)
+PASS (A2) 首轮 stdin <workbench-context> 注入技能索引(dedup-skill-a)
+PASS (A3) --append-system-prompt 不含技能索引(P2 信道分离)
+PASS (A4) stdin 保留 <current_user_message> 定界与用户消息
+PASS (B1) 内容未变 → meta.indexInjected=false(去重跳过)
+PASS (B2) hash 不变(仍上报供观测)
+PASS (B3) stdin 不含 <workbench-context>(不重复发送索引)
+PASS (B4) recovery history 与用户消息定界照常
+PASS (C1) 技能集变化 → hash 变 → 重新注入(hash c1c812d2fd80 → 9f652e079a79)
+PASS (C2) 重注内容含新旧两个技能
+PASS (D1) 内容再次稳定 → 恢复去重跳过
+PASS (E1) slash 命令轮 stdin 无注入块(必须占首 token)
+PASS (E2) slash 命令原文居首(stream-json 信封则取首条 text 内容)
+PASS (E3) slash 轮未污染 hash —— 后续普通轮仍按去重跳过
+
+INDEX-DEDUP E2E: ALL PASS

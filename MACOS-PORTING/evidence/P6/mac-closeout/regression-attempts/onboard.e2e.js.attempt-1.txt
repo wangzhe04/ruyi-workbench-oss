@@ -1,0 +1,47 @@
+PASS ① 设置有 data-stab="network" 页签
+PASS ① network 页签归入「模型与服务」组（agents 之后）、集成/MCP 之前；高级 仍在最后
+PASS ① 找到 #stab-network 面板
+PASS ① 面板含类型 select #cfgSearchType
+PASS ① 类型 select 含枚举 none
+PASS ① 类型 select 含枚举 searxng
+PASS ① 类型 select 含枚举 bing
+PASS ① 类型 select 含枚举 brave
+PASS ① 类型 select 含枚举 custom
+PASS ① none 显示为「不启用」
+PASS ① 面板含 Base URL 文本框 #cfgSearchBaseUrl
+PASS ① 面板含 API Key password 框 #cfgSearchApiKey
+PASS ① 面板顶部人话说明存在
+PASS ② app.js 定义 buildFirstRunState（首跑引导渲染）
+PASS ② app.js 定义 isFirstRun（触发判定）
+PASS ② isFirstRun 读 state.sessions + config.recentWorkspaces
+PASS ② app.js 定义 engineReadiness（引擎就绪派生小函数）
+PASS ② 拖放引导区点击调文件夹选择(pickWorkspace/pickWorkspaceNative)
+PASS ② provider 卡片含 vision checkbox（读写 p.vision）
+PASS ② vision 开关使用 i18n 且中文文案「支持视觉」存在
+PASS ③ styles.css 存在 .onboard-* 规则
+PASS ③ 引导区样式无颜色字面量（#hex/rgba）
+PASS ③ .onboard-drop:hover 用 --accent 描边
+PASS ③ .onboard-drop.dragging 用 --accent-soft 底
+PASS ④ workbench listening（全新 HOME）
+PASS ④ UI token scraped
+PASS ④ 新装 permissionMode === auto（got auto）
+PASS ④ 新装 engineMode === interactive（got interactive）
+PASS ④ 新装 permissionBridge === true（got true）
+PASS ④ 新装 uiMode === simple（got simple）
+PASS ④ 新装凭据加密与脱敏默认关闭
+PASS ⑤ POST searchBackend 被接受
+PASS ⑤ searchBackend type/baseUrl 存续
+PASS ⑤ GET apiKey 是掩码（非明文，got ••••3456）
+PASS ⑤ GET searchBackend.hasKey === true
+PASS ⑤ 掩码回存 POST 被接受
+PASS ⑤ 持久凭据解密后逐字保留真值（掩码回存不覆盖）
+PASS ⑥ POST providers[vision:true] 被接受
+PASS ⑥ provider t1 vision === true 存续（got true）
+PASS ⑦ workbench up (CLI-missing 场景)
+PASS ⑦ session created
+PASS ⑦ result 事件带 code:cli-missing（got cli-missing）
+PASS ⑦ 错误文本含「API」（引导配 API 引擎）
+PASS ⑦ 错误文本为中文人话
+PASS ⑦ 无 CLAUDE.md 相关错误/警告事件
+
+ONBOARD E2E: ALL PASS

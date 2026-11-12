@@ -1,0 +1,19 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS W0 开出线程 W(sess_135b77a9d81c2014)
+PASS W1 线程 W 挂上了一条待决(question)
+PASS W2 轮询间隔 120 s 的情况下,W 的 needs_you 在 424 ms 内进了收件箱(只能是待决产生时叫醒的;修前要等到下一拍轮询)
+PASS V0 开出线程 Y(sess_3d7a364d11ec15fe)
+PASS V0b 在场连接建好(lens=steward,viewing=Y)
+PASS V0c presence.ack 回显 viewing(实得 ["sess_3d7a364d11ec15fe"])
+PASS V0d 线程 Y 挂上了一条待决
+PASS V1a Y 的 needs_you 照常进了收件箱(安静卡、到访摘要读它,用户看着也不该让它消失)
+PASS V1 用户正看着 Y 的提问:管家没有为它起回合(管家回合 1 次,没有一次提到 Y)
+PASS V2 管家此刻替用户答 Y 的提问 → seated_by_user(实得 "seated_by_user")
+PASS V2b 那条待决原样还挂着(没被替用户答掉)
+PASS V3 人走了之后,先前扣住的 Y 那条待决几秒内交还管家(扣住不是丢掉;走开后 3.6 s)
+PASS V4a 开出线程 Z(sess_487982271178f168)
+PASS V4 别的线程(Z)的待决照常进箱
+PASS V4b 管家照常为 Z 起回合
+
+STEWARD VIEWING GATE E2E: ALL PASS

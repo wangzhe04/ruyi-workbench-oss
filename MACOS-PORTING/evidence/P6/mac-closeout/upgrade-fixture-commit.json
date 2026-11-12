@@ -1,0 +1,8 @@
+{
+  "commit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+  "file": "dev-harness/macos-upgrade-rollback.e2e.js",
+  "sha256": "1bf5198e95fe02bf1ffe31f8e2df46d8b9d301833019dd94e3fbe319e15381f8",
+  "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "scope": "Test fixture resource path only; production source/Full/Slim bytes unchanged. Main Full15 clone/Slim14 normal drills passed; ordinary Full second copy ENOSPC remains historical failure.",
+  "review": "upgrade-staging-code-review.json"
+}

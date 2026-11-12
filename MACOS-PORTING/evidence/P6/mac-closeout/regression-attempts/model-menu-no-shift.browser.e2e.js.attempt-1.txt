@@ -1,0 +1,13 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS N00 线程已建、用量已种
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS N0 抽屉里模型 chip 可点
+PASS N1a 菜单开着、用量那一发被扣住、此刻没有「常用」(分段 ["Fake"])
+PASS N1 用量在菜单开着时到货:每一行位置与分段标题一个都没变(前 ["@182","fake-model@240","?@297"] / 后 ["@182","fake-model@240","?@297"])
+PASS N2 关上再开:「常用」出现了 —— 用量确实到过(分段 ["常用"])
+PASS N3a 新页面里抽屉的模型 chip 可点
+PASS N3 指针先进到 chip 上:用量在点开之前就回来了,第一次打开的第一帧就有「常用」(分段 ["常用"])
+MODEL MENU NO SHIFT BROWSER E2E: ALL PASS

@@ -1,0 +1,66 @@
+
+── [S] 静态源锁 ──
+PASS S §28c DAG runNode 用 buildUpstreamContext
+PASS S §28c 代理模式 v2:旧 spawn 站点已删,单代理简写走 DAG 同一条 buildUpstreamContext 链
+PASS S §28c 旧 join.slice(0,32000) 定长截断已消失
+PASS S §28b runNode 完成调 deriveNodeOutputs
+PASS S §28b deriveNodeOutputs 产 summary/evidence/artifacts
+PASS S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory(带隐私历史来源、tools、runId、滞回水位和中止信号)
+PASS S §28a L2 重播种(自动 / 强压两条路)都用【原地 splice】(const 闭包安全)
+PASS S §28a Claude 引擎【不】引入 subHistory 压缩(有意不对称)
+PASS S §28d degradedPolicy 枚举 ≥3 处(模板/新建/resume/schema)
+PASS S §28d resume 回填 degradedPolicy(老 run 零回归)
+PASS S §28d 翻译接缝(仅降级成功节点)
+PASS S §28d orchestrate 工具 schema 含 degradedPolicy
+
+── [P] §28b/§28c 纯逻辑 ──
+PASS P 源抽取 28b/28c 块
+PASS P §28b summary 取结构化 summary
+PASS P §28b evidence 取 findings
+PASS P §28b artifacts 只收写族步骤(file_read 不算)
+PASS P §28b 无结构化→result 扁平化为 summary
+PASS P §28b 无 summary 有 verdict→verdict= 摘要
+PASS P §28c 无依赖→空串
+PASS P §28c rung1:全文放得下→无损全文 + 头
+PASS P §28c rung2:全文超份额→用 summary
+PASS P §28c rung3/总钳:超预算→截断 + 标注
+PASS P §28c 总量硬钳制:拼接结果 ≤ 预算(+标注余量)不击穿
+PASS P §28c 总钳标注出现
+PASS P §28c degraded 前序在标题标注
+PASS P §28c 均分预算:靠后依赖 q 仍完整可见(不被 p 挤掉)
+
+── [A] §28a maybeCompactSubHistory ──
+PASS A 源抽取 maybeCompactSubHistory + 共用内核 runAutoCompaction
+PASS A2 源抽取 truncateToolResult + IMG_B64_TRIM_RE
+PASS A2 源抽取 TOOL-RESULT-SHRINK 区间
+PASS A(1) 未超预算→不压缩,数组不动
+PASS A(2) 超预算→压缩,数组同一引用
+PASS A(2) 发 compact/evaporate 事件带 subagentId
+PASS A(2) L1 蒸发旧 tool 结果(占位)
+PASS A(2) 蒸发后 tool_call/tool 配对不破
+PASS A(3) L2→数组【同一引用】(原地 splice,非重新赋值)
+PASS A(3) 发 compact/summary 事件
+PASS A(3) L2 事件序列 started → completed(summary:started,summary:completed)
+PASS A(3) 首条 user 并入【原始 task + 摘要】(不连续 user)
+PASS A(3) reseed 交替:user→assistant
+PASS A(3) 重播种后长度收缩(4→2)
+PASS A(3) 摘要调用记 aux 台账(recordCompactUsage)
+PASS A(4) L2 内核失败→保留 L1 蒸发结果,不抛
+PASS A(4) 事件序列 evaporate → summary started → summary failed(evaporate:undefined,summary:started,summary:failed)
+PASS A(5) L2 保留固定预算内的近期完整 user 尾部
+PASS A(5) L2 固定尾部后 tool_call/tool 配对仍完整
+PASS A(6) 压完记下滞回水位(276)
+PASS A(6) 水位以内不再压(零事件、零摘要调用)
+PASS A(6) 对照:不带水位的同一份历史会再压一次
+PASS A2(1) 图片压缩后结果 ≤ 60KB 预算 (got 235)
+PASS A2(1) 大 base64 整体替换为占位(含原长度报告)
+PASS A2(1) 压缩后 JSON 仍合法且元信息保留(平切必坏 JSON,整体替换不坏)
+PASS A2(2) 小 base64 不受影响(原样保留)
+PASS A2(3) 非图片大字段回退平切(带截断标记)
+PASS A2(5) data: 前缀大图整体替换(不半切)
+PASS A2(5) data: 前缀图压缩后 JSON 仍合法
+PASS A2(4) 图+文双超 → 回退平切仍 ≤ 预算
+PASS A2(4) 图片字段整段裁掉或完整占位保留,绝不半切
+PASS A2(4) 回退平切带截断标记
+
+CONTEXT-GOVERNANCE E2E: ALL PASS

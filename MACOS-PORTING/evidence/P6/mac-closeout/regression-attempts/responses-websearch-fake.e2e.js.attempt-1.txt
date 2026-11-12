@@ -1,0 +1,26 @@
+
+=== Phase A: serverWebSearch:true (DeepSeek preset) → server-side web_search ===
+PASS [A] workbench listening
+--- [A] tool_uses: [{"name":"web_search","input":{"query":"DeepSeek V4 | DeepSeek V4 发布","actionType":"search","status":"completed"}}]
+--- [A] final text: "搜索结果确认：密标是 WS_SECRET_9981，服务端搜索已完成。"
+PASS A: web_search tool MAPPED to flat {type:"web_search"}
+PASS A: no function-shaped web_search in tools
+PASS A: web_search_call surfaced as tool_use (web_search)
+PASS A: tool_use input carries real search terms from action.queries (query="DeepSeek V4 | DeepSeek V4 发布")
+PASS A: web_search tool_result is serverSide & not an error (no local execution)
+PASS A: web_search_call echoed back verbatim (id ws_1) into next request input
+PASS A: no function_call_output pairing for server-side search
+PASS A: final answer contains the search-result secret
+PASS A: result ok=true
+
+=== Phase B: serverWebSearch unset (default false) → local web_search function fallback ===
+PASS [B] workbench listening
+--- [B] tool_uses: []
+--- [B] final text: "收到，未使用服务端搜索（本地 web_search 保底可用）。"
+PASS B: web_search STAYS a local function tool ({type:"function", name:"web_search"})
+PASS B: NO {type:"web_search"} server-side tool sent
+PASS B: no server-side web_search_call surfaced (endpoint ignored it)
+PASS B: plain-text answer without server-side search
+PASS B: result ok=true
+
+RESPONSES-WEBSEARCH-FAKE E2E: ALL PASS

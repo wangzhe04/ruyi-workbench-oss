@@ -1,0 +1,23 @@
+PASS M1 旧目录的内容原样搬进 ~/.ruyi-workbench
+PASS M1 旧路径留一个指回新目录的链接(Windows 上是目录联接)
+PASS M1 /api/status:dataRoot 是新目录,dataRootAliases 列出旧路径({"dataRoot":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-dataroot-bH5APW/m1/.ruyi-workbench","aliases":["/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-dataroot-bH5APW/m1/.win-claude-workbench"]})
+PASS M1 启动行记了迁移
+PASS M1 日志记了 data_root_migration
+PASS M1 迁移后再次默认启动仍被同一数据目录独占权拒绝
+PASS M2 经旧路径(别名)读 config.json 被拒({"ok":false,"error":"该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问","code":"not-allowed","path":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-dataroot-bH5APW/m1/.win)
+PASS M2 经新路径读 config.json 被拒
+PASS M3 第二次启动不再迁移
+PASS M2b 带 RUYI_HOME 经旧路径联接搜 / 列:敏感文件不出现({"search":{"ok":false,"code":"invalid-arguments","tool":"file_search","error":"file_search: missing required 'pattern' (string)","expected":{"pattern":"string"},"hint":"fix the argument(s) and call fi)
+PASS M2b 探针本身跑通
+PASS M4 旧目录有活实例:既不迁移也不启动第二个服务
+PASS M4 拒绝时说明原因并保留旧身份记录
+PASS M8 junction失败:权威根指向新目录且没有重建旧目录
+PASS M8 会话写入迁移后的目录
+PASS M8 模块顶层DurableJsonStore回调写入新目录,不依赖旧junction
+PASS M8 junction失败后第二个默认serve仍被新根独占权拒绝
+PASS M5 设了 RUYI_HOME:旧目录原样、不建新目录
+PASS M7 旧位置是用户的链接:照旧用它,不建空的新目录、不迁移(dataRoot=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-dataroot-bH5APW/m7/.win-claude-workbench)
+PASS M6 mcp-config 子命令不迁移
+PASS M6 生成的 MCP 配置:server id 是 ruyi,子进程环境只写 RUYI_HOME(["ruyi","ai-computer-control"])
+
+DATA ROOT MIGRATION E2E: ALL PASS

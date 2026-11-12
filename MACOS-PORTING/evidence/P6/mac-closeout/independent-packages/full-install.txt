@@ -1,0 +1,17 @@
+PASS actual DMG bytes match the distribution checksum
+PASS image accurately identifies the local/internal trust scope
+PASS mounted DMG is actually read-only
+PASS every native code object or resource-bearing container verifies after trial sealing
+PASS normal copy installs complete signed App into an isolated user Applications path
+PASS existing installation is refused without replacing its bytes
+PASS installed native App starts with the DMG ejected and no configured external Node
+PASS LaunchServices opens the installed App from its actual installation path after eject
+PASS relaunch leaves separate user data unchanged
+PASS installed payload stays unchanged after both actual native entries
+PASS installed payload completes the isolated offline workbench journey
+PASS installed backend and bundled native Trash helper move and restore only the disposable old App
+INFO Gatekeeper assessment recorded; actual downloaded-origin approval remains unverified
+PASS removing only the installed App retains business data
+Trial installation evidence: /private/tmp/ruyi-p6-independent-packages-gQBL6k/ruyi-trial-install-yq8j3A
+
+MACOS TRIAL INSTALL E2E: ALL PASS

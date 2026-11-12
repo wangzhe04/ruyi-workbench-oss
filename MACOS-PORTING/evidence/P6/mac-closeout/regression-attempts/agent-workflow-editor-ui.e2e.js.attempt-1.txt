@@ -1,0 +1,24 @@
+PASS workflow editor can start from a clearly blank template
+PASS template actions distinguish edit, blank-new, and save-as-new
+PASS save-as-new lives in the lower-left footer group
+PASS template selector labels show template source
+PASS editor has a quick node selector
+PASS clicking a graph node immediately switches the inspector
+PASS dependencies are selected from existing nodes as a multi-select
+PASS dependency apply reads selected options instead of manual text
+PASS graph supports explicit connect-arrow mode
+PASS clicking a target node adds an edge dependency
+PASS connect mode and dependency help have visible styling
+PASS toolbar exposes delete-edge and the title bar exposes a Windows-style maximize action
+PASS right mouse drag pans the workflow graph
+PASS edges are interactive and choose the dragged endpoint from pointer position
+PASS dragging an edge endpoint can retarget it to a node
+PASS selected edges can be deleted(50c i18n:toast.wfEdgeDeleted)
+PASS fullscreen, titlebar, panning, and selected-edge states are styled
+PASS footer save-as and workflow buttons are styled
+PASS agent workflow node UI no longer renders confidence tags
+PASS editor exposes no confidence-threshold configuration wording
+PASS server-facing template/tool copy no longer exposes confidence wording
+PASS built-in templates do not seed visible confidence thresholds
+
+AGENT WORKFLOW EDITOR UI E2E: ALL PASS

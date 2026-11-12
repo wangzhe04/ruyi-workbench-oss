@@ -1,0 +1,33 @@
+[fake] [fake-openai] listening on 52321
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 3cf9a86a258e)
+[wb] UI: http://127.0.0.1:52322/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-reject-attr-e2e-oldwording
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (old-wording) workbench listening
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-reject-attr-e2e-oldwording/generated/workbench.mcp.json
+PASS (old-wording) meta reports tools>0 (tools offered before rejection)
+PASS (old-wording) turn completes ok:true after tools-rejected retry
+PASS (old-wording) streamed a reply on the retry ("Hello, world! This is a ")
+PASS (old-wording) tools-rejected retry note observed (NOT a stream_options loop)
+PASS (old-wording) ≥2 requests captured (rejected + retry) (2)
+PASS (old-wording) FIRST request carried tools (the one that was rejected)
+PASS (old-wording) retry request carried NO tools field (tools-rejected branch, not a WITH-tools retry)
+[fake] [fake-openai] listening on 52328
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 50d1ec757862)
+[wb] UI: http://127.0.0.1:52329/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-reject-attr-e2e-defaultwording
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (default-wording) workbench listening
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-reject-attr-e2e-defaultwording/generated/workbench.mcp.json
+PASS (default-wording) meta reports tools>0 (tools offered before rejection)
+PASS (default-wording) turn completes ok:true after tools-rejected retry
+PASS (default-wording) streamed a reply on the retry ("Hello, world! This is a ")
+PASS (default-wording) tools-rejected retry note observed (NOT a stream_options loop)
+PASS (default-wording) ≥2 requests captured (rejected + retry) (2)
+PASS (default-wording) FIRST request carried tools (the one that was rejected)
+PASS (default-wording) retry request carried NO tools field (tools-rejected branch, not a WITH-tools retry)
+PASS (no-tools) requestHasTools guard present (tools-first branch cannot fire for tool-less requests)
+PASS (no-tools) tools-rejected priority is gated on requestHasTools (no-tools 400 skips it)
+PASS (no-tools) stream_options retry branch preserved (still reachable for non-tools 400s)
+
+REJECT-ATTRIBUTION E2E: ALL PASS

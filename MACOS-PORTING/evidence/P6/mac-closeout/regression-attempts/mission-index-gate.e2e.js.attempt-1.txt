@@ -1,0 +1,41 @@
+PASS workbench up
+PASS runtime token available
+PASS (b) 刚立单 -> 交办中 dispatching
+PASS (a) 全局收件箱出现 pending question(跨会话聚合)
+PASS (a) 收件箱条目:type/sessionId/requestedAt/live(活回合可即时决策)
+PASS (a) counts 分型计数(含 pool 键)
+PASS (a) 无 token -> 403(ROUTE_AUTH token-browser)
+PASS (a) ?sessionId=<有待决的线程> 只回它自己的那一条
+PASS (a) ?sessionId=<没有待决的线程> 回空(别的线程的待决不混进来)
+PASS (b) 有未决 -> 需要你 needs_you(鎏金优先)
+PASS (b) 快照 activeTurn=true(活回合投影)
+PASS (b) fromSnapshot 与 fromCard 同态(needs_you)
+PASS (a) 决策后收件箱清空(不重复出现)
+PASS (b) 全 done -> 已收工 done(结果章驱动)
+PASS (b) 派生证据可查(sources.resultStatus)
+PASS (b) stop 章 -> 已停工 stopped
+PASS (b) supervised/预算耗尽 -> 已停工(合成态补充)
+PASS (b) until-done -> 进行中 running
+PASS (b) 有待决的速查线程 -> needs_you(117r-D5:速查是 kind 不是 state,它正在问你就该鎏金)
+PASS (b) 同一组入参 + 明说没事实 -> 仍是 quick_ask(逃生舱还在,只是判据从 kind 换成了 factsUnknown)
+PASS (c) 单任务:结果章(stopped + 未完成项 m3)
+PASS (c) 单任务:回滚引用 + 验收计数
+PASS (c) 长任务:游标 turnSeq + 用量切片
+PASS (c) multi-agent compact graph keeps presentation/steer facts and proposed pool work
+PASS (c) multi-agent compact graph omits large node payloads
+PASS (c) 多 Agent:runs digest(状态/eventSeq/节点数/池/活标志)= 班组图数据面
+PASS (c) 多 Agent:游标含 run eventSeq(增量消费位置令牌)
+PASS (c) Quick Ask:会话 meta kind 显式
+PASS (c) 121-K3:Quick Ask 会话【进】/api/missions(索引口径改成 threadVisible 的四条并集)
+PASS (c) 121-K3:但它仍然不是一个任务 —— kind 仍是 quick_ask、status=none、没有任务账本(不制造任务收工语义;实 kind=quick_ask status=none)
+
+── [d] 静态锁 ──
+PASS d 01-config ROUTE_AUTH 裸路径 '/api/interventions' token-browser
+PASS d 13d 全局聚合 handler 分支
+PASS d 75c activeTurn 分层(快照 live + 卡片持久事实后叠 overlay)
+PASS d mission-state.js 双导出(node + window)
+PASS d 五态 + 速问 状态集完整
+PASS d PoC 引用五态纯函数 + 真实 API(不复制逻辑)
+PASS d PoC 卡片/快照双适配消费
+
+MISSION INDEX GATE E2E: ALL PASS

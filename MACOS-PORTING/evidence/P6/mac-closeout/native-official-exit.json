@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-11-12T15:03:47.619319+00:00",
+  "command": [
+    "node",
+    "dev-harness/run-all.js",
+    "macos-input-events.e2e.js",
+    "macos-observe.e2e.js",
+    "macos-ocr.e2e.js",
+    "--parallel",
+    "1"
+  ],
+  "scope": "Official runner targeted recheck after native cancellation repair and measured whole-file timeout changes. Original 594-case run is retained as historical, not rewritten.",
+  "finishedAt": "2026-11-12T15:13:45.526832+00:00",
+  "exitCode": 0
+}

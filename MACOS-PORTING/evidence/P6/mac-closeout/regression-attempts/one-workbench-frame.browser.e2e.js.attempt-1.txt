@@ -1,0 +1,68 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 三条线程已建（sess_68bfb2c40dbceaab / sess_2fecaf7ee9d2ec4e / sess_76ce90215c53ad5b）
+PASS A4 事项容器已建（mission_54d81e61623df9ab）
+PASS A5 线程 A 停在 question 待决（等你）
+PASS A6 线程 B 的回合一直在飞（在跑）
+PASS A7 Edge/Chrome found
+PASS A8 browser target available
+PASS A9 首屏就绪（config 真到达、外框与左栏在位、分段钮已接线）
+PASS A10 View Transitions 探针已装上，且这个浏览器【原生支持】startViewTransition（不支持的那一支由 ⑤ 单独走）
+PASS A11 左栏把三条线程都画出来了（常开，不用先点开）
+PASS B0 默认视角是管家（K0 的默认入口；实测 steward）
+PASS B1 切到工作台之后，左栏／行容器／搜索框都还是【同一个节点】（isSameNode：true／true／true）
+PASS B1b 整个文档里只有一份左栏，而且它挂在外框的 .app-body 上（不在任何一个视角容器里）
+PASS B2 切回管家之后仍是同一个节点（来回两趟都不重建）
+PASS C1 顶栏 46px 贴在最上面（实测 46px @ y=0）
+PASS C1b 右栏空着时不占轨：左栏 268 ＋ 中栏 1652 ＝ 布局视口 1920
+PASS C2 1920 下三栏在位且首尾相接：左栏 268 ｜ 中栏 1260 ｜ 右栏 392
+PASS C2b 中栏内容读宽 = 900（--steward-col-w；实测 900px，受中栏可用宽度限制）
+PASS C3 两个视角的三栏栅格【逐字相同】（管家 1260px 392px ／ 工作台 1260px 392px）—— 切换时栅格一动不动
+PASS C3b 三栏的实际像素宽也逐字相同（左 268／中 1260／右 392）
+NOTE 右栏实测 392px @1920（容器查询里的 440 被 2.0 的内联档位压着，留给 K6）
+PASS D1 1200：左栏 268、右栏仍在栅格里（392px）、顶栏不出「右栏」钮（实测 display=none）
+PASS D2 1200：三条夹具线程都在（左栏共 4 行 = 1 行任务行 ＋ 3 条线程行：季度收尾、等华南的表、跑批处理、选个框架），行里的字都还印着（block）
+PASS D3 1200 断点截图已存（/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-iEUM0G/ruyi-one-workbench-frame-KRJLnH/k4-frame-1200.png）
+PASS D4 900：左栏折成 56px 图标栏（实测 56px）
+PASS D5 900：行一条不少（4 条，与 1200 那一档逐条相同，DOM 一个节点没删），只是字收起、每行留一颗 10px 的任务色点
+PASS D5b 900：右栏离开栅格、滑到屏幕外等着（x=900 ≥ 布局视口 900），顶栏出「右栏」钮（display=grid）
+PASS D5c 900：左栏里一个字都看不见了（§2.3「只留每行那颗任务色点」；实测残留 0 处）
+PASS D6 900 断点截图已存（/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-iEUM0G/ruyi-one-workbench-frame-KRJLnH/k4-frame-900.png）
+PASS D7 900：点顶栏「右栏」钮，右栏真的滑进来（left=508）
+PASS E1 一次切换只调一次 startViewTransition（实测 1）
+PASS E2 管家 → 工作台是【前进】方向：调用时 :root[data-vt]="fwd"
+PASS E3 命名部件上真的跑了那几条 keyframes（旧帧向左出、新帧从右进；实测 -ua-view-transition-group-anim-center,-ua-view-transition-group-anim-rail,-ua-view-transition-group-anim-root,-ua-view-transition-group-anim-side,-ua-view-transition-group-anim-titlebar,breathe,sa-flow,tool-section-in,vt-fade-in,vt-fade-out,vt-in-r,vt-out-l）
+PASS E4 收尾即删：动画跑完 :root 上不留 data-vt，也不剩任何 view-transition 动画
+PASS E5 工作台 → 管家是【返回】方向（calls=1，data-vt=back）
+PASS E6 返回方向用的是另外两条 keyframes（旧帧向右出、新帧从左进；实测 -ua-view-transition-group-anim-center,-ua-view-transition-group-anim-rail,-ua-view-transition-group-anim-root,-ua-view-transition-group-anim-side,-ua-view-transition-group-anim-titlebar,sa-flow,vt-fade-in,vt-fade-out,vt-in-l,vt-out-r）
+PASS E6b 同一次切换只有一个过渡（没有第二个模块偷偷再起一个）
+PASS F1 prefers-reduced-motion: reduce → 【即时切换】：视角真的换了（classic），startViewTransition 一次没调（0）
+PASS F2 同一刻零视角切换动画（实测 0 条；页面总动画 0 条 —— 头像呼吸那些与本条无关，所以只数 vt-*／view-transition 伪元素）
+PASS F3 宿主不支持 startViewTransition → 同样是零动画即时切换（视角 steward，动画 0 条，不留 data-vt）
+PASS F4 这两条路上左栏也还是同一个节点（零动画不等于零功能）
+NOTE 左栏实测：季度收尾=needs_you@needs_you ｜ 等华南的表=needs_you@needs_you ｜ 跑批处理=running@needs_you ｜ 选个框架=stopped@doneToday
+PASS G1 停在待决的 A：行上的态是 needs_you，它那一件落在 needs_you 组
+PASS G2 同一件任务里在跑的 B 跟着那一件走（态 running，组 needs_you）—— 组是按【任务】分的，不按线程
+PASS G3 今天跑完的 C 自成一件，落在「今天收工」（实测 doneToday）
+PASS G4 组的顺序就是 §2.3 那五组的顺序（空组不印；实测 needs_you → doneToday）
+PASS H0 管家视角那枚「＋」说「另起一件」（实测「另起一件」）
+PASS H1 管家视角的「＋」【不建会话】（3 → 3）—— 它只是把输入框的目标切成「另起一件」
+PASS H2 目标 chip 说「→ 如意 · 另起一件」、焦点落在输入框（实测 chip「→ 如意 · 另起一件」／activeElement=stewardComposerInput／输入框 disabled=false）
+PASS H3 工作台视角同一枚钮改口说「新线程」（实测「新线程」）
+PASS H4 工作台视角的「＋」立刻建出一条线程并清空中栏现场（会话 3 → 4，消息 0 条）
+PASS I1 A＋B 那一件是【一行任务行 ＋ 展开容器里两条线程行】（标题「季度收尾」，行上小计数 2）
+PASS I2 单线程任务【不画任务层】：C 就是 .rail-tasks 的直系那一行，A／B 不是
+PASS I3 整个左栏只有那一行任务行（实测 1 行）
+PASS J1 管家开出线程（sess_38a7be13ac9cd835）
+PASS J2 这一行 28 ms 后出现在左栏 ≤1000（从调用返回起算；建线程本身用了 93 ms）
+PASS J3 行上的来源标说这是「如意开的」（实测 steward）
+PASS K1 工作台视角点左栏那一行＝在中栏打开它（C 的长回答撑出 1596px 的对话流）
+PASS K2 现场：对话流停在 140px，线程头写着「选个框架」
+PASS K3 管家视角点左栏那一行＝换右栏焦点（中栏的对话流不动）
+PASS K4 切回工作台：对话流【原样】停在 140px（display:none 会把 scrollTop 丢掉，这一条是 app-frame 的滚动位置保持在兜）
+PASS K5 工作台仍然选着 C（左栏那一行也还是选中态）—— 管家侧换焦点没有把它清掉
+PASS K6 管家侧的焦点仍然是 A（实测焦点卡标题「等华南的表」，左栏选中 /sess_68bfb2c40dbceaab；读取闸 0 ms 后落下）—— 两个视角各记自己的现场，互不清空（§2.7 第三条）
+PASS K7 切换后焦点落在【这个视角里】：先由 applyShellMode 送到视角容器，再由管家侧自己接走（实测 activeElement=stewardDrawerAskInput）
+SHOTS /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-iEUM0G/ruyi-one-workbench-frame-KRJLnH/k4-frame-1200.png /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-iEUM0G/ruyi-one-workbench-frame-KRJLnH/k4-frame-900.png
+
+ONE WORKBENCH FRAME BROWSER E2E: ALL PASS

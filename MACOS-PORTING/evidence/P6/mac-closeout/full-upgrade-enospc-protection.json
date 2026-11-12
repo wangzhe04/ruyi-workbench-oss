@@ -1,0 +1,18 @@
+{
+  "recordedAt": "2026-11-12T15:43:09.629Z",
+  "failure": "Actual normal Full upgrade ditto staging failed with ENOSPC; it is not counted as a normal-copy pass.",
+  "oldAppTreeSha256": "cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c",
+  "expectedOldAppTreeSha256": "cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c",
+  "dataTreeSha256": "cb2f5a2094e15467cd6c005d2a4815604c9603d4489c4ea6c7e5daf53469f498",
+  "snapshotTreeSha256": "cb2f5a2094e15467cd6c005d2a4815604c9603d4489c4ea6c7e5daf53469f498",
+  "oldAppAndDataUnchanged": true,
+  "temporaryOldApp": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-e2e-home-E12PZT/Applications/升级 回退😀/Ruyi.app",
+  "removedOnlyAfterIntegrityConfirmation": true,
+  "identity": {
+    "dev": 16777234,
+    "ino": 87293368,
+    "uid": 501
+  },
+  "retained": "All raw error logs, data/backup/config, old-before report, source distributions and original old DMG retained.",
+  "removed": true
+}

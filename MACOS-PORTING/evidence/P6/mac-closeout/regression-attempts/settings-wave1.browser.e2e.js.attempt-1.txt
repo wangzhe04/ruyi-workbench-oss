@@ -1,0 +1,102 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS W0 设置弹窗打开了
+PASS W1a 预设里有「自定义」(实测 openai-compatible)
+PASS W1c 现在是两张卡:fake + 自定义(实测 2)
+PASS W1d 新卡没有模型也没有地址(实测 model="" baseUrl="")
+PASS W1e 敲到一半(只有 input 事件)不改 p.model(实测 "")
+PASS W1f 敲到一半不把半截名字写进 hiddenModels(实测 undefined)
+PASS W1g 失焦(change)后才补默认模型(实测 "deepseek-chat")
+PASS W1h 失焦后也没有半截名字被隐藏(实测 undefined)
+PASS W1i p.models 就是打出来的那一行(实测 [{"id":"deepseek-chat","label":"deepseek-chat"}])
+PASS W1j 整段替换敲到一半同样不写 hiddenModels
+PASS W1k 失焦后 hiddenModels 只含被删掉的那一个、p.model 不变(实测 {"h":["deepseek-chat"],"m":"deepseek-chat"})
+PASS W8a 点「保存服务商」
+PASS W8b 空 Base URL 被拦并说清原因(toast: 服务商「自定义 (OpenAI 兼容 / 内网自建)」的接口地址不合格：请先填接口地址。请改好后再保存。)
+PASS W8c toast 点名了这张卡(自定义 (OpenAI 兼容 / 内网自建))
+PASS W8d 没有写盘(盘上服务商 ["fake"])
+PASS W8e 空地址「测试连接」给本地化提示(实测 "✗ 请先填接口地址")
+PASS W8f 不再出现生硬的英文 no base URL
+PASS W8g 补上地址后保存成功,盘上有两个服务商
+PASS W7a 测试连接成功,状态行是绿字(实测 "✓ 连接成功，返回 1 个模型")
+PASS W7b 过一会儿绿字还在(修前 renderProviders 立刻把它擦掉;实测 {"cls":"prov-status muted good","text":"✓ 连接成功，返回 1 个模型"})
+PASS W16a 最大轮次填 abc
+PASS W16b 给出「请填正整数」
+PASS W16c abc 没有落盘
+PASS W16d 框里回显落盘值(空)
+PASS W16e 填 25 照常落盘
+PASS W16f 留空 = 不限,照常落盘
+PASS W2a 安全页有目录段(setcatToolGates)
+PASS W2b 当前是中文标题(能力总闸)
+PASS W2c 提醒状态行有中文文案(通知已关闭。当前的待决不会在以后补发。)
+PASS W2d 切到 en-US 后目录段标题随之换成英文(修前停在中文;实测 "Capability switches")
+PASS W2e 「提醒」状态行也换成英文(实测 "Notifications are off. Current decisions will not be sent later as a backlog.")
+PASS W2f 目录行标签也是英文(Allow running commands)
+PASS W2g 切回 zh-CN 又换回中文
+PASS W3 Mac Windows-overlay controls remain disabled
+PASS W3 Mac forced overlay rollback is explicitly unsupported and leaves configuration unchanged
+SKIP Windows overlay rollback/zip-picker UI error controls on Mac; shared MCP picker error path still tested
+PASS W3c 导入 MCP 选文件夹失败的 toast 是 message 原句(实测 "无法打开选择器：这是服务端写给用户看的原因")
+PASS W3d 全程没有 [object Object](无法打开选择器：这是服务端写给用户看的原因)
+PASS W4a 管家每日费用上限框显示落盘值 3
+PASS W4b 清空每日费用上限
+PASS W4c 清空不写盘:盘上仍是 3(实测 3;修前写成 0 = 关闭费用闸)
+PASS W4d 框里回显落盘值 3
+PASS W4e 清空全局每日费用上限
+PASS W4f 全局费用闸同样不被清成 0(实测 9)
+PASS W4g 清空每小时回合上限
+PASS W4h 每小时回合上限不被钳成最小值(实测 17)
+PASS W4i 填 5 照常落盘
+PASS W14a 在途时「建这一条」被禁用
+PASS W14b 连提两次只发出 1 个 POST(实测 1)
+PASS W14c 回来后按钮恢复可点
+PASS W5a 角色页列出了内置角色
+PASS W5b 角色卡摘要不印原始枚举(实测 "Explorer · 只读+联网检索 · 只读计划")
+PASS W5c 不改动直接点「保存角色」
+PASS W5d 没改动的内置角色不写进 agentRoleOverrides(实测 0 条;卡片 10 张)
+PASS W5e 改第一张角色的显示名(未保存)
+PASS W5f 切页签再回来,未保存的编辑还在(实测 "改过的名字")
+PASS W5g 有未保存修改时切范围弹出确认
+PASS W5h 取消确认 → 范围退回「全局」
+PASS W5i 取消确认 → 草稿原样
+PASS W5j 保存后 agentRoleOverrides 只有改过的那一个(explorer;实测 ["explorer"])
+PASS W5k 「恢复默认」后保存,覆盖被清掉(内置角色以后的改进照常生效)
+PASS W5l 没有未保存修改时切范围不弹确认
+PASS W6a 「添加工作区」填相对路径 abc
+PASS W6b toast 提示要完整的绝对路径
+PASS W6c 没有把相对路径写进 workspaces
+PASS W6d 「默认工作文件夹」填相对路径
+PASS W6e toast 提示要完整的绝对路径
+PASS W6f 默认工作文件夹没变,输入框回填落盘值
+PASS W6g 绝对路径照常添加
+PASS W15a 用量面板按预算 50 画出了进度
+PASS W15b 设置里把月度预算改成 123
+PASS W15c 预算落盘 123
+PASS W15d 再点开「用量」,面板显示新预算 123(修前一直是缓存里的旧预算 50)
+PASS W15e 面板重新拉了 /api/usage/summary(实测 1 次)
+PASS W11a 「模型名」是文本框(实测 INPUT)
+PASS W11b 绑了 datalist 做候选
+PASS W11c 手填 my-asr-model 点「添加并启用」
+PASS W11d 手填的名字被登记成带 asr 能力的模型并选中(实测 {"p":"openai-compatible","m":"my-asr-model"})
+PASS W13a 夹具里引导已完成(completedAt=2026-09-13T00:00:00.000Z)
+PASS W13b 重新打开引导
+PASS W13c 关掉向导后 completedAt 没被覆盖(实测 {"completedAt":"2026-09-13T00:00:00.000Z","version":1,"skipped":false})
+PASS W10a 再开向导
+PASS W10b 标题是中文(欢迎向导)
+PASS W10c 第一步切到 English,标题随之换成「Welcome guide」(实测 "Welcome guide")
+PASS W10d 关闭钮 aria-label 也换了(实测 "Close" 期望 "Close")
+PASS W9a 走到了「填入 API Key」那一步
+PASS W9b 说明不再说「默认模型由预设带出」(实测 "先填密钥；接口地址和模型名在「高级」里确认——选了预设的会自动带出，「自定义」要自己填。")
+PASS W9c 模型框占位不再说「留空则用预设默认模型」(实测 "填模型名（预设自带的会自动填入）")
+PASS W9d 云端「自定义」空模型被拦,说清要填模型名(实测 "还没有模型名：请在「高级」里填写要用的模型名（「自定义」没有默认模型），或先点「测试连接」从返回的清单里选一个。")
+PASS W9e 没有存下一个没有模型的服务商
+PASS W9f 填了模型名之后保存成功,盘上的服务商带着模型
+PASS W16g 管家步默认选中「跟随」
+PASS W16h 点「另挑一个」后它有选中态、「跟随」取消选中(实测 [false,true])
+PASS W16i 光标送进了模型名输入框
+PASS W99a 页面没有未捕获异常(无)
+
+SETTINGS WAVE1 BROWSER E2E: ALL PASS

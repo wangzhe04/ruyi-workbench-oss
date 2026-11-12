@@ -1,0 +1,9 @@
+PASS H0 chat: refused references recover in the actual main/child engines while execution stays strict and canonical audit survives
+PASS H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+PASS H0 responses: refused references recover in the actual main/child engines while execution stays strict and canonical audit survives
+PASS H1 responses: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+PASS H0 anthropic: refused references recover in the actual main/child engines while execution stays strict and canonical audit survives
+PASS H1 anthropic: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+SKIP production privacy fixture requires Windows DPAPI; portable gateway behavior is covered by unit tests
+
+PRIVACY GATEWAY E2E: ALL PASS

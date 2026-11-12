@@ -1,0 +1,88 @@
+[fake] [fake-openai] listening on 56196
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 1b98d0092746)
+[wb] UI: http://127.0.0.1:56197/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-memory-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :56197
+PASS read workbench token from runtime.json (for content-GET token gate)
+PASS seed: saved 5 memories via POST /api/memory
+PASS (1) global memory file lands under memory/global/
+PASS (1) project memory file lands under memory/project/<key>/
+PASS (4) cwd=A sees only project A memory
+PASS (4) cwd=B sees only project B memory
+PASS (4) A/B have distinct 16-hex projectKeys (f868afc724dc192f vs 04c3a8f5a888c475)
+PASS (4) global memory shows in every cwd
+PASS P2-1: GET /api/memory WITHOUT token → 403 (返回记忆条目含绝对路径,须自校验)
+PASS P2-1: GET /api/memory/item WITHOUT token → 403 (返回文件正文,须自校验)
+PASS P2-1: GET /api/memory WITH token → 200 ok (前端 api() 已带 token,行为不变)
+PASS P2-1: GET /api/memory/item WITH token → 200 ok
+PASS R4-S1 fixture: relation proposed and confirmed through HTTP
+PASS R4-S1 HTTP: relation catalog remains token-gated
+PASS R4-S1 HTTP: authorized relation catalog is reachable through ROUTE_AUTH
+PASS R4-S3 HTTP: maintenance report remains token-gated
+PASS R4-S3 HTTP: token-authorized maintenance endpoint returns the confirmed project cluster
+PASS AUD fixture: 一次性关系边 propose→delete 走真路由成功
+PASS AUD1 四条记忆图谱事件都【真的写进了】 logs/*.ndjson(缺: 无)
+PASS AUD2 建边事件带全 payload(id/type/from/to/scope 一个不少)—— 修前那份 meta 连字段都不会被拷进台账行(实测 ["ts","kind","id","type","from","to","scope"])
+PASS AUD3 维护扫描事件带 scope/clusters/suggestions(实测 ["ts","kind","scope","clusters","suggestions"])
+PASS AUD4 费用台账里没有任何「零 token 且零费用」的行 —— 空行守卫没有被放宽(实测 0 行)
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-memory-e2e/generated/workbench.mcp.json
+PASS (2) provider prompt carries the <workbench-memory> fence (default relevance retrieval)
+PASS (2) memory section carries the 「不得覆盖」 declaration
+PASS (2) provider memory prompt requires a relevance check on every user message
+PASS (2) provider memory line carries the marker + [id](scope) and NO file path (file_read cannot open the memory dir)
+PASS R4-S1 provider real path: confirmed contradiction marks BOTH injected memories
+PASS (2) provider index tells the model to use workbench_memory_read by bracketed id (not file_read)
+PASS (2) provider built-in prompt exposes Workbench Memory as the sole user-confirmed memory capability
+PASS (2) memory section length ≤ 6000 = memoryIndexCharCapV1 default (got 612)
+PASS (5) no relevant memory → no memory index payload
+PASS (5) zero match still injects a machine-readable memory preflight receipt
+PASS (5) stream meta exposes checked/matched counts for the activity UI
+PASS (5) relevant GLOBAL memory participates by default and is auto-retrieved
+PASS (5) default mode supports a per-session exclusion without switching to the 12-item fixed list
+PASS (5) excluded global memory is omitted and the receipt reports the exclusion
+PASS (5) default project+global retrieval can be restored explicitly
+PASS (5) current session can explicitly disable memory and the prompt reports that state
+PASS fence: a literal </workbench-memory> in a description is neutralized to [/workbench-memory
+PASS fence: exactly ONE real closing fence survives (spoofed one neutralized)
+PASS P3-4(b): oversized memory index is clamped to ≤ 6000 (got 2848)
+PASS P3-4(b): truncated index still closes with </workbench-memory> (no dangling open fence)
+PASS P3-4(b): a narrow index cap still truncates with the ellipsis marker and a closed fence (got 2600)
+PASS P3-1: saving a body > 256KB is rejected with a structured limit error
+PASS P3-1: the rejected oversized memory did NOT land on disk (no ghost)
+PASS P3-1: a body just under 256KB still saves fine
+PASS P2-4: migrating an id that already exists in the target group → 409 conflict
+PASS P2-4: conflict did NOT delete the SOURCE memory (still in B)
+PASS P2-4: TARGET memory was NOT overwritten by the rejected migration
+PASS P2-4: migrating a non-conflicting id still succeeds (200)
+PASS P3-3: enabling a project memory stamps the current projectKey (lock to source project)
+PASS P3-3: projectKey mismatch → NEITHER the original nor the same-id B impostor is injected
+PASS P3-3: a stderr notice fires — 记忆 pk-note 来源项目已变化,已暂停注入
+PASS (1) POST /api/memory/draft returns a parsed {name,description,type,body} draft
+PASS (1) draft carries sourceSessionId of the session
+PASS (1) confirming the draft persists the memory file to disk
+PASS (1) an aux ledger row (note:memory-draft) was written for the draft call
+PASS (3) same-id memory can exist in BOTH global and project scope (distinct files)
+PASS (3) explicit enable {shared-note, scope:global} accepted (existence-checked)
+PASS (3) scope lock: the GLOBAL shared-note is injected (its [id](global) line)
+PASS (3) scope lock: the same-id PROJECT shared-note does NOT substitute (scope mismatch skipped)
+PASS (3) DELETE (via POST + x-http-method) removes the global shared-note file
+PASS (3) file gone → ghost enabled entry injects nothing (project same-id NOT substituted)
+PASS (3) ghost cleanup: POST /api/session/memories [] clears the stale entry
+PASS extra: cwd outside allowed roots → silently falls back to defaultWorkspace (projectKey == A)
+PASS (2b) Claude --append-system-prompt 保留用户 append(政策信道)
+PASS (2b) 记忆/技能索引不再走 --append-system-prompt(P2 改道 stdin)
+PASS (2b) 记忆索引经 stdin <workbench-context> 注入
+PASS (2b) Claude stdin context carries the built-in Workbench Memory call protocol
+PASS (2b) Claude memory index gives the file path + tells the model to use Read
+PASS (2b) Claude memory prompt requires a relevance check on every user message
+PASS R4-S1 Claude real path: confirmed contradiction marks BOTH injected memories
+PASS (2b) Claude combined append ≤ 8000 (got 4444)
+PASS extra: stdin 索引段顺序 — skill index < memory index (got 1362,4971)
+PASS P2-2: main-round Claude spawn adds --add-dir <当前项目组记忆目录> when project memory enabled
+PASS P2-2: minimal authorization — the BARE memory root is NOT added (no cross-project/meta exposure)
+PASS extra: near-max user append keeps user marker + total ≤ 8000 (got 8000)
+PASS P3-4(a)→P2: near-max append → append 无闭合 </workbench-memory>(索引在 stdin,非被丢弃)
+PASS P3-4(a)→P2: near-max append → append 无开 <workbench-memory>(信道分离,非悬空)
+
+WORKBENCH-MEMORY E2E: ALL PASS

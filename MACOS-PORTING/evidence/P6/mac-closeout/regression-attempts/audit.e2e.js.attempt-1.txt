@@ -1,0 +1,22 @@
+PASS workbench up on :64314
+PASS UI token scraped
+PASS session created
+PASS (a) fake-openai listening on :64313
+PASS (a) GET /api/audit ok
+PASS (a) audit has entries (got 11)
+PASS (a) contains a workbench turn_start entry
+PASS (a) contains a workbench turn_end entry
+PASS (a) turn_start summary is non-empty human phrasing (开始回合（provider · fake-model）)
+PASS (a) turn_start summary human-mapped to 开始回合
+PASS (a) entries sorted ts-descending (new→old)
+PASS (b) GET /api/audit without UI token → 403 (got 403)
+PASS (c) source=workbench filter → all entries source:workbench
+PASS (d) sources.desktop === 'unavailable' with no ACC bridge (got unavailable)
+PASS (d) sources.workbench === true
+PASS (d) no desktop-source entries (degraded, not an error)
+PASS (e) GET /api/audit after injecting a secret log line ok
+PASS (e) plaintext secret is redacted — NOT present in the audit response body
+PASS (e) response contains a «redacted» marker (redact() ran on detail)
+PASS (f) limit=9999 clamped → entries.length ≤ 500 (got 12)
+
+AUDIT E2E: ALL PASS

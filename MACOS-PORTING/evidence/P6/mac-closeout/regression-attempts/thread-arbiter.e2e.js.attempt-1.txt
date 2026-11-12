@@ -1,0 +1,105 @@
+PASS 主工作台启动
+PASS 饥饿避免用工作台启动
+PASS ① 开关关:6 条并发回合全部正常收尾
+PASS ① 开关关:事件流里零 agent_resource(根本没问过仲裁器)
+PASS ① 开关关:6 条回合真的同时在跑(重叠峰值 6,没有任何并发上限)
+PASS ① 开关关:6 发 provider 请求同时在途 —— 六条首段正文到达的跨度 9ms 小于一个回合的 provider 延迟 900ms(串行至少 4500ms;总耗时 2104ms 只作读数)
+PASS ① 开关关:GET /api/steward/arbiter 409 steward.disabled
+PASS ① 开关关:POST /api/steward/arbiter/prioritize 409 steward.disabled
+PASS ① 无 token:GET /api/steward/arbiter 403(鉴权在开关判定之前)
+PASS 开:GET /api/steward/arbiter 返回 enabled + maxParallel=2
+PASS 开:空闲时 running/queue 都是空数组
+PASS ② 6 条全部最终跑完(排队不是失败)
+PASS ② 同时在跑的线程数上限严格是 2(实测峰值 2)
+PASS ② 后四条里至少 3 条被真的观察到在排队(实测 4)
+PASS ② 排队原因一律是 slot(不同 cwd、预算充裕)
+PASS ② 每条都带 ahead 与「等并发位」人话
+PASS ② 最后一条的 ahead 单调不增(实测 3>3>3>3>3>3>3>3>3>1>1>1>1>1>1>1>1>1>1>1>1>1>1>1>1>1)
+PASS ② 最后一条的 ahead 确实递减过(队伍在动)
+PASS ② 放行顺序 = 发起顺序(先到先得;观察到 6 条)
+PASS ② 全部跑完后并发位与队列都清空(release 无遗漏)
+PASS ② 小时窗口记满了这些回合(实测 6)
+PASS ③ 同 cwd 两条最终都跑完
+PASS ③ 第二条的等待原因是 lock(实测 lock)
+PASS ③ blockedBy 指向占着这个文件夹的第一条
+PASS ③ 人话里写清楚被哪条线程占着
+PASS ③ 两条【从不】同时在跑(写互斥真的生效)
+PASS ③ 等待经既有 agent_resource 事件发出,资源名是 cwd-write:<hash>
+PASS ③ blockers 里是占用者的人话名(112c 状态条可直接说「被 X 占着」)
+PASS ③ 等过的回合拿到位子与释放都各发一条事件(状态条能把「等待资源」清掉)
+PASS ③ 没等过的那条不发多余事件(不给用户制造噪音)
+PASS ④ 有待决的会话回合正常跑完
+PASS ④ 它没有等并发位 —— 它的首段正文只比占位者晚 125ms,小于一个回合的 provider 延迟 900ms(等位的话至少晚 900ms;耗时 1043ms 只作读数)
+PASS ④ 它连一条等待事件都没发(不入队、不占位)
+PASS ④ 它从没进过仲裁队列
+PASS ④ 它也从不占用并发位(并发上限只管「等你」之外的线程)
+PASS ⑤ 插队前队列顺序是先到先得 B,C
+PASS ⑤ prioritize 返回 prioritized:true
+PASS ⑤ 插队后 C 排到队首
+PASS ⑤ 队首条目带 priorityBump 标记(看板可显示「已插队」)
+PASS ⑤ 下一个并发位真的归了插队的 C(先于先到的 B)
+PASS ⑤ 对没在排队的线程插队 -> prioritized:false + not_queued(不是错误)
+PASS ⑤ 非法 sessionId -> 400 invalid_session(稳定信封在路由层)
+PASS ⑦ 改上限前:2 在跑 / 3 在等(实测 2/3)
+PASS ⑦ 新上限即时可读(配置不缓存)
+PASS ⑦ 改完立刻多放了一条(2 -> 3),没等任何回合跑完(实测 3 在跑)
+PASS ⑦ 多出来的那一条正是刚才排在队首的(原来两条一条没换)
+PASS ⑧ 小时回合触顶 -> 排队而不是拒绝,原因是 budget(实测 budget)
+PASS ⑧ 人话说清楚是回合数触顶
+PASS ⑧ 状态里回显当前的小时上限
+PASS ⑧ 上限调回去之后它自己跑完了(排队不是拒绝)
+PASS ⑧ 等预算也走既有 agent_resource,资源名 steward:budget
+PASS ⑨ 同时满足 lock 与 slot 时只报 lock(实测 lock)
+PASS ⑨ 结果里没有 slot 的 ahead(一条线程只给一个原因)
+PASS ⑩ /api/stop 对排队中的回合返回 stopped:true
+PASS ⑩ 被停的排队回合走的是 process/stopped(不是 error 信封)
+PASS ⑩ 流里没有 error 事件(排队被取消不是失败)
+PASS ⑩ 回合从没开始跑(没有 result 事件)
+PASS ⑩ 它既不在队列也不占并发位(出队干净)
+PASS ⑩ 占位的那条不受影响,照常跑完
+PASS ⑪ 仲裁器快照给出 slot
+PASS ⑪ GET /api/missions 的线程行给出同一个 slot(实测 slot)
+PASS ⑪ steward_thread_prioritize 的返回给出同一个 slot
+PASS ⑪ 三处的键集完全相同(同一个 waitReasonFor 的输出)
+PASS ⑪ 三处的人话逐字相同(UI 与管家不会各说各的)
+PASS ⑪ 不在等的线程 wait 字段恒在、值是 null(诚实,不编一个「在等」)
+PASS ⑥ 测试接缝生效:饥饿阈值被 env 覆盖成 600ms(实测 600)
+PASS ⑥ 被挤的那条最终拿到了并发位(没有饿死)
+PASS ⑥ 它先于至少一条后来的插队者被放行(实测 6 条排在它后面)
+PASS ⑥ 观察到它被提到了队首
+PASS ⑥ 收场时队列与并发位都清空
+PASS ⑫ 4 条同 cwd 的并发回合最终都跑完
+PASS ⑫ 同时申请时 running 峰值仍是 1(修前会同时放行多条;实测 1)
+PASS ⑫ 总耗时 4271ms ≥ 串行下界 2700ms(并发放行的话一个回合就跑完了)
+PASS ⑫ 4 条里有 3 条真的等过锁(第 1 条不等;实测 3)
+PASS ⑫ 收场时并发位与队列都清空(结转的入队路径不漏条目)
+PASS ⑬ 两条都跑完
+PASS ⑬ 经目录联接指向同一个文件夹的第二条被判为等锁(修前算出不同的哈希键、直接并发;实测 lock)
+PASS ⑬ 两条从不同时在跑(realpath 归一化真的生效)
+PASS ⑭ 看板插队照常成功(got 200)
+PASS ⑭ 看板插队落进决策日志(修前一行都没有;新增 1 行)
+PASS ⑭ 与工具路径逐字同形(permissionMode / undoRef 都在)
+PASS ⑭ 编造的 sessionId 被目标存在性校验拦下(修前静默 not_queued;got 400 not_found)
+PASS ⑮ 两条都跑完(待决豁免的语义不变:它不等锁)
+PASS ⑮ 读模型多出 pendingWriters,能看见这条待决豁免的写者(修前它在任何面上都不可见;got ["sess_59a57c111daf18c6"])
+PASS ⑮ 它仍然【不】进 running(不占并发位、不挡别人 —— 116h 的刻意设计一字不动)
+PASS ⑮ 撞上同 cwd 的活跃写者时发一条 acquired(不是 waiting —— 它没在等谁,只是同时在写;got acquired)
+PASS ⑮ 回合收尾后从 pendingWriters 里摘掉(release 幂等,不留幽灵)
+PASS 单点:waitReasonFor 只声明在 06i(引擎层纯函数)
+PASS 单点:steward_thread_status 经 waitReasonFor
+PASS 单点:GET /api/missions 的线程行经 waitReasonFor
+PASS 单点:总览行 / 仲裁器读模型 / 插队工具三处都经 waitReasonFor
+PASS 单点:06i-steward-core.js 里没有第二处自己拼的等待人话
+PASS 单点:13d-core-domain-routes.js 里没有第二处自己拼的等待人话
+PASS 单点:13g-steward.js 里没有第二处自己拼的等待人话
+PASS 单点:13j-steward-tool-base.js 里没有第二处自己拼的等待人话
+PASS 单点:13k-steward-threads.js 里没有第二处自己拼的等待人话
+PASS 单点:13l-steward-ops.js 里没有第二处自己拼的等待人话
+PASS 单点:13m-steward-runner-base.js 里没有第二处自己拼的等待人话
+PASS 单点:13n-steward-arbiter.js 里没有第二处自己拼的等待人话
+PASS 单点:13o-steward-runner-prompt.js 里没有第二处自己拼的等待人话
+PASS 单点:13p-steward-runner-actions.js 里没有第二处自己拼的等待人话
+PASS 单点:13q-steward-runner-turn.js 里没有第二处自己拼的等待人话
+PASS 单点:13h-steward-runner.js 里没有第二处自己拼的等待人话
+
+THREAD ARBITER E2E: ALL PASS

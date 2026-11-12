@@ -1,0 +1,55 @@
+PASS workbench up (RUYI_TEST_HOOKS=1)
+PASS runtime token
+PASS POST /api/sessions 创建会话
+PASS (a) 无崩溃:pending->allowed,v0->v2
+PASS (a) 磁盘:allowed + type 保留 + v2
+PASS (b) CAS:expectedVersion 不匹配 -> version_conflict
+PASS (b) 版本冲突不转换(仍 pending)
+PASS (c) not_found:ivId 不存在
+PASS (d) before_applying:crash 响应
+PASS (d) before_applying:磁盘停在 pending(version=0)
+PASS (d) before_applying:workbench 重启 up
+PASS (d) before_applying:重启恢复 -> cancelled_restart(实际 cancelled_restart)
+PASS (d) after_applying:crash 响应
+PASS (d) after_applying:磁盘停在 applying(version=1)
+PASS (d) after_applying:workbench 重启 up
+PASS (d) after_applying:重启恢复 -> indeterminate(实际 indeterminate)
+PASS (d) before_resolve:crash 响应
+PASS (d) before_resolve:磁盘停在 applying(version=1)
+PASS (d) before_resolve:workbench 重启 up
+PASS (d) before_resolve:重启恢复 -> indeterminate(实际 indeterminate)
+PASS (d) after_resolve:crash 响应
+PASS (d) after_resolve:磁盘停在 applying(version=1)
+PASS (d) after_resolve:workbench 重启 up
+PASS (d) after_resolve:重启恢复 -> indeterminate(实际 indeterminate)
+PASS (d) before_terminal:crash 响应
+PASS (d) before_terminal:磁盘停在 applying(version=1)
+PASS (d) before_terminal:workbench 重启 up
+PASS (d) before_terminal:重启恢复 -> indeterminate(实际 indeterminate)
+PASS (d) after_terminal:crash 响应
+PASS (d) after_terminal:磁盘停在 allowed(version=2)
+PASS (d) after_terminal:workbench 重启 up
+PASS (d) after_terminal:重启恢复 -> allowed(实际 allowed)
+
+── [f] source:steward ──
+PASS (f1) 成功:source:'steward' 的 pending->allowed 与用户来源同形(v0->v2)
+PASS (f1) 磁盘终态行带 source:'steward'(事后可追责到管家)
+PASS (f2) 版本冲突:管家来源不绕过 CAS -> version_conflict
+PASS (f2) 版本冲突不转换、不留 source 痕迹(仍 pending)
+PASS (f3) 越权前置:同一条待决先由管家决掉
+PASS (f3) 越权:已终态的待决管家再决一次 -> already_terminal(不得改写用户已定的事)
+PASS (f3) 越权:无 token 的 steward 决策请求 -> 403(鉴权在管家之前)
+
+── [e] 静态锁 ──
+PASS e 02 有 transitionInterventionState(CAS 原语)
+PASS e 02 INTERVENTION_TERMINAL 含 indeterminate
+PASS e 02 per-ivId 串行锁 interventionTransitionLocks
+PASS e 02 失败注入六窗口 crashAt 钩子
+PASS e 13d 测试端点 + RUYI_TEST_HOOKS env 门控
+PASS e 01-config ROUTE_AUTH 测试端点 token 级
+PASS e 02 markInterruptedInterventions applying->indeterminate 恢复
+PASS e 13d 审计标签 switch 有 source==='steward' -> 'steward_decision' 分支
+PASS e 02 transitionInterventionState 把 source 原样写进 applying/terminal 行
+PASS e 06i 管家放行范围经 stewardMayAct 真值表(管家自身无档位)
+
+INTERVENTIONS CAS E2E: ALL PASS

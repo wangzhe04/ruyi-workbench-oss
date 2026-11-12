@@ -1,0 +1,21 @@
+PASS ① cold start → exactly 1 authoritative sweep after 2 writes (got 1)
+PASS ① session A checkpoint dir present (~24KB, under 50KB cap)
+PASS ① 30 extra journalGc calls under budget → ZERO extra sweeps (still 1) — no per-call full scan
+PASS ① probe counted every journalGc call (calls=32)
+PASS ② over-budget writes triggered real sweeps (fullScans 1 → 8)
+PASS ② oldest session (A) was PURGED once total exceeded the cap (cleaning not skipped by the cache)
+PASS ② newest session (E) survives the purge
+PASS ② some sessions purged (surviving dirs=2 < 5)
+PASS ② on-disk total back under the cap after purge (50030 <= 51200)
+PASS ③ extra journalGc when already under cap is a no-op (idempotent)
+PASS ④ history snapshots ALONE auto-triggered a sweep (fullScans 9 → 19) — NOT missed as pre-fix
+PASS ④ over-cap history-only tree was purged back under the cap (31000 <= 51200)
+PASS ④ oldest history-only session (hist_a) purged (cap enforced, not soft)
+PASS ④ newest history-only session (hist_e) survives
+PASS ⑤ 自己就超限的活会话(sess_ckgc_protected)目录没被整仓清扫删掉(修前:整个目录消失)
+PASS ⑤ 它刚写的最新快照(history:7:f51a38ca7b1e1de8)仍在盘上,rawRef 可回读
+PASS ⑤ 它的文件回滚点(1-0.gz)一份没动
+PASS ⑤ 最近几份历史快照被保留(≥4,实际 8)
+PASS ⑤ 与本会话无关的旧会话照旧被按上限清掉(上限没被放弃)
+
+CHECKPOINT-GC-CACHE E2E: ALL PASS

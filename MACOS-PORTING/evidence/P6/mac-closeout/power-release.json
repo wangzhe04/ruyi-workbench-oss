@@ -1,0 +1,9 @@
+{
+  "recordedAt": "2026-11-12T15:56:11.448411+00:00",
+  "status": "pending_after_final_review",
+  "ownedCaffeinatePid": 44774,
+  "historicalScreensaverIdleTime": 300,
+  "actualRestored": false,
+  "ownedAssertionReleased": false,
+  "instructionOverridesOlderP5KeepAwakeCondition": true
+}

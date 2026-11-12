@@ -1,0 +1,115 @@
+── (A) 两道门 ──
+PASS A1 schedulerEnabledV1:false 时六个工具全部 scheduler.disabled
+PASS A2 关着时 <data>/scheduler 目录都不建(29 号文 §10:零持久化写入)
+PASS A3 普通会话 ctx 下六个工具全部 steward.forbidden(13g 门控壳)
+PASS A4 无 ctx(桥接/子进程路径)同样 fail-closed forbidden
+PASS A5 越权与无 ctx 的调用一个字节都没写
+── (C) create ──
+PASS C1 create 建成一条(回 {ok,task})
+PASS C2 回 describeSchedule 的【键】(实得 scheduler.describe.weekly.weekdays)
+PASS C3 回 describeSchedule 的【参数】逐字(实得 {"time":"18:00"})
+PASS C4 task 行自带同一份 describeKey,且 nextRunAt 已经算好、enabled 为真
+PASS C5 task 行带载荷类型与「还没跑过」的两个空
+PASS C6 真的落盘了且 createdBy 记成 steward(实得 1 条)
+PASS C7 permissionMode 入参落进 autonomy(天花板判定在 13s,这里只核透传)
+PASS C8 反:缺 title -> invalid_request(实得 invalid_request)
+PASS C9 反:载荷深处带 localCommand -> payload_forbidden_key(实得 payload_forbidden_key)
+PASS C10 反:once 的时点已经过去 -> invalid_request(实得 invalid_request)
+PASS C11 三条反例一条都没落进表里(实得 1 条)
+── (D) 无人值守(ctx.trigger:inbox) ──
+PASS D1 无人值守时 create 只回 propose_required(实得 propose_required/unattended)
+PASS D2 无人值守时 delete 只回 propose_required(实得 propose_required)
+PASS D3 两条 propose_required 都是【零写入】(表还是那一条)
+PASS D4 同一 ctx 下 list 仍可做(只读,不越任何边界)
+PASS D5 同一 ctx 下 pause 仍可做(暂停用户自己下的单,不改载荷不改权限档)
+PASS D6 resume 同上
+── (E) list ──
+PASS E1 list 回两条(实得 2)
+PASS E2 每行自带 describeKey/params(实得 scheduler.describe.daily/{"time":"10:30"})
+PASS E3 工具面这一行【只】有那九个字段(不把 policy/state/载荷正文灌进模型上下文;实得 describeKey,describeParams,enabled,id,lastMode,lastResult,nextRunAt,payloadKind,title)
+PASS E4 反向:界面那份全量字段一个都没混进来
+── (F)(G) pause / resume ──
+PASS F1 pause 正:enabled 变 false
+PASS F2 pause 不动 nextRunAt(暂停不该把下一次往后推;前 2026-11-13T10:00:00.000Z 后 2026-11-13T10:00:00.000Z)
+PASS F3 反:错 id -> not_found(实得 not_found)
+PASS G1 resume 正:enabled 回 true
+PASS G3 反:错 id -> not_found
+── (H)(K) run_now ──
+PASS H1 run_now 正:reminder 载荷 outcome succeeded(实得 succeeded)
+PASS H2 fires 多一行 reconciled 且 mode 是 manual(实得 1 行/manual)
+PASS H3 「再跑一次」不动下一次触发时间(前 2026-11-13T02:30:00.000Z 后 2026-11-13T02:30:00.000Z)
+PASS H4 反:错 id -> not_found
+PASS K1 reminder 到点写进收件箱恰好一行(实得 1)
+PASS K2 新类 reminder(实得 reminder)
+PASS K3 payload 带 quiet 与那句事实(实得 quiet=true ask=起来走两步)
+PASS K4 payload 标明来源与是哪条任务(收件箱行不猜,直接记)
+── (L) 熔断与恢复 ──
+PASS L0 建一条 prompt 任务(正文带 BOOM -> 假引擎回 HTTP 500 -> 每次回合必失败)
+PASS L1 三次 run_now 全部 failed(实得 failed)
+PASS L2 连败 3 次 -> 自动停用(实得 enabled=false 连败=3)
+PASS L3 fires 恰好一行带 tripped(实得 1)
+PASS L4 熔断也走 reminder 类、印一句事实(实得 1 行 / 定时任务《注定失败的一条》连着失败三次,已经自动停用)
+PASS L5 resume 把熔断的那条重新打开
+PASS L6 从熔断里恢复时连败计数清零(不清零的话下一次失败会立刻再熔断;实得 0)
+── (I) delete ──
+PASS I1 delete 正:回 {ok,id,deleted}
+PASS I2 表里少一条(实得 1 条)
+PASS I3 删定义【不删回执】:fires 行数一行没少(前 15 后 15)
+PASS I4 反:错 id -> not_found
+── (M) 承诺三项 ──
+PASS M1 无人值守遇 ask 【不放行】:等窗到时拒,本次 needs_you(29 号文 §10 红线二;实得 needs_you)
+PASS M2 被拒的那一次一个字节都没写出去
+PASS M3 两条一天之内会触发的 once 建好了
+PASS M4 未来承诺:新建两条一天内触发的 once 之后,这一项【正好多 2】(前 2 后 4)
+PASS M5 过期或结果未知:上次到访以来 skipped + unknown 共 2 条(实得 2)
+PASS M6 等你的:此刻 lastResult 仍是 needs_you 的 1 条(实得 1)
+PASS M7 摘要里三行都在(实得 upcoming,missed,needsYou)
+PASS M8 每行带 i18n 键与 params(前端 steward-conversation 优先按键渲染,text 只是兜底)
+PASS M9 三行排在既有七类【之后】(那七类是刚发生的事,承诺是日程)
+PASS M10 fires 的水位跟着推进(实得 21,应为 21)
+PASS M11 反:把水位喂回去 -> 同样两行不再重复计入(实得 0)
+PASS M12 另两项是【此刻的状态】不是流水,水位对它们没有影响(同一条任务反复 needs_you 只算一条)
+── (J) 决策日志 ──
+PASS J1 create 恰好六行(实得 6)
+PASS J2 pause 恰好两行(实得 2)
+PASS J3 resume 恰好三行(实得 3)
+PASS J4 run_now 恰好五行(实得 5)
+PASS J5 delete 恰好五行(实得 5)
+PASS J6 反:读工具 list 一行都不写
+PASS J7 create 那一行带 undoRef{kind:schedule,id}
+PASS J8 决策日志的 args 只记 id/标题/两个 kind,不复制载荷正文
+── (T) S-a 档位 ──
+PASS T0 建一条 tier:fast 的任务,落盘 target.tier=fast(实得 {"mode":"new-session","tier":"fast"})
+PASS T1 触发成功并开了线程(实得 outcome=succeeded sid=sess_034e06a4947297b2)
+PASS T2 ① 定时线程的 engineRoute 与手工 steward_thread_new({tier:'fast'}) 逐字段相同(实得 定时={"engine":"openai","providerId":"fast-ep","model":"fast-model"} 手工={"engine":"openai","providerId":"fast-ep","model":"fast-model"})
+PASS T3 ② fast 档没配 → 跟随全局(实得 {"engine":"openai","providerId":"fake","model":"fake-model"})
+PASS T4 ② 没配不是「配了但端点没了」:这一条不记 steward_thread_model_fallback
+PASS T5 ② fast 档指向已删的端点 → 跟随全局(实得 {"engine":"openai","providerId":"fake","model":"fake-model"})
+PASS T6 ② 并记一条 steward_thread_model_fallback(与手工开线程同一个函数写的;实得 {"ts":"2026-11-12T14:14:20.020Z","kind":"steward_thread_model_fallback","tier":"fast","providerId":"ghost-ep","sessionId":"sess_d9d73064ff4e5cd6"})
+PASS T7 ③ 不传 tier → 落盘 target 逐字是 {"mode":"new-session"}、工具返回没有 tier 键(实得 {"mode":"new-session"})
+PASS T8 ③ 决策日志:不传的那条 args 没有 tier 键,带 fast 的那条记着 tier(实得 {"id":"sch_b831d76b85a1dbfa","title":"不选档位","scheduleKind":"daily","payloadKind":"prompt"} / {"id":"sch_747ec793c427dcf0","title":"快档巡检","scheduleKind":"daily","payloadKind":"prompt","tier":"fast"})
+PASS T9 ③ 不传 tier 的线程 engineRoute 就是全局那条 —— strong 档配着 strong-model 也没被套上(实得 {"engine":"openai","providerId":"fake","model":"fake-model"})
+PASS T10 ④ existing-session 带 tier → 落盘的任务没有 tier(实得 {"mode":"existing-session","sessionId":"sess_c46200a147c1ace5"})
+── (W) S-b 每条任务自己的文件夹 ──
+PASS W0 前提:手工慢回合已经拿到写锁、正在模型那一步睡着
+PASS W1 建好一条 prompt 任务;还没触发时任务表里没有 workdir
+PASS W2 ① 定时线程拿到不同的 cwdKey(0868e3772667 vs 手工 c2384eea8656),手工慢回合没完它已 reconciled(true),全程没有在等锁(arbiterWait 采样到 lock 0 次:[];其余非空 0 次:[]);outcome=succeeded
+PASS W3 ② task.workdir 落盘,且就是那条线程的 cwd(在 Ruyi 根下;实得 workdir=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具) cwd=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具))
+PASS W4 ② 新文件夹登记在如意那张表里(表 5 → 6 行)且目录真的建了
+PASS W4b W7:用户的常用工作区一行没多(1 → 1 行),定时任务的文件夹不出现在里面
+PASS W5 手工慢回合随后也跑完了(两条互不等待)
+PASS W6 ③ 第二次触发复用同一个 workdir:没有 -2 目录、表不多一行(实得 cwd=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具) -2存在=false 表 6 行)
+PASS W7 目录被删、表里那行还在 → 原地建回、仍用它、表不多一行(实得 cwd=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具) 存在=true 表 6 行)
+PASS W8 前提:那一行已经不在候选表里
+PASS W9 ③ 表里没有了 → 重新派生、重新登记,线程用的是新登记的那一个(实得 workdir=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具) 在表里=true)
+PASS W10 前提:常用工作区填满 64 行(实得 64)
+PASS W11 常用工作区满员 → 照常派生、任务记下 workdir、常用工作区仍 64 行(实得 outcome=succeeded cwd=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/表满时的那条 常用 64 行)
+PASS W12 没有 scheduler_workdir_fallback(退役的 table_full 回落不再出现)
+PASS W13 ④ HTTP 新建带 workdir → 落盘没有 workdir;target.tier 照收(实得 200 {"target":{"mode":"new-session","tier":"fast"}})
+PASS W14 ④ PATCH 带 workdir → 服务端那一份原样保住(实得 200 /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具))
+PASS W15 PATCH 整替 target 就能改档位(已有任务改档的唯一入口),target 里夹带的 workdir 不落、服务端那一份不动(实得 {"target":{"mode":"new-session","tier":"fast"},"workdir":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/Ruyi/A股盘中巡检(2-ter 夹具)"})
+PASS W16 ④ target 仍拒 cwd:新建与 PATCH 都 400 scheduler.payload_forbidden_key(实得 400/400)
+PASS W17 ④ 那个「想指定的」目录从头到尾没被建出来
+PASS W18 ⑤ 管家关着 → 线程照旧落 defaultWorkspace、任务没有 workdir、表不多一行、没建目录(实得 outcome=succeeded cwd=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-sched-steward-mjlmls/workspace)
+
+SCHEDULER STEWARD E2E: ALL PASS

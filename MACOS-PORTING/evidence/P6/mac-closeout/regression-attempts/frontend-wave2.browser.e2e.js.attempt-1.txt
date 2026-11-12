@@ -1,0 +1,97 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0f 五条线程都建出来了（{"A":"sess_a5cf6df8d5f5e5a2","B":"sess_6f60e4f8b9a47cf1","C":"sess_34cbd2b45b99eba8","H":"sess_de7f16ca3b00b004","Q":"sess_e015984f32199e69"}）
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS F1.0 管家视角
+PASS F1.1 左栏三条线程都画出来了
+PASS F1.2 线程甲行右侧有一句时间（「刚刚」）
+PASS F1.3 焦点放在线程甲的标题按钮上
+PASS F1.4 时间标签换了字（「刚刚」→「10分钟前」）
+PASS F1.5 只换字、不重建：两行与标题按钮都还是原来的节点（修前整行重建；实测 {"sameRowA":true,"sameRowB":true,"sameTitle":true,"activeIsTitle":true,"activeTag":"BUTTON.steward-board-thread-title","title":"最后动静：10分钟前"}）
+PASS F1.6 键盘焦点还在线程甲的标题按钮上（修前被拔回 BODY；实测 BUTTON.steward-board-thread-title）
+PASS F1.7 悬停提示跟着换了（「最后动静：10分钟前」）
+PASS F1.8 焦点放在「fresh」组头的折叠按钮上
+PASS F1.9 组头真的被重建了（本断言保证 F1.10 有证明力；实测 {"rebuilt":true,"focused":true}）
+PASS F1.10 重建之后焦点在新的组头按钮上（修前掉回 BODY）
+PASS F1.11 再按一次展开，焦点仍在组头按钮上
+PASS F1.12 切语言之后整行被重建了（证明力；实测 {"rebuilt":true,"focused":true}）
+PASS F1.13 行被重建之后焦点在新行的标题按钮上（修前掉回 BODY）
+PASS F2.0 工作台视角
+PASS F2.1 打开线程头那条，管家条出来了
+PASS F3.zh-CN 390 宽线程头高 189px（两行各自允许再换一行，仍可控）
+PASS F2.zh-CN 11 个宽度下线程头都不覆盖、不溢出、线程名不被压没、关键控件都够得着（头宽/线程名宽 390:334/226 480:424/223 560:504/206 640:584/286 760:704/272 900:844/376 1024:756/288 1180:912/318 1280:620/152 1440:780/312 1920:1260/666）
+PASS F2.zh-CNb 宽的时候管家话照常显示、窄的时候收起（1920：true；390：false）
+PASS F3.en-US 390 宽线程头高 184px（两行各自允许再换一行，仍可控）
+PASS F2.en-US 11 个宽度下线程头都不覆盖、不溢出、线程名不被压没、关键控件都够得着（头宽/线程名宽 390:334/234 480:424/231 560:504/214 640:584/294 760:704/414 900:844/291 1024:756/430 1180:912/359 1280:620/294 1440:780/454 1920:1260/519）
+PASS F2.en-USb 宽的时候管家话照常显示、窄的时候收起（1920：true；390：false）
+PASS F2.names 窄档把字收起后可访问名与悬停提示都在（{"toggleText":"Let the steward watch","toggleTitle":"Let the steward watch","backAria":"Back to Ruyi","backTitle":"Back to Ruyi"}）
+PASS F4.0 工作台视角
+PASS F4.zh-CN.1 回合在跑（被 HOLD 住）
+PASS F4.zh-CN.2 打字之后「插话方式」下拉出现了
+PASS F4.zh-CN.3 输入框宽 564px ≥ 150（修前右栏开着的 1280 下是 5px）
+PASS F4.zh-CN.4 下拉与发送钮同一行、在发送钮左边，输入框与它们不重叠（折成两行；{"ta":{"x":301,"y":815,"w":564,"h":24,"r":865},"sel":{"x":622,"y":845,"w":120,"h":32,"r":742},"send":{"x":784,"y":843,"w":81,"h":36,"r":865},"boxOverflow":false,"boxH":78}）
+PASS F4.zh-CN.5 输入胶囊没有横向溢出（胶囊高 78px；{"ta":{"x":301,"y":815,"w":564,"h":24,"r":865},"sel":{"x":622,"y":845,"w":120,"h":32,"r":742},"send":{"x":784,"y":843,"w":81,"h":36,"r":865},"boxOverflow":false,"boxH":78}；{"boxClient":586,"boxScroll":586,"actions":454.859375,"actionsScroll":455,"kids":["agentTeamBtn:103","skillBtn:64","file-label composer-file btn-ic:34","steerDeliveryMode:120","composerVoiceBtn:34","sendBtn:81","composerVoiceBtnStatus:1"]}）
+PASS F4.zh-CN.6 插话发出，输入框清空
+PASS F4.zh-CN.7 发送之后下拉收起、输入框高度 24px 回到单行（修前 144px）
+PASS F4.zh-CN.8 放行之后回合收尾（{"streaming":false,"msgs":["Fakefake-model11/12 22:04好。\n本轮变更本次未改动任何文","你11/12 22:05HOLD 一复制编辑重发重试⏪ 回溯到此处","Fakefake-model11/12 22:05先说一句，\n✓ 已注入插话一二"]}）
+PASS F4.en-US.1 回合在跑（被 HOLD 住）
+PASS F4.en-US.2 打字之后「插话方式」下拉出现了
+PASS F4.en-US.3 输入框宽 564px ≥ 150（修前右栏开着的 1280 下是 5px）
+PASS F4.en-US.4 下拉与发送钮同一行、在发送钮左边，输入框与它们不重叠（折成两行；{"ta":{"x":301,"y":815,"w":564,"h":24,"r":865},"sel":{"x":615,"y":845,"w":120,"h":32,"r":735},"send":{"x":777,"y":843,"w":88,"h":36,"r":865},"boxOverflow":false,"boxH":78}）
+PASS F4.en-US.5 输入胶囊没有横向溢出（胶囊高 78px；{"ta":{"x":301,"y":815,"w":564,"h":24,"r":865},"sel":{"x":615,"y":845,"w":120,"h":32,"r":735},"send":{"x":777,"y":843,"w":88,"h":36,"r":865},"boxOverflow":false,"boxH":78}；{"boxClient":586,"boxScroll":586,"actions":471.34375,"actionsScroll":471,"kids":["agentTeamBtn:106","skillBtn:68","file-label composer-file btn-ic:34","steerDeliveryMode:120","composerVoiceBtn:34","sendBtn:88","composerVoiceBtnStatus:1"]}）
+PASS F4.en-US.6 插话发出，输入框清空
+PASS F4.en-US.7 发送之后下拉收起、输入框高度 24px 回到单行（修前 144px）
+PASS F4.en-US.8 放行之后回合收尾（{"streaming":false,"msgs":["Fakefake-model11/12, 10:05 PM先说一句，再说完。\nS","You11/12, 10:05 PMHOLD 一CopyEdit & resen","Fakefake-model11/12, 10:05 PM先说一句，\n✓ Inj"]}）
+PASS F4.9 输入框变宽后高度自己重量（窄宽 96px → 放宽后 24px，中间没有任何 input 事件；宽 225px）
+PASS F7.0 管家开着（前端手上的配置读得到；机器忙时 /api/status 偶尔晚到，先等它）
+PASS F7.1 口袋「记得的关于你」打开了设置弹层
+PASS F7.2 记忆与决策两块都画出了空态
+PASS F7.3 中文空态（{"memory":"管家还没记下关于你的任何事。","decisions":"管家还没替你做过什么。"}；enabled=true）
+PASS F7.4 运行时切到英文：两句空态跟着换（修前一直是中文；实测 {"memory":"The steward has not noted anything about you yet.","decisions":"The steward has not done anything for you yet."}）
+PASS F7.5 切回中文再换回来
+PASS F8.1 英文设置导航的 5 个组头在 1280／1024／900／760 宽下都没被裁（被裁的：[]）
+PASS F8.2 组头允许折行（white-space: normal）
+PASS F5.0 等你拍板那条出现在左栏，带「它在问你」
+PASS F5.1 中文界面：等待说明是「等你(1 条待决)」（实测「等你(1 条待决)」）
+PASS F5.2 切到英文：左栏行的等待说明是「Waiting on you (1 pending)」，一个中文字都没有（实测「Waiting on you (1 pending)」）
+PASS F9.1 悬停前后行高不变（102px → 102px；修前 98 → 126）
+PASS F9.2 悬停才出现「⋯」，且是出流定位（false → true；position=absolute）
+PASS F9.3 悬停时右端那句时间让位给「⋯」（visible → hidden）
+PASS F9.4 触屏（hover:none）：「⋯」常显、仍在流内、时间不被盖（{"touchMq":true,"h":106,"cx":134,"cy":309,"moreShown":true,"morePos":"static","metaVis":"visible"}）
+PASS F5.3 管家视角
+PASS F5.4 抽屉的三问「在等什么」有内容了
+PASS F5.5 抽屉「在等什么」是英文「Waiting on you (1 pending)」，没有中文
+PASS F5.6 切回中文，抽屉说回「等你(1 条待决)」
+PASS F10.0 工作台视角
+PASS F10.1 上传卡住，托盘里有「上传中…」占位
+PASS F10.2 占位上有 ×，在飞数 1（{"uploading":1,"pills":1,"x":1,"state":1,"attachments":0,"toasts":""}）
+PASS F10.3 × 的可访问名说清取消的是哪个文件（「取消上传 stuck-a.txt」）
+PASS F10.4 点 ×：占位撤了、在飞数归零、这一发被 abort、没有附件混进来（{"uploading":0,"pills":0,"x":0,"state":0,"attachments":0,"toasts":""}；aborted=true）
+PASS F10.5 取消不算失败：没有弹「上传失败」（）
+PASS F10.6 发送不再被「附件还在上传」拦着（{"disabled":false,"state":0}）
+PASS F10.7 又一发上传在飞
+PASS F10.8 新开了一条线程（清场）
+PASS F10.9 清场时占位撤了、在飞数归零（{"uploading":0,"pills":0,"x":0,"state":0,"attachments":0,"toasts":""}；修前 clearThreadStage 不碰在飞的上传）
+PASS F10.10 晚到的结果没落进新线程的托盘（{"uploading":0,"pills":0,"x":0,"state":0,"attachments":0,"toasts":""}）
+PASS F10.11 正常上传照常落成附件 pill
+PASS F10.12 占位随之撤掉
+PASS F10.13 已传好的附件仍能用 × 移除
+PASS K.0 工作台视角
+PASS K.1 Ctrl+K 打开命令面板
+PASS K.2 焦点在面板输入框里，不在左栏搜索框（{"active":"paletteInput","search":false}）
+PASS K.2b Ctrl+K 的过程中左栏搜索框一次焦点都没拿到过（修前 app-frame.js 的第二个监听先 focus() 它、面板再抢走；实测焦点依次落在 ["paletteInput"]）
+PASS K.3 Esc 关掉面板（一次 Esc 只关最上面一层）
+PASS K.4 帮助弹窗打开
+PASS K.5 快捷键表有 Ctrl+` 切视角（["Enter发送消息","Shift+Enter换行","Ctrl+K命令面板","Ctrl+N新线程","Ctrl+`切换视角（管家 / 工作台）","Ctrl+Enter提交问题卡的回答","Esc停止当前回合 / 关闭弹窗","?本帮助"]）
+PASS K.6 快捷键表有问题卡的 Ctrl+Enter
+PASS K.7 英文界面快捷键表零中文（["Send message","New line","Command palette","New thread","Switch view (Steward / Workbench)","Submit the answer on a question card","Stop the current turn / close dialog","This help"]）
+PASS M.0 工作台视角
+PASS M.0b 新线程开好了、此刻没有回合在跑（先等新线程落定再发，免得发给旧线程后被清场吞掉）
+PASS M.1 回合起点的回执里有「记忆=已检索…」那一行（记忆=已检索 1 条候选，匹配 0 条（项目 0 / 全局 0）；另补入默认规则 1 条；{"streaming":false,"sid":"sess_aadbdb5bf0adf0cf","lang":"zh-CN","msgs":["你11/12 22:05MEMO hello复制编辑重发重试⏪ 回溯到此处","Fakefake-model11/12 22:05好。\n本轮变更本次未改动任何文件↑8 ↓4 · Fake"],"toasts":[],"uploading":0,"att":0,"btn":"发送","val":"","out":"[Fake] Fake · http://127.0.0.1:49507/v1 \ncwd=/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-2T8e5p/ruyi-frontend-wave2-OHJjA9/work\n模型=fake-model 权限=default\n记忆=已检索 1 条候选，匹配 0 条（项目 0 / 全局 0）；另补入默认规则 1 条","modals":[]}）
+PASS M.2 「匹配」只数真命中：一句无关的话是 0，不是把补位也算进去（记忆=已检索 1 条候选，匹配 0 条（项目 0 / 全局 0）；另补入默认规则 1 条）
+PASS M.3 补位另说一句「；另补入默认规则 1 条」（记忆=已检索 1 条候选，匹配 0 条（项目 0 / 全局 0）；另补入默认规则 1 条）
+PASS Z1 页面没有未捕获异常（[]）
+
+FRONTEND WAVE2 BROWSER E2E: ALL PASS

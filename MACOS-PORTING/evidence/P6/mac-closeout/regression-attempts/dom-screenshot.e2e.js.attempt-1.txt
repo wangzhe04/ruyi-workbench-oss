@@ -1,0 +1,19 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS classic shell selected
+PASS authoritative reads settled and fixture file visible
+PASS offline Playbook cards loaded before capturing either theme
+PASS dark theme selected
+PASS dark screenshot captured after two matching grids
+PASS light theme selected
+PASS light screenshot captured after two matching grids
+PASS light/dark are materially distinct (mean delta 209.6)
+PASS no uncaught browser errors ()
+PASS dark pixel-grid matches baseline (mean 0.88, changed 0/96)
+PASS light pixel-grid matches baseline (mean 0.44, changed 0/96)
+ARTIFACTS /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-7H98z4/ruyi-visual-v2-9Jz6lt
+
+DOM-SCREENSHOT E2E: ALL PASS

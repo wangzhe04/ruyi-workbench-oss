@@ -2137,7 +2137,10 @@
             "P6-03 升级/回退/数据迁移验收",
             "P6-04 macOS14实际运行、同候选Windows及最终全量发行回归",
             "P5原未验环境及held故障恢复门槛"
-          ]
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json"
         },
         {
           "id": "P6-02",
@@ -2182,7 +2185,10 @@
             "P6-03升级、回退与数据迁移",
             "Windows同候选回归与P6-04最终全量回归",
             "P5原未验环境及故障恢复范围"
-          ]
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json"
         },
         {
           "id": "P6-03",
@@ -2209,7 +2215,11 @@
             "任意未来schema直接降级",
             "正式身份下Keychain/TCC升级恢复稳定性",
             "Windows至Mac实际业务数据与凭据迁移验收"
-          ]
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json",
+          "currentCandidateQualification": "Full15 clone/checksummed-sync staging; Slim14 normal copy; Full normal-copy ENOSPC not counted as pass, old App/data protected."
         },
         {
           "id": "P6-04",
@@ -2225,16 +2235,23 @@
             "evidence/P6/final/README.md",
             "evidence/P6/final/validation.json",
             "evidence/P6/final/review-final.json",
-            "evidence/P6/final/REGRESSION.md"
+            "evidence/P6/final/REGRESSION.md",
+            "evidence/P6/mac-closeout/README.md",
+            "evidence/P6/mac-closeout/validation.json",
+            "evidence/P6/mac-closeout/regression-composite.json",
+            "evidence/P6/mac-closeout/independent-closeout/review.json",
+            "evidence/P6/mac-closeout/independent-packages/review.json"
           ],
-          "commit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
-          "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+          "commit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "implementationCompleted": true,
           "currentLocalTrialAssessmentCompleted": true,
-          "completionScope": "双语交付文档及当前Mac内部试用产物评估完成；完整回归门未通过，工作包继续进行中。",
+          "completionScope": "可无人值守修复、新包验收与文档收尾；两项真实App授权正向资格仍未通过，未推断用户豁免。",
           "fullOriginalScopeAccepted": false,
-          "progress": "同一冻结Full/Slim镜像主执行与独立各13安装、19/7离线、12Trash、14升级回退通过；工程单元2651通过/18既有跳过、静态80、语法1193通过。594件实际覆盖，558进程成功/36失败、27件内部SKIP、14live排除，未计全量通过。",
+          "progress": "P6本轮Mac修复与可无人值守验收已收尾，应用／包装来源 74d57c88、验收夹具 b2283782。Full/Slim主执行与独立各安装13、离线19/7、Trash12通过；Full15为APFS独立副本升级／回退，普通第二copy的ENOSPC保留，Slim14为普通复制升级／回退。完整轮588/6，定点修复合并592退出成功/2真实App授权待验（非最终594件整轮重跑），32件原内部SKIP、14live排除。P6-04及P6继续in_progress；正式发行与原环境门未验收。[本轮收尾与新交付物](evidence/P6/mac-closeout/README.md)／[逐件对账](evidence/P6/mac-closeout/regression-composite.json)。",
           "notAccepted": [
+            "Fresh source Ruyi App capture authorization-positive qualification: denied, requires personal authentication",
+            "Fresh source Ruyi App Accessibility/event input authorization-positive qualification: denied, requires personal authentication",
             "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
             "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
             "real clean standard-user installation or clean second Mac without developer tools",
@@ -2242,18 +2259,25 @@
             "formal-identity Keychain/TCC upgrade/recovery stability",
             "arbitrary future-schema direct backward compatibility",
             "Windows same-candidate full regression",
-            "original unverified P5 environments and the36 still-failing current regression files, including capture/input App report timeouts of unconfirmed cause"
-          ]
+            "original unverified P5 environments; no new waiver inferred"
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json",
+          "acceptanceFixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+          "automatableCloseoutCompleted": true
         }
       ],
       "owner": "Codex",
-      "progress": "P6-01/02已按既有本地试用范围交付，P6-03当前Mac整包替换/快照回退与Trash完成；P6-04文档、双轮冻结产物验收和完整回归评估完成，但36件回归失败未验收，P6-04与父阶段仍进行中。正式发行与原环境门继续开放。",
-      "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
-      "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+      "progress": "P6本轮Mac修复与可无人值守验收已收尾，应用／包装来源 74d57c88、验收夹具 b2283782。Full/Slim主执行与独立各安装13、离线19/7、Trash12通过；Full15为APFS独立副本升级／回退，普通第二copy的ENOSPC保留，Slim14为普通复制升级／回退。完整轮588/6，定点修复合并592退出成功/2真实App授权待验（非最终594件整轮重跑），32件原内部SKIP、14live排除。P6-04及P6继续in_progress；正式发行与原环境门未验收。[本轮收尾与新交付物](evidence/P6/mac-closeout/README.md)／[逐件对账](evidence/P6/mac-closeout/regression-composite.json)。",
+      "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
       "fullOriginalScopeAccepted": false,
       "currentLocalTrialArtifactAcceptancePassed": true,
-      "acceptanceEvidence": "evidence/P6/final/validation.json",
+      "acceptanceEvidence": "evidence/P6/mac-closeout/validation.json",
       "remainingGates": [
+        "Fresh source Ruyi App capture authorization-positive qualification: denied, requires personal authentication",
+        "Fresh source Ruyi App Accessibility/event input authorization-positive qualification: denied, requires personal authentication",
         "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
         "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
         "real clean standard-user installation or clean second Mac without developer tools",
@@ -2261,8 +2285,17 @@
         "formal-identity Keychain/TCC upgrade/recovery stability",
         "arbitrary future-schema direct backward compatibility",
         "Windows same-candidate full regression",
-        "original unverified P5 environments and the36 still-failing current regression files, including capture/input App report timeouts of unconfirmed cause"
-      ]
+        "original unverified P5 environments; no new waiver inferred"
+      ],
+      "acceptanceFixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+      "automatableCloseoutCompleted": true,
+      "unattendedExecution": {
+        "instruction": "修复Mac端的问题并收尾P6。接下来无人值守，设置防锁屏进行最终验收，完成后释放并休眠",
+        "status": "automatable_work_closed_power_release_pending",
+        "powerEvidence": "evidence/P6/mac-closeout/power-release.json",
+        "sleepEvidence": "evidence/P6/mac-closeout/sleep-request.json",
+        "manualAuthorizationAccepted": false
+      }
     }
   ],
   "estimateCheckpoint": {

@@ -1,0 +1,35 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 同名事项按身份分为两组,同文问题保留五条独立待决
+PASS 审批展示完整计划,没有只给前 500 字摘要
+PASS 在场信号只报告当前展开的待决,不包含被模态遮住的来源
+PASS 读取失败保留原清单并标明过时
+PASS 刷新失败不清空回答,过时快照不能提交
+PASS 不完整的索引不能冒充空清单或成功刷新
+PASS 刷新恢复后原草稿仍可继续
+PASS 1440px 待决、来源与操作不横向溢出
+PASS 768px 待决、来源与操作不横向溢出
+PASS 390px 待决、来源与操作不横向溢出
+PASS 切换英文浅色保留表单并更新操作文字和无障碍标题
+PASS 单项写盘失败如实留在原行
+PASS 另一项回答独立成功
+PASS 同文问题没有被批成同一答案,失败项也没有被隐藏
+PASS 另一项成功后,折叠行仍直接展示失败回执
+PASS 在另一个入口拒绝同一待决
+PASS 他处已答后显示原拒绝状态并禁用旧按钮
+PASS 回包尚未确认时显示提交中
+PASS 处理中刷新不会恢复批准按钮
+PASS 处理中整页刷新后从原日志恢复回执,不重发决定
+PASS 原拒绝不会变成批准
+PASS 刷新没有重复执行,日志只走一次 pending→applying→denied
+PASS 关闭清单只是收起,不代替任何待决做决定
+PASS 收起后剩余问题和计划仍待决
+PASS 服务换进程后迟到的旧清单不能恢复可批准按钮
+PASS 换进程后重新读取新快照
+PASS 无未捕获界面异常
+SCREENSHOTS /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-fnkLS4/ruyi-decisions-ui-DqYA9Q
+
+STEWARD DECISIONS BROWSER E2E: ALL PASS
