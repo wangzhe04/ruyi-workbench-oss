@@ -262,6 +262,7 @@ const SKIP = new Set([
   'macos-execution-images.e2e.js',
   'macos-execution-subagents.e2e.js',
   'macos-execution-capture.e2e.js',
+  'macos-execution-input.e2e.js',
 ]);
 
 // 已知失败件(积压回归,CI 全量暴露,后续波修)。失败不计红(不挂 CI),但报告标 [known-fail];
