@@ -664,10 +664,14 @@ function isAutoLoadedLaunchConfigPath(p, targetStat) {
             && pathWithinRoot(p, path.join(alternate, root.suffix))) return true;
       }
     }
-    // Covers hard links and a helper executable symlinked outside the runtime directory.
+    // A helper's hard links and symlink targets can live outside the runtime directory.
     if (targetStat && targetStat.ino) {
-      const executable = fs.statSync(path.join(nativeRoot, 'ruyi-process-helper'), { bigint: true });
-      if (executable.ino && targetStat.dev === executable.dev && targetStat.ino === executable.ino) return true;
+      for (const name of ['ruyi-process-helper', 'ruyi-keychain-helper']) {
+        try {
+          const executable = fs.statSync(path.join(nativeRoot, name), { bigint: true });
+          if (sameFileIdentity(targetStat, executable)) return true;
+        } catch { /* Either helper can be absent in a source checkout. */ }
+      }
     }
   } catch { /* Source-only test contexts may not expose the external package root. */ }
   try {

@@ -1252,7 +1252,8 @@ function normalizeConfig(raw, opts = {}) {
       if (typeof w !== 'string') continue;
       const s = normalizeWorkspacePathString(w);
       if (!s) continue;
-      const key = samePathKey(s);
+      // Preserve the stored spelling on Windows, where resolving '/' depends on the current drive.
+      const key = process.platform === 'win32' ? s.toLowerCase() : samePathKey(s);
       if (seen.has(key)) continue;
       seen.add(key);
       clean.push(s);
@@ -1299,7 +1300,7 @@ function normalizeConfig(raw, opts = {}) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
       const p = normalizeWorkspacePathString(raw.path);
       if (!p) return;
-      const key = samePathKey(p);
+      const key = process.platform === 'win32' ? p.toLowerCase() : samePathKey(p);
       if (seen.has(key)) return;
       seen.add(key);
       const entry = { path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false };
