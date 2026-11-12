@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 93,
-    "providedSymbols": 3915,
-    "requiredSymbols": 3557,
+    "providedSymbols": 3917,
+    "requiredSymbols": 3560,
     "edges": 656,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -14406,6 +14406,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "pathToFileURL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "readline",
           "kinds": [
             "read"
@@ -14421,6 +14428,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathKey",
           "kinds": [
             "call"
           ]
@@ -15310,6 +15324,13 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "applyKimiStatusToSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "fileURLToPath",
           "kinds": [
             "call"
           ]
@@ -24662,6 +24683,7 @@
         "MIGRATION_SKILL_MAX_DEPTH",
         "MIGRATION_SKILL_MAX_FILES",
         "MIGRATION_SKILL_STAGE_PREFIX",
+        "MigrationTrashHooks",
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
@@ -24709,6 +24731,7 @@
         "migrationStamp",
         "migrationTomlReplace",
         "migrationTomlSections",
+        "migrationTrashTarget",
         "migrationTreeHash",
         "migrationUndo",
         "migrationUndoSkillCopy"
@@ -33552,10 +33575,12 @@
         "nowIso",
         "os",
         "path",
+        "pathToFileURL",
         "paths",
         "readline",
         "recordInstallLaunch",
         "safeJsonParse",
+        "samePathKey",
         "spawnDetachedChecked",
         "text",
         "zlib"
@@ -33820,6 +33845,7 @@
       "to": "05b-kimi-bridge.js",
       "symbols": [
         "applyKimiStatusToSession",
+        "fileURLToPath",
         "kimiSessionStatus",
         "kimiStatusFingerprint",
         "kimiUsageFromStatus"

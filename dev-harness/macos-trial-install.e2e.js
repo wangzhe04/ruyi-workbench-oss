@@ -85,6 +85,19 @@ async function until(fn, timeout = 90000) { const end = Date.now() + timeout; wh
     await until(() => journey.exitCode !== null, 180000);
     fs.writeFileSync(path.join(scratch, 'offline-journey.txt'), out);
     ok(journey.exitCode === 0 && out.includes('MACOS OFFLINE PACKAGE E2E: ALL PASS'), 'installed payload completes the isolated offline workbench journey');
+    if (manifest.capabilities.nativeTrash === true) {
+      const workbench = path.join(installed, 'Contents/Resources/workbench'), helper = path.join(workbench, 'runtime/macos/ruyi-trash-helper');
+      const trashReport = path.join(scratch, 'packaged-trash.json');
+      const trash = cp.spawn(process.execPath, [path.join(__dirname, 'macos-migration-trash.e2e.js')], { cwd: scratch,
+        env: { ...process.env, ...fixture.env, RUYI_TRASH_HELPER: helper, RUYI_TEST_SERVER_JS: path.join(workbench, 'app/server.js'), RUYI_TRASH_REPORT: trashReport },
+        stdio: ['ignore', 'pipe', 'pipe'] });
+      children.push(trash); let trashOut = ''; for (const stream of [trash.stdout, trash.stderr]) stream.on('data', chunk => { trashOut += chunk; });
+      await until(() => trash.exitCode !== null, 90000);
+      fs.writeFileSync(path.join(scratch, 'packaged-trash.txt'), trashOut);
+      ok(trash.exitCode === 0 && trashOut.includes('MACOS MIGRATION TRASH E2E: ALL PASS') && read(trashReport)?.helperSha256 === sha256(helper),
+        'installed backend and bundled native Trash helper move and restore only the disposable old App');
+    }
+    verifyInstalledApp(installed, manifest);
     const spctl = cp.spawnSync('/usr/sbin/spctl', ['--assess', '--type', 'execute', installed], { encoding: 'utf8', timeout: 15000 });
     fs.writeFileSync(path.join(scratch, 'gatekeeper-assessment.json'), JSON.stringify({ status: spctl.status, error: spctl.error?.code, stderr: spctl.stderr }));
     console.log('INFO Gatekeeper assessment recorded; actual downloaded-origin approval remains unverified');

@@ -8,6 +8,7 @@ const { sha256, inventory, treeDigest, copyTree, run, verifyAssets, nativeAudit,
 const { buildMacDesktop } = require('./build-macos-desktop');
 const { buildMacProcessHelper } = require('./build-macos-process-helper');
 const { buildMacKeychainHelper } = require('./build-macos-keychain-helper');
+const { buildMacTrashHelper } = require('./build-macos-trash-helper');
 const { buildMacAutomationHelper } = require('./build-macos-automation-helper');
 const root = path.resolve(__dirname, '..');
 const repo = path.dirname(root);
@@ -65,6 +66,7 @@ function buildMacOffline({ assets, output, variant = 'full' }) {
     fs.mkdirSync(path.join(workbench, 'runtime/macos'));
     buildMacProcessHelper(path.join(workbench, 'runtime/macos/ruyi-process-helper'));
     buildMacKeychainHelper({ output: path.join(workbench, 'runtime/macos/ruyi-keychain-helper') });
+    buildMacTrashHelper(path.join(workbench, 'runtime/macos/ruyi-trash-helper'));
     buildMacAutomationHelper({ output: path.join(workbench, 'runtime/macos/ruyi-automation-helper') });
     if (variant === 'full') {
       const acc = path.join(workbench, 'mcp/ai-computer-control');
@@ -100,7 +102,7 @@ function buildMacOffline({ assets, output, variant = 'full' }) {
       run(python, [path.join(__dirname, 'macos-offline-python.py'), '--browser-notices', path.join(workbench, 'browser-notices')], { env: browserEnv, cwd: staging });
     }
     const components = lock.components.filter(component => inputs[component.id]).map(({ directory, ...component }) => component);
-    const capabilities = { providerApi: true, cloudApiRequiresNetwork: true, shell: true, ripgrep: true,
+    const capabilities = { providerApi: true, cloudApiRequiresNetwork: true, shell: true, ripgrep: true, nativeTrash: true,
       bundledDesktopMcp: variant === 'full', officeFiles: variant === 'full', browserAutomation: variant === 'full',
       desktopAutomationRequiresSystemPermissions: true, officialAgentCliBundled: false, gitBundled: false };
     writeJson(path.join(workbench, 'resources/offline-manifest.json'), { schemaVersion: 1, name: 'Ruyi Mac Offline Candidate',

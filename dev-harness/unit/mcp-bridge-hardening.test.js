@@ -31,6 +31,18 @@ const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'
 const { McpStdioClient, McpHttpClient, collectBridgedTools, probeMcpConnector, killAllMcpClients, parseMcpConfigFile,
   resolveExternalMcpServers, invalidateMcpDropInCache } = srv;
 
+test('stdio abort attempts the matching cancellation packet before immediate owned cleanup', async () => {
+  const client = new McpStdioClient({ id: 'cancel-contract', command: 'never-executed' }), order = [], packets = [];
+  client.child = { stdin: { writable: true, write(text) { const packet = JSON.parse(text); packets.push(packet); order.push(packet.method); } } };
+  client.kill = () => { order.push('kill'); client.dead = true; return { scope: 'fixture-seam', incomplete: false }; };
+  const ctrl = new AbortController(), result = client.callTool('slow_task', {}, 5000, { signal: ctrl.signal });
+  ctrl.abort('user_steer');
+  const response = await result;
+  assert.equal(response.ok, false); assert.equal(response.steerInterrupted, true);
+  assert.deepEqual(order, ['tools/call', 'notifications/cancelled', 'kill']);
+  assert.equal(packets[1].params.requestId, packets[0].id); assert.equal(packets[1].params.reason, 'user_steer');
+});
+
 // 一个按 MODE 换行为的假 stdio MCP 服务器。
 const FAKE = path.join(root, 'fake-mcp.js');
 fs.writeFileSync(FAKE, `

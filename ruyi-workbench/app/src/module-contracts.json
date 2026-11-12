@@ -14266,6 +14266,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "pathToFileURL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "readline",
           "kinds": [
             "read"
@@ -14281,6 +14288,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathKey",
           "kinds": [
             "call"
           ]
@@ -15170,6 +15184,13 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "applyKimiStatusToSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "fileURLToPath",
           "kinds": [
             "call"
           ]
@@ -24482,6 +24503,7 @@
         "MIGRATION_SKILL_MAX_DEPTH",
         "MIGRATION_SKILL_MAX_FILES",
         "MIGRATION_SKILL_STAGE_PREFIX",
+        "MigrationTrashHooks",
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
@@ -24529,6 +24551,7 @@
         "migrationStamp",
         "migrationTomlReplace",
         "migrationTomlSections",
+        "migrationTrashTarget",
         "migrationTreeHash",
         "migrationUndo",
         "migrationUndoSkillCopy"

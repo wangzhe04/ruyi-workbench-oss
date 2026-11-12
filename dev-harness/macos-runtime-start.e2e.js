@@ -106,12 +106,13 @@ cp.spawn = function(command, args, options) {
 };
 `);
     const port = await getFreePort();
-    const localBin = path.join(process.env.HOME, '.local', 'bin');
+    const launchHome = fixtureChildEnv();
+    const localBin = path.join(launchHome.HOME, '.local', 'bin');
     fs.mkdirSync(localBin, { recursive: true });
     fs.symlinkSync(process.execPath, path.join(localBin, 'node'));
     child = cp.spawn(path.join(wb, 'start-macos.command'), ['--port', String(port)], {
       cwd: root, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data,
+      env: { ...process.env, ...launchHome, RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data,
         RUYI_NODE_PATH: '', PATH: '/usr/bin:/bin', TMPDIR: root,
         NODE_OPTIONS: '--require=' + preload },
     });

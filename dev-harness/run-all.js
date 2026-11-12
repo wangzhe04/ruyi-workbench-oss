@@ -23,6 +23,17 @@ const os = require('os');
 const { pruneStaleFixtureDirs } = require('./lib/temp-janitor'); // 129i:夹具残留的扫地工(判据与纪律都在那个文件里)
 
 const HARNESS = __dirname;
+// Opt-in release evidence: preserve each attempt, including successful SKIP/INFO lines.
+// Reserve a fresh directory so one run cannot overwrite another run's evidence.
+const EVIDENCE_DIR = process.env.RUYI_E2E_EVIDENCE_DIR ? path.resolve(process.env.RUYI_E2E_EVIDENCE_DIR) : '';
+if (EVIDENCE_DIR) fs.mkdirSync(EVIDENCE_DIR);
+function recordAttempt(file, attempt, result) {
+  if (!EVIDENCE_DIR) return;
+  const name = path.basename(file) + '.attempt-' + attempt;
+  fs.writeFileSync(path.join(EVIDENCE_DIR, name + '.txt'), result.out || '', { flag: 'wx' });
+  fs.writeFileSync(path.join(EVIDENCE_DIR, name + '.json'), JSON.stringify({ file, attempt,
+    ok: result.ok, status: result.status, timedOut: result.timedOut, ms: result.ms }, null, 2) + '\n', { flag: 'wx' });
+}
 // 非 Windows 下各件 detached 自成进程组,终端的 Ctrl-C 不再自动传到它们 —— 自己转发,免得中断后留一地服务。
 const LIVE_GROUPS = new Set();
 if (process.platform !== 'win32') {
@@ -60,6 +71,15 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 实测撞 120s 硬超时(单跑无争用 ~39s),这些墙钟窗口本身就是在测「收件箱 tick 到达」这件事,
 // 挤在一起量不准,排到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
+  // Real AppKit fixtures share the foreground window, screen and input focus. A
+  // parallel neighbor can invalidate their target/authorization observations.
+  // Run the existing assertions unchanged, in an exclusive lane.
+  'macos-desktop-host.e2e.js', 'macos-desktop-bridge.e2e.js',
+  'macos-desktop-media.e2e.js', 'macos-desktop-lifecycle.e2e.js',
+  'macos-capture.e2e.js', 'macos-capture-host.e2e.js', 'macos-capture-contract.e2e.js',
+  'macos-input-events.e2e.js', 'macos-input-host.e2e.js', 'macos-input-apps.e2e.js',
+  'macos-window-clipboard.e2e.js', 'macos-ax.e2e.js', 'macos-ocr.e2e.js',
+  'macos-observe.e2e.js', 'macos-record.e2e.js', 'macos-manual-record.e2e.js',
   // The hand-off undo button has a real 10-second expiry. CDP inspection and the
   // subsequent click share that window; competing browser fixtures can exhaust it.
   // Keep all existing rewind/identity/grouping assertions, run this clock-bound UI alone.
@@ -378,8 +398,10 @@ function runOne(file) {
 // 已知失败重试是浪费;flaky 计数进汇总,>0 时退出码仍为 0 但报告必须可见(沉默的 flaky 是明天的红)。
 async function runWithRetry(file) {
   const first = await runOne(file);
+  recordAttempt(file, 1, first);
   if (first.ok || KNOWN_FAILURE[file]) return { r: first, flaky: false };
   const second = await runOne(file);
+  recordAttempt(file, 2, second);
   // 125:首跑那次的 FAIL 行【留住】。修前 flaky 件的首跑输出整份丢掉,于是汇总只说得出「这件抖」,
   // 说不出「抖在哪一条」—— 本轮全量 4 件 flaky、零诊断,40 号文 §8.4 ⓪ 想治的正是这个。
   // 129(本波取证时补):首跑【没有任何 FAIL 行】的那一类 flaky —— 超时、被杀、启动就炸 —— 修前

@@ -4,13 +4,22 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { inventory, treeDigest, verifyAssets, verifyPackage, safeChild, nativeAudit, run } = require('../../ruyi-workbench/tools/macos-offline-lib');
+const { inventory, treeDigest, copyTree, verifyAssets, verifyPackage, safeChild, nativeAudit, run } = require('../../ruyi-workbench/tools/macos-offline-lib');
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-offline-unit-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
+test('staging copy retains payload inventory and cannot mutate the frozen source', t => {
+  const root = fixture(t), source = path.join(root, 'source'), destination = path.join(root, 'copy');
+  fs.mkdirSync(source); fs.writeFileSync(path.join(source, 'code'), 'frozen native bytes'); fs.chmodSync(path.join(source, 'code'), 0o755);
+  const original = inventory(source); copyTree(source, destination);
+  assert.deepEqual(inventory(destination), original);
+  fs.writeFileSync(path.join(destination, 'code'), 'new signed bytes');
+  assert.deepEqual(inventory(source), original);
+  assert.throws(() => copyTree(source, destination));
+});
 test('payload checks detect byte changes, unexpected files, executable mode changes and missing files', t => {
   const root = fixture(t), app = path.join(root, 'Ruyi.app');
   fs.mkdirSync(app);

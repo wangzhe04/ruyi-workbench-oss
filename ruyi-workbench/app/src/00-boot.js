@@ -1507,7 +1507,12 @@ function samePathKey(p) {
 // 返回 { root, version } 或 null。只读、从不抛。
 function ruyiPackageInfo(dir) {
   try {
-    const root = path.resolve(String(dir || ''));
+    let root = path.resolve(String(dir || ''));
+    // An external command can reference the Mac host outside the workbench subtree.
+    // Keep its logical package root consistent with the installed service registry.
+    if (process.platform === 'darwin' && /\.app$/i.test(root)
+      && fs.statSync(path.join(root, 'Contents/Info.plist')).isFile()
+      && fs.statSync(path.join(root, 'Contents/MacOS/RuyiDesktop')).isFile()) root = path.join(root, 'Contents/Resources/workbench');
     if (!fs.statSync(path.join(root, 'app', 'server.js')).isFile()) return null;
     let named = false; let version = '';
     try {

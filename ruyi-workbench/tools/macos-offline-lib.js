@@ -56,7 +56,10 @@ function treeDigest(entries) {
 function copyTree(source, destination) {
   // Validate the complete source before copying; preserve internal relative symlinks verbatim.
   inventory(source);
-  fs.cpSync(source, destination, { recursive: true, verbatimSymlinks: true, force: false, errorOnExist: true });
+  // APFS copy-on-write avoids allocating the full offline runtime repeatedly. Node falls
+  // back to a normal copy on filesystems without cloning; subsequent writes stay isolated.
+  fs.cpSync(source, destination, { recursive: true, verbatimSymlinks: true, force: false, errorOnExist: true,
+    mode: fs.constants.COPYFILE_FICLONE });
 }
 function run(command, args, options = {}) {
   const result = cp.spawnSync(command, args, { encoding: 'utf8', timeout: 180000, maxBuffer: 16 * 1024 * 1024,

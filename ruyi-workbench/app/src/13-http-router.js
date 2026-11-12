@@ -2685,7 +2685,7 @@ async function startMcp() {
           return sendMcp(msg.id, {
             resources: [
               {
-                uri: `file://${paths.config.replace(/\\/g, '/')}`,
+                uri: pathToFileURL(paths.config).href,
                 name: 'Workbench config',
                 description: 'Local workbench configuration file',
                 mimeType: 'application/json',
@@ -2697,12 +2697,13 @@ async function startMcp() {
           const resourceConfig = await readConfig();
           PrivacyGateway.assertSupported(resourceConfig, 'external-resource');
           const uri = String(msg.params?.uri || '');
-          if (!uri.startsWith('file://')) throw new Error('Only file:// resources are supported');
-          const p = decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/^\/+/, '');
+          const resource = new URL(uri);
+          if (resource.protocol !== 'file:' || resource.hostname || resource.search || resource.hash) throw new Error('Only local file:// resources are supported');
+          const p = fileURLToPath(resource);
           // resources/list only exposes the config file — confine reads to exactly it (no traversal,
           // no UNC/SMB egress from an "offline" tool).
           const resolved = path.resolve(p);
-          if (resolved.toLowerCase() !== path.resolve(paths.config).toLowerCase()) throw new Error('resource not found');
+          if (samePathKey(resolved) !== samePathKey(paths.config)) throw new Error('resource not found');
           // 128e(48 号文 §1,实测坐实):修前这里把 config.json【原样】读出来返回 —— 明文的 provider apiKey、Claude CLI 的
           // modelsApiKey、外部 MCP 连接器 env 里的令牌,连到工作台 MCP 的模型用读资源的工具就能拿走(GET /api/status 早在
           // 107-S0／S0b 掩了同一批值,文件工具也把 config.json 列为敏感路径拒读 —— 这是绕过两道门的第三条路)。

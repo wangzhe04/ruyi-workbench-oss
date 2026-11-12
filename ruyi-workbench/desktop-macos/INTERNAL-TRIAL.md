@@ -31,7 +31,7 @@ ad-hoc 签名证明本地代码结构一致性，不证明 Apple 认可的发布
 
 只读 HFS+ 压缩 DMG 包含 `Ruyi.app`、指向 `/Applications` 的专用快捷方式、中英文安装说明及校验/来源清单。这个唯一的 DMG 根快捷方式单独检查，不放宽 App 内禁止外部 symlink 的完整性规则。
 
-用户双击 DMG，将 App 复制到应用程序目录；没有共享目录写入权限时使用 `~/Applications`。拷贝结束后推出 DMG，再从安装位置运行。已有安装先保留，升级/回退归 P6-03。
+用户双击 DMG，将 App 复制到应用程序目录；没有共享目录写入权限时使用 `~/Applications`。拷贝结束后推出 DMG，再从安装位置运行。已有安装先保留，升级、回退与完整数据恢复按[中英文用户／管理员说明](../docs/MACOS-RELEASE_CN.md)操作。
 
 从网络或传输软件获得的包可能触发 Gatekeeper。用户确认可信来源后，按系统提供的“隐私与安全性／仍要打开”流程操作；组织策略不允许时由设备管理员处理。没有移除 quarantine、关闭 Gatekeeper/SIP 或修改系统策略的脚本。详见包内 [中文说明](trial/INSTALL-CN.txt)与[English instructions](trial/INSTALL-EN.txt)。
 
