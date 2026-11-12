@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T09:17:52.668Z",
+  "mode": "Read-only review of archived evidence and delivery documents; no test rerun, App launch, image mount or policy action",
+  "reviewedFiles": [
+    {
+      "file": "MACOS-PORTING/TASKS.json",
+      "sha256": "945aa6195cca06d0169d9953aff6355f5876a68c50fc38d444a122c4748f1772"
+    },
+    {
+      "file": "MACOS-PORTING/07-P6-RELEASE.md",
+      "sha256": "5a74ea72e5431df0192e7958f08c803c8e746a363904ef06298afa4a4aaf4bfd"
+    },
+    {
+      "file": "MACOS-PORTING/10-TRACKING.md",
+      "sha256": "5c53b83f6b6dec6691a1fed67ac96c2914ffd8a282a0441f6a86b3c761471369"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/internal-trial/README.md",
+      "sha256": "0f58f5fe8c49ffaf43558db616ae7c6fa29a32ba86b2448add7d0e12295e568a"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/internal-trial/validation.json",
+      "sha256": "b29da368b56b236e429ffa48a0e2034727a443f5637435437633c4ee3e45e0ed"
+    }
+  ],
+  "reportOnlyEdits": {
+    "file": "MACOS-PORTING/evidence/P6/internal-trial/review-final.json",
+    "sha256": "41ce144513d9013cf13679816d32663efea6f398c017aad332ed8d9d7e924fe5",
+    "changes": [
+      "mapped final report evidence pointers to durable archive-relative paths",
+      "retained execution-time fixture paths and diagnostic output as historical data",
+      "updated final-report R1 resolution to record final Full/Slim artifact validation"
+    ],
+    "historicalCodeReviewUnchanged": true,
+    "historicalCodeReviewSha256": "bf08d4e55a16cfd1379703d761cd13c8a1ec3da33d7ae71ecb641019f3686e6f"
+  },
+  "checks": [
+    {
+      "name": "limited task completion and deferred original release gates",
+      "passed": true
+    },
+    {
+      "name": "application and wrapper provenance distinct and consistent",
+      "passed": true
+    },
+    {
+      "name": "main full archived counts and ready evidence",
+      "passed": true
+    },
+    {
+      "name": "main slim archived counts and ready evidence",
+      "passed": true
+    },
+    {
+      "name": "independent full archived counts and ready evidence",
+      "passed": true
+    },
+    {
+      "name": "independent slim archived counts and ready evidence",
+      "passed": true
+    },
+    {
+      "name": "full delivery metadata and independent counts match",
+      "passed": true
+    },
+    {
+      "name": "slim delivery metadata and independent counts match",
+      "passed": true
+    },
+    {
+      "name": "engineering counts preserved including excluded gates",
+      "passed": true
+    },
+    {
+      "name": "archived final cleanup and integrity",
+      "passed": true
+    },
+    {
+      "name": "reviewed markdown links resolve",
+      "passed": true,
+      "details": []
+    },
+    {
+      "name": "mapped final-review evidence exists persistently",
+      "passed": true
+    },
+    {
+      "name": "historical code review preserved byte-for-byte",
+      "passed": true
+    }
+  ],
+  "findings": [],
+  "remainingBlockingFindings": [],
+  "scopeConclusion": "Documentation consistently marks P6-02 done only for the authorized ad-hoc local/internal current-account isolated installation scope, preserves all original formal/clean-user/downloaded-origin/macOS14/upgrade/Windows gates, and leaves P6 ongoing. Counts match archived four runs; no acceptance expansion.",
+  "pass": true
+}

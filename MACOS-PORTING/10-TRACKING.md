@@ -4,6 +4,8 @@
 
 P6-01 已完成当前 Mac 离线候选实现与验证（源码 `f059b7eb`），执行分支 `codex/p6-01-macos-offline`，状态以 TASKS.json 和 [离线打包记录](evidence/P6/offline/README.md)为准；下文 P6 待开始的条目为此前快照。
 
+P6-02 已按用户选择的本地／内部试用范围完成（包装源码 `3279b83d`，分支 `codex/p6-02-internal-trial`）。Full/Slim DMG 的签名补齐、当前账号隔离安装、推出镜像后启动与实际离线业务均经主执行及独立复核通过；正式签名/公证、真实下载来源 Gatekeeper 与干净标准用户等原范围继续待验。详见 [P6-02 交付记录](evidence/P6/internal-trial/README.md)。P6-03/04 待开始。
+
 更新时间：2026-11-11。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows后续待验、正式身份暂缓、macOS14实际运行交接O2/P6；P5进行中，P6待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
@@ -16,7 +18,7 @@ P6-01 已完成当前 Mac 离线候选实现与验证（源码 `f059b7eb`），�
 | P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
 | P4 | P2、P3 | done（用户批准的当前Mac范围，后续待验项独立保留） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
 | P5 | P4 | done（用户选择的已验Mac范围；原未验项保留） | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) / [键鼠与App启动](evidence/P5/input/events/README.md) / [AX应用](evidence/P5/ax/apps/README.md) / [OCR](evidence/P5/ocr/README.md) / [组合](evidence/P5/composed/README.md) / [受控录制](evidence/P5/record/README.md) / [协作取消审计](evidence/P5/audit/README.md) / [正常会话入口](evidence/P5/entry/README.md) / [当前应用复验](evidence/P5/selected-current/README.md) / [能力状态与嵌套策略](evidence/P5/readiness/README.md) / [窗口移动捕获](evidence/P5/transition/README.md) / [当前剩余范围](evidence/P5/remaining-resolution-2026-11-11-current.json) |
-| P6 | P5；探针可提前 | in_progress（P6-01 done） | Codex；独立 p6_review | 未核算 | [P6-01 实包验收](evidence/P6/offline/README.md) |
+| P6 | P5；探针可提前 | in_progress（P6-01 done；P6-02 内部试用范围 done） | Codex；独立 p6_review / p6_02_review | 未核算 | [P6-01 实包验收](evidence/P6/offline/README.md) / [P6-02 内部试用](evidence/P6/internal-trial/README.md) |
 
 P5 已验收切片分别绑定其实施提交。手动严格模式 `0d054b04` 与标准鼠标投影 `1500b82b` 已提交并完成各自当前主机范围独立验收。标准投影 GUI 88 项、App exact 17 项、standard 19 项通过；真人主执行与来源独立核验通过，压力手势按用户选择排除。正常会话审批与两图片 writer 检查点/回滚切片 `5e246343` 独立离线 13、真实桌面 31、静态 80 通过；仅 Node 服务入口，未新验 App。Node两总闸与真实registry隐藏路径已由后续40项切片补验；实际拒权/撤权readiness、动作中锁屏、硬杀及原环境门继续开放；真实自有窗口水平平移期间的捕获拒绝已有后续18项切片，CLI仅生成配置的验收不代表其运行。[入口记录](evidence/P5/entry/README.md)历史应用场景与当前候选复验分别登记。[手动录制](evidence/P5/manual/README.md)
 

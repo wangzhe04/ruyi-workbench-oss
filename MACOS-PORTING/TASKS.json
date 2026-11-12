@@ -2147,9 +2147,14 @@
             "high": 3
           },
           "deliverable": "递归处理 App/helper/原生依赖签名、hardened runtime 与必要 entitlement；公证与票据附加；干净标准用户安装/首次运行验证。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex; independent p6_02_review",
-          "evidence": [],
+          "evidence": [
+            "evidence/P6/internal-trial/README.md",
+            "evidence/P6/internal-trial/validation.json",
+            "evidence/P6/internal-trial/review-final.json",
+            "evidence/P6/internal-trial/integrity-final.json"
+          ],
           "scopeDecision": {
             "date": "2026-11-12",
             "userRequest": "进行本地／内部试用版的P6-02的实现和验收",
@@ -2162,7 +2167,22 @@
               "正式身份Keychain/TCC及升级稳定性"
             ]
           },
-          "fullOriginalScopeAccepted": false
+          "fullOriginalScopeAccepted": false,
+          "commit": "3279b83d880a84be1e4fa86ae4e1aed80ef740bc",
+          "completionScope": "用户授权的本地／内部试用版：ad-hoc Full/Slim DMG、当前账号隔离安装与实际离线业务验收。原正式发行范围未验收。",
+          "progress": "冻结P6-01输入不改动；补齐18个unsigned原生对象与10个Chromium容器资源封印，逐项验证209/6原生清点。禁公网出站构建Full/Slim只读DMG，主执行/独立各12项安装与19/7项离线业务通过；原生和LaunchServices推出镜像后运行，拒绝覆盖、保留数据卸载及清理通过。独立R1–R6已关闭，工程单元2645通过/18跳过、静态80通过。",
+          "notAccepted": [
+            "Developer ID身份及正式分发签名",
+            "Apple公证与stapling",
+            "hardened runtime正式资格",
+            "实际浏览器下载/quarantine来源的Gatekeeper首次允许",
+            "真实干净标准用户及无开发工具另一台Mac",
+            "macOS14实际运行",
+            "正式身份Keychain/TCC及升级权限稳定性",
+            "P6-03升级、回退与数据迁移",
+            "Windows同候选回归与P6-04最终全量回归",
+            "P5原未验环境及故障恢复范围"
+          ]
         },
         {
           "id": "P6-03",
@@ -2190,7 +2210,7 @@
         }
       ],
       "owner": "Codex",
-      "progress": "P6-01 实现与当前Mac离线候选验证完成；Full/Slim源提交f059b7eb，主执行及独立各19/7项通过；P6-02/03/04仍待开始。"
+      "progress": "P6-01与P6-02本地／内部试用范围完成；应用源码f059b7eb、P6-02包装源码3279b83d。Full/Slim各经主执行和独立安装12项、离线19/7项通过。正式签名/公证、真实下载来源Gatekeeper和干净标准用户继续待验；P6-03/04待开始。"
     }
   ],
   "estimateCheckpoint": {

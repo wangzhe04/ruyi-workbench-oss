@@ -22,7 +22,18 @@ Gatekeeper命令行返回值仅记录诊断，不把超时或工具失败当作�
 
 ## 工程与最终交付
 
-[工程门](engineering-current.txt)：完整单元2645通过、18既有跳过；静态80/80，14个live门明确未执行。语法、构建新鲜度及5项新单元已通过。最终新提交的Full/Slim DMG构建和独立安装验证仍待登记，P6-02整体保持进行中。
+[工程门](engineering-current.txt)：完整单元2645通过、18既有跳过；静态80/80，14个live门明确未执行。语法、构建新鲜度及5项新单元已通过。
+
+最终包装源码冻结为 `3279b83d880a84be1e4fa86ae4e1aed80ef740bc`，App 业务源码仍为 `f059b7ebe30843386b7ab648f7ffad41b37db6de`。Full、Slim 在拒绝公网出站的沙箱中顺序构建，构建日志分别为 [Full](build-full-final.txt) / [Slim](build-slim-final.txt)。最终来源、hash和安装复验结果见 [验收汇总](validation.json)、[独立最终报告](review-final.json)及[来源绑定](review-probes/final-provenance-after.json)。两个包各484份应用源码与4份打包材料指纹均独立匹配对应提交，P6-01 输入未改动。
+
+| 产物 | 字节数 | SHA256 |
+|---|---:|---|
+| Full DMG | 584255996 | `46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a` |
+| Slim DMG | 51621693 | `b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9` |
+
+交付物位于仓库 `ruyi-workbench/dist/Ruyi-macos-arm64-{full,slim}-internal-trial/`，各目录含 DMG、`.sha256`、`distribution.json` 与 `trial-manifest.json`。Full 包含离线 Python、Office/图表与 Chromium；Slim 的依赖缺失状态按既有能力边界展示。安装前可按包内说明核对校验值，普通用户也可选择个人 `~/Applications` 目录。
+
+最终 DMG 由主执行与独立复核各完成一遍串行安装（每包共两遍），各包每遍12项安装检查通过；嵌套离线业务 Full 19项、Slim 7项通过，均无失败或跳过。原生清点 Full209项、Slim6项逐项校验。日志为 [主执行Full](install-full-final.txt) / [Slim](install-slim-final.txt) 与 [独立Full](independent-full.txt) / [Slim](independent-slim.txt)，各次原生/LaunchServices报告、离线业务日志、Gatekeeper诊断单独保存在 `runs/`。推出镜像后两种入口均能初始化完整工作台；卸载测试仅删除隔离安装的App，数据标记保留。P6-02按本地／内部试用约定范围完成，P6阶段及原正式发行门继续开放。
 
 ## 保留边界
 
