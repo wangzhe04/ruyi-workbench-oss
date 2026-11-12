@@ -8,7 +8,7 @@ const cp = require('node:child_process');
 const {createRunner} = require('./lib/harness');
 const {fixtureChildEnv} = require('./lib/fixture-home');
 const {killOwnTree,snapshotProcessTable} = require('./lib/kill-own-tree');
-const {buildMacDesktop} = require('../ruyi-workbench/tools/build-macos-desktop');
+const {prepareMacHost} = require('./lib/macos-host-fixture');
 const t = createRunner('MACOS CAPTURE HOST');
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-p5-host-'));
 const data=path.join(root,'data');fs.mkdirSync(data);
@@ -22,8 +22,8 @@ async function until(read,timeout=45000) {
 (async()=>{
   try {
     if(process.platform!=='darwin') {console.log('SKIP native host needs macOS');return;}
-    const existing=path.resolve(__dirname,'../ruyi-workbench/dist/Ruyi.app');
-    const bundle=process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing)?existing:buildMacDesktop(path.join(root,'Ruyi.app')));
+    const runtime=prepareMacHost(root);
+    const bundle=runtime.bundle;
     const binary=path.join(bundle,'Contents/MacOS/RuyiDesktop');
     const report=path.join(root,'report.json');
     const script=path.join(root,'script.js');
@@ -45,9 +45,9 @@ width:result.width,height:result.height,scale:result.scale,scale_y:result.scale_
       RUYI_HOME:data,WIN_CLAUDE_WORKBENCH_HOME:data,RUYI_NODE_PATH:process.execPath};
     launcher=cp.spawn('/usr/bin/open',['-n','-W','-a',bundle,
       ...Object.entries(launchEnv).flatMap(([key,value])=>['--env',key+'='+value]),
-      '--args','--acceptance-report',report,'--acceptance-script',script,'--acceptance-auto-quit'],
+      '--args','--workbench-root',runtime.workbenchRoot,'--acceptance-report',report,'--acceptance-script',script,'--acceptance-auto-quit'],
       {env,cwd:root,stdio:['ignore','pipe','pipe']});
-    launcher.stdout.resume();launcher.stderr.resume();
+    launcher.stdout.resume();launcher.stderr.on('data',chunk=>console.log('INFO LaunchServices '+String(chunk).trim()));
     const result=await until(()=>{
       if(fs.existsSync(report)) {
         const value=JSON.parse(fs.readFileSync(report,'utf8'));
@@ -70,6 +70,7 @@ width:result.width,height:result.height,scale:result.scale,scale_y:result.scale_
       'normal App HTTP tool entry captures a real PNG');
     if(process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE,{recursive:true});
+      fs.copyFileSync(path.join(root,'runtime-source.json'),path.join(process.env.RUYI_P5_EVIDENCE,'runtime-source.json'));
       fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE,'host.json'),JSON.stringify({nativePID:result.nativePID,
         servicePID:result.servicePID,launch:'LaunchServices',...extra},null,2)+'\n');
     }
@@ -82,6 +83,8 @@ width:result.width,height:result.height,scale:result.scale,scale_y:result.scale_
       await until(()=>!snapshotProcessTable()?.some(row=>row.pid===owned.pid && row.created===owned.created),5000).catch(error=>t.fail(error.message));
     }
     if(launcher && launcher.exitCode===null && launcher.signalCode===null) killOwnTree(launcher);
-    fs.rmSync(root,{recursive:true,force:true});t.done();
+    if(t.failures===0) fs.rmSync(root,{recursive:true,force:true});
+    else console.log('INFO Failed App fixture retained at '+root);
+    t.done();
   }
 })();

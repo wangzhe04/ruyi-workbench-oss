@@ -57,8 +57,11 @@ async function turn(sessionId, message) {
     const saved = await app.loadSession(session.id);
     report.canonicalArgumentsRetained = saved.providerHistory.some(message => message.tool_calls?.some(tool => tool.id === 'typed-write' && tool.function.arguments.includes('apiKey')));
     const resultSession = await app.createSession({ cwd: work, title: 'Synthetic typed tool result' });
-    const command = "Add-Content -LiteralPath './counter.txt' -Value '1'; Write-Output '" + source + "'";
-    state.steps.length = 0; state.steps.push(call('typed-output', 'powershell_run', { command }), text('RESULT_FINISHED'));
+    const { shellTool, quote } = require('../lib/platform-shell-fixture');
+    const command = process.platform === 'win32'
+      ? "Add-Content -LiteralPath './counter.txt' -Value '1'; Write-Output '" + source + "'"
+      : "printf '%s\\n' '1' >> './counter.txt'; printf '%s\\n' " + quote(source);
+    state.steps.length = 0; state.steps.push(call('typed-output', shellTool, { command }), text('RESULT_FINISHED'));
     report.toolResult = await turn(resultSession.id, 'Run the synthetic local counter once and report its result.');
     report.counterExecutions = fs.existsSync(path.join(work, 'counter.txt')) ? fs.readFileSync(path.join(work, 'counter.txt'), 'utf8').trim().split(/\r?\n/).length : 0;
     state.steps.length = 0; state.steps.push(text('RESULT_FOLLOWUP_FINISHED'));

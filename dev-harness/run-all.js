@@ -198,6 +198,13 @@ const PARALLEL_EXCLUSIVE = new Set([
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。
 const TIMEOUT_OVERRIDES = {
+  // Current Mac final acceptance: repeated cold Vision calls each took ~38 s, inside
+  // their unchanged native/Python 60/65 s deadlines. The full real OCR and composed
+  // fixtures completed in 166.525/202.021 s with every assertion and cleanup passing;
+  // both 120 s attempts had been killed mid-observation. This is a whole-file guard,
+  // not a change to product deadlines or assertions (P6/mac-closeout/targeted-recheck).
+  'macos-ocr.e2e.js': 300000,
+  'macos-observe.e2e.js': 300000,
   // 3.1 privacy release acceptance adds G: eleven real PS5 rollback fixtures, including
   // complete 3 MB reader compilation/fingerprints and rejection/audit/zero-write checks.
   // Both default 120 s attempts reached G and were killed before finishing, with all reached

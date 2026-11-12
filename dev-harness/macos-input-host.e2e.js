@@ -16,7 +16,7 @@ const { createRunner } = require('./lib/harness');
 const { fixtureChildEnv } = require('./lib/fixture-home');
 const { killOwnTree, snapshotProcessTable, ownDescendants } = require('./lib/kill-own-tree');
 const { buildMacAutomationHelper } = require('../ruyi-workbench/tools/build-macos-automation-helper');
-const { buildMacDesktop } = require('../ruyi-workbench/tools/build-macos-desktop');
+const { prepareMacHost, prepareMacAcc } = require('./lib/macos-host-fixture');
 const { loadServerInternals } = require('./lib/server-internals');
 const t = createRunner('MACOS INPUT HOST');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-p5-input-host-'));
@@ -25,6 +25,7 @@ let fixture, launcher, owned, ownedTree = [];
 let manualPeer, manualRuntime, manualControl, manualControlError, manualBefore;
 let stopManualControl = false;
 let appExecutable, acceptanceReport, serviceInvocation = '';
+let runtime;
 let beforeApp = new Set();
 const paste = process.env.RUYI_P5_APP_PASTE === '1';
 const forceAppExit = process.env.RUYI_P5_APP_EXIT_FAILURE === '1';
@@ -60,7 +61,7 @@ function observeOwnedApp(report) {
       if (!ownedTree.some(prior => member.pid === prior.pid && member.created === prior.created)) ownedTree.push(member);
       if (!serviceInvocation) {
         const invocation = cp.spawnSync('/bin/ps', ['-p', String(member.pid), '-o', 'command='], { encoding: 'utf8', timeout: 1000 }).stdout.trim();
-        if (invocation.includes(path.resolve(__dirname, '../ruyi-workbench/app/server.js') + ' serve ')) serviceInvocation = invocation;
+        if (runtime && invocation.includes(path.join(runtime.workbenchRoot, 'app/server.js') + ' serve ')) serviceInvocation = invocation;
       }
     }
   }
@@ -121,21 +122,21 @@ async function cleanupOwned() {
     });
     fixture.stderr.resume();
     const ready = await until(() => events.find(event => event.event === 'ready'), 10000);
-    const existing = path.resolve(__dirname, '../ruyi-workbench/dist/Ruyi.app');
-    const bundle = process.env.RUYI_DESKTOP_TEST_APP || (fs.existsSync(existing) ? existing : buildMacDesktop(path.join(root, 'Ruyi.app')));
+    runtime = prepareMacHost(root);
+    const bundle = runtime.bundle;
     const executable = path.join(bundle, 'Contents/MacOS/RuyiDesktop');
     const report = path.join(root, 'report.json');
     appExecutable = executable; acceptanceReport = report;
     const script = path.join(root, 'script.js');
-    const repo = path.resolve(__dirname, '../mcp/ai-computer-control');
-    const python = process.env.RUYI_ACC_PYTHON || path.join(repo, '.venv/bin/python');
+    const acc = prepareMacAcc(root, runtime);
+    const { repo, python } = acc;
     const isolated = fixtureChildEnv();
     const manualMarkers = Object.fromEntries(['prepare', 'prepared', 'ready', 'done', 'collected', 'cleared'].map(name => [name, path.join(root, 'manual-' + name + '.json')]));
     const accEnv = { HOME: isolated.HOME, USERPROFILE: isolated.USERPROFILE, LOCALAPPDATA: isolated.LOCALAPPDATA,
       APPDATA: isolated.APPDATA, PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
       ...(process.env.DYLD_FRAMEWORK_PATH ? { DYLD_FRAMEWORK_PATH: process.env.DYLD_FRAMEWORK_PATH } : {}),
       ...(process.env.DYLD_LIBRARY_PATH ? { DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH } : {}),
-      PYTHONPATH: path.join(repo, 'src'), WCW_DATA_DIR: path.join(root, 'acc-data'),
+      ...(acc.pythonPath ? { PYTHONPATH: acc.pythonPath } : {}), WCW_DATA_DIR: path.join(root, 'acc-data'),
       ACC_TOOLSETS: manual ? 'desktop,macro,filesystem' : composed ? 'desktop,uia,ocr,observe,macro' : recording ? 'desktop,macro' : visual ? 'desktop,ocr,vision' : ax ? 'desktop,uia' : 'desktop', ACC_HIDE_TOOLS: '', RUYI_MACOS_AUTOMATION_HELPER: helper };
     const schema = require('../ruyi-workbench/app/server').CONFIG_SCHEMA;
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: schema, permissionMode: 'bypass',
@@ -157,9 +158,14 @@ const invoke=async(name,args={})=>{
   const reply=await api('/api/tools/tool_invoke_exec',{method:'POST',body:JSON.stringify({name:'ai_computer_control__'+name,arguments:args})});
   return reply.result;
 };
-const diag=await invoke('diagnostics');
+let diag=await invoke('diagnostics');
+const directoryDeadline=Date.now()+15000;
+while(!diag.ok && diag.code==='unknown-tool' && Date.now()<directoryDeadline){
+  await new Promise(resolve=>setTimeout(resolve,100));
+  diag=await invoke('diagnostics');
+}
 const capabilities=diag.capabilities?.['desktop.capture'];
-if(!capabilities || (${ax} ? !capabilities.axReady : !capabilities.inputReady)) return {capabilities,diagOK:diag.ok,unavailable:true};
+if(!capabilities || (${ax} ? !capabilities.axReady : !capabilities.inputReady)) return {capabilities,diagOK:diag.ok,diag,unavailable:true};
 if(${manual}&&!diag.capabilities?.['desktop.recording']?.manualReady) return {capabilities,manualCapabilities:diag.capabilities?.['desktop.recording'],unavailable:true};
 const warm=${visual}?await invoke('ocr_image',{path:${JSON.stringify(ocrImage)}}):null;
 const listed=await invoke('list_windows');
@@ -289,10 +295,10 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
     beforeApp = new Set((snapshotProcessTable() || []).map(row => row.pid + '/' + row.created));
     launcher = cp.spawn('/usr/bin/open', ['-n', '-W', '-a', bundle,
       ...Object.entries(launchEnv).flatMap(([key, value]) => ['--env', key + '=' + value]),
-      '--args', '--workbench-root', path.resolve(__dirname, '../ruyi-workbench'), '--acceptance-report', report, '--acceptance-script', script,
+      '--args', '--workbench-root', runtime.workbenchRoot, '--acceptance-report', report, '--acceptance-script', script,
       ...(forceAppExit ? [] : ['--acceptance-auto-quit'])],
     { env, cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-    launcher.stdout.resume(); launcher.stderr.resume();
+    launcher.stdout.resume(); launcher.stderr.on('data', chunk => console.log('INFO LaunchServices ' + String(chunk).trim()));
     const result = await until(() => {
       if (manualControlError) throw manualControlError;
       const value = fs.existsSync(report) ? JSON.parse(fs.readFileSync(report, 'utf8')) : null;
@@ -318,15 +324,15 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
       fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, manual ? 'manual-host.json' : composed ? 'composed-host.json' : recording ? 'record-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
-        servicePID: result.servicePID, launch: 'LaunchServices', serviceInvocation, workbenchRoot: path.resolve(__dirname, '../ruyi-workbench'), ...extra,
+        servicePID: result.servicePID, launch: 'LaunchServices', serviceInvocation, ...runtime, ...extra,
         manualDemonstration: manual ? { kind: 'independent synthetic input through a real event tap', before: manualBefore } : null,
         observedProcesses: ownedTree.map(row => ({ pid: row.pid, ppid: row.ppid, created: row.created.toString() })),
         receiver: { textMatches: state.text === sample, counts: state.counts, pad: state.pad,
           leftHeld: state.leftHeld, modifierFlags: visual ? state.modifiers : state.modifierFlags, clipboardPreserved: state.clipboardPreserved } }, null, 2) + '\n');
     }
     t.ok(result.nativePID > 0 && result.servicePID > 0, 'LaunchServices Ruyi App owns the actual workbench service');
-    t.ok(serviceInvocation.includes(path.resolve(__dirname, '../ruyi-workbench/app/server.js') + ' serve '),
-      'the authorized App launches the server from this exact candidate worktree');
+    t.ok(serviceInvocation.includes(path.join(runtime.workbenchRoot, 'app/server.js') + ' serve '),
+      'the authorized App launches the isolated server whose bytes match this exact candidate');
     t.ok(owned?.pid === result.nativePID && ownedTree.some(row => row.pid === result.servicePID),
       'App and service process identities were observed before shutdown');
     if (!(ax ? extra.capabilities?.axReady : extra.capabilities?.inputReady)) console.log('App input readiness ' + JSON.stringify(extra));
@@ -438,7 +444,8 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
       t.ok(events.some(event => event.event === 'clipboard-restore' && event.restored), 'App paste fixture restores its pre-test clipboard snapshot');
     if (manual && events.some(event => event.event === 'source-pinyin'))
       t.ok(events.some(event => event.event === 'input-source-restore' && event.restored), 'App manual fixture restores its original keyboard source');
-    if (appCleaned) fs.rmSync(root, { recursive: true, force: true });
+    if (appCleaned && t.failures === 0) fs.rmSync(root, { recursive: true, force: true });
+    else if (appCleaned) console.log('INFO Failed App fixture retained at ' + root);
     else t.fail('Owned App processes remain. Isolated evidence retained at ' + root);
     t.done();
   }

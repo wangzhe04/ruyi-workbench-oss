@@ -96,7 +96,7 @@ const fake = http.createServer((rq, rs) => {
     if (tag === 'BUILDFAIL') {
       // m1: 写初始 bug 代码 + 标 done;m2/m3: 停滞(模拟模型卡在"如何修复",连续纯文本不推进)。
       if (mk === 'm1') {
-        if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\app.js', content: 'function add(a, b) { return a - b; }\n' });
+        if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: path.join(WS, 'app.js'), content: 'function add(a, b) { return a - b; }\n' });
         if (turnTools === 1) return streamToolCall(rs, 'mission_update', { milestones: [{ id: 'm1', status: 'done', evidence: '初始代码已写(含 bug:add 误用减法)' }] });
         return streamText(rs, 'm1 完成,准备构建。');
       }
@@ -106,15 +106,15 @@ const fake = http.createServer((rq, rs) => {
     if (tag === 'DIGEST') {
       // 每个里程碑:file_read 来源 -> file_write 汇编片段 -> mission_update done
       const src = DIGEST_SRCS[mk] || 's1';
-      if (turnTools === 0) return streamToolCall(rs, 'file_read', { path: WS + '\\src\\' + src + '.txt' });
-      if (turnTools === 1) return streamToolCall(rs, 'file_write', { path: WS + '\\part_' + mk + '.md', content: '## ' + mk + '\n来源 ' + src + ' 要点已汇编。\n' });
+      if (turnTools === 0) return streamToolCall(rs, 'file_read', { path: path.join(WS, 'src', src + '.txt') });
+      if (turnTools === 1) return streamToolCall(rs, 'file_write', { path: path.join(WS, 'part_' + mk + '.md'), content: '## ' + mk + '\n来源 ' + src + ' 要点已汇编。\n' });
       if (turnTools === 2) return streamToolCall(rs, 'mission_update', { milestones: [{ id: mk, status: 'done', evidence: '已汇编来源 ' + src }] });
       return streamText(rs, mk + ' 完成。');
     }
 
     // REFACTOR: file_write 重构文件 -> mission_update done
     const f = REFACTOR_FILES[mk] || REFACTOR_FILES.m1;
-    if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\' + f[0], content: f[1] });
+    if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: path.join(WS, f[0]), content: f[1] });
     if (turnTools === 1) return streamToolCall(rs, 'mission_update', { milestones: [{ id: mk, status: 'done', evidence: '已重构 ' + f[0] }] });
     return streamText(rs, mk + ' 完成。');
   });

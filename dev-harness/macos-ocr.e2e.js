@@ -30,8 +30,11 @@ async function command(text) {
 }
 async function call(name, args) {
   const started = Date.now();
+  console.log('INFO native call start ' + name);
   const result = await client.callTool(name, args);
-  results.push({ name, elapsed_ms: Date.now() - started, result: { ...result, image: undefined } });
+  const elapsed_ms = Date.now() - started;
+  console.log('INFO native call end ' + name + ' ' + elapsed_ms + 'ms');
+  results.push({ name, elapsed_ms, result: { ...result, image: undefined } });
   if (!result.ok) console.log(name + " failure " + JSON.stringify(result));
   return result;
 }

@@ -156,6 +156,7 @@ try {
   const noCtx = await call('script_run', { language: 'node', code: 'console.log(1)' }, { noCtx: true });
   ok(noCtx.ok === false && noCtx.code === 'tool-disabled', `M5 allowCommandTools:false 在不带 config 的调用面同样生效(got ${JSON.stringify(noCtx).slice(0, 120)})`);
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify(config, null, 2));
+  fs.writeFileSync(path.join(WS, 'evil.bat'), '@echo fixture-only');
   const exe = await call('browser_open', { url: path.join(WS, 'evil.bat') });
   ok(exe.ok === false && /只打开网址/.test(String(exe.error || '')), `M6 browser_open 不把 .bat 交给系统关联(got ${JSON.stringify(exe).slice(0, 120)})`);
   const dash = await call('browser_open', { url: '--renderer-cmd-prefix=cmd.exe x.html' });

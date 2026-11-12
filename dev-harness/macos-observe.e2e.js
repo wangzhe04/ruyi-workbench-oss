@@ -28,9 +28,13 @@ async function command(text) {
   return until(() => reports.slice(offset).find(report => report.event === text));
 }
 async function call(name, args) {
+  const started = Date.now();
+  console.log('INFO native call start ' + name);
   const result = await client.callTool(name, args);
+  const elapsed_ms = Date.now() - started;
+  console.log('INFO native call end ' + name + ' ' + elapsed_ms + 'ms');
   const clean = JSON.parse(JSON.stringify(result, (key, value) => ['image', 'image_base64'].includes(key) ? undefined : value));
-  results.push({ name, result: clean });
+  results.push({ name, elapsed_ms, result: clean });
   if (!result.ok) console.log(name + ' expected/actual failure ' + JSON.stringify(clean));
   return result;
 }

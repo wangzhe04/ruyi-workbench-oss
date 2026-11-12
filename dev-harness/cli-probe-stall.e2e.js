@@ -38,10 +38,11 @@ const EMPTY = path.join(WORK, 'empty');   // APPDATA／LOCALAPPDATA／ProgramFil
 for (const d of [HOME, BIN, EMPTY]) fs.mkdirSync(d, { recursive: true });
 const KIMI_BROKEN = path.join(WORK, 'kimi-broken.flag');
 const slowCli = (name, flag) => {
-  const file = path.join(BIN, name);
+  const file = path.join(BIN, process.platform === 'win32' ? name : name.replace(/\.cmd$/, ''));
   // 睡 SLOW_MS 再退出;flag 文件存在时退出码 1(kimi 的探测只认 0,见 01-config probeAgentCliLauncher)。
   const script = `setTimeout(() => process.exit(require('fs').existsSync(process.argv[1]) ? 1 : 0), ${SLOW_MS})`;
-  fs.writeFileSync(file, `@"${process.execPath}" -e "${script}" "${flag}"\r\n`);
+  if (process.platform === 'win32') fs.writeFileSync(file, `@"${process.execPath}" -e "${script}" "${flag}"\r\n`);
+  else fs.writeFileSync(file, '#!' + process.execPath + '\n' + `setTimeout(() => process.exit(require('fs').existsSync(${JSON.stringify(flag)}) ? 1 : 0), ${SLOW_MS});\n`, { mode: 0o755 });
   return file;
 };
 const CLAUDE_CLI = slowCli('claude-slow.cmd', path.join(WORK, 'claude-never.flag'));
@@ -65,7 +66,7 @@ const sameFile = (a, b) => String(a || '').toLowerCase() === String(b || '').toL
 
 (async () => {
   const port = await getFreePort();
-  const sysDir = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+  const sysDir = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32') : '/usr/bin:/bin';
   const child = cp.spawn(process.execPath, [SERVER, 'serve', '--port', String(port)], {
     cwd: path.join(ROOT, 'ruyi-workbench', 'app'),
     env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME, HOME, USERPROFILE: HOME,
@@ -111,8 +112,12 @@ const sameFile = (a, b) => String(a || '').toLowerCase() === String(b || '').toL
     fail++;
     console.log('FAIL 未捕获异常:' + (error && error.stack || error));
   } finally {
-    killOwnTree(child.pid);
-    await sleep(300);
+    const exited = new Promise(resolve => { if (child.exitCode !== null || child.signalCode !== null) resolve(); else child.once('exit', resolve); });
+    const cleanup = killOwnTree(child);
+    await Promise.race([exited, sleep(5000)]);
+    ok((child.exitCode !== null || child.signalCode !== null) && !cleanup.skipped
+      && (process.platform !== 'darwin' || (cleanup.incomplete === false && cleanup.scope === 'observed-tree')),
+      'owned CLI-probe service process tree cleanup is confirmed');
     try { fs.rmSync(WORK, { recursive: true, force: true }); } catch { /* Windows 句柄 */ }
   }
   console.log(fail === 0 ? 'CLI PROBE STALL E2E: ALL PASS' : `CLI PROBE STALL E2E: FAILURES ${fail}`);

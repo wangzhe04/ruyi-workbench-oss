@@ -59,6 +59,9 @@ function diagnostic(label, value) { if (!value.ok) console.log(label + ' ' + JSO
     t.ok(stateRun.status === 0 && stateContract.admitted && stateContract.active_write_retained
       && stateContract.stopped_write_refused && stateContract.prior_snapshot_retained && stateContract.invalid_pointer_refused,
       'native clipboard transaction rejects admission after stop and retains an active owned snapshot');
+    t.ok(stateContract.allocation_failure_preserved && stateContract.stopped_key_refused
+      && stateContract.stopped_pointer_refused && stateContract.stopped_post_cancelled,
+      'stop wins keyboard, chord, pointer and wheel admission with typed cancellation while ordinary post failures remain input_failed');
     const prodState = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'test_input_state' }), encoding: 'utf8', timeout: 5000 });
     t.ok(JSON.parse(prodState.stdout).code === 'invalid_args', 'production helper excludes the input-state test protocol');
     const probe = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'status' }), encoding: 'utf8', timeout: 5000 });
@@ -279,7 +282,12 @@ function diagnostic(label, value) { if (!value.ok) console.log(label + ' ' + JSO
     const launch = await client.callTool('launch_application', { path: app, args: '--launch-only', ready_timeout: 2 });
     diagnostic('Launch diagnostic', launch);
     if (launch.pid) launched = { pid: launch.pid, start: launch.process_start };
-    t.ok(launch.ok && launch.success && launch.pid > 1 && launch.process_start && launch.path === app && launch.launched_via === 'LaunchServices',
+    // LaunchServices resolves application URLs; Foundation can spell /private/tmp as /tmp.
+    // Compare the actual existing directory identity rather than its incoming spelling.
+    const requestedPath = fs.realpathSync.native(app);
+    const actualPath = typeof launch.path === 'string' ? fs.realpathSync.native(launch.path) : null;
+    console.log('INFO LaunchServices path identity ' + JSON.stringify({ requested: app, returned: launch.path, requestedPath, actualPath }));
+    t.ok(launch.ok && launch.success && launch.pid > 1 && launch.process_start && actualPath === requestedPath && launch.launched_via === 'LaunchServices',
       'LaunchServices starts the controlled app and confirms actual bundle and process identity');
     t.ok(launch.ready && launch.window.pid === launch.pid && launch.window.target.ref, 'application readiness includes an actually observed window target');
     if (launch.pid) await until(() => !snapshotProcessTable()?.some(row => row.pid === launch.pid), 6000);

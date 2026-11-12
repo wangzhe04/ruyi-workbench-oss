@@ -222,6 +222,29 @@ static BOOL PostMouse(CGEventType type, CGPoint point, CGMouseButton button, NSI
     return event != NULL;
 }
 
+static BOOL PostScroll(CGPoint point, int amount, BOOL horizontal) {
+    // Stop and event admission share one lock, as keyboard and pointer events do.
+    pthread_mutex_lock(&eventLock);
+    CGEventRef event = !stopping ? CGEventCreateScrollWheelEvent(
+        NULL, kCGScrollEventUnitLine, 2, horizontal ? 0 : amount, horizontal ? -amount : 0) : NULL;
+    if (event) {
+        CGEventSetLocation(event, point);
+        CGEventSetFlags(event, 0);
+        CGEventPost(kCGHIDEventTap, event);
+        CFRelease(event);
+    }
+    pthread_mutex_unlock(&eventLock);
+    return event != NULL;
+}
+
+static NSDictionary *PostEventFailure(NSString *message) {
+    // A stop can win between FocusGuard and the locked event admission above.
+    // Call only after Post*/Chord releases eventLock; release events remain allowed.
+    return RuyiAutomationEventsStopping()
+        ? RuyiAutomationFailure(@"input_cancelled", @"Native input session is stopping")
+        : RuyiAutomationFailure(@"input_failed", message);
+}
+
 static CGPoint Pointer(void) {
     CGEventRef event = CGEventCreate(NULL);
     CGPoint point = event ? CGEventGetLocation(event) : CGPointMake(NAN, NAN);
@@ -513,7 +536,7 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
             @"action_sent" : @YES,
             @"verification" : @"events_posted"
         }
-                    : InputFailure(RuyiAutomationFailure(@"input_failed", @"Cannot create the keyboard event sequence"),
+                    : InputFailure(PostEventFailure(@"Cannot create the keyboard event sequence"),
                                    YES);
     }
     if (![op isEqual:@"keyboard.text"])
@@ -536,7 +559,7 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
             acted = YES;
             failure = FocusGuard(row, window, deadline);
             if (!failure && !Chord(@[ @55, @9 ], 0))
-                failure = RuyiAutomationFailure(@"input_failed", @"Cannot create Cmd+V events");
+                failure = PostEventFailure(@"Cannot create Cmd+V events");
             if (!failure)
                 Wait(MIN(2, 0.4 + text.length / 20000.0));
         } else {
@@ -555,7 +578,7 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
                     sent = PostKey(0, YES, 0, unit) && PostKey(0, NO, 0, unit);
                 acted = YES;
                 if (!sent) {
-                    failure = RuyiAutomationFailure(@"input_failed", @"Cannot create Unicode keyboard events");
+                    failure = PostEventFailure(@"Cannot create Unicode keyboard events");
                     break;
                 }
                 i = NSMaxRange(range);
@@ -567,7 +590,7 @@ static NSDictionary *Keyboard(NSDictionary *request, NSDictionary *row, AXUIElem
             if (!failure) {
                 acted = YES;
                 if (!Chord(@[ @36 ], 0))
-                    failure = RuyiAutomationFailure(@"input_failed", @"Cannot create Enter events");
+                    failure = PostEventFailure(@"Cannot create Enter events");
             }
         }
         if (!failure)
@@ -655,7 +678,7 @@ static NSDictionary *Mouse(NSDictionary *request, NSDictionary *row, AXUIElement
     @try {
         CGPoint initial = drag || move ? start : point;
         if (!PostMouse(kCGEventMouseMoved, initial, button, 0))
-            return RuyiAutomationFailure(@"input_failed", @"Cannot create pointer events");
+            return InputFailure(PostEventFailure(@"Cannot create pointer events"), NO);
         acted = YES;
         Wait(0.02);
         CGPoint actual = Pointer();
@@ -667,7 +690,7 @@ static NSDictionary *Mouse(NSDictionary *request, NSDictionary *row, AXUIElement
             failure = RuyiAutomationPointGuard(row, window, initial);
         if (!failure && (drag || move)) {
             if (drag && !PostMouse(ButtonEvent(button, YES), start, button, 1))
-                failure = RuyiAutomationFailure(@"input_failed", @"Cannot create drag button event");
+                failure = PostEventFailure(@"Cannot create drag button event");
             NSInteger steps = MAX(1, (NSInteger)ceil(duration / 0.02));
             for (NSInteger i = 1; !failure && i <= steps; i++) {
                 CGPoint next = CGPointMake(initial.x + (point.x - initial.x) * i / steps,
@@ -680,7 +703,7 @@ static NSDictionary *Mouse(NSDictionary *request, NSDictionary *row, AXUIElement
                                                          : kCGEventOtherMouseDragged)
                                         : kCGEventMouseMoved;
                 if (!failure && !PostMouse(type, next, button, 0))
-                    failure = RuyiAutomationFailure(@"input_failed", @"Cannot create pointer movement events");
+                    failure = PostEventFailure(@"Cannot create pointer movement events");
                 if (!failure)
                     Wait(duration / steps);
             }
@@ -691,22 +714,15 @@ static NSDictionary *Mouse(NSDictionary *request, NSDictionary *row, AXUIElement
                     failure = RuyiAutomationPointGuard(row, window, point);
                 if (!failure && (!PostMouse(ButtonEvent(button, YES), point, button, i) ||
                                  !PostMouse(ButtonEvent(button, NO), point, button, i)))
-                    failure = RuyiAutomationFailure(@"input_failed", @"Cannot create mouse click events");
+                    failure = PostEventFailure(@"Cannot create mouse click events");
                 if (!failure && i < clicks)
                     Wait(interval);
             }
         } else if (!failure) {
             int amount = [request[@"amount"] intValue];
             BOOL horizontal = [request[@"direction"] isEqual:@"horizontal"];
-            CGEventRef scroll = CGEventCreateScrollWheelEvent(
-                NULL, kCGScrollEventUnitLine, 2, horizontal ? 0 : amount, horizontal ? -amount : 0);
-            if (scroll) {
-                CGEventSetLocation(scroll, point);
-                CGEventSetFlags(scroll, 0);
-                CGEventPost(kCGHIDEventTap, scroll);
-                CFRelease(scroll);
-            } else
-                failure = RuyiAutomationFailure(@"input_failed", @"Cannot create wheel event");
+            if (!PostScroll(point, amount, horizontal))
+                failure = PostEventFailure(@"Cannot create wheel event");
         }
     } @finally {
         RuyiAutomationReleaseEvents();
@@ -960,12 +976,19 @@ NSDictionary *RuyiAutomationTestBlockedClipboard(NSDictionary *request) {
 }
 
 NSDictionary *RuyiAutomationTestInputState(void) {
+    NSDictionary *allocationFailure = PostEventFailure(@"controlled allocation failure");
     BOOL admitted = RuyiAutomationTrackClipboard(@[], 123);
     BOOL active = [RuyiAutomationRestorePendingClipboard() isEqual:@"pending"];
     RuyiAutomationStopEvents();
     BOOL refused = !RuyiAutomationTrackClipboard(@[ @"replacement" ], 456);
     BOOL preserved = pendingClipboard.count == 0 && pendingClipboardVersion == 123 && clipboardWriteActive;
     BOOL invalidPointerRefused = !AtPoint(CGPointMake(NAN, 0), CGPointZero) && !AtPoint(CGPointMake(0, NAN), CGPointZero);
+    // Stop has already won admission. These calls must post no real events.
+    BOOL stoppedKeyRefused = !PostKey(0, YES, 0, nil);
+    BOOL stoppedChordRefused = !Chord(@[ @55, @0 ], 0);
+    BOOL stoppedMouseRefused = !PostMouse(kCGEventMouseMoved, CGPointZero, kCGMouseButtonLeft, 0);
+    BOOL stoppedWheelRefused = !PostScroll(CGPointZero, 1, NO) && !PostScroll(CGPointZero, 1, YES);
+    NSDictionary *stoppedFailure = InputFailure(PostEventFailure(@"controlled post failure"), YES);
     // This fixture never calls NSPasteboard. Drop the synthetic memory-only transaction.
     pendingClipboard = nil;
     clipboardWriteActive = NO;
@@ -977,7 +1000,14 @@ NSDictionary *RuyiAutomationTestInputState(void) {
         @"active_write_retained" : @(active),
         @"stopped_write_refused" : @(refused),
         @"prior_snapshot_retained" : @(preserved),
-        @"invalid_pointer_refused" : @(invalidPointerRefused)
+        @"invalid_pointer_refused" : @(invalidPointerRefused),
+        @"allocation_failure_preserved" : @([allocationFailure[@"code"] isEqual:@"input_failed"]
+            && [allocationFailure[@"error"] isEqual:@"controlled allocation failure"]),
+        @"stopped_key_refused" : @(stoppedKeyRefused && stoppedChordRefused),
+        @"stopped_pointer_refused" : @(stoppedMouseRefused && stoppedWheelRefused),
+        @"stopped_post_cancelled" : @([stoppedFailure[@"code"] isEqual:@"input_cancelled"]
+            && [stoppedFailure[@"acted"] boolValue] && [stoppedFailure[@"action_sent"] boolValue]
+            && [stoppedFailure[@"outcome"] isEqual:@"unconfirmed"])
     };
 }
 #endif
