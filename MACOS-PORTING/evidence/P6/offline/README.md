@@ -26,12 +26,21 @@
 
 - 从全部本地缓存在不带 `--download` 的模式下重新准备资产；五组件目录摘要及66个 wheel逐项匹配锁，未复用开发 venv。
 - [Full第五轮候选](development-candidate.json)的[真实实包专项](acceptance-full-third.txt)19项通过：复制到中文/空格/emoji路径、只读载荷、sandbox实际拒绝源码/开发依赖目录和公网、实际 Node/Python/rg 来源、相对 console入口、五类文档写读和检查点、真实 Chromium、本地页面、EOF、实际 AppKit/WKWebView与载荷不变。该开发候选早于相对数据根修正，最终提交绑定候选另记，不扩大历史证据。
-- [完整工程门](fast-final.txt)单元2638通过、18既有跳过；静态首轮79/80，唯一失败为新增 EOF fixture 的扫描清册/显式 env 展开登记；[定向修复复验](fixture-final.txt)通过，其余79范围未变，不声称另有一次完整80/80运行。
+- 最终源码的[完整工程门](engineering-release.txt)通过：单元 **2640通过、18既有跳过、0失败**（[完整日志](unit-release.txt)）；静态 **80/80通过、零flaky**，14个live门明确未执行。此前[2638项单元及79/80静态](fast-final.txt)的失败只涉及新增 EOF fixture 清册/显式 env 登记，[定向修复](fixture-final.txt)和本次完整80/80分别保留，未覆盖原日志。
 - [语法检查](syntax-final.txt)及构建新鲜度通过；路由/模块契约按实际生成并验证。额外 CLI发现、Python监督探针、Windows overlay拒绝边界均有本目录日志。
 
 ## 最终候选
 
-固定提交下的 Full/Slim 候选及独立实包复验仍待登记。完成时更新本节、TASKS.json 与执行看板；不会因已有开发验证而跳过最终候选绑定。
+**P6-01 已完成实现及当前 Mac 候选验证。** 最终源码为 `f059b7ebe30843386b7ab648f7ffad41b37db6de`；Full/Slim 均在原仓库文稿目录、禁止公网的子进程中构建成功。最终包逐项对应该提交的484份源码（保留明确的Git checkout换行转换），包内原生记录分别209/6项，独立在原路径重新计算一致，无FD替代或超时。
+
+Full 主执行与独立各 **19/19**，Slim 各 **7/7**，均零失败/跳过；[主执行 Full](acceptance-full-release.txt)、[Slim](acceptance-slim-release.txt)、[独立 Full](independent-full-release.txt)、[Slim](independent-slim-release.txt)分别保留。候选完整载荷和manifest在前后不变。独立[最终报告](review-final.json)与[验证清单](validation.json)区分本轮新跑、逐字节绑定复用及未验范围。
+
+Full/Slim ZIP 已真实解压并验证全部载荷，文件、模式、内部链接与manifest一致；[ZIP记录和SHA256](archives.json)、[解压日志](archive-verification-release.txt)可对账。正式可安装/升级发行仍未验收，交付物为开发签名、未公证候选。
+
+| 变体 | 本地 ZIP（仓库根目录起） | ZIP 字节数 | 入口范围 |
+|---|---|---:|---|
+| Full | `ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01.zip` | 551162472 | 独立Python、ACC、Office/图表/视觉、Chromium及基础工作台 |
+| Slim | `ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01.zip` | 45914837 | Node/rg/宿主与原生helper；不随附Python/ACC/Office/浏览器依赖 |
 
 首次固定 `d46d1469` 的禁公网构建在 lipo 180秒超时后真实失败并回收自有组，未发布输出，[日志](build-full-final.txt)保留。后续[四个最小对照](lipo-sandbox-controls.txt)均成功，未确认唯一根因。审计工具随后改为先用 xcrun 解析真实工具路径再传递 fd，减少选择器移交；独立增量复核通过，[相关11项](unit-native-tool-selection.txt)通过。最终候选必须绑定后续修正提交重新构建，不将失败轮次改写为成功。
 

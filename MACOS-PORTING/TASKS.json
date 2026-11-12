@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-11-10",
+  "date": "2026-11-12",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -2121,10 +2121,23 @@
             "high": 4
           },
           "deliverable": "打包 Node/Python/rg/必要 wheels 与浏览器；区分各发行变体承诺能力、许可、hash 校验和版本锁；不打入官方 Agent CLI。",
-          "status": "in_progress",
-          "owner": "Codex",
-          "evidence": [],
-          "progress": "P6-01 自包含 Full/Slim 构建与独立复核进行中；资产离线重建摘要一致，当前执行搬移/只读/受限网络专项；正式签名、公证、macOS14与干净用户安装未计通过。"
+          "status": "done",
+          "owner": "Codex; independent p6_review",
+          "evidence": [
+            "evidence/P6/offline/README.md",
+            "evidence/P6/offline/validation.json",
+            "evidence/P6/offline/review-final.json",
+            "evidence/P6/offline/archives.json"
+          ],
+          "progress": "固定源码、禁公网构建、独立运行时与许可/版本/hash闭包完成；Full/Slim各经主执行和独立实包复验19/7项，原路径native209/6及484源码绑定通过，ZIP解压载荷一致。原生审计FD超时已修复为稳定路径，失败历史保留。",
+          "commit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+          "completionScope": "arm64当前macOS27.0.1上的自包含Full/Slim开发候选实现与验证；最低macOS14仅部署声明静态检查，不代表实际运行。",
+          "notAccepted": [
+            "P6-02 正式签名、公证、Gatekeeper与干净标准用户安装",
+            "P6-03 升级/回退/数据迁移验收",
+            "P6-04 macOS14实际运行、同候选Windows及最终全量发行回归",
+            "P5原未验环境及held故障恢复门槛"
+          ]
         },
         {
           "id": "P6-02",
@@ -2162,7 +2175,9 @@
           "owner": null,
           "evidence": []
         }
-      ]
+      ],
+      "owner": "Codex",
+      "progress": "P6-01 实现与当前Mac离线候选验证完成；Full/Slim源提交f059b7eb，主执行及独立各19/7项通过；P6-02/03/04仍待开始。"
     }
   ],
   "estimateCheckpoint": {
