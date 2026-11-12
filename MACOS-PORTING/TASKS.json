@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-11-12",
+  "date": "2026-11-13",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -2092,8 +2092,10 @@
         "instruction": "后续开发无人值守，你完成后整体验收P5，然后恢复自动锁屏",
         "status": "scoped_delivery_completed_followup_retained",
         "restoreAutomaticLockAfter": "full_P5_acceptance",
-        "restorationStatus": "pending",
-        "evidence": "evidence/P5/unattended-instruction-2026-11-11.json"
+        "restorationStatus": "restored_under_later_explicit_P6_instruction",
+        "evidence": "evidence/P5/unattended-instruction-2026-11-11.json",
+        "restorationEvidence": "evidence/P6/mac-closeout/power-release.json",
+        "supersededBy": "Latest P6 user instruction explicitly requests release and sleep after unattended work; original full P5 gate remains unaccepted."
       },
       "completedDate": "2026-11-12",
       "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。",
@@ -2291,10 +2293,15 @@
       "automatableCloseoutCompleted": true,
       "unattendedExecution": {
         "instruction": "修复Mac端的问题并收尾P6。接下来无人值守，设置防锁屏进行最终验收，完成后释放并休眠",
-        "status": "automatable_work_closed_power_release_pending",
+        "status": "protection_released_sleep_queued",
         "powerEvidence": "evidence/P6/mac-closeout/power-release.json",
         "sleepEvidence": "evidence/P6/mac-closeout/sleep-request.json",
-        "manualAuthorizationAccepted": false
+        "manualAuthorizationAccepted": false,
+        "screensaverIdleTime": 300,
+        "ownedAssertionReleased": true,
+        "sleepQueued": true,
+        "sleepScheduledForUTC": "2026-11-12T16:09:56.689913+00:00",
+        "observedAsleep": false
       }
     }
   ],

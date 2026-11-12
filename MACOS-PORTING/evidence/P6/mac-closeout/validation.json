@@ -345,6 +345,13 @@
   "power": {
     "releaseEvidence": "power-release.json",
     "sleepEvidence": "sleep-request.json",
-    "status": "Pending final reviewed closeout; runtime records will be updated after actual actions."
+    "status": "restored_and_owned_protection_released_sleep_queued",
+    "screensaverIdleTime": 300,
+    "actualRestored": true,
+    "ownedAssertionReleased": true,
+    "sleepStatus": "queued",
+    "scheduledForUTC": "2026-11-12T16:09:56.689913+00:00",
+    "observedAsleep": false,
+    "independentReleaseReview": "power-release-review.json"
   }
 }

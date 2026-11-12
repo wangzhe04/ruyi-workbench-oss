@@ -1,0 +1,31 @@
+2026-11-13 00:04:52 +0800 
+Assertion status system-wide:
+   BackgroundTask                 0
+   ApplePushServiceTask           0
+   UserIsActive                   1
+   PreventUserIdleDisplaySleep    1
+   SoftwareUpdateTask             0
+   PreventSystemSleep             0
+   PreventSystemSleepSecurityIndicator 0
+   ExternalMedia                  0
+   PreventUserIdleSystemSleep     1
+   NetworkClientActive            1
+Listed by owning process:
+   pid 30625(ChatGPT): [0x0001b0150001969f] 30:19:16 NoIdleSleepAssertion named: "Electron"  
+   pid 839(ExcelDevMon): [0x0000009000018141] 61:00:25 PreventUserIdleSystemSleep named: "Good Reason"  
+   pid 44774(caffeinate): [0x00032f100001934b] 03:05:13 PreventUserIdleSystemSleep named: "caffeinate command-line tool"  
+	Details: caffeinate asserting for 43200 secs
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+	Timeout will fire in 32086 secs Action=TimeoutActionRelease
+   pid 44774(caffeinate): [0x00032f100005934c] 03:05:13 PreventUserIdleDisplaySleep named: "caffeinate command-line tool"  
+	Details: caffeinate asserting for 43200 secs
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+	Timeout will fire in 32086 secs Action=TimeoutActionRelease
+   pid 44774(caffeinate): [0x00032f100009934d] 03:05:13 UserIsActive named: "caffeinate command-line tool"  
+	Details: caffeinate asserting for 43200 secs
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+	Timeout will fire in 32086 secs Action=TimeoutActionRelease
+   pid 517(cupsd): [0x0000008d00118077] 61:00:28 NetworkClientActive named: "org.cups.cupsd"  
+   pid 389(powerd): [0x00032d7b0001931f] 03:11:58 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+Kernel Assertions: 0x100=MAGICWAKE
+   id=542  level=255 0x100=MAGICWAKE creat=2026/11/10 11:06  mod=2026/11/12 10:21 description=en0 owner=IOSkywalkNetworkBSDClient

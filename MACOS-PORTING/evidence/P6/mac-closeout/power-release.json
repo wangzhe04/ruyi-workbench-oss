@@ -1,9 +1,30 @@
 {
-  "recordedAt": "2026-11-12T15:56:11.448411+00:00",
-  "status": "pending_after_final_review",
+  "startedAt": "2026-11-12T16:04:52.612972+00:00",
+  "userInstruction": "修复Mac端的问题并收尾P6。接下来无人值守，设置防锁屏进行最终验收，完成后释放并休眠",
   "ownedCaffeinatePid": 44774,
-  "historicalScreensaverIdleTime": 300,
-  "actualRestored": false,
-  "ownedAssertionReleased": false,
-  "instructionOverridesOlderP5KeepAwakeCondition": true
+  "expectedBirth": "Thu Nov 12 20:59:39 2026",
+  "expectedCommand": "/usr/bin/caffeinate -d -i -u -t 43200",
+  "historicalRestoreIdleTime": 300,
+  "restorationSource": "MACOS-PORTING/evidence/P5/unattended-instruction-2026-11-11.json",
+  "supersedesEarlierP5KeepAwakeInstruction": true,
+  "fullOriginalP5Accepted": false,
+  "initialRecord": {
+    "recordedAt": "2026-11-12T15:56:11.448411+00:00",
+    "status": "pending_after_final_review",
+    "ownedCaffeinatePid": 44774,
+    "historicalScreensaverIdleTime": 300,
+    "actualRestored": false,
+    "ownedAssertionReleased": false,
+    "instructionOverridesOlderP5KeepAwakeCondition": true
+  },
+  "verifiedProcessIdentity": "Thu Nov 12 20:59:39 2026     /usr/bin/caffeinate -d -i -u -t 43200",
+  "idleTimeBefore": "0",
+  "idleTimeAfter": "300",
+  "actualRestored": true,
+  "ownedProcessAbsent": true,
+  "ownedPidAbsentFromAssertions": true,
+  "ownedAssertionReleased": true,
+  "otherApplicationAssertions": "Left unchanged; explicit sleep will be requested only after release verification.",
+  "status": "restored_and_owned_protection_released",
+  "finishedAt": "2026-11-12T16:04:52.675099+00:00"
 }
