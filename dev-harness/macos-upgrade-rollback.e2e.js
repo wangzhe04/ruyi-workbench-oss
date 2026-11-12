@@ -10,6 +10,9 @@ const { inventory, treeDigest, run } = require('../ruyi-workbench/tools/macos-of
 const { verifyDistribution, verifyTrialDirectory, attachTrial, detachTrial, installTrial, verifyInstalledApp } = require('../ruyi-workbench/tools/package-macos-trial');
 const t = createRunner('MACOS UPGRADE ROLLBACK');
 const oldDistribution = process.env.RUYI_UPGRADE_OLD_DISTRIBUTION, newDistribution = process.env.RUYI_UPGRADE_NEW_DISTRIBUTION;
+// Optional fixture resource mode: ordinary install remains covered separately. Both
+// real DMGs and every integrity/data/rollback assertion still participate in this drill.
+const cloneStaging = process.platform === 'darwin' && process.env.RUYI_UPGRADE_CLONE_STAGING === '1';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const read = p => JSON.parse(fs.readFileSync(p, 'utf8'));
 async function until(fn, timeout = 90000) { const end = Date.now() + timeout; while (Date.now() < end) { if (await fn()) return; await sleep(100); } throw new Error('Upgrade drill timed out'); }
@@ -63,7 +66,27 @@ async function until(fn, timeout = 90000) { const end = Date.now() + timeout; wh
     rejected = false; try { verifyInstalledApp(partial, oldManifest); } catch { rejected = true; }
     t.ok(rejected && digest(installed) === savedApp, 'incomplete staged copy fails integrity checks while the previous App remains usable');
     const mountNew = path.join(scratch, 'mount-new'); attachTrial(path.join(newDistribution, next.image), mountNew); mounts.add(mountNew);
-    const newManifest = verifyTrialDirectory(mountNew).manifest, staged = installTrial(mountNew, stage);
+    const newManifest = verifyTrialDirectory(mountNew).manifest;
+    let staged;
+    if (cloneStaging) {
+      fs.mkdirSync(stage);
+      staged = path.join(stage, 'Ruyi.app');
+      run('/bin/cp', ['-cR', installed, staged]);
+      const oldRoot = fs.lstatSync(installed), newRoot = fs.lstatSync(staged);
+      const independent = (oldRoot.dev !== newRoot.dev || oldRoot.ino !== newRoot.ino)
+        && oldManifest.files.filter(file => file.type === 'file').every(file => {
+          const previous = fs.lstatSync(path.join(installed, file.path)), nextFile = fs.lstatSync(path.join(staged, file.path));
+          return previous.dev !== nextFile.dev || previous.ino !== nextFile.ino;
+        });
+      const verifiedClone = independent && digest(staged) === savedApp;
+      t.ok(verifiedClone,
+        'verified old App clone has independent root and regular file identities before new-payload synchronization');
+      if (!verifiedClone) throw new Error('Refuse synchronization into an unverified or shared seed');
+      // Copy only changed files from the actual new read-only image. No hardlinks,
+      // mutation of the old App, or synthetic new payload can satisfy the checks below.
+      run('/usr/bin/rsync', ['-a', '--checksum', '--delete', path.join(mountNew, newManifest.app) + '/', staged + '/']);
+      verifyInstalledApp(staged, newManifest);
+    } else staged = installTrial(mountNew, stage);
     detachTrial(mountNew); mounts.delete(mountNew);
     t.ok(digest(staged) === next.appTreeSha256 && digest(installed) === savedApp, 'complete new App is validated separately while the old installation remains intact');
     const retained = path.join(fixture.home, 'rollback', 'Ruyi.app'); fs.mkdirSync(path.dirname(retained));
@@ -88,6 +111,7 @@ async function until(fn, timeout = 90000) { const end = Date.now() + timeout; wh
     fs.writeFileSync(path.join(scratch, 'acceptance.json'), JSON.stringify({ variant: next.variant, previousImageSha256: previous.imageSha256,
       nextImageSha256: next.imageSha256, previousSourceCommit: previous.applicationSourceCommit, nextSourceCommit: next.applicationSourceCommit,
       schemaScope: 'schema12 forward normalization to14; same product version3.0.1 build-to-build rollback with full snapshot',
+      stagingMode: cloneStaging ? 'apfs-owned-clone-and-checksummed-sync' : 'normal-ditto-copy',
       snapshotTreeSha256: savedData, reports, failures: t.failures, cleanStandardUser: false }, null, 2));
     console.log('Upgrade rollback evidence: ' + scratch);
   } catch (e) { t.fail(e.stack || String(e)); console.log('Failed upgrade fixture retained: ' + scratch); }
