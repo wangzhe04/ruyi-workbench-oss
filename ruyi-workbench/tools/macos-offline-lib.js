@@ -99,6 +99,10 @@ function verifyAssets(root, lock, variant) {
 function nativeAudit(root) {
   root = fs.realpathSync(root);
   const result = [];
+  // Resolve selector shims before passing an inherited descriptor. The actual developer tool
+  // receives fd3 directly, without an intermediate xcrun handoff that may reuse descriptors.
+  const lipo = run('/usr/bin/xcrun', ['--find', 'lipo']);
+  const otool = run('/usr/bin/xcrun', ['--find', 'otool']);
   const systemPath = value => {
     if (!path.isAbsolute(value)) return false;
     const normalized = path.resolve(value);
@@ -118,11 +122,11 @@ function nativeAudit(root) {
     const magic = Buffer.alloc(4);
     try { fs.readSync(fd, magic, 0, 4, 0); } finally { fs.closeSync(fd); }
     if (!['cffaedfe', 'cefaedfe', 'cafebabe', 'bebafeca', 'cafebabf'].includes(magic.toString('hex'))) continue;
-    const architectures = inspect('/usr/bin/lipo', ['-archs'], file).split(/\s+/);
+    const architectures = inspect(lipo, ['-archs'], file).split(/\s+/);
     if (!architectures.includes('arm64')) throw new Error('Non-arm64 native payload: ' + entry.path);
-    const output = inspect('/usr/bin/otool', ['-arch', 'arm64', '-L'], file);
+    const output = inspect(otool, ['-arch', 'arm64', '-L'], file);
     const dependencies = output.split('\n').slice(1).map(line => line.trim().split(' (compatibility version')[0]).filter(Boolean);
-    const commands = inspect('/usr/bin/otool', ['-arch', 'arm64', '-l'], file);
+    const commands = inspect(otool, ['-arch', 'arm64', '-l'], file);
     const rpaths = [...commands.matchAll(/cmd LC_RPATH\s+cmdsize \d+\s+path (.+?) \(offset \d+\)/g)].map(match => match[1]);
     const versions = [...commands.matchAll(/\bminos\s+(\d+\.\d+(?:\.\d+)?)/g),
       ...commands.matchAll(/cmd LC_VERSION_MIN_MACOSX[\s\S]*?\bversion\s+(\d+\.\d+(?:\.\d+)?)/g)].map(match => match[1]);
@@ -130,7 +134,7 @@ function nativeAudit(root) {
       || (Number(value.split('.')[0]) === 14 && Number(value.split('.')[1]) > 0))) {
       throw new Error('Native payload exceeds macOS14.0 target or has no deployment metadata: ' + entry.path + ' ' + versions.join(','));
     }
-    const header = inspect('/usr/bin/otool', ['-arch', 'arm64', '-hv'], file);
+    const header = inspect(otool, ['-arch', 'arm64', '-hv'], file);
     const executable = /\bEXECUTE\b/.test(header);
     // otool -L lists LC_ID_DYLIB before the library's actual load commands.
     if (/\bDYLIB\b/.test(header)) dependencies.shift();
