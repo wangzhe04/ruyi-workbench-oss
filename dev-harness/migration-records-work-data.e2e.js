@@ -1,7 +1,7 @@
 'use strict';
 // Generated runtime, synthetic source skills/external config and real Windows DPAPI.
 // No source overlay, service process, real home, user migration or publication.
-const path = require('node:path'), repo = process.env.MIGRATION_REPO || process.cwd();
+const path = require('node:path'), repo = process.env.MIGRATION_REPO || path.resolve(__dirname, '..');
 require(path.join(repo, 'dev-harness/lib/self-isolate-home'));
 const fs = require('node:fs'), fsp = require('node:fs/promises'), os = require('node:os');
 const assert = require('node:assert/strict');

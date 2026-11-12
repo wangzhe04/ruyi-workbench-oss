@@ -792,27 +792,42 @@ try {
   }
 
   /* ═════════ (J) P2-11 / P2-12 / A4 ═════════ */
-  console.log('── (J) P2-11 每回合目标上限 / P2-12 §8.6 口径 / A4 主页签名 ──');
+  console.log('── (J) 逐目标权限 / P2-12 §8.6 口径 / A4 主页签名 ──');
   {
-    // P2-11:「每回合 ≤3 个自理目标」修前不是唯一硬上限 —— 确定性自理那条路数 3
-    // (STEWARD_SELF_SERVE_PER_TURN_MAX),模型声明的 actions 另数 5(STEWARD_ACTIONS_MAX),
-    // 两边不去重 sessionId,一个回合合规地触达 8 条不同线程。修后两边合起来数同一个 3。
+    // 3656700cf（2026-10-23）及 docs/architecture/steward-supervision.md 明确取消
+    // 每批 3 线程 / 5 动作的人为转交门，全部按对应线程权限处理；权限与金额预算仍保留。
     const targets = [];
-    for (let i = 1; i <= 5; i++) { const sid = 'sess_cap_' + i; craftThread(sid, { permissionMode: 'auto', title: '上限线程 ' + i }); targets.push(sid); }
+    for (let i = 1; i <= 5; i++) { const sid = 'sess_cap_' + i; craftThread(sid, { permissionMode: 'auto', title: '批量线程 ' + i }); targets.push(sid); }
+    const restricted = 'sess_batch_desktop_confirm';
+    craftThread(restricted, { permissionMode: 'auto', title: '桌面仍须确认', createdBy: 'steward' });
+    const restrictedFile = path.join(sessionsDir, restricted + '.json');
+    const restrictedBefore = fs.readFileSync(restrictedFile);
     writeConfig({ permissionMode: 'auto', stewardMaxTurnsPerHour: 500, stewardAutoActions: { relay: true, newThread: true, retry: true, resume: true } });
     providerReply = JSON.stringify({
-      say: '我把这几条都改了名。', why: '演示每回合目标上限', acts: [],
-      actions: targets.map((sid, i) => ({ tool: 'steward_thread_rename', args: { sessionId: sid, title: '被管家改的名 ' + (i + 1) } })),
+      say: '我把这几条都改了名，桌面权限请你确认。', why: '按每条线程自己的权限处理', acts: [],
+      actions: [
+        ...targets.map((sid, i) => ({ tool: 'steward_thread_rename', args: { sessionId: sid, title: '被管家改的名 ' + (i + 1) } })),
+        { tool: 'steward_thread_permission', args: { sessionId: restricted, capabilities: { desktop: true } } },
+      ],
     });
-    const capped = await srv.runStewardTurn({ trigger: 'user', message: '把这五条都改个名' });
+    const batch = await srv.runStewardTurn({ trigger: 'user', message: '把这五条都改个名，并给最后那条开桌面' });
     providerReply = JSON.stringify({ say: '看过了。', why: '总览', acts: [] });
-    const rows = (capped && capped.actions) || [];
-    const done = rows.filter(r => r && r.result && r.result.ok === true);
-    const overflow = rows.filter(r => r && r.result && r.result.reason === 'per_turn_target_max');
-    ok(rows.length === 5, `J1 五条 actions 都被处理(STEWARD_ACTIONS_MAX=5;got ${rows.length})`);
-    ok(done.length === 3, `J2 只有前 3 个目标真的执行(每回合目标上限 3;修前 5 个全执行;got ${done.length})`);
-    ok(overflow.length === 2, `J3 超出的两条降级成提议(propose_required / per_turn_target_max;got ${overflow.length})`);
-    ok((capped.acts || []).length > 0, 'J4 被拦下的照既有路径降级成按钮(不算失败)');
+    const rows = (batch && batch.actions) || [];
+    const renames = rows.filter(r => r && r.tool === 'steward_thread_rename');
+    const permission = rows.find(r => r && r.tool === 'steward_thread_permission');
+    ok(rows.length === 6 && renames.length === 5, `J1 六条声明动作均被逐项处理，不截掉第六条(got ${rows.length})`);
+    ok(renames.every((r, i) => r.result && r.result.ok === true && r.result.sessionId === targets[i]
+      && r.result.title === '被管家改的名 ' + (i + 1)) && targets.every((sid, i) =>
+      JSON.parse(fs.readFileSync(path.join(sessionsDir, sid + '.json'), 'utf8')).title === '被管家改的名 ' + (i + 1)),
+      'J2 五个合法目标均真实改名并落盘，不以第四个目标转交代替执行');
+    ok(permission && permission.result && permission.result.ok === false
+      && permission.result.error === 'propose_required' && permission.result.reason === 'confirm_required'
+      && fs.readFileSync(restrictedFile).equals(restrictedBefore),
+      `J3 同批第六个目标的桌面放宽仍精确提议且会话头零写入(got ${permission && permission.result && permission.result.error})`);
+    ok((batch.acts || []).some(act => act && act.kind === 'tool' && act.tool === 'steward_thread_permission'
+      && act.args && act.args.sessionId === restricted)
+      && rows.every(r => !r.result || r.result.reason !== 'per_turn_target_max'),
+      'J4 提议按钮只对应实际权限门，固定目标上限不再冒充拒绝原因');
 
     // P2-12:切【新线程默认权限】到「全自动」是 §8.6 点名的专门二次确认,不是任意 confirm 键的通用语义。
     const autoSet = await call('steward_config_set', { patch: { permissionMode: 'auto' } }, stewardCtx());

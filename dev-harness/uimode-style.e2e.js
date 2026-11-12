@@ -215,7 +215,8 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
     const sysDetailed = caps.map(systemOf).join('\n');
     ok(!sysDetailed.includes(SHORT_INSTR), '(B) detailed: request prompt does NOT contain short-answer instruction');
     // Sanity: the identity pin is present either way (proves we captured a real layered prompt, not empty).
-    ok(/由 .* 的 .* 模型驱动/.test(sysDetailed), '(B) detailed: identity-pinned system prompt captured (sanity)');
+    ok(sysDetailed.includes('本地 AI 工作台。本次请求："Fake"，请求模型标识 "fake-model"，协议 "Chat Completions"。')
+      && sysDetailed.includes('型号可为代理别名，后端未验证。'), '(B) detailed: identity-pinned system prompt captured (sanity)');
 
     // ── C) /api/status.errorClasses ──────────────────────────────────────────────────────────────────
     st = await getJson(WB_PORT, '/api/status');

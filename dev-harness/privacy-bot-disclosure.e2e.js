@@ -3,6 +3,7 @@
 // Synthetic credentials and loopback HTTP only; no model, accounts or child processes.
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), http = require('node:http'), crypto = require('node:crypto');
 const { once } = require('node:events');
+const assert = require('node:assert/strict');
 const { createRunner } = require('./lib/harness');
 const { install } = require('./lib/external-channel-delivery-preload');
 const { fixture } = require('./lib/privacy-test-fixture');
@@ -12,14 +13,34 @@ process.env.RUYI_BOT_QQ_DISCLOSURE = 'synthetic-qq-vault-secret';
 process.env.RUYI_BOT_FEISHU_DISCLOSURE = 'synthetic-feishu-vault-secret';
 process.env.RUYI_BOT_VERIFICATION_DISCLOSURE = 'synthetic-verification-secret';
 process.env.RUYI_BOT_ENCRYPT_DISCLOSURE = 'synthetic-encrypt-secret';
-const app = require('./lib/server-internals').loadServerInternals(['PrivacyGateway', 'PrivacyCore', 'PrivacyRegex', 'ExternalChannelDelivery',
+const app = require('./lib/server-internals').loadServerInternals(['PrivacyGateway', 'PrivacyCore', 'PrivacyRegex', 'ExternalChannelDelivery', 'mutateConfig', 'readConfig',
   'externalBotNormalizeConnection', 'externalBotWriteState', 'externalBotReadState', 'externalBotNextJob', 'externalBotFinishJob', 'externalBotPrepareReply',
-  'externalBotRecover', 'externalBotDrain', 'externalBotBoundReplyText', 'externalBotReplyText', 'STEWARD_SESSION_ID'], { withEval: true });
+  'externalBotRecover', 'externalBotDrain', 'externalBotSendJob', 'externalBotDeliveries', 'externalBotBoundReplyText', 'externalBotReplyText', 'STEWARD_SESSION_ID'], { withEval: true });
 const t = createRunner('PRIVACY BOT DISCLOSURE'), { ok } = t;
 const vault = fixture().vault;
 app.PrivacyCore.configHooks.sealLocal = vault.sealLocal; app.PrivacyCore.configHooks.openLocal = vault.openLocal;
 let server, restore, requests = [], onToken, responseMode = '', serial = 0;
 const policy = (mode = 'enhanced', extra = {}) => ({ privacyModeV1: mode, privacyRulesV1: [], providers: [], ...extra });
+// NextJob and the real credential/state readers reload trusted disk policy.
+// Prepare each scenario through that production path; configure-only mutations
+// below remain deliberate in-flight epoch faults, never initial authority.
+async function trustedPolicy(mode = 'enhanced', extra = {}) {
+  const expected = policy(mode, extra);
+  await app.mutateConfig(config => Object.assign(config, expected, {
+    privacyTechnicalV1: false, privacyPolicyRecoveryRequiredV1: false,
+    credentialEncryptionV1: true, workDataEncryptionV1: false,
+    activeProvider: '', externalMcpServers: [], includeWorkbenchMcp: false,
+    autoImportClaudeCodeMcp: false, autoImportKimiCodeMcp: false, enableMcpDropIn: false,
+    desktopMcp: { enabled: false, autodetect: false }, stewardEnabledV1: false, schedulerEnabledV1: false,
+  }));
+  const saved = await app.readConfig();
+  assert.equal(saved.privacyModeV1, mode, 'actual committed policy mode');
+  assert.deepEqual(saved.privacyRulesV1, expected.privacyRulesV1, 'actual committed policy rules');
+  assert.equal(saved.privacyTechnicalV1, false);
+  assert.equal(saved.privacyPolicyRecoveryRequiredV1, false);
+  assert.equal(saved.credentialEncryptionV1, true);
+  assert.equal(saved.workDataEncryptionV1, false);
+}
 const messageRequests = () => requests.filter(row => !row.token);
 function connection(platform, kind) {
   const group = kind === 'group', sender = 'human', room = group ? 'room' : sender;
@@ -41,12 +62,63 @@ async function seed(platform = 'qq', kind = 'group', replyText = 'public reply')
   requests = []; responseMode = ''; onToken = null;
   return app.externalBotNextJob();
 }
-async function send(job, controller = new AbortController()) {
-  const assertPolicy = app.PrivacyGateway.disclosurePolicyGuard();
-  const result = await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID, () => app.ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
-    { attemptId: job.item.delivery.attemptId, signal: controller.signal, timeoutMs: 5000,
-      prepare: dispatch => app.externalBotPrepareReply(job, controller, dispatch, assertPolicy) }));
-  await app.externalBotFinishJob(job, result); return result;
+// Observe the real SendJob result before its original settlement. The fixture
+// never creates a delivery owner: only the production SendJob may do that.
+const sends = new Map();
+globalThis.__botDisclosureObserver = {
+  originalPrepare: app.externalBotPrepareReply,
+  originalFinish: app.externalBotFinishJob,
+  prepare(job, controller, dispatch, guard) {
+    const row = sends.get(job);
+    if (!row || row.originalController !== controller) throw Error('Original bot send owner unavailable');
+    return row.prepare ? row.prepare(job, controller, dispatch, guard) : app.externalBotPrepareReply(job, controller, dispatch, guard);
+  },
+  async finish(job, result) {
+    const row = sends.get(job);
+    if (!row || row.observed) throw Error('Unexpected bot settlement');
+    row.observed = true; row.result = result; row.resolve(result);
+    await row.permit;
+    return app.externalBotFinishJob(job, result);
+  },
+};
+app.__eval('externalBotPrepareReply = (...args) => globalThis.__botDisclosureObserver.prepare(...args); externalBotFinishJob = (...args) => globalThis.__botDisclosureObserver.finish(...args);');
+async function beginSend(job, controller = new AbortController(), prepare) {
+  if (sends.has(job)) throw Error('Bot send already started');
+  const row = { prepare, controller };
+  row.ready = new Promise((resolve, reject) => { row.resolve = resolve; row.reject = reject; });
+  row.ready.catch(() => {});
+  row.permit = new Promise(resolve => { row.release = resolve; });
+  sends.set(job, row);
+  row.run = app.externalBotSendJob(job); row.run.catch(error => row.reject(error));
+  let timer;
+  try {
+    // Capture once, immediately after the real SendJob synchronously registers
+    // its owner. Later cancellation can only touch this exact original object.
+    row.owner = app.externalBotDeliveries.get(job.item.id);
+    if (!row.owner || row.owner.attemptId !== job.item.delivery.attemptId || !row.owner.controller) throw Error('Actual bot send did not issue its original owner');
+    row.originalController = row.owner.controller;
+    row.abort = () => row.originalController.abort();
+    controller.signal.addEventListener('abort', row.abort, { once: true });
+    if (controller.signal.aborted) row.abort();
+    return await Promise.race([row.ready, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Original bot result caller deadline (5000ms)')), 5000); })]);
+  } catch (primary) {
+    row.failure = primary; row.release();
+    try { await row.run; }
+    catch (cleanup) { if (cleanup !== primary) throw new AggregateError([primary, cleanup], 'Bot send and original settlement failed', { cause: primary }); }
+    finally { if (row.abort) controller.signal.removeEventListener('abort', row.abort); sends.delete(job); }
+    throw primary; // A late successful original result cannot clear the caller failure.
+  } finally { clearTimeout(timer); }
+}
+async function finishSend(job, result) {
+  const row = sends.get(job);
+  if (!row || row.result !== result) throw Error('Bot result does not belong to the original send');
+  row.release();
+  try { await row.run; if (row.failure) throw row.failure; }
+  finally { row.controller.signal.removeEventListener('abort', row.abort); sends.delete(job); }
+}
+async function send(job, controller = new AbortController(), prepare) {
+  const result = await beginSend(job, controller, prepare);
+  await finishSend(job, result); return result;
 }
 async function edit(change) {
   const state = await app.externalBotReadState(); change(state); await app.externalBotWriteState(state);
@@ -71,7 +143,7 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
   await app.externalBotRecover();
   for (const mode of ['off', 'basic', 'enhanced', 'strict']) for (const platform of ['qq', 'feishu']) for (const kind of ['direct', 'group']) {
     const source = 'patient-disclosure-sentinel ' + process.env[platform === 'qq' ? 'RUYI_BOT_QQ_DISCLOSURE' : 'RUYI_BOT_FEISHU_DISCLOSURE'];
-    app.PrivacyGateway.configure(policy(mode));
+    await trustedPolicy(mode);
     if (mode !== 'off') await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID, async () => { app.PrivacyGateway.active().scope.protectValue('patient-disclosure-sentinel', 'INTERNAL'); });
     const job = await seed(platform, kind, source), result = await send(job), sent = messageRequests();
     ok(result.status === 'sent' && sent.length === 1, `${mode}/${platform}/${kind} sends exactly one reply`);
@@ -83,7 +155,7 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
       : requests[0].body.app_secret === job.connection.appSecret && sent[0].headers.authorization === "Bearer " + "synthetic-feishu-access", `${mode}/${platform}/${kind} auth remains only official token slots/header`);
   }
   for (const mode of ['off', 'basic', 'enhanced', 'strict']) {
-    app.PrivacyGateway.configure(policy(mode));
+    await trustedPolicy(mode);
     const source = '{"password":"PRIVATE_PREFIX_' + 'x'.repeat(2300) + '_PRIVATE_END"}', job = await seed('qq', 'group', source);
     const result = await send(job), actual = textOf(messageRequests()[0]);
     ok(result.status === 'sent' && (mode === 'off' ? actual === app.externalBotBoundReplyText(source) : !actual.includes('PRIVATE_PREFIX_') && !actual.includes('_PRIVATE_END')), `${mode} protects complete logical JSON before historical clipping`);
@@ -100,18 +172,17 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
     ['control', 'enhanced', async () => edit(state => { state.connections[0].controlRevision++; })],
   ];
   for (const [name, mode, mutate] of tokenCases) {
-    app.PrivacyGateway.configure(policy(mode)); const job = await seed(); onToken = mutate;
+    await trustedPolicy(mode); const job = await seed(); onToken = mutate;
     // A changed attempt cannot be settled as the original; test delivery refuses
     // first, then restore only that test ledger identity before normal settlement.
-    const result = await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID, () => app.ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
-      { attemptId: job.item.delivery.attemptId, prepare: dispatch => app.externalBotPrepareReply(job, new AbortController(), dispatch) }));
+    const result = await beginSend(job);
     ok(result.status === 'failed' && messageRequests().length === 0, `held token ${name} refuses before any message request`);
     if (name === 'attempt') await edit(state => { state.items[0].delivery.attemptId = job.item.delivery.attemptId; });
-    await app.externalBotFinishJob(job, result);
+    await finishSend(job, result);
     const before = JSON.stringify((await app.externalBotReadState()).items[0].execution); await app.externalBotDrain();
     ok((await app.externalBotReadState()).items[0].delivery.status === 'failed' && JSON.stringify((await app.externalBotReadState()).items[0].execution) === before && messageRequests().length === 0, `held token ${name} preserves completed execution and never replays`);
   }
-  app.PrivacyGateway.configure(policy());
+  await trustedPolicy();
   { const job = await seed(), controller = new AbortController(); onToken = async () => controller.abort(); const result = await send(job, controller);
     ok(result.status === 'failed' && messageRequests().length === 0, 'held token cancellation is known failed with zero message requests'); }
   for (const value of ['[[RUYI_PVT:EMAIL:' + 'f'.repeat(32) + ']]', '[[RUYI_PVT:INTERNAL:' + 'e'.repeat(32) + ']]']) {
@@ -125,7 +196,7 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
     const job = await seed('qq', 'direct', value), result = await send(job); ok(result.status === 'failed' && messageRequests().length === 0, 'actual foreign or revoked reference never reaches receiver');
   }
   for (const name of ['policy', 'credential', 'recipient', 'source', 'attempt', 'cancel']) {
-    app.PrivacyGateway.configure(policy());
+    await trustedPolicy();
     const job = await seed('qq', 'group', '{"password":"prepare-only-sensitive-' + serial + '"}'), controller = new AbortController();
     const original = app.PrivacyCore.configHooks.sealLocal; let held = false;
     app.PrivacyCore.configHooks.sealLocal = async (...args) => {
@@ -141,29 +212,36 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
       return original(...args);
     };
     try {
-      const result = await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID, () => app.ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
-        { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => app.externalBotPrepareReply(job, controller, dispatch) }));
+      const result = await beginSend(job, controller);
       ok(held && result.status === 'failed' && messageRequests().length === 0, `held prepare ${name} refuses before message transport`);
+      if (name === 'attempt') {
+        // The stale attempt must also fail actual production settlement. Do not
+        // restore its identity merely to make that actor appear current.
+        let refusal;
+        try { await finishSend(job, result); } catch (error) { refusal = error; }
+        ok(refusal?.code === 'external_channel.delivery_unknown' && messageRequests().length === 0,
+          'held prepare changed attempt retains the original production settlement refusal');
+        await app.externalBotRecover();
+      } else await finishSend(job, result);
     } finally { app.PrivacyCore.configHooks.sealLocal = original; }
   }
   for (const [start, middle] of [['enhanced','off'],['off','enhanced']]) {
-    app.PrivacyGateway.configure(policy(start));const job=await seed();
+    await trustedPolicy(start);const job=await seed();
     onToken=async()=>{app.PrivacyGateway.configure(policy(middle));app.PrivacyGateway.configure(policy(start));};
     const result=await send(job), before=JSON.stringify((await app.externalBotReadState()).items[0].execution);
     await app.externalBotDrain();
     ok(result.status==='failed'&&messageRequests().length===0&&JSON.stringify((await app.externalBotReadState()).items[0].execution)===before, 'held token '+start+' roundtrip refuses unsent body without replay');
   }
   for(const stage of ['persist','refreshed']) {
-    app.PrivacyGateway.configure(policy());const job=await seed('qq','group','{"password":"epoch-closure-'+serial+'"}'),controller=new AbortController();
+    await trustedPolicy();const job=await seed('qq','group','{"password":"epoch-closure-'+serial+'"}'),controller=new AbortController();
     const guard=app.PrivacyGateway.disclosurePolicyGuard(), original=app.PrivacyCore.configHooks.sealLocal;let reached=false;
     if(stage==='persist')app.PrivacyCore.configHooks.sealLocal=async(...args)=>{if(!reached){reached=true;app.PrivacyGateway.configure(policy('off'));app.PrivacyGateway.configure(policy());}return original(...args);};
     try {
-      const result=await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID,()=>app.ExternalChannelDelivery.sendReply(job.connection,job.item,job.item.execution.replyText,{attemptId:job.item.delivery.attemptId,prepare:dispatch=>app.externalBotPrepareReply(job,controller,prepared=>{if(stage==='refreshed'){reached=true;app.PrivacyGateway.markUnavailable();app.PrivacyGateway.configure(policy());}return dispatch(prepared);},guard)}));
-      await app.externalBotFinishJob(job,result);
+      const result=await send(job,controller,(actualJob,actualController,dispatch)=>app.externalBotPrepareReply(actualJob,actualController,prepared=>{if(stage==='refreshed'){reached=true;app.PrivacyGateway.markUnavailable();app.PrivacyGateway.configure(policy());}return dispatch(prepared);},guard));
       ok(reached&&result.status==='failed'&&messageRequests().length===0&&(await app.externalBotReadState()).items[0].execution.status==='completed','policy epoch '+stage+' refuses before actual platform request, retaining completed execution');
     }finally{app.PrivacyCore.configHooks.sealLocal=original;}
   }
-  app.PrivacyGateway.configure(policy());
+  await trustedPolicy();
   // Unrelated learning during host projection does not falsely deny a public reply.
   { const original = app.PrivacyCore.configHooks.sealLocal; let learned = false;
     await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID, async () => { app.PrivacyGateway.active().scope.protectValue('force-persistence-for-concurrent-learning', 'INTERNAL'); });
@@ -180,6 +258,17 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
     ok(JSON.stringify((await app.externalBotReadState()).items[0].execution) === before, `message ${mode} never reruns completed business`);
   }
 })().catch(error => { console.error(error.stack || error); t.fail('uncaught fixture error'); }).finally(async () => {
+  // Even a caller failure keeps the original SendJob promise until its actual
+  // settlement. A late successful result never removes the earlier failure.
+  const pending = [...sends.values()];
+  for (const row of pending) row.release();
+  const settled = await Promise.allSettled(pending.map(row => row.run));
+  for (let i = 0; i < pending.length; i++) {
+    const row = pending[i]; if (row.abort) row.controller.signal.removeEventListener('abort', row.abort);
+    if (settled[i].status === 'rejected') { console.error(settled[i].reason?.stack || settled[i].reason); t.fail('original bot settlement cleanup failed'); }
+  }
+  sends.clear();
+  app.__eval('externalBotPrepareReply = globalThis.__botDisclosureObserver.originalPrepare; externalBotFinishJob = globalThis.__botDisclosureObserver.originalFinish; delete globalThis.__botDisclosureObserver;');
   if (restore) restore(); if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
   vault.clear(); fs.rmSync(root, { recursive: true, force: true }); t.done();
 });

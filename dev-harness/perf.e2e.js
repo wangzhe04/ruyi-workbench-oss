@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
+const { pathToFileURL } = require('node:url');
 
 const { readFrontendSrc } = require('./read-frontend-src.js'); // v1.3-FE1:app.js 拆模块后聚合读 public/app.js+public/js/**
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
@@ -100,7 +101,19 @@ function buildFixture(sessionsDir) {
     ok(/Math\.max\(countTailStart, weightedTailStart\)/.test(src) && /if \(tailStart === 0\) return 0/.test(src), '③d light sessions stay full; heavy sessions window below the row threshold');
     ok(/加载更早/.test(src) && /function\s+buildLoadEarlierButton\s*\(/.test(src), '③e「加载更早」control build code present');
     ok(/visibleSessionMessageEntries\(msgs, start/.test(src), '③f shared visible-message iterator starts at the bounded window cursor');
-    ok(/MESSAGE_WINDOW_RENDER_BUDGET\s*=\s*220_000/.test(src) && !/JSON\.stringify\(message\)/.test(src), '③g render-weight estimate is capped and never serializes giant message payloads');
+    const narrative = await import(pathToFileURL(path.join(WB, 'app/public/js/turn-narrative.js')).href);
+    let serialized = 0;
+    const noSerialization = object => Object.defineProperty(object, 'toJSON', { value() { serialized++; throw Error('render estimator serialized a message payload'); } });
+    const giant = noSerialization({ role: 'assistant', content: 'x'.repeat(2_000_000) });
+    giant.self = giant;
+    const nested = { toolCalls: [{ result: noSerialization({ output: 'x'.repeat(2_000_000) }) }] };
+    const cycle = noSerialization({ role: 'assistant' }); cycle.self = cycle;
+    ok(narrative.MESSAGE_WINDOW_RENDER_BUDGET === 220_000
+      && narrative.estimateMessageRenderWeight(giant) === 220_001
+      && narrative.estimateMessageRenderWeight(giant, 73) === 73
+      && narrative.estimateMessageRenderWeight(nested) === 220_001
+      && narrative.estimateMessageRenderWeight(cycle) === 9 && serialized === 0,
+    '③g real render estimator caps giant/cyclic/nested payloads without invoking serialization');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

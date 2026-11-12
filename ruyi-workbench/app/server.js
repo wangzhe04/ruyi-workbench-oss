@@ -17270,7 +17270,7 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
 //
 // 记(rememberLastUsedEngineRoute)与读(newSessionEngineRoute)分两处,共用 config 上的一个字段。
 // ────────────────────────────────────────────────────────────────────────────────────────
-// 记:**两个写入点共用这一个函数**,不许各写一遍。
+// 记:线程/回合与配置选择共用下面的配置内更新函数,不许各写一遍。
 //   ① 用户在线程头上换引擎/模型 → PATCH /api/sessions/:id → applySessionMetaPatch;
 //   ② 用户自己发起的回合 → 10 的 runSessionTurn 且 source === 'http'。
 // 三条纪律:
@@ -17279,6 +17279,14 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
 //   · 【与现值不同才落盘】,否则每个回合都要写一次 config.json;权威比对在 mutateConfig 的锁内
 //     再做一次(锁外那一次只是拿调用方手上的现成副本做便宜短路,可能已经陈旧);
 //   · 【失败静默】。这是旁路记账 —— 写不进去最多是下一条新线程回落全局,绝不能弄坏回合或 PATCH。
+// Pure configuration update shared by the asynchronous remembered-route writer
+// and configuration-patch commits that already own the config write lock.
+function rememberLastUsedEngineRouteInConfig(current, nextRoute) {
+  const clean = normalizeSessionEngineRoute(nextRoute);
+  if (!clean || JSON.stringify(normalizeSessionEngineRoute(current.lastUsedEngineRoute)) === JSON.stringify(clean)) return false;
+  current.lastUsedEngineRoute = clean;
+  return true;
+}
 async function rememberLastUsedEngineRoute(nextRoute, knownConfig) {
   try {
     const clean = normalizeSessionEngineRoute(nextRoute);
@@ -17288,8 +17296,7 @@ async function rememberLastUsedEngineRoute(nextRoute, knownConfig) {
       && JSON.stringify(normalizeSessionEngineRoute(knownConfig.lastUsedEngineRoute)) === wanted) return false;
     let wrote = false;
     await mutateConfig(async current => {
-      if (JSON.stringify(normalizeSessionEngineRoute(current.lastUsedEngineRoute)) === wanted) return { abort: 'unchanged' };
-      current.lastUsedEngineRoute = clean;
+      if (!rememberLastUsedEngineRouteInConfig(current, clean)) return { abort: 'unchanged' };
       wrote = true;
     });
     return wrote;
@@ -26869,7 +26876,18 @@ class McpStdioClient {
       const prepared = await ManagedMcp.prepare(this, method, params, options);
       let result, rpcError;
       try { result = await this._rpc(method, prepared.params, timeoutMs, prepared.options); } catch (error) { rpcError = error; }
-      try { prepared.assert(); } catch (error) { error.mcpOperationMayHaveExecuted = prepared.sent; throw error; }
+      try { prepared.assert(); }
+      catch (error) {
+        // A sent stdio call still needs its existing transport-cancel cleanup
+        // when the postflight privacy guard withholds the result. Keep that
+        // original privacy error primary; cleanup never authorizes a replay.
+        if (prepared.sent && (rpcError?.mcpAborted === true || rpcError?.mcpTimeout === true)) {
+          try { this.kill(); }
+          catch (cleanupError) { try { Object.defineProperty(error, 'mcpCleanupError', { value: cleanupError }); } catch { /* Preserve the primary guard failure. */ } }
+        }
+        error.mcpOperationMayHaveExecuted = prepared.sent;
+        throw error;
+      }
       if (rpcError) throw rpcError;
       return result;
     }
@@ -49787,6 +49805,8 @@ async function applyConfigPatch(rawBody, options = {}) {
   const confirmed = raw.confirm === true;
   const body = { ...raw };
   delete body.confirm;
+  // Only the authenticated HTTP route can convey this request-only intent via options.
+  delete body.selectFirstChatProvider;
   if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
   }
@@ -49858,6 +49878,25 @@ async function applyConfigPatch(rawBody, options = {}) {
       const foreign = merged.providers.filter(p => !isToolbox(p));
       if (owned.length || foreign.length !== merged.providers.length) merged.providers = [...foreign, ...owned];
     }
+    // Saving the first service in Settings is a main-engine default intent only
+    // while no earlier engine choice or usable chat service exists. Re-check the
+    // actual current state here, not the browser's potentially stale snapshot.
+    if (options.selectFirstChatProvider === true && Array.isArray(body.providers)
+      && !['activeProvider', 'agentCliType', 'model'].some(key => Object.hasOwn(body, key))
+      && !current.activeProvider && current.lastUsedEngineRoute == null
+      && !['activeProvider', 'agentCliType', 'model'].some(key => (current.configExplicitKeysV1 || []).includes(key))) {
+      const usableChatProviders = providers => (Array.isArray(providers) ? providers : []).map(sanitizeProvider).filter(provider => {
+        if (!stewardChatCapableProvider(provider)) return false;
+        try { const target = new URL(provider.baseUrl); return target.protocol === 'http:' || target.protocol === 'https:'; } catch { return false; }
+      });
+      const previous = usableChatProviders(current.providers), candidates = usableChatProviders(merged.providers);
+      if (previous.length === 0 && candidates.length === 1) {
+        merged.activeProvider = candidates[0].id;
+        // One committed selection: avoid an after-write history update racing
+        // a later explicit choice. Existing thread routes remain untouched.
+        rememberLastUsedEngineRouteInConfig(merged, sessionEngineRouteFromConfig({ ...merged, providers: candidates }));
+      }
+    }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
     if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
       merged.knownModels = [...(merged.knownModels || []), body.model];
@@ -49882,6 +49921,12 @@ async function applyConfigPatch(rawBody, options = {}) {
         logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
       }
     }
+    // An explicit global engine choice includes choosing the current CLI again.
+    // Commit its canonical remembered route in this same write: two locks could
+    // otherwise let a first-provider save slip between choice and memory.
+    if (['activeProvider', 'agentCliType', 'model'].some(key => Object.hasOwn(body, key))) {
+      rememberLastUsedEngineRouteInConfig(merged, sessionEngineRouteFromConfig(normalizeConfig(merged).config));
+    }
     return { next: merged, value: current };
   });
   const next = patched.config;
@@ -49895,15 +49940,6 @@ async function applyConfigPatch(rawBody, options = {}) {
   if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
   if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
     invalidateAgentCliPathCaches();
-  }
-  // 123-N2 合并复核（主会话）：用户在设置里改全局引擎（activeProvider／agentCliType／model）也是一次
-  // 【显式选择】，要成为「上次用的」—— 否则改完全局、新开一条线程，仍跟着改之前的那一路走
-  // （agent-team-mode.e2e 合并后串行必红：切回 Claude 驱动后新会话仍走上一轮的 fake 端点）。
-  // 只在这三个键真的在 body 里时记；与现值相同则 rememberLastUsedEngineRoute 自己短路不落盘。
-  // 【await 而不是 void】：保存请求回 200 之前记录就得落盘——调用方（设置页、e2e）改完全局马上
-  // 新开线程是常见序列，fire-and-forget 会让那条新线程仍跟着上一路走（本机实测 agent-team-mode 就这么红）。
-  if (body && ['activeProvider', 'agentCliType', 'model'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
-    await rememberLastUsedEngineRoute(sessionEngineRouteFromConfig(next), next);
   }
   // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
   if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
@@ -78357,9 +78393,16 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
+    // Settings-only request metadata is not a persisted configuration field.
+    const hasFirstProviderIntent = body && typeof body === 'object' && Object.hasOwn(body, 'selectFirstChatProvider');
+    if (hasFirstProviderIntent && (typeof body.selectFirstChatProvider !== 'boolean' || body.selectFirstChatProvider && !Array.isArray(body.providers))) {
+      return send(res, apiFailure('config.first_provider_intent_invalid', {}, 'selectFirstChatProvider must be a boolean accompanying providers', 400));
+    }
+    const selectFirstChatProvider = hasFirstProviderIntent && body.selectFirstChatProvider === true;
+    if (hasFirstProviderIntent) delete body.selectFirstChatProvider;
     let next = null;
     try {
-      next = await ConfigPatchHooks.applyConfigPatch(body); // 06k 填入(见 01 的 ConfigPatchHooks 头注)
+      next = await ConfigPatchHooks.applyConfigPatch(body, { selectFirstChatProvider }); // 06k 填入(见 01 的 ConfigPatchHooks 头注)
     } catch (error) {
       // 116-3 B1:切全局默认权限到「全自动」缺 confirm:true -> 409,错误码与 13d 的线程级 PATCH 同一个。
       if (error && error.code === 'permission.confirm_required') {
@@ -100834,7 +100877,16 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
       const encodedBootstrap = Buffer.from(selectedBootstrap, 'utf16le').toString('base64');
       const commandUnits = 1 + ctx.executable.length + 2 + ['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',encodedBootstrap].reduce((n, arg) => n + 1 + arg.length + 2, 0);
       if (commandUnits > 32767) throw Error('native_code_command_limit');
-      if (!hit) { sink = await io.mkdtemp(nodePath.join(nodePath.resolve(nodeOs.tmpdir()), 'ruyi-native-code-')); lineage = await directories(sink); }
+      if (!hit) {
+        const temporaryRoot = nodePath.resolve(nodeOs.tmpdir());
+        // Optional cold-cache compilation has a narrower supported TEMP geometry
+        // than the original source compiler. This is our conservative UTF-16
+        // root budget, not an OS path limit; reject before allocating a sink.
+        // A validated hot byte hit needs no compiler sink and retains its path.
+        if (temporaryRoot.length > 128) throw Error('native_code_temp_root_limit');
+        sink = await io.mkdtemp(nodePath.join(temporaryRoot, 'ruyi-native-code-'));
+        lineage = await directories(sink);
+      }
       const env = { ...process.env };
       for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('RUYI_SKILL_CAPSULE_')) delete env[key];
       const meta = { ...ctx, ...(hit ? { artifactHash: hit.sha256, clr: hit.clr, mvid: hit.mvid } : {}) };
@@ -112226,7 +112278,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       ||[host.httpApi,host.resultApi,host.controlApi].some(api=>typeof api.create!=='function')
       ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command','assertOwnership','withColdSource','withWarmSource'].some(name=>typeof host[name]!=='function')
       ||!host.workerHooks||typeof host.workerHooks!=='object')throw fail('runtime_host_invalid');
-    let warm=null,worker=null,coldStarted=false,successorStarted=false,helperUncertain=false;
+    let warm=null,worker=null,coldStarted=false,successorStarted=false,helperUncertain=false,unsupportedServe=false;
     // The successor slot and its strict-port ticket belong to the process, not to one
     // runtime instance: preparation happens before configure, completion after it.
     const slot=shared||{successor:null,strictOptions:new WeakSet()};
@@ -112308,7 +112360,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       return helperUncertain;
     }catch{helperUncertain=true;return true;}};
     const guardNative=async work=>{try{return await work();}catch(error){latch(error);throw error;}};
-    const ready=()=>{try{return host.adaptersReady()===true&&!helpers();}catch{return false;}};
+    const ready=()=>{try{return !unsupportedServe&&host.adaptersReady()===true&&!helpers();}catch{return false;}};
     const ownership=(owner,base)=>{try{return ServerOwnership.owns(owner,base)&&host.assertOwnership(owner,base)===true;}catch{return false;}};
     const command=mode=>{const value=host.command(mode);if(!value||typeof value.command!=='string'||!Array.isArray(value.args)||!value.args.every(arg=>typeof arg==='string'))throw fail('command_invalid');return value;};
     const actualListener=(server,expected)=>{
@@ -112421,10 +112473,22 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       return host.resultApi.create({base:captured.base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(captured.base)}).read();
     };
     async function captureServe(context) {
-      if(coldStarted||warm)throw fail('runtime_already_bound');
+      if(coldStarted||warm||unsupportedServe)throw fail('runtime_already_bound');
       const owner=context.ownership,server=context.server,original=context.base,expected={...context.listener};
-      const base=await host.canonical(original),capturedListener=actualListener(server,expected);
+      const base=await host.canonical(original);
       if(!ownership(owner,base))throw fail('ownership_required');
+      if(!listener(expected)){
+        // Ordinary --allow-remote serve is valid, but cannot own the loopback
+        // maintenance handoff. Record only this explicit unavailable outcome;
+        // do not weaken actualListener or install any worker capability.
+        if(typeof server?.address!=='function')throw fail('listener_changed');
+        const bound=server.address();
+        if(keys(expected)!=='host,port'||typeof expected.host!=='string'||!expected.host.length||expected.host!==expected.host.trim()
+          ||!Number.isInteger(expected.port)||expected.port<1||expected.port>65535||!server?.listening
+          ||!bound||typeof bound!=='object'||typeof bound.address!=='string'||!bound.address.length||bound.port!==expected.port)throw fail('listener_changed');
+        unsupportedServe=true;return false;
+      }
+      const capturedListener=actualListener(server,expected);
       const captured={base,ownership:owner,server,listener:capturedListener};
       warm=captured;
       const readResult=()=>readWarmResult(captured);
@@ -112442,6 +112506,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       return ready();
     }
     function activateServe() {
+      if(unsupportedServe)return false;
       const captured=warm;if(!captured||coldStarted||worker)throw fail('runtime_not_captured');
       const base=captured.base;actualListener(captured.server,captured.listener);
       if(!ready())return false; // Missing native/result/successor adapters do not advertise a worker.
@@ -112595,7 +112660,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     //   complete - re-verify warm capture/readiness/root/port/authority/result (or the
     //              activation receipt), then publish serve-ready and drop the parent channel
     async function prepareSuccessor(channel=host.workerApi.processChannel(proc),{base}={}) {
-      if(warm||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
+      if(warm||unsupportedServe||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
       if(!channel||typeof channel.parentConnected!=='function'||typeof channel.readInput!=='function'||typeof channel.parentPid!=='function'
         ||channel.parentConnected()!==true)throw fail('successor_unavailable');
       if(typeof base!=='string'||!p.isAbsolute(base))throw fail('successor_input_invalid');

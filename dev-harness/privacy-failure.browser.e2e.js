@@ -78,7 +78,16 @@ async function checkMissingProtectedImage(fx, strings, label, countRequests) {
   await click(fx, '#attachmentTray .attach-x');
   await fx.evaluate("(() => { const box = document.getElementById('promptInput'); box.value = ''; box.dispatchEvent(new Event('input',{bubbles:true})); return true; })()");
 }
-async function engine(fx,key){await click(fx,'#threadChips [data-chip="engine"]');await click(fx,`.steward-chip-menu[data-kind="engine"] [data-engine-key="${key}"]`);if(!await fx.waitForEval(`document.querySelector('#threadChips [data-chip="engine"]').getAttribute('aria-expanded')==='false'`))throw Error('engine selection failed');}
+async function engine(fx,key){
+  await click(fx,'#threadChips [data-chip="engine"]');await click(fx,`.steward-chip-menu[data-kind="engine"] [data-engine-key="${key}"]`);
+  const [kind,id]=key.split(':'),matches=route=>kind==='agent'?route?.engine==='agent'&&route.agentCliType===id:route?.engine==='openai'&&route.providerId===id;
+  // The product closes this menu before awaiting PATCH. Wait for its actual
+  // response to update the session, rather than sending on the old route.
+  const routeCheck=kind==='agent'?`r?.engine==='agent'&&r.agentCliType===${JSON.stringify(id)}`:`r?.engine==='openai'&&r.providerId===${JSON.stringify(id)}`;
+  if(!await fx.waitForEval(`(()=>{const r=window.state.currentSession?.engineRoute;return document.querySelector('#threadChips [data-chip="engine"]').getAttribute('aria-expanded')==='false'&&(${routeCheck});})()`))throw Error('engine selection did not persist');
+  const sid=await fx.evaluate('window.state.currentSession.id'),saved=await fx.request('GET','/api/sessions/'+encodeURIComponent(sid));
+  if(saved.status!==200||!matches(saved.json?.session?.engineRoute))throw Error('selected engine differs from authoritative session route');
+}
 async function selectCardAction(fx,label,keyboard=false){
   const focused=await fx.evaluate(`(()=>{for(const old of document.querySelectorAll('#privacy-error-action'))old.removeAttribute('id');const n=[...document.querySelectorAll('.error-card-btn')].findLast(n=>n.textContent===${JSON.stringify(label)});if(!n)throw Error('missing action');n.id='privacy-error-action';n.focus();return document.activeElement===n&&n.type==='button';})()`);
   if(keyboard)await fx.enter();else await click(fx,'#privacy-error-action');return focused;

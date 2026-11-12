@@ -41,6 +41,17 @@ function spawnWb(home, args, extraEnv = {}) {
     env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home, WCW_NO_BROWSER: '1', ...extraEnv },
   });
   child.out = '';
+  child.fixtureHome = home; child.fixtureArgs = args;
+  child.fixtureFacts = { pid: child.pid, spawn: false, error: null, exit: null, close: null,
+    stdoutEnd: false, stdoutClose: false, stderrEnd: false, stderrClose: false };
+  child.once('spawn', () => { child.fixtureFacts.spawn = true; });
+  child.once('error', error => { child.fixtureFacts.error = { code: error.code || '', message: error.message }; });
+  child.once('exit', (code, signal) => { child.fixtureFacts.exit = { code, signal }; });
+  child.once('close', (code, signal) => { child.fixtureFacts.close = { code, signal }; });
+  for (const name of ['stdout', 'stderr']) {
+    child[name].once('end', () => { child.fixtureFacts[name + 'End'] = true; });
+    child[name].once('close', () => { child.fixtureFacts[name + 'Close'] = true; });
+  }
   child.stdout.on('data', d => { child.out += d; });
   child.stderr.on('data', d => { child.out += d; });
   children.push(child);
@@ -221,6 +232,13 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
       ok(rt.status === 200, `R7 非本机对端自带正确头 token 仍可用(显式放行的远端靠 token 鉴权,实得 ${rt.status})`);
       const rh = await req(lanIp, portR, 'GET', '/health', { hostHeader });
       ok(rh.status === 200, 'R8 /health 对远端照常');
+      const maintenance = await lo(portR, 'GET', '/api/work-data/status', { token: tokenR });
+      ok(maintenance.status === 200 && maintenance.json?.ok === true && maintenance.json.capabilities?.worker === false,
+        'R9 non-loopback ordinary serve reports maintenance worker unavailable');
+      const unavailable = await lo(portR, 'POST', '/api/work-data/jobs', { token: tokenR, body: {
+        operation: 'enable', password: 'surface synthetic backup password', expectedAuthority: maintenance.json?.authority, backupDirectory: R.work } });
+      ok(unavailable.status === 501 && unavailable.json?.error?.code === 'work_data_setup.worker_unavailable',
+        'R10 unavailable loopback maintenance refuses typed admission without stopping ordinary serve');
     }
 
     /* ═══ [P] 端口:另一个数据目录的实例占着端口 → 顺延,不杀 ═══ */
@@ -254,7 +272,30 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
   } finally {
     for (const c of children) { try { if (c.exitCode === null) killOwnTree(c); } catch { /* gone */ } }
     await sleep(400);
-    try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch { /* windows 句柄 */ }
+    if (t.failures) {
+      // Keep original process output and startup failure records. A PID alone
+      // never proves exit; runtime diagnostics intentionally omit the token.
+      const diagnostic = path.join(ROOT, 'failure-diagnostics');
+      try {
+        fs.mkdirSync(diagnostic);
+        for (const [index, child] of children.entries()) {
+          const prefix = String(index).padStart(2, '0') + '-' + path.basename(child.fixtureHome);
+          fs.writeFileSync(path.join(diagnostic, prefix + '-output.log'), child.out);
+          let runtime = null;
+          try {
+            const { token: secret, ...published } = JSON.parse(fs.readFileSync(path.join(child.fixtureHome, 'runtime.json'), 'utf8'));
+            runtime = { ...published, tokenConfigured: typeof secret === 'string' && secret.length > 0 };
+          } catch (error) { runtime = { unavailable: true, code: error.code || error.name }; }
+          const startError = path.join(child.fixtureHome, 'last-start-error.json');
+          if (fs.existsSync(startError)) fs.copyFileSync(startError, path.join(diagnostic, prefix + '-last-start-error.json'));
+          fs.writeFileSync(path.join(diagnostic, prefix + '-facts.json'), JSON.stringify({ home: child.fixtureHome,
+            args: child.fixtureArgs, process: child.fixtureFacts, runtime }, null, 2));
+        }
+      } catch (error) { t.fail('failure diagnostic write: ' + (error.stack || error)); }
+      console.log('Surface failure evidence retained at ' + ROOT);
+    } else {
+      try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch { /* windows 句柄 */ }
+    }
   }
   t.done({ exit: true });
 })();

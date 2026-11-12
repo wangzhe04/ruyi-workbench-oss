@@ -91,7 +91,12 @@ function systemOf(body) {
   ok(mod.ERROR_CLASSES && mod.ERROR_CLASSES.provider_misconfigured && mod.ERROR_CLASSES.network_down, 'ERROR_CLASSES table exported with keys');
   // identity pinning at the unit level: prompt names the provider label + model, NOT the product name.
   const sysUnit = mod.buildProviderSystemPrompt({ label: 'Fake', id: 'fake', systemPrompt: '' }, 'fake-model', 'C:/x', [], null, {}, null, false);
-  ok(/由 Fake 的 fake-model 模型驱动/.test(sysUnit), 'unit: identity line pins provider label + model');
+  const pinsRequestIdentity = prompt => {
+    const lead = String(prompt || '').split('\n')[0];
+    return lead.startsWith('本地 AI 工作台。本次请求："Fake"，请求模型标识 "fake-model"，协议 "Chat Completions"。')
+      && lead.includes('配置默认值/历史用量非本次身份') && lead.includes('型号可为代理别名，后端未验证');
+  };
+  ok(pinsRequestIdentity(sysUnit), 'unit: identity pins the current provider/model/protocol request and unverified backend');
   ok(!/Claude/i.test(sysUnit) && !/Workbench/i.test(sysUnit), 'unit: prompt contains neither "Claude" nor "Workbench"');
 
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -174,7 +179,7 @@ function systemOf(body) {
     const caps1 = readCaptures(CAP_DIR);
     ok(caps1.length >= 1, 'at least one request body captured (' + caps1.length + ')');
     const sys1 = systemOf(caps1[0]);
-    ok(/由 Fake 的 fake-model 模型驱动/.test(sys1), 'system pins 「由 Fake 的 fake-model 模型驱动」');
+    ok(pinsRequestIdentity(sys1), 'captured system pins the current Fake/fake-model request without asserting a verified backend');
     // The later model-selection layer may legitimately list Claude engine models. Identity leakage is
     // prevented at the leading identity/capability layer, which must not label this Fake provider as Claude.
     ok(!/Claude/i.test(sys1.slice(0, 800)), 'system identity lead contains NO "Claude" (identity bleed guard)');

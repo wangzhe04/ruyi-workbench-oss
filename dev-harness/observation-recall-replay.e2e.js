@@ -221,18 +221,27 @@ function postStream(port, payload, timeoutMs) {
       let rr = null; try { rr = JSON.parse(recallMsg && recallMsg.content || 'null'); } catch { }
       ok(rr && rr.ok === true, 'R7 recall 工具信封 ok:true');
       if (rr && rr.ok) {
-        // observation_recall 的生产契约上限是 60K；模型可用默认 8K，也可在允许范围内请求更大值。
-        // 这里按真实 tool-call 参数验证精确的 65/35 head-tail 截断；逐字节全量保真由
-        // observation-recall-realhistory.e2e 的内核层覆盖。
-        const requestedMax = Math.max(1000, Math.min(60000, Number(args.maxChars) || 8000));
-        const head = Math.floor(requestedMax * 0.65), tail = requestedMax - head;
-        const boundedOk = targetOriginal.length <= requestedMax
-          ? rr.truncated === false && rr.content === targetOriginal
-          : rr.truncated === true && rr.originalChars === targetOriginal.length
-            && String(rr.content).length <= requestedMax + 256
-            && String(rr.content).startsWith(targetOriginal.slice(0, head))
-            && String(rr.content).endsWith(targetOriginal.slice(-tail));
-        ok(boundedOk, 'R8 回读符合请求 maxChars=' + requestedMax + ' 的有界 head/tail 契约(original=' + targetOriginal.length + ', returned=' + (rr.content || '').length + ')');
+        // The current recall contract returns a contiguous source page, with a
+        // continuation offset. The retired 65/35 excerpt lost the middle. Check
+        // the real request against original source bytes, without calling the
+        // production pagination helper to manufacture an expected response.
+        const rawMax = Number(args.maxChars);
+        const requestedMax = Number.isFinite(rawMax) ? Math.max(1000, Math.min(60000, Math.round(rawMax))) : 8000;
+        const offset = Math.min(targetOriginal.length, Math.max(0, Math.floor(Number(args.offset) || 0)));
+        const content = String(rr.content || ''), end = offset + content.length;
+        let requestedEnd = Math.min(targetOriginal.length, offset + requestedMax);
+        if (requestedEnd > offset && requestedEnd < targetOriginal.length && /[\uD800-\uDBFF]/.test(targetOriginal[requestedEnd - 1])) requestedEnd--;
+        const completePage = { ...rr, content: targetOriginal.slice(offset, requestedEnd), truncated: requestedEnd < targetOriginal.length };
+        if (completePage.truncated) completePage.nextOffset = requestedEnd; else delete completePage.nextOffset;
+        const boundedOk = rr.offset === offset && rr.rawRef === args.rawRef && rr.originalChars === targetOriginal.length
+          && rr.totalChars === targetOriginal.length && content === targetOriginal.slice(offset, end)
+          && end <= requestedEnd && (end === targetOriginal.length || content.length > 0)
+          && !(end > offset && end < targetOriginal.length && /[\uD800-\uDBFF]/.test(targetOriginal[end - 1]))
+          && rr.truncated === (end < targetOriginal.length)
+          && (rr.truncated ? rr.nextOffset === end : !Object.hasOwn(rr, 'nextOffset'))
+          && JSON.stringify(rr).length <= 52000
+          && (JSON.stringify(completePage).length > 52000 || end === requestedEnd);
+        ok(boundedOk, 'R8 回读符合请求 maxChars=' + requestedMax + ' 的连续原文分页/offset/JSON 上限契约(original=' + targetOriginal.length + ', returned=' + content.length + ')');
         ok(String(rr.content).includes(TARGET_FACT), 'R9 回读内容含真实目标事实');
       }
       // 配对铁律

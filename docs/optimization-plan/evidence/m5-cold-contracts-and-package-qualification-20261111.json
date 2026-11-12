@@ -1,0 +1,1014 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-11-11T11:35:07.628Z",
+  "baseCommit": "607eb451d725fc1d714b7379ef1df99203101d4b",
+  "commit": {
+    "identity": "containing_commit",
+    "verification": "inspect_git_history"
+  },
+  "applicationVersion": "3.0.1",
+  "releasePublished": false,
+  "source": {
+    "server": {
+      "path": "C:/r31-1111/m5-m6-local/package-input/ruyi-workbench/dist/m6-local-607eb451/Ruyi-full-local/app/server.js",
+      "bytes": 8805654,
+      "sha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d"
+    },
+    "productServerChangedThisBatch": true,
+    "finalServerCandidate": {
+      "path": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss/ruyi-workbench/app/server.js",
+      "bytes": 8806614,
+      "sha256": "b145ae7e72ba1b3e261682b2fca622795ccfd47a0ad2d2bccc3ea0a22d1eb528"
+    },
+    "packageSourceBaseRevision": "607eb451d725fc1d714b7379ef1df99203101d4b",
+    "productToolChangedThisBatch": true,
+    "finalVerifierSha256": "d72f49f86e0956d7263feca1a321503b7f8aca8cd1dc37b1bdf0a903b7757f74",
+    "packageSourceReceipt": {
+      "path": "C:/r31-1111/m5-m6-local/package-fixed-source-receipt.json",
+      "bytes": 2476,
+      "sha256": "baaf9137d30761752967d5b8659a5d4ef8a134f76d65e97cc2881d855ac8f9a4"
+    },
+    "packageSourcePatch": {
+      "path": "C:/r31-1111/m5-m6-local/package-fixed-source.patch",
+      "bytes": 3040,
+      "sha256": "67e907b138825c4ab8a7bfda73031fa7b54f982862ff3336ce42772f7914b061"
+    },
+    "serverOnlyIdentitySufficientForPackage": false
+  },
+  "m5": {
+    "actualRuns": [
+      {
+        "name": "unclaimed-1",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/unclaimed-1.log",
+          "bytes": 710,
+          "sha256": "ef9e2739622ecac9b297c691de6ab4aaddacc8f943dfe5ca14d086cdeb52e4ce"
+        },
+        "assertions": 9,
+        "allPass": true,
+        "actual": {
+          "path": "C:/r31-1111/m5-m6-local/unclaimed-1/ACTUAL-RESULT.json",
+          "bytes": 39079,
+          "sha256": "e28acfbaa8365dbc667e0016e35826e74fde888c15660e0b9e98cf7c85a14dbb"
+        }
+      },
+      {
+        "name": "unclaimed-2",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/unclaimed-2.log",
+          "bytes": 710,
+          "sha256": "ef9e2739622ecac9b297c691de6ab4aaddacc8f943dfe5ca14d086cdeb52e4ce"
+        },
+        "assertions": 9,
+        "allPass": true,
+        "actual": {
+          "path": "C:/r31-1111/m5-m6-local/unclaimed-2/ACTUAL-RESULT.json",
+          "bytes": 39055,
+          "sha256": "12851d2ed9e7f0a88ad0eaf5a3291294cb9beb9e42489e6d4e22bc412ea07f9f"
+        }
+      },
+      {
+        "name": "sealed-run-1",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/sealed-run-1.log",
+          "bytes": 1143,
+          "sha256": "445bcecc51214887809038c697b45a790c4a117a6ee19956e126e24b3333529a"
+        },
+        "assertions": 21,
+        "allPass": true,
+        "actual": {
+          "path": "C:/r31-1111/m5-m6-local/sealed-run-1/ACTUAL-RESULT.json",
+          "bytes": 73764,
+          "sha256": "633dffbfb4f9a805e06c370375f242df84238ebdb868aa3b36b73d8f5c9f6b31"
+        }
+      },
+      {
+        "name": "sealed-run-2",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/sealed-run-2.log",
+          "bytes": 1143,
+          "sha256": "445bcecc51214887809038c697b45a790c4a117a6ee19956e126e24b3333529a"
+        },
+        "assertions": 21,
+        "allPass": true,
+        "actual": {
+          "path": "C:/r31-1111/m5-m6-local/sealed-run-2/ACTUAL-RESULT.json",
+          "bytes": 73764,
+          "sha256": "73f58845d30f5f64ddb575747a02a2c6ee61f09ec788ac1773c5894863f11582"
+        }
+      },
+      {
+        "name": "relay-sealed-retry-1",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/relay-sealed-retry-1.log",
+          "bytes": 1490,
+          "sha256": "54f1df5d7591b0ece1eb1dee992c17073dc1fb801c225926198626e0188c6d1f"
+        },
+        "assertions": 22,
+        "allPass": true,
+        "actors": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/relay-sealed-retry-1/sealed-workflow-actors.json",
+          "bytes": 3306,
+          "sha256": "e25a4e730682c162d317ecb760858c83fa5c499beda031c7b9efafd3367821ce"
+        },
+        "contract": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/relay-sealed-retry-1/sealed-workflow-qualification.json",
+          "bytes": 1560,
+          "sha256": "470221286f17f20f4fd1aa720ad7002e7ed1d19282a65ce3d8aff9028727504d"
+        }
+      },
+      {
+        "name": "relay-sealed-retry-2",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/relay-sealed-retry-2.log",
+          "bytes": 1490,
+          "sha256": "67b9a500624013c54b932a989048ef747fe19a1b64b095a32c70c31ea61bbe8c"
+        },
+        "assertions": 22,
+        "allPass": true,
+        "actors": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/relay-sealed-retry-2/sealed-workflow-actors.json",
+          "bytes": 3309,
+          "sha256": "2d31dbd96314b70d22d6f43223401df3ae04c5874a90a08267a9f1ac606248a8"
+        },
+        "contract": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/relay-sealed-retry-2/sealed-workflow-qualification.json",
+          "bytes": 1561,
+          "sha256": "d649ca0c111b248cf5701a360bfa316bf04aa58297400e3688f163088bde275f"
+        }
+      },
+      {
+        "name": "playbooks-sealed-1",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/playbooks-sealed-1.log",
+          "bytes": 2168,
+          "sha256": "d59c961d07cf14888d065203f1fd3d4a2179d9adbbe75cffeb1b273a568e8463"
+        },
+        "assertions": 31,
+        "allPass": true,
+        "actors": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/playbooks-sealed-1/sealed-workflow-actors.json",
+          "bytes": 3308,
+          "sha256": "e8858af5e35d073d1041a9b0d707dfb80152a0a7e73a7efc071a95f4afddeff0"
+        },
+        "contract": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/playbooks-sealed-1/sealed-workflow-qualification.json",
+          "bytes": 1819,
+          "sha256": "31469e8ee0d72973b744853e3c0bdf6bb6f94de6fd29c8e67a15425015bc3c91"
+        }
+      },
+      {
+        "name": "playbooks-sealed-2",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/playbooks-sealed-2.log",
+          "bytes": 2168,
+          "sha256": "47ae464936780480334e6b51d76a729bc3ab0657845b58293097680dc301029d"
+        },
+        "assertions": 31,
+        "allPass": true,
+        "actors": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/playbooks-sealed-2/sealed-workflow-actors.json",
+          "bytes": 3305,
+          "sha256": "06ba0169ea70ea9972f3495024f544c1a618aca7adaed26704d43765ed1cf329"
+        },
+        "contract": {
+          "path": "C:/r31-1111/m5-m6-local/workflow-evidence/playbooks-sealed-2/sealed-workflow-qualification.json",
+          "bytes": 1818,
+          "sha256": "e7e497f6128549352f23a9cd251c6e286836d916bf0bad573f2fd78f2f09812a"
+        }
+      }
+    ],
+    "acceptedExecutions": 8,
+    "relatedPassAssertions": 166,
+    "unclaimed": "Original sent offered/claim-null code remains inside its original TTL around each of three signed refusals after real cold boot. Boot cancellation is a separate legitimate baseline change; not isolated boot-binding causality.",
+    "runSnapshot": "Strict production run reader equals entire completed HTTP run outside live map; bound chunks inspected independently. Original process exit+close, fresh serve PID/overlay/token/health; raw run/queue/journal and model/outbound remain unchanged.",
+    "workflows": "Original real browser bilingual Relay/Playbook journeys plus real CurrentUser DPAPI. Original serve exit+close and fresh owned readonly production process match entire selected business definitions and receipts without model or file effects.",
+    "processBounds": "Original held process facts only. Forced original server/browser teardown may have exit code 1. No all-descendant kernel-exit certification; fixture teardown cannot retroactively accept UNKNOWN.",
+    "firstReds": [
+      {
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/relay-sealed-1.log",
+          "bytes": 436,
+          "sha256": "cb11402419038f5a302b9cfc1a4619aea09586f3ce26d9afeb1dcb20fd16796f"
+        },
+        "status": "RED_PRESERVED",
+        "cause": "New observer supplied child only while the existing browser fixture requires beforeStart/provider/child/cleanup. No business process started. Corrected complete interface and added structural negative contract; original assertions and deadlines unchanged."
+      }
+    ],
+    "reviews": [
+      {
+        "reviewer": "m4_media_review",
+        "scope": "unclaimed original pending identity and restart contract",
+        "result": "GO after full original row equality fix and mutation negatives"
+      },
+      {
+        "reviewer": "m4_responses_e2e",
+        "scope": "sealed run snapshot and cold serve",
+        "result": "GO"
+      },
+      {
+        "reviewer": "root",
+        "scope": "W/T complete production readers, lifecycle unknown evidence and full fixture interface",
+        "result": "GO after persisted actor diagnostics and interface correction"
+      },
+      {
+        "reviewer": "m4_gap_audit",
+        "scope": "final unclaimed and sealed-run contracts",
+        "result": "GO, no P1/P2"
+      },
+      {
+        "reviewer": "m4_gap_audit",
+        "scope": "final M5 narrative, all 20 artifact references and 8 run counts",
+        "result": "GO; 166 PASS includes startup observation, no 166-independent-scenarios claim"
+      }
+    ],
+    "sourceIteration": "Historical CF54 matrix; final B145 revalidation recorded separately after completion"
+  },
+  "pending": {
+    "realPlatforms": "QQ/Feishu actual accounts, callbacks, test conversations and explicit message authorization unavailable; synthetic local receivers only.",
+    "publicDistribution": "Corresponding source/build/notices provenance remains unclosed. Full-local developer qualification does not authorize ordinary Full/public distribution.",
+    "oldM4Unknowns": "Historical B493 host job timeout and 115s preview stay UNKNOWN; no causal fix claimed from current timing or source.",
+    "desktopGuiAndLab": "Actual Desktop window start/use/close, cross-account/cross-machine, physical power loss and release remain separate gates."
+  },
+  "updatedAt": "2026-11-11T12:54:06.553Z",
+  "m6": {
+    "scope": "Windows actual console/HTTP packages; genuine EXE plain+work-data-DPAPI and default Full-local protected-image path",
+    "sourceIteration": "Historical CF54 fixed-inventory candidate before remote-startup correction; fresh B145 packages required for final candidate",
+    "finalRequalificationPending": true,
+    "officialBuilds": [
+      {
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/package-slim-1.log",
+          "bytes": 1245,
+          "sha256": "ae0a657dcaeacf2606ec570d4996408bef4ad51eed9be92f7d3e58cad3ed5228"
+        },
+        "exitCode": 0,
+        "completionSource": "original exec_command invocation completed with exit code zero"
+      },
+      {
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/package-full-local-1.log",
+          "bytes": 5987,
+          "sha256": "928358e15ac87536db1714003f067c36500d124a6bac7d8c4fcce40e82ffb5fc"
+        },
+        "exitCode": 0,
+        "completionSource": "original exec_command invocation completed with exit code zero"
+      },
+      {
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/package-fixed-slim-1.log",
+          "bytes": 1245,
+          "sha256": "7ec34f8f472c664b53173f090732042e92b51cb31702ca45187a148c5088e3e0"
+        },
+        "exitCode": 0,
+        "completionSource": "original exec_command invocation completed with exit code zero"
+      },
+      {
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/package-fixed-full-local-1.log",
+          "bytes": 5987,
+          "sha256": "1c0b6f216fe97861c077efc6bb0a839705a5aaf30ad37ef7cc5489a998f89cfc"
+        },
+        "exitCode": 0,
+        "completionSource": "original exec_command invocation completed with exit code zero"
+      }
+    ],
+    "sourceReceipt": {
+      "schema": 1,
+      "recordedAt": "2026-11-11T12:02:31.766Z",
+      "baseRevision": "607eb451d725fc1d714b7379ef1df99203101d4b",
+      "worktree": "C:\\r31-1111\\m5-m6-local\\package-input",
+      "files": [
+        {
+          "path": "ruyi-workbench/tools/verify-media-artifacts.cjs",
+          "bytes": 4985,
+          "sha256": "d72f49f86e0956d7263feca1a321503b7f8aca8cd1dc37b1bdf0a903b7757f74",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/tools/package-offline.ps1",
+          "bytes": 35715,
+          "sha256": "1807743f5c2fad438a373f72c2d0f2a06ccf1c91f69bbfa5e479a1db8c5aada0",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/app/server.js",
+          "bytes": 8805654,
+          "sha256": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/app/src/manifest.json",
+          "bytes": 40058,
+          "sha256": "b748484816be0e8a1adc5e1eb49f15b96671e7de41231d2cc7c42b4020afd970",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/package.json",
+          "bytes": 1502,
+          "sha256": "11a8627f73b0c99c02ceb8dff64f07ae3ecac0dac2e3e148fc12aa592d07bce5",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/resources/media-runtime-dependencies.json",
+          "bytes": 3201434,
+          "sha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/resources/media-runtime-sources.json",
+          "bytes": 443,
+          "sha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/tools/media-runtime-sources-local-full.json",
+          "bytes": 765,
+          "sha256": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7",
+          "sameAsMain": true
+        },
+        {
+          "path": "ruyi-workbench/tools/media-runtime-lock.cjs",
+          "bytes": 4067,
+          "sha256": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0",
+          "sameAsMain": true
+        }
+      ],
+      "sourcePatch": {
+        "path": "C:\\r31-1111\\m5-m6-local\\package-fixed-source.patch",
+        "bytes": 3040,
+        "sha256": "67e907b138825c4ab8a7bfda73031fa7b54f982862ff3336ce42772f7914b061"
+      },
+      "scope": "Isolated base checkout plus these exact two product/tool changes; no claim that server SHA alone identifies the EXE.",
+      "embeddedRuntimeCache": "fetched-v24.18.0-win-x64",
+      "bundledNode": "v24.14.0",
+      "releasePublished": false
+    },
+    "sourcePins": [
+      {
+        "path": "ruyi-workbench/tools/verify-media-artifacts.cjs",
+        "sha256": "d72f49f86e0956d7263feca1a321503b7f8aca8cd1dc37b1bdf0a903b7757f74"
+      },
+      {
+        "path": "ruyi-workbench/tools/package-offline.ps1",
+        "sha256": "1807743f5c2fad438a373f72c2d0f2a06ccf1c91f69bbfa5e479a1db8c5aada0"
+      },
+      {
+        "path": "dev-harness/unit/media-artifact-inventory.test.js",
+        "sha256": "aa5ae363050255dea51edfe3fa79935e1c70e50fb67b1a95bd162e310fada7c2"
+      },
+      {
+        "path": "ruyi-workbench/tools/media-runtime-lock.cjs",
+        "sha256": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0"
+      },
+      {
+        "path": "ruyi-workbench/resources/media-runtime-dependencies.json",
+        "sha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f"
+      },
+      {
+        "path": "ruyi-workbench/resources/media-runtime-sources.json",
+        "sha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29"
+      },
+      {
+        "path": "ruyi-workbench/tools/media-runtime-sources-local-full.json",
+        "sha256": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7"
+      }
+    ],
+    "qualificationRuns": [
+      {
+        "name": "fixed-slim-qualified-1",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-1.log",
+          "bytes": 939,
+          "sha256": "494ea75daa9a27ad72b8209b7da27a7b6af0828e8495054bb8cb891bd16ad010"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-1/qualification.json",
+          "bytes": 11822,
+          "sha256": "09f91cb32fcaa6b69efaa8fa3cab399bcf0bcd5c4dacdd259e04203827b4322b"
+        },
+        "stageCensus": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-1/stage-census.json",
+          "bytes": 65261,
+          "sha256": "35f2d9f309c5ad6060771eeeb4e8c8fff10286f7b709006093f560c7303cb4c6"
+        },
+        "archiveReadback": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-1/zip-readback.json",
+          "bytes": 78126,
+          "sha256": "bf57b58e40d11cc0a35e1570371bffe939ff58dacfe5b703bedf2678644a2e2f"
+        },
+        "status": "PASS_SCOPED_PACKAGE_QUALIFICATION",
+        "assertions": 8,
+        "stage": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-slim",
+        "zip": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-slim.zip",
+        "zipSha256": "292d1f278dcf01651dfadcdec05503eb075c71b577940c610e77afec924c9244",
+        "binarySha256": {
+          "app/server.js": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "app/public/js/steward-decisions.js": "bce7b01096f6398e179ff62bb150c000bcd866fa497d4e339b4f6d9d6a19929a",
+          "Ruyi.exe": "91913383b642c0cbc09a5e2cb7c7367670ee66f9eb9060e5087a17f554b2f409",
+          "RuyiDesktop.exe": "45d4122761dc8135c25f45ed4fb8183dcfe485fc5140e261e8f6a4d283bd42b2",
+          "WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf",
+          "runtime/node/node.exe": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "source": {
+          "tools/verify-media-artifacts.cjs": null,
+          "tools/media-runtime-lock.cjs": null,
+          "resources/media-runtime-dependencies.json": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+          "resources/media-runtime-sources.json": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29"
+        },
+        "archive": {
+          "files": 363,
+          "entries": 413,
+          "bytes": 243336557,
+          "python": "3.12.10",
+          "reportSha256": "bf57b58e40d11cc0a35e1570371bffe939ff58dacfe5b703bedf2678644a2e2f",
+          "hostToolOnly": true,
+          "crcReadToEof": true
+        },
+        "stageCensusIdentity": {
+          "files": 363,
+          "directories": 50,
+          "sha256": "c88c7387151b6e23802f78cc1249f5330c188ca43b4e41169bfda6044f9b1ef1"
+        },
+        "bundledNode": "v24.14.0",
+        "scenarios": [
+          {
+            "mode": "plain",
+            "selected": {
+              "mode": "plaintext",
+              "root": "C:\\r31-1111\\m5-m6-local\\fixed-slim-qualified-1\\plain\\data"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 3044,
+            "port": 60735,
+            "overlayId": "ba72bed59df2",
+            "sessionId": "sess_d5bbb2f492beea2e",
+            "fileSha256": "2be0c7d57613b5d18b840af2af66dbfe26bb94cba37e6a2bef32bbb28feae84a",
+            "providerPosts": 3,
+            "writeCalls": 1
+          },
+          {
+            "mode": "encrypted",
+            "selected": {
+              "mode": "encrypted",
+              "root": "c:\\r31-1111\\m5-m6-local\\fixed-slim-qualified-1\\encrypted\\data\\.work-data\\generations\\7d021edb943411f36c536166eb9545b1a0fd81429f8f7e82",
+              "id": "7d021edb943411f36c536166eb9545b1a0fd81429f8f7e82",
+              "generation": 1,
+              "manifestSha256": "f53d90ad680c32eee9dc14c7bded6f84d93a7784bd6dbc2b7853e578564dc589",
+              "dpapi": "Windows CurrentUser; production LocalSecretCrypto",
+              "node": "v24.14.0"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 23532,
+            "port": 57260,
+            "overlayId": "fc3ef3c0b05e",
+            "sessionId": "sess_745dc05df3442924",
+            "fileSha256": "3ba65b4060a45b12af5266a14dcc0faf1f2548f8cf04bbab8605b8c6c1ec1fa8",
+            "providerPosts": 3,
+            "writeCalls": 1,
+            "coldReader": {
+              "status": "PASS",
+              "node": "v24.14.0",
+              "generation": 1,
+              "manifestSha256": "f53d90ad680c32eee9dc14c7bded6f84d93a7784bd6dbc2b7853e578564dc589",
+              "physicalSessionSha256": {
+                "sess_745dc05df3442924.json": "6426e2419652529902e45128e76d91d3811ec340784862bed1fe1162010c7997",
+                "sess_745dc05df3442924.messages.ndjson": "3d7eeacf32b05e130296a90bc26517c59a06d0c19bb6c876f5721057fb775996",
+                "sess_745dc05df3442924.provider.ndjson": "909d276b166c30e68458281680df9936769655e2e3fe4911e6c7ec3fcad603e5"
+              },
+              "originalHeadAndBodyBytesUnchanged": true,
+              "historyScope": "id/title/turnSeq and complete messages/providerHistory arrays"
+            }
+          }
+        ],
+        "originalActorsKnownClosed": true,
+        "providerClosed": true,
+        "allDescendantKernelExitCertified": false
+      },
+      {
+        "name": "fixed-full-local-qualified-1",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-1.log",
+          "bytes": 1087,
+          "sha256": "52fddf802ac1f0861d0eb2cad79f85c045034d5d9e2fc312cfca164baa63cff6"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-1/qualification.json",
+          "bytes": 12465,
+          "sha256": "5b41c071a9b36377ff06f4c46754f06fabd461aa8f4b92def8299df6d0c0e6f0"
+        },
+        "stageCensus": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-1/stage-census.json",
+          "bytes": 4421593,
+          "sha256": "36bdeec5f518e56614e2473070b89549c3586499f73a3a1436c1666e02287f5e"
+        },
+        "archiveReadback": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-1/zip-readback.json",
+          "bytes": 5062491,
+          "sha256": "0e19f6acfd3a1fa9eae8829da5f256cc7ca166b03da5672d122aaad2d1f447fe"
+        },
+        "status": "PASS_SCOPED_PACKAGE_QUALIFICATION",
+        "assertions": 9,
+        "stage": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-full-local",
+        "zip": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-full-local.zip",
+        "zipSha256": "26571d3f7ff3ff53ec1fff43c2ba3e139de64baf4339790584eb122bc00f2e1a",
+        "binarySha256": {
+          "app/server.js": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "app/public/js/steward-decisions.js": "bce7b01096f6398e179ff62bb150c000bcd866fa497d4e339b4f6d9d6a19929a",
+          "Ruyi.exe": "1940c7b3aabbd4e9ecfde5da139d3fbada685c5438d3e2356359854428773ec9",
+          "RuyiDesktop.exe": "a30ca3f1a27aa1c8e100cd459216e8419223b2d3ad074d2527a14467fa43a507",
+          "WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf",
+          "runtime/node/node.exe": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "source": {
+          "tools/verify-media-artifacts.cjs": "d72f49f86e0956d7263feca1a321503b7f8aca8cd1dc37b1bdf0a903b7757f74",
+          "tools/media-runtime-lock.cjs": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0",
+          "resources/media-runtime-dependencies.json": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+          "resources/media-runtime-sources.json": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7"
+        },
+        "archive": {
+          "files": 18049,
+          "entries": 20605,
+          "bytes": 1978753096,
+          "python": "3.12.10",
+          "reportSha256": "0e19f6acfd3a1fa9eae8829da5f256cc7ca166b03da5672d122aaad2d1f447fe",
+          "hostToolOnly": true,
+          "crcReadToEof": true
+        },
+        "stageCensusIdentity": {
+          "files": 18049,
+          "directories": 2556,
+          "sha256": "0e66432edfcba8ebe7901ecd91365b9ae9f75f5e248e304d551ae101df793c24"
+        },
+        "bundledNode": "v24.14.0",
+        "scenarios": [
+          {
+            "mode": "plain",
+            "selected": {
+              "mode": "plaintext",
+              "root": "C:\\r31-1111\\m5-m6-local\\fixed-full-local-qualified-1\\plain\\data"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 15136,
+            "port": 51420,
+            "overlayId": "8a6fc442d628",
+            "sessionId": "sess_aa62725a6e31b574",
+            "fileSha256": "5d9ecb2f91dd9746a93d60f25596f736e5d906bd137cd1347ad6f65240687ebc",
+            "providerPosts": 3,
+            "writeCalls": 1
+          },
+          {
+            "mode": "encrypted",
+            "selected": {
+              "mode": "encrypted",
+              "root": "c:\\r31-1111\\m5-m6-local\\fixed-full-local-qualified-1\\encrypted\\data\\.work-data\\generations\\dbfff78d77a564fb43871be3185e81b48e7b478251f69733",
+              "id": "dbfff78d77a564fb43871be3185e81b48e7b478251f69733",
+              "generation": 1,
+              "manifestSha256": "c0740e4c4aadf5624ca1add273495e12f3245658ee7aabf0945ebcaeb2c4ac8a",
+              "dpapi": "Windows CurrentUser; production LocalSecretCrypto",
+              "node": "v24.14.0"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 10920,
+            "port": 59627,
+            "overlayId": "8edba698cffa",
+            "sessionId": "sess_09887ebf8627aa2e",
+            "fileSha256": "d1c4846a767cd9b0045e13d329318bbb392f2f36607651dde6e2db2b4e363bbb",
+            "providerPosts": 3,
+            "writeCalls": 1,
+            "fullMedia": {
+              "status": "PASS",
+              "apiStyle": "chat",
+              "payloadSha256": "c9ab58b12d36384218f329319d9339f03d342796182159d447343ac4c6089181",
+              "originalUnchanged": true,
+              "runtimeAndSources": "actual stage defaults; no path/profile override",
+              "explicitLanguage": "en-US",
+              "prepareCallerMs": 180000,
+              "productTtlAndJobBudgetsUnchanged": true
+            },
+            "coldReader": {
+              "status": "PASS",
+              "node": "v24.14.0",
+              "generation": 1,
+              "manifestSha256": "c0740e4c4aadf5624ca1add273495e12f3245658ee7aabf0945ebcaeb2c4ac8a",
+              "physicalSessionSha256": {
+                "sess_09887ebf8627aa2e.json": "d26e794ae7cacbe54e45aa3e4a5fe698fc318af36c19811b8b3356679c4725d0",
+                "sess_09887ebf8627aa2e.messages.ndjson": "92d60357666e6ba244ec3aa40f5945802ff7a2182dc0d8d84b3f0ee07b19ed41",
+                "sess_09887ebf8627aa2e.provider.ndjson": "95838848e754c32e5a8d8d7091ffda47d88bdbccf092e99f888b118bb3c56ca8"
+              },
+              "originalHeadAndBodyBytesUnchanged": true,
+              "historyScope": "id/title/turnSeq and complete messages/providerHistory arrays"
+            }
+          }
+        ],
+        "originalActorsKnownClosed": true,
+        "providerClosed": true,
+        "allDescendantKernelExitCertified": false
+      },
+      {
+        "name": "fixed-slim-qualified-2",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-2.log",
+          "bytes": 939,
+          "sha256": "494ea75daa9a27ad72b8209b7da27a7b6af0828e8495054bb8cb891bd16ad010"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-2/qualification.json",
+          "bytes": 11824,
+          "sha256": "a781b079258a478cec5afbb2d2d2dbc7777bc32f719a92cf3d6f010eff55be9a"
+        },
+        "stageCensus": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-2/stage-census.json",
+          "bytes": 65261,
+          "sha256": "35f2d9f309c5ad6060771eeeb4e8c8fff10286f7b709006093f560c7303cb4c6"
+        },
+        "archiveReadback": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-slim-qualified-2/zip-readback.json",
+          "bytes": 78126,
+          "sha256": "bf57b58e40d11cc0a35e1570371bffe939ff58dacfe5b703bedf2678644a2e2f"
+        },
+        "status": "PASS_SCOPED_PACKAGE_QUALIFICATION",
+        "assertions": 8,
+        "stage": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-slim",
+        "zip": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-slim.zip",
+        "zipSha256": "292d1f278dcf01651dfadcdec05503eb075c71b577940c610e77afec924c9244",
+        "binarySha256": {
+          "app/server.js": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "app/public/js/steward-decisions.js": "bce7b01096f6398e179ff62bb150c000bcd866fa497d4e339b4f6d9d6a19929a",
+          "Ruyi.exe": "91913383b642c0cbc09a5e2cb7c7367670ee66f9eb9060e5087a17f554b2f409",
+          "RuyiDesktop.exe": "45d4122761dc8135c25f45ed4fb8183dcfe485fc5140e261e8f6a4d283bd42b2",
+          "WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf",
+          "runtime/node/node.exe": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "source": {
+          "tools/verify-media-artifacts.cjs": null,
+          "tools/media-runtime-lock.cjs": null,
+          "resources/media-runtime-dependencies.json": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+          "resources/media-runtime-sources.json": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29"
+        },
+        "archive": {
+          "files": 363,
+          "entries": 413,
+          "bytes": 243336557,
+          "python": "3.12.10",
+          "reportSha256": "bf57b58e40d11cc0a35e1570371bffe939ff58dacfe5b703bedf2678644a2e2f",
+          "hostToolOnly": true,
+          "crcReadToEof": true
+        },
+        "stageCensusIdentity": {
+          "files": 363,
+          "directories": 50,
+          "sha256": "c88c7387151b6e23802f78cc1249f5330c188ca43b4e41169bfda6044f9b1ef1"
+        },
+        "bundledNode": "v24.14.0",
+        "scenarios": [
+          {
+            "mode": "plain",
+            "selected": {
+              "mode": "plaintext",
+              "root": "C:\\r31-1111\\m5-m6-local\\fixed-slim-qualified-2\\plain\\data"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 40652,
+            "port": 61363,
+            "overlayId": "ffb4da49f0e4",
+            "sessionId": "sess_0975c3a70d05adf6",
+            "fileSha256": "4beb6a95c91f85d1b1f0d69c3ff42e89fd68e31b551315731dc47f60a0fbe7ae",
+            "providerPosts": 3,
+            "writeCalls": 1
+          },
+          {
+            "mode": "encrypted",
+            "selected": {
+              "mode": "encrypted",
+              "root": "c:\\r31-1111\\m5-m6-local\\fixed-slim-qualified-2\\encrypted\\data\\.work-data\\generations\\df9a84799e4a1d3f23a51c62460b2ed55ea77ec40c86b576",
+              "id": "df9a84799e4a1d3f23a51c62460b2ed55ea77ec40c86b576",
+              "generation": 1,
+              "manifestSha256": "fdf33a987064dbd6f6863ad526e74e20b457ad6228515bc2d39175e9e3d895a2",
+              "dpapi": "Windows CurrentUser; production LocalSecretCrypto",
+              "node": "v24.14.0"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 23508,
+            "port": 52531,
+            "overlayId": "333aeffcdfa9",
+            "sessionId": "sess_dce669d4a3e9b1b8",
+            "fileSha256": "dc35f6d7cf7e99b37c6626061ad70a3da49c7fffeb8396d1a4b71d3f38101053",
+            "providerPosts": 3,
+            "writeCalls": 1,
+            "coldReader": {
+              "status": "PASS",
+              "node": "v24.14.0",
+              "generation": 1,
+              "manifestSha256": "fdf33a987064dbd6f6863ad526e74e20b457ad6228515bc2d39175e9e3d895a2",
+              "physicalSessionSha256": {
+                "sess_dce669d4a3e9b1b8.json": "2e03f8c3ac7bce3671b34b0a6bf25b2069f5e754e3183718ec162181dc453368",
+                "sess_dce669d4a3e9b1b8.messages.ndjson": "8f1167f4b9dbf1983dae91142810f548a23630e0870778f7d4e55457ab659910",
+                "sess_dce669d4a3e9b1b8.provider.ndjson": "1d8d96f69c16665e37d1eb401e8bc2a1586c1af8b4e6fd6fdb70f7303cc13708"
+              },
+              "originalHeadAndBodyBytesUnchanged": true,
+              "historyScope": "id/title/turnSeq and complete messages/providerHistory arrays"
+            }
+          }
+        ],
+        "originalActorsKnownClosed": true,
+        "providerClosed": true,
+        "allDescendantKernelExitCertified": false
+      },
+      {
+        "name": "fixed-full-local-qualified-2",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-2.log",
+          "bytes": 1087,
+          "sha256": "52fddf802ac1f0861d0eb2cad79f85c045034d5d9e2fc312cfca164baa63cff6"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-2/qualification.json",
+          "bytes": 12458,
+          "sha256": "3e830ce25a5ff7a7000ff2dc9afcb9d45730969599d0fad063df5023ce31c396"
+        },
+        "stageCensus": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-2/stage-census.json",
+          "bytes": 4421593,
+          "sha256": "36bdeec5f518e56614e2473070b89549c3586499f73a3a1436c1666e02287f5e"
+        },
+        "archiveReadback": {
+          "path": "C:/r31-1111/m5-m6-local/fixed-full-local-qualified-2/zip-readback.json",
+          "bytes": 5062491,
+          "sha256": "0e19f6acfd3a1fa9eae8829da5f256cc7ca166b03da5672d122aaad2d1f447fe"
+        },
+        "status": "PASS_SCOPED_PACKAGE_QUALIFICATION",
+        "assertions": 9,
+        "stage": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-full-local",
+        "zip": "C:\\r31-1111\\m5-m6-local\\package-input\\ruyi-workbench\\dist\\m6-fixed-607eb451\\Ruyi-full-local.zip",
+        "zipSha256": "26571d3f7ff3ff53ec1fff43c2ba3e139de64baf4339790584eb122bc00f2e1a",
+        "binarySha256": {
+          "app/server.js": "cf542a94b2b61730665d6cd68e837d38e20c224e497d7cf87001e0beaaaa401d",
+          "app/public/js/steward-decisions.js": "bce7b01096f6398e179ff62bb150c000bcd866fa497d4e339b4f6d9d6a19929a",
+          "Ruyi.exe": "1940c7b3aabbd4e9ecfde5da139d3fbada685c5438d3e2356359854428773ec9",
+          "RuyiDesktop.exe": "a30ca3f1a27aa1c8e100cd459216e8419223b2d3ad074d2527a14467fa43a507",
+          "WebView2Loader.dll": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf",
+          "runtime/node/node.exe": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "source": {
+          "tools/verify-media-artifacts.cjs": "d72f49f86e0956d7263feca1a321503b7f8aca8cd1dc37b1bdf0a903b7757f74",
+          "tools/media-runtime-lock.cjs": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0",
+          "resources/media-runtime-dependencies.json": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+          "resources/media-runtime-sources.json": "ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7"
+        },
+        "archive": {
+          "files": 18049,
+          "entries": 20605,
+          "bytes": 1978753096,
+          "python": "3.12.10",
+          "reportSha256": "0e19f6acfd3a1fa9eae8829da5f256cc7ca166b03da5672d122aaad2d1f447fe",
+          "hostToolOnly": true,
+          "crcReadToEof": true
+        },
+        "stageCensusIdentity": {
+          "files": 18049,
+          "directories": 2556,
+          "sha256": "0e66432edfcba8ebe7901ecd91365b9ae9f75f5e248e304d551ae101df793c24"
+        },
+        "bundledNode": "v24.14.0",
+        "scenarios": [
+          {
+            "mode": "plain",
+            "selected": {
+              "mode": "plaintext",
+              "root": "C:\\r31-1111\\m5-m6-local\\fixed-full-local-qualified-2\\plain\\data"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 34980,
+            "port": 56360,
+            "overlayId": "5074b1cbb1d9",
+            "sessionId": "sess_cf7c508d696bfa21",
+            "fileSha256": "e8a0693633fa8b415bb6f7fc1338fd08199471285213400abd546ef33e3fe04d",
+            "providerPosts": 3,
+            "writeCalls": 1
+          },
+          {
+            "mode": "encrypted",
+            "selected": {
+              "mode": "encrypted",
+              "root": "c:\\r31-1111\\m5-m6-local\\fixed-full-local-qualified-2\\encrypted\\data\\.work-data\\generations\\e59b95e76d7f91346bb823356d11975dda41e109f0b08863",
+              "id": "e59b95e76d7f91346bb823356d11975dda41e109f0b08863",
+              "generation": 1,
+              "manifestSha256": "49e0339241cc8ac74033fb335823b7b89f67d916d97772a99179f830d0ce6671",
+              "dpapi": "Windows CurrentUser; production LocalSecretCrypto",
+              "node": "v24.14.0"
+            },
+            "embeddedNode": "v24.18.0",
+            "bundledNode": "v24.14.0",
+            "pid": 740,
+            "port": 49421,
+            "overlayId": "c9523fa2e1cd",
+            "sessionId": "sess_a5bfbd4ef5ec6d97",
+            "fileSha256": "d995900db4823e2f2c6bf6ca469f3408fceb782e8c604b8a9bbfbd5944b9f2f9",
+            "providerPosts": 3,
+            "writeCalls": 1,
+            "fullMedia": {
+              "status": "PASS",
+              "apiStyle": "chat",
+              "payloadSha256": "c9ab58b12d36384218f329319d9339f03d342796182159d447343ac4c6089181",
+              "originalUnchanged": true,
+              "runtimeAndSources": "actual stage defaults; no path/profile override",
+              "explicitLanguage": "en-US",
+              "prepareCallerMs": 180000,
+              "productTtlAndJobBudgetsUnchanged": true
+            },
+            "coldReader": {
+              "status": "PASS",
+              "node": "v24.14.0",
+              "generation": 1,
+              "manifestSha256": "49e0339241cc8ac74033fb335823b7b89f67d916d97772a99179f830d0ce6671",
+              "physicalSessionSha256": {
+                "sess_a5bfbd4ef5ec6d97.json": "4d7e3086c28a2106b7504c6dc23f2adb4665f7f6bff05dd5d6cbbcd75e97fd5d",
+                "sess_a5bfbd4ef5ec6d97.messages.ndjson": "16c46c75950649546b8bbe5b008a91041df83c050aca6a7cd0f92ca6e04e721f",
+                "sess_a5bfbd4ef5ec6d97.provider.ndjson": "7d753d30d1a4b379d7066e6d621e858260b478342e3d51504fac3ce2879c5ad7"
+              },
+              "originalHeadAndBodyBytesUnchanged": true,
+              "historyScope": "id/title/turnSeq and complete messages/providerHistory arrays"
+            }
+          }
+        ],
+        "originalActorsKnownClosed": true,
+        "providerClosed": true,
+        "allDescendantKernelExitCertified": false
+      }
+    ],
+    "acceptedExecutions": 4,
+    "relatedPassAssertions": 34,
+    "firstReds": [
+      {
+        "name": "full-local-qualified-1",
+        "kind": "qualification_host_path",
+        "observed": "Python stage link/missing file at actual 261-character existing Windows path; no Full EXE started",
+        "productDefectClaimed": false,
+        "status": "RED_PRESERVED_NOT_ACCEPTED",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-1.log",
+          "bytes": 602,
+          "sha256": "d3dfb6978b21b5f726fc9c436b233aa9df86b16fa276750f62e8057bed1daf99"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-1/qualification.json",
+          "bytes": 3680,
+          "sha256": "1fa5ce778e671e80f882be6a4e8c4cb2c41e7d8ff557341405fa17c50872f864"
+        },
+        "firstFailure": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-1/FIRST-FAILURE.json",
+          "bytes": 638,
+          "sha256": "60be2e3fbe3ae9da8cb313534adf971b40d72717182d098ecd355a8aaadd6dd2"
+        }
+      },
+      {
+        "name": "full-local-qualified-retry-1",
+        "kind": "qualification_fixture_settings",
+        "observed": "HTTP 409 at enhanced privacy settings; original body not saved",
+        "inference": "False credentialEncryptionV1 plus source contract requires encryption:true. The exact old error code was not observed.",
+        "productDefectClaimed": false,
+        "status": "RED_PRESERVED_NOT_ACCEPTED",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-1.log",
+          "bytes": 1170,
+          "sha256": "97587bc48f2efc0fdf905daf3280b278a8659acfbfc8ab58eaf5a9b96b5103dc"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-1/qualification.json",
+          "bytes": 9868,
+          "sha256": "fbe609b4ba927e8a4ca8fd45b2bbb10228bfd9f35d840921cc075c45acace682"
+        },
+        "firstFailure": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-1/FIRST-FAILURE.json",
+          "bytes": 650,
+          "sha256": "3c530ea0b0e9dace176a63feaecdc981b2ba0608d6042a9fe06a55fd09f44ba8"
+        }
+      },
+      {
+        "name": "full-local-qualified-retry-2",
+        "kind": "actual_package_dependency_refusal",
+        "observed": "HTTP 409 privacy.image_processor_dependency_failed at protected prepare, after legitimate settings and real EXE native turns",
+        "productDefectClaimed": true,
+        "status": "RED_PRESERVED_NOT_ACCEPTED",
+        "log": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-2.log",
+          "bytes": 1176,
+          "sha256": "8283f9c5bddf2e64805deb0ef49973a045073e57f85a87514768f664fb56054f"
+        },
+        "report": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-2/qualification.json",
+          "bytes": 9921,
+          "sha256": "882e7cd3adfdc003946b51f9ea12f210a455114f39e11875622abd2d1fa41950"
+        },
+        "firstFailure": {
+          "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-2/FIRST-FAILURE.json",
+          "bytes": 707,
+          "sha256": "0bbf38d7270ff7e908bdcc1821758254f8f0d855e78103c409fe0a127c487e72"
+        }
+      }
+    ],
+    "observedDependencyRefusal": {
+      "path": "C:/r31-1111/m5-m6-local/full-local-qualified-retry-2/encrypted/media-prepare-response.json",
+      "bytes": 214,
+      "sha256": "01f8511c6030d448bd2186c34fc7577dc002e3ae8151aafc3036954f47270afd"
+    },
+    "physicalOldPackageNodeInventory": {
+      "log": {
+        "path": "C:/r31-1111/m5-m6-local/old-package-stage-node-inventory-1.log",
+        "bytes": 353,
+        "sha256": "ca02fbfa9931337bb4ffdcdaf51283a9fc8d41ff88884f8de6d1ca7de4f4e5e3"
+      },
+      "status": "PASS_INVENTORY_ONLY",
+      "notTransferredToExe": true
+    },
+    "hostLongPathFix": {
+      "pythonSha256": "7f6cccf6c1b42d0b98ba9cb4fb5459e64fa18e406d39194e01dd07e4c234187d",
+      "oldLogicReproduction": {
+        "path": "C:/r31-1111/m5-m6-local/package-driver-zip-longpath-first-red.log",
+        "bytes": 2169,
+        "sha256": "8caf811cee674ebb7c52d1e7739acd334976aa3134554c3f0a003ce0b5ac4720"
+      },
+      "fixedSelfTest": {
+        "path": "C:/r31-1111/m5-m6-local/package-driver-zip-longpath-fixed-1.log",
+        "bytes": 53,
+        "sha256": "66ef955268d3a7814b934464c319a08a97140b14f555d5521448d5f54fcfea97"
+      },
+      "bounds": "Only Windows stage filesystem addressing changed; all names, CRC EOF, two-way sets, lengths and hashes retained. Old synthetic failure also retained its cleanup Win145 error."
+    },
+    "targetedUnit": {
+      "log": {
+        "path": "C:/r31-1111/m5-m6-local/media-verifier-exe-root-unit-1.log",
+        "bytes": 10437,
+        "sha256": "7bf541efef8ae4e606ecbdc3c2e8aa1abd06bb7038763b46402bac98de8e3d65"
+      },
+      "tests": 108,
+      "pass": 108,
+      "fail": 0,
+      "skip": 0,
+      "note": "Subsequent unit label removed only; no assertion or behavior change; final modified JS parsed again."
+    },
+    "driverUnit": {
+      "log": {
+        "path": "C:/r31-1111/m5-m6-local/package-driver-unit-1.log",
+        "bytes": 1308,
+        "sha256": "dfc5dde4799b5c8c95365432e67eeefbbb111efa78e4684222bc83710de238a7"
+      },
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skip": 0
+    },
+    "reviews": [
+      {
+        "reviewer": "m4_gap_audit",
+        "scope": "manual driver, ZIP, DPAPI reader, error preservation and original-owner retention; long-path and legitimate-settings deltas",
+        "status": "independent GO"
+      },
+      {
+        "reviewer": "m4_media_review",
+        "scope": "trusted EXE resource root, Node compatibility, pins, packaging and seven VM discrimination cases",
+        "status": "independent GO"
+      },
+      {
+        "reviewer": "root",
+        "scope": "same final product delta and actual candidate qualification",
+        "status": "GO after fresh EXE positives; original refusals remain RED"
+      }
+    ],
+    "bounds": [
+      "Full-local is developer qualification, not ordinary Full distribution acceptance",
+      "Desktop and loader are inventoried/built; no Desktop GUI interaction in this manual driver",
+      "Actual installer/upgrade is recorded separately",
+      "No real platform/model account or external conversation",
+      "No physical power-loss, cross-account/cross-machine or all-descendant kernel-exit certification"
+    ],
+    "releaseAcceptance": {
+      "report": {
+        "path": "C:/r31-1111/m5-m6-local/release-fixed-1/validation.json",
+        "bytes": 48869,
+        "sha256": "b569b4e7bf7085444f86dae4903f8da231203a641c8f860c5d2f795c8318825f"
+      },
+      "complete": false,
+      "startedAt": "2026-11-11T12:13:33.164Z",
+      "finishedAt": "2026-11-11T12:25:24.426Z",
+      "failures": 2,
+      "scope": "Existing release-package-acceptance on fixed Slim+Full-local, actual v3.0.1 tag-produced data; 19 core journeys per bundle and installed ACC. Read report for actual completed scope."
+    }
+  },
+  "regression": {
+    "status": "NOT_RUN_YET",
+    "beforeReleaseInputs": {
+      "path": "C:/r31-1111/m5-m6-local/execution-freeze-before-release-1.json",
+      "bytes": 347639,
+      "sha256": "e81a3f14db7c38bae913af5efd7ee45823a1278c1c4398889ff585a7cd69e1d1"
+    }
+  }
+}

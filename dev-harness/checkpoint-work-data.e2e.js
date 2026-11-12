@@ -1,7 +1,7 @@
 'use strict';
 // Actual generated runtime with synthetic isolated data and real Windows DPAPI.
 // This file does not source-overlay or copy server.js.
-const path = require('node:path'), repo = process.env.JOURNAL_REPO || process.cwd();
+const path = require('node:path'), repo = process.env.JOURNAL_REPO || path.resolve(__dirname, '..');
 require(path.join(repo, 'dev-harness/lib/self-isolate-home'));
 const fs = require('node:fs'), os = require('node:os'), crypto = require('node:crypto'), zlib = require('node:zlib');
 const assert = require('node:assert/strict');

@@ -1,0 +1,298 @@
+{
+  "schema": 1,
+  "kind": "INDEPENDENT_READ_ONLY_FINAL_HANDOFF_DOCUMENT_REVIEW",
+  "reviewer": "/root/m4_responses_e2e",
+  "recordedAt": "2026-11-12T10:41:07.446Z",
+  "readOnly": true,
+  "notTestExecution": true,
+  "authorshipDisclosure": "Non-author of Gap final92/README/140 prose and Root/Media assembled handoff evidence. Reviewer authored some product/test changes in the broader development batch; this review covers final reporting accuracy and provenance, not a substitute for prior product non-author review.",
+  "status": "GO_NO_BLOCKING_FINDINGS",
+  "findings": [],
+  "draftManifest": {
+    "path": "C:/r31-1111/m5-m6-local/drafts/gap/final-docs-1275-1/manifest.json",
+    "sha256": "2fac8649418259323240d46b118832e84d039e58d076853ca84887d8fd5c0b8b"
+  },
+  "documents": [
+    {
+      "repositoryPath": "docs/optimization-plan/92-3.1-implementation-handoff.md",
+      "draftPath": "C:/r31-1111/m5-m6-local/drafts/gap/final-docs-1275-1/92-3.1-implementation-handoff.md",
+      "sha256": "1037cce86665e5dec56caedfb0f6e1ab5780291ff09368857cdbfba1c9e7c689",
+      "matchesManifest": true,
+      "notAppliedByReviewer": true
+    },
+    {
+      "repositoryPath": "docs/optimization-plan/README.md",
+      "draftPath": "C:/r31-1111/m5-m6-local/drafts/gap/final-docs-1275-1/README.md",
+      "sha256": "fe7d7dd944a55e9ce8229e69f367cd5186b10def4ca778d64dedcac7a45d78f1",
+      "matchesManifest": true,
+      "notAppliedByReviewer": true
+    },
+    {
+      "repositoryPath": "docs/optimization-plan/140-m4-m6-command-line-handoff-20261112.md",
+      "draftPath": "C:/r31-1111/m5-m6-local/drafts/gap/final-docs-1275-1/140-m4-m6-command-line-handoff-20261112.md",
+      "sha256": "24357b0dcbd63b60e0b1f37d437b4285a566aac9bed1c6c31f816aafec874417",
+      "matchesManifest": true,
+      "notAppliedByReviewer": true
+    }
+  ],
+  "authoritativeEvidence": {
+    "path": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss/docs/optimization-plan/evidence/m4-m6-command-line-handoff-20261112.json",
+    "sha256": "977ff484d5dabe8ad9019cf7d5d83ec1bc23017f8d851f25a58f4dde5da85977"
+  },
+  "reviewChecks": {
+    "finalCompactAuthoritative": true,
+    "originalE2e": {
+      "pass": 612,
+      "fail": 19,
+      "flakyIncludedInPass": 13,
+      "ran": 631,
+      "liveSkipped": 7,
+      "userNotExecuted": 4
+    },
+    "unit": {
+      "tests": 5331,
+      "suites": 194,
+      "pass": 5298,
+      "fail": 0,
+      "skip": 33
+    },
+    "originalHeldRunner": {
+      "exit": 1,
+      "close": 1,
+      "dualPipeEof": true,
+      "errors": [],
+      "killReceipt": null,
+      "finishedAt": "2026-11-12T10:19:00.081Z"
+    },
+    "remainingCases": [
+      {
+        "file": "external-bots.browser.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "rail-session-search.browser.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "work-data-completed-claim-recovery.e2e.js",
+        "budgetMs": 900000
+      },
+      {
+        "file": "attachment-http-roundtrip.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "config-read-safety.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "overlay-update-core.e2e.js",
+        "budgetMs": 300000
+      },
+      {
+        "file": "privacy-gateway.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "scheduler-crash.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "budget-guard.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "checkpoint-mcpchild.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "context-compact-v2.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "external-bot-setup.browser.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "privacy-channels.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "privacy-managed-mcp.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "shell-session.e2e.js",
+        "budgetMs": 120000
+      },
+      {
+        "file": "work-data-bound-directory-deep-path.e2e.js",
+        "budgetMs": 900000
+      },
+      {
+        "file": "work-data-completed-intent-recovery.e2e.js",
+        "budgetMs": 1200000
+      },
+      {
+        "file": "work-data-owned-source-recovery.e2e.js",
+        "budgetMs": 900000
+      }
+    ],
+    "remainingExactFinalFailuresExceptReviewedCountFix": true,
+    "budgetMismatchCount": 0,
+    "remainingExclusiveCasesIncluded": [
+      "work-data-completed-intent-recovery.e2e.js",
+      "work-data-owned-source-recovery.e2e.js"
+    ],
+    "earlyWrongLaneTargetsOnlyMarkedSuperseded": true,
+    "postCountFix": {
+      "sourceSha256": "efa8c5e865f714a0157fb9eb880619f239e17cfaa225a6bd8f30fa00263d68d6",
+      "singleStaticRecheckOnly": true,
+      "wholeAfterFixRerunClaimed": false,
+      "originalInputDigest": "4183510b169173b7e42f02fef2a860a6262162728e37e11abc71f8a7041308d1",
+      "postInputDigest": "603f140be9a540cf02975e3be3181a7294ceeca2bbde9058ca3cda0a6eac885c"
+    },
+    "sourceSeparated": {
+      "currentServer": "6bf65669ace6a688efb1ad9a6530b53e475c48457e2d3f525c9f626a7487a099",
+      "currentInstaller": "f16d065001eda3409ac942845a462d6fe9dcc6da8ffdaec1200836f33823439e",
+      "historicalResultsNotTransferred": true
+    },
+    "scopeClaims": {
+      "m5Runs8Labels166": true,
+      "packageConsoleRuns4Labels34": true,
+      "fullInstallPartial34NotReleasePass": true,
+      "release3RemainsRed": true,
+      "guiNotExecuted": true,
+      "wholeDefault635NotExecuted": true,
+      "publicFullLocalAdmissionFalse": true,
+      "unknownCausesNotClaimedResolved": true,
+      "version": "3.0.1",
+      "release31Published": false
+    },
+    "portableArchives": {
+      "files": 15,
+      "gzipBytes": 605309,
+      "allCompressedAndRawHashesMatch": true,
+      "allGunzipBytesEqualExternalOriginals": true,
+      "rows": [
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-receipt.json.gz",
+          "gzipBytes": 8223,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-root-exit.json.gz",
+          "gzipBytes": 443,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4.log.gz",
+          "gzipBytes": 21069,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-results.log.gz",
+          "gzipBytes": 7786,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-unit.log.gz",
+          "gzipBytes": 255361,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/inputs-before-command-line-default-4.json.gz",
+          "gzipBytes": 100950,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/inputs-after-command-line-default-4.json.gz",
+          "gzipBytes": 100949,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/inputs-after-process-safety-owner-fix-1.json.gz",
+          "gzipBytes": 100950,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-final-3--validation.json.gz",
+          "gzipBytes": 4558,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-final-3-exit.json.gz",
+          "gzipBytes": 248,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-final-3--slim-core-journeys.log.gz",
+          "gzipBytes": 1585,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-full-install-1--validation.json.gz",
+          "gzipBytes": 1943,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-full-install-1-exit.json.gz",
+          "gzipBytes": 302,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/process-safety-owner-fixed-1.log.gz",
+          "gzipBytes": 599,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        },
+        {
+          "path": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/process-safety-owner-fixed-1-exit.json.gz",
+          "gzipBytes": 343,
+          "gzipMatch": true,
+          "rawMatch": true,
+          "originalByteEqual": true
+        }
+      ]
+    },
+    "reproduction": {
+      "literalPowerShellCommandValidText": true,
+      "remainingOriginalTimeoutForUnchanged": true,
+      "newFocusedPassCannotRewriteOriginalRed": true,
+      "noProcessNameOrOldPidKillRecommended": true,
+      "syntheticUnknownKeeperCustodyNotClaimedClosed": true
+    }
+  },
+  "bounds": [
+    "Only filesystem/source readback and in-memory text/hash/gunzip calculations were performed by this review; no unit/E2E/native/build/process launch or ComputerUse.",
+    "GO authorizes reporting accuracy of these exact documents/evidence; it does not mark19 failures fixed, accept release3, certify all native descendants closed, or execute18 long diagnostics.",
+    "Root retains sole responsibility for applying documents, commit/push and reporting their actual final status."
+  ]
+}

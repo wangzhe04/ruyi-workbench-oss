@@ -129,12 +129,17 @@ const asrLedgerRows = () => readNdjson(path.join(HOME, 'usage'), '.jsonl').filte
     ok(cMs < 800 && h2.calls === h1.calls && h2.loads === h1.loads, `C2 秒回(${cMs} ms)且没打扰组件(calls ${h1.calls}→${h2.calls} loads ${h1.loads}→${h2.loads})`);
 
     /* ═════════ D 不是用户的一次转写 ═════════ */
+    // This authenticated production reader strictly flushes the audit writer;
+    // the original warmup HTTP response only means its audit row was enqueued.
+    const warmAudit = await reqRaw('GET', '/api/logs/tail?lines=2000', null, withToken());
+    ok(warmAudit.status === 200 && warmAudit.json?.ok === true, 'D0 real authenticated log reader confirms strict audit flush');
     const warmLogs = logRows('asr_warmup');
     ok(warmLogs.length >= 2 && warmLogs.some(r => r.warm === false && r.ok === true) && warmLogs.some(r => r.warm === true), `D1 审计里有 asr_warmup(冷 ok + 热;实得 ${warmLogs.length} 条)`);
     ok(logRows('asr_transcribe_ok').length === 0 && asrLedgerRows().length === 0, `D2 预热不记 asr_transcribe_ok、不进账本(ok=${logRows('asr_transcribe_ok').length} ledger=${asrLedgerRows().length})`);
     const real = await reqRaw('POST', '/api/audio/transcribe?filename=voice.wav', Buffer.from('RIFF....WAVEfake'), withToken({ 'content-type': 'audio/wav' }));
     ok(real.status === 200 && /\[fake-cold\]/.test((real.json && real.json.text) || ''), `D3a 自带尺子:一发真转写成功(实得 ${real.status})`);
-    await sleep(300);
+    const transcribeAudit = await reqRaw('GET', '/api/logs/tail?lines=2000', null, withToken());
+    ok(transcribeAudit.status === 200 && transcribeAudit.json?.ok === true, 'D3b real authenticated log reader flushes the actual transcription audit');
     ok(logRows('asr_transcribe_ok').length === 1 && asrLedgerRows().length === 1, `D3 真转写才记:审计 ${logRows('asr_transcribe_ok').length} 条、账本 ${asrLedgerRows().length} 行(读法有效)`);
 
     /* ═════════ E 并发合并 ═════════ */

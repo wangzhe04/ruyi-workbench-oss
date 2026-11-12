@@ -123,13 +123,26 @@ async function consume(response) { return request({ op: 'validate', proof: respo
   const plainMemory = await request({ kind: 'memory', plaintext: true });
   ok(plainMemory.status === 200 && plainMemory.value.contentWithheld && !plainMemory.value.content.includes(alias), 'plaintext memory reports cross-source alias omission accurately'); await consume(plainMemory);
   const heldMemory = await request({ kind: 'memory' });
-  app.__eval('globalThis.__exportAtomic = atomicWriteJson; atomicWriteJson = async (file, value) => { if (file === stewardMemoryPath()) await new Promise(resolve => { globalThis.__exportWriteRelease = resolve; }); return globalThis.__exportAtomic(file, value); };');
+  // The memory store captured its atomic writer at construction. Hold that real
+  // writer's final rename, after the production memory epoch has advanced.
+  app.__eval('globalThis.__exportRename = fsp.rename; globalThis.__exportWriteArmed = true; fsp.rename = async function(...args) { if (globalThis.__exportWriteArmed && args[1] === stewardMemoryPath()) await new Promise(resolve => { globalThis.__exportWriteRelease = resolve; }); return Reflect.apply(globalThis.__exportRename, this, args); };');
   const write = app.stewardMutateMemory(store => ({ persist: true, result: store.entries.length }));
-  for (let i = 0; i < 200 && !globalThis.__exportWriteRelease; i++) await new Promise(resolve => setTimeout(resolve, 5));
-  if (!globalThis.__exportWriteRelease) throw new Error('Memory write hold did not start');
-  const staleMemory = await consume(heldMemory);
-  globalThis.__exportWriteRelease(); await write;
-  app.__eval('atomicWriteJson = globalThis.__exportAtomic; delete globalThis.__exportAtomic; delete globalThis.__exportWriteRelease;');
+  write.catch(() => {});
+  let staleMemory, holdFailure;
+  try {
+    for (let i = 0; i < 200 && !globalThis.__exportWriteRelease; i++) await new Promise(resolve => setTimeout(resolve, 5));
+    if (!globalThis.__exportWriteRelease) throw new Error('Memory write hold did not start');
+    staleMemory = await consume(heldMemory);
+  } catch (error) { holdFailure = error; }
+  finally {
+    globalThis.__exportWriteArmed = false;
+    globalThis.__exportWriteRelease?.();
+    try { await write; }
+    catch (error) { holdFailure = holdFailure && error !== holdFailure ? new AggregateError([holdFailure, error], 'Memory hold and original write failed', { cause: holdFailure }) : error; }
+    try { app.__eval('fsp.rename = globalThis.__exportRename; delete globalThis.__exportRename; delete globalThis.__exportWriteRelease; delete globalThis.__exportWriteArmed;'); }
+    catch (error) { holdFailure = holdFailure ? new AggregateError([holdFailure, error], 'Memory hold restoration failed', { cause: holdFailure }) : error; }
+  }
+  if (holdFailure) throw holdFailure;
   ok(staleMemory.status === 409, 'held memory writer invalidates prior artifact before disk replacement');
   const pendingMemory = await request({ kind: 'memory' });
   await app.mutateConfig(config => { config.stewardEnabledV1 = false; });

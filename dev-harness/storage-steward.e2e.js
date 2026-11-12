@@ -94,6 +94,18 @@ async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } cat
     const p3 = srv.normalizeStoragePolicy({ logsKeepDays: 'abc' });
     ok(p3.logsKeepDays === 30, '(A3) 非数值回落默认 30');
 
+    // The journal reader must observe a real committed policy before any
+    // synthetic log/run data exists. Missing policy is never implicit OFF.
+    await srv.mutateConfig(config => Object.assign(config, {
+      workDataEncryptionV1: false, credentialEncryptionV1: false, privacyModeV1: 'off',
+      autoImportClaudeCodeMcp: false, autoImportKimiCodeMcp: false, includeWorkbenchMcp: false,
+      enableMcpDropIn: false, externalMcpServers: [], desktopMcp: { enabled: false, autodetect: false },
+      schedulerEnabledV1: false, stewardEnabledV1: false,
+    }));
+    const committed = await srv.readConfig();
+    ok(committed.workDataEncryptionV1 === false && committed.credentialEncryptionV1 === false
+      && committed.privacyModeV1 === 'off' && committed.privacyPolicyRecoveryRequiredV1 === false,
+    '(A3b) 合成日志使用真实已提交的 OFF 策略,不把未知政策当作明文许可');
     seedFixtures();
 
     // A2: 全目标 sweep(默认策略:logs 30 天 / 压缩 14 天 / webcache 不限)

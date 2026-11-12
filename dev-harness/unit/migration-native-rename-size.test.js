@@ -104,3 +104,23 @@ test('deadline latch retains real private01g two-keeper owner and forged DTO can
  const api=ctx.ownerApi,root='E:\\inert\\focused',lease=await api.acquire([root]),one=api.createSourceKeeper(lease,root),two=api.createSourceKeeper(lease,root);assert.equal(api.isLease(lease),true);assert.equal(api.isSourceKeeper(one,lease,root),true);assert.equal(api.isLease({roots:[root],held:true}),false);assert.throws(()=>api.createSourceKeeper({roots:[root],held:true},root));
  let now=0;const state=new F.State(()=>now,0,error=>{one.retainUnknown(error);two.retainUnknown(error)});now=120000;assert.throws(()=>state.admit());assert.equal(one.assertExclusive(lease),false);await assert.rejects(one.releaseChecked(()=>true),e=>e.code==='DATA_ROOT_OWNER_UNCERTAIN');assert.ok(servers.size>0);assert.ok(intervals.length>0);now=0;assert.throws(()=>state.admit());assert.equal(api.owns(lease,root),false);
 });
+
+// Asset-free plan/observer regression only. No native process or owner is issued.
+test('paired preserved plan retains eight real-child slots and seventeen command responses with all four paired censuses',()=>{
+ assert.equal(F.LIMITS.capsules,8);assert.equal(F.LIMITS.metadata,2);
+ const paired=['initial-preserved','initial-verify','final-preserved','final-verify'];
+ for(const label of paired)assert.deepEqual([...F.PHASES.find(row=>row[0]===label)[1]],['capture-preserved-census-first','capture-preserved-census-final']);
+ assert.equal(F.PHASES.length,8);assert.equal(F.PHASES.reduce((n,row)=>n+row[1].length,0),17);
+ for(const label of ['N0','final-native'])assert.deepEqual([...F.PHASES.find(row=>row[0]===label)[1]],['capture-preserved']);
+ assert.deepEqual([...F.PHASES.find(row=>row[0]==='seal')[1]],['attach','seal-attached','verify']);
+ assert.deepEqual([...F.PHASES.find(row=>row[0]==='restore')[1]],['attach','publish-check','restore','publish']);
+});
+test('paired observer requires both responses and the same original complete child closure; extra response or missing EOF stays unknown',()=>{
+ const make=()=>{const child=new EventEmitter();child.pid=7;child.stdout=new EventEmitter();child.stderr=new EventEmitter();const rows=[],records=[],unknown=[],state=new F.State(()=>0,0);const wrapper=Observer.wrapSpawn(function(){return child;},{state,emit:(type,data)=>records.push({type,...data}),latch:code=>unknown.push(code),getPhase:()=> 'initial-preserved',rows,beforeNative(){},now:()=>0});assert.equal(wrapper(),child);child.emit('spawn');return{child,row:rows[0],records,unknown};};
+ const ack=f=>f.child.stdout.emit('data',Buffer.from('{"ok":true,"value":"SYNTHETIC_PRIVATE_CENSUS"}\r\n'));
+ const closed=(f,stderr=true)=>{f.child.stdout.emit('end');f.child.stdout.emit('close');if(stderr)f.child.stderr.emit('end');f.child.stderr.emit('close');f.child.emit('exit',0,null);f.child.emit('close',0,null);};
+ const good=make();ack(good);assert.equal(good.row.known(),false);ack(good);assert.equal(good.row.known(),false);closed(good);assert.equal(good.row.known(),true);assert.deepEqual(good.records.filter(row=>row.type==='wire-response').map(row=>row.sourceMappedCommand),['capture-preserved-census-first','capture-preserved-census-final']);assert.equal(JSON.stringify(good.records).includes('SYNTHETIC_PRIVATE_CENSUS'),false);
+ const missing=make();ack(missing);closed(missing);assert.equal(missing.row.known(),false);
+ const extra=make();ack(extra);ack(extra);ack(extra);closed(extra);assert.equal(extra.row.known(),false);assert.ok(extra.unknown.includes('n1.wire_shape'));
+ const noEOF=make();ack(noEOF);ack(noEOF);closed(noEOF,false);assert.equal(noEOF.row.known(),false);
+});

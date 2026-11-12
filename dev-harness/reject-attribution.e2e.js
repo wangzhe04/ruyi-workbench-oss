@@ -21,6 +21,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
+const { functionBlock, bracedBlock } = require('./lib/source-slice');
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -126,15 +127,20 @@ async function runRejectScenario({ label, wording, ok }) {
   // no-tools 400 is not reproducible offline). Assert the fix keeps the stream_options retry reachable
   // ONLY when the 400 is not a tools/function rejection, guarded by `requestHasTools`.
   {
-    const src = readServerSource();
+    const src = functionBlock(readServerSource(), 'openAiStreamOnce');
+    ok(Boolean(src), '(no-tools) guard inspection binds the actual openAiStreamOnce function');
     // String.raw keeps the single backslash in `not\s*support` exact (a regex literal here is brittle).
     ok(src.includes('const requestHasTools = Array.isArray(body.tools) && body.tools.length > 0;'),
       '(no-tools) requestHasTools guard present (tools-first branch cannot fire for tool-less requests)');
     ok(src.includes('if (requestHasTools && toolsSemantics) {'),
       '(no-tools) tools-rejected priority is gated on requestHasTools (no-tools 400 skips it)');
     // hunt2-turnloop:嗅探正则不再认裸 invalid(OpenAI 系所有 400 的 type 都是 invalid_request_error),多认 include_usage。
-    ok(src.includes(String.raw`} else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {`),
-      '(no-tools) stream_options retry branch preserved (still reachable for non-tools 400s)');
+    const retryCondition = String.raw`else if (allowCompatibilityRetry && body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t))`;
+    const retry = bracedBlock(src, retryCondition);
+    ok(src.includes('allowCompatibilityRetry = true') && Boolean(retry)
+      && retry.includes('const b2 = Object.assign({}, body); delete b2.stream_options; res = await doFetch(b2);')
+      && src.indexOf(retryCondition) > src.indexOf('if (requestHasTools && toolsSemantics) {'),
+      '(no-tools) default compatibility retry strips stream_options only after the tools-first guard');
   }
 
   console.log('\nREJECT-ATTRIBUTION E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

@@ -28,6 +28,19 @@ const t = createRunner('SESSION ID PATH GUARD');
 const { ok } = t;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SECRET = 'sk-PATHGUARD-7f3a';
+function indexTreeSnapshot(directory) {
+  const rows = [];
+  const walk = relative => {
+    for (const entry of fs.readdirSync(path.join(directory, relative), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const child = path.join(relative, entry.name);
+      if (entry.isSymbolicLink()) throw new Error('unexpected synthetic index symlink');
+      if (entry.isDirectory()) { rows.push([child, 'directory']); walk(child); }
+      else if (entry.isFile()) rows.push([child, fs.readFileSync(path.join(directory, child)).toString('base64')]);
+      else throw new Error('unexpected synthetic index entry');
+    }
+  };
+  walk(''); return JSON.stringify(rows);
+}
 
 function req(port, method, route, payload, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -84,14 +97,25 @@ function req(port, method, route, payload, headers = {}) {
     ok(search.status === 200, `搜索可用(${search.status})`);
     await sleep(300);
     const searchIdx = path.join(sessDir, '_search-index-v1.json');
+    const currentIdx = path.join(sessDir, '_fulltext-index-v1');
     const sideIdx = path.join(sessDir, 'index.json');
-    ok(fs.existsSync(searchIdx) && fs.existsSync(sideIdx), '搜索索引与侧栏索引都已落盘');
+    ok(fs.existsSync(path.join(currentIdx, 'state.json')) && fs.existsSync(sideIdx), '当前消息分片索引与侧栏索引都已真实落盘');
+    // M3 no longer builds the retired bounded index. Keep a real legacy-named
+    // carrier for the original lazy-migration attack; absence would be a vacuous
+    // 404. Current fulltext carriers must independently remain unchanged.
+    fs.writeFileSync(searchIdx, JSON.stringify({ version: 2, entries: {} }), { flag: 'wx' });
     const searchBefore = fs.readFileSync(searchIdx, 'utf8');
+    const currentBefore = indexTreeSnapshot(currentIdx);
+    const reservedNamesBefore = fs.readdirSync(sessDir).filter(f => f.startsWith('_')).sort().join(',');
     const reserved = await req(port, 'GET', '/api/sessions/_search-index-v1', null, hdr);
     ok(reserved.status === 404, `P3 GET /api/sessions/_search-index-v1 → 404(${reserved.status} ${reserved.raw.slice(0, 80).replace(/\s+/g, ' ')})`);
     await sleep(300);
     const strays = fs.readdirSync(sessDir).filter(f => f.startsWith('_search-index-v1') && f !== '_search-index-v1.json');
-    ok(fs.readFileSync(searchIdx, 'utf8') === searchBefore && strays.length === 0, `P3 搜索索引原样、没长出正文/备份(${strays.join(',')})`);
+    ok(fs.readFileSync(searchIdx, 'utf8') === searchBefore && strays.length === 0 && indexTreeSnapshot(currentIdx) === currentBefore,
+      `P3 旧保留名载体与真实当前索引原样、没长出正文/备份(${strays.join(',')})`);
+    const currentReserved = await req(port, 'GET', '/api/sessions/_fulltext-index-v1', null, hdr);
+    ok(currentReserved.status === 404 && indexTreeSnapshot(currentIdx) === currentBefore,
+      'P3 当前分片索引保留名也不是会话,真实载体不被迁移或改写');
     const delIndex = await req(port, 'DELETE', '/api/sessions/index', null, hdr);
     ok(delIndex.status === 400 && fs.existsSync(sideIdx), `P3 DELETE /api/sessions/index → 400,index.json 还在(${delIndex.status})`);
 
@@ -112,7 +136,9 @@ function req(port, method, route, payload, headers = {}) {
     await sleep(400);
     ok(fs.readFileSync(headFile, 'utf8') === headBefore, 'P4 开放读口没有回写会话头(修前 load_normalize 回写 + 推 updatedAt)');
     ok(fs.readFileSync(searchIdx, 'utf8') === searchBefore
-      && fs.readdirSync(sessDir).filter(f => f.startsWith('_')).join(',') === '_search-index-v1.json', 'P4 /api/status?sessionId=保留名 不长出任何文件');
+      && indexTreeSnapshot(currentIdx) === currentBefore
+      && fs.readdirSync(sessDir).filter(f => f.startsWith('_')).sort().join(',') === reservedNamesBefore,
+    'P4 /api/status?sessionId=保留名 不长出任何文件或改写当前分片索引');
 
     const aliasGet = await req(port, 'GET', '/api/sessions/anything/at/all/' + sid, null, hdr);
     ok(aliasGet.status === 404, `P5 GET /api/sessions/anything/at/all/<id> → 404(${aliasGet.status})`);

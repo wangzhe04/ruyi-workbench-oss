@@ -3,12 +3,12 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  能力面: ①Claude 子代理 read/edit 白名单含 WebSearch/WebFetch(两引擎联网能力对齐);②内置 explorer/reviewer/
 //    verifier 角色 claudeTools 含联网;③OpenAI 子代理桥接 MCP 工具按 BRIDGED_TOOL_TIERS 分级参与所有层
 //    (bridgedToolTier 过滤,不再 exec 一刀切)。
-//  安全不变量(开放的边界,防未来误扩): ④Claude 路径 mcp-config 仍 exec-only(bypass 下 --allowed-tools 非硬限,
-//    提前挂桥接面=桌面全控泄漏);⑤web_search/web_fetch 保持 read 级但 http_request 保持 exec、git_commit 保持
+//  安全不变量(开放的边界,防未来误扩): ④Claude 外部桥接 MCP 仍 exec-only(bypass 下 --allowed-tools 非硬限,
+//    提前挂桥接面=桌面全控泄漏),加密记忆的受限 relay 单独绑定;⑤web_search/web_fetch 保持 read 级但 http_request 保持 exec、git_commit 保持
 //    exec、spawn_agent 保持 exec + 子回合 noSpawnAgent;⑥bridgedToolTier 未知工具缺省 exec、用户覆盖生效。
 'use strict';
 const { readServerSource } = require('./src-reader');
-const { functionBlock } = require('./lib/source-slice.js');
+const { functionBlock, constBlock, bracedBlock } = require('./lib/source-slice.js');
 const fs = require('fs');
 const path = require('path');
 // 架构还债批 3·D:②⑤⑥ 断言的都是运行时可达的值(BUILTIN_AGENT_ROLES / NATIVE_TOOL_TIER / bridgedToolTier 经
@@ -56,11 +56,21 @@ const src = readServerSource();
   ok(/bridgedToolTier\(/.test(fnSlice) && /rank\[tier\]/.test(fnSlice), '③ read/edit 按 bridgedToolTier 分级过滤(含 config.bridgedToolTiers 用户覆盖)');
 }
 
-// ---- ④ Claude 路径 mcp-config 仍 exec-only(安全不变量) ----
+// ---- ④ Claude 外部桥接仍 exec-only,加密记忆 relay 不变成完整桥接(安全不变量) ----
 {
   const fnSlice = functionBlock(src, 'runClaudeSubAgentOnce');
-  // 2026-10:按权限档收紧(grant.capped,default/acceptEdits 下 exec 级被拒)时连 exec 档也不挂 —— 只许比 exec-only 更窄。
-  ok(/\(?tier === 'exec'(?: && !grant\.capped\))? \? await generateAgentNodeMcpConfig/.test(fnSlice), "④ Claude 子代理 mcp-config 仍仅 exec 级挂载(bypass 下 allowlist 非硬限,不得提前开放)");
+  const full = constBlock(fnSlice, 'nodeFullMcpPath');
+  const selected = constBlock(fnSlice, 'mcpConfigPath');
+  const internal = bracedBlock(fnSlice, 'if (nodeFullMcpPath)');
+  // The added encrypted-memory condition only narrows complete external MCP.
+  ok(Boolean(full) && /const nodeFullMcpPath = \(tier === 'exec' && !grant\.capped && \(config\.workDataEncryptionV1 !== true \|\| config\.includeWorkbenchMcp\)\)\s*\? await generateAgentNodeMcpConfig\(subagentId, config\.mcpCommandMode, roleMcpServers\) : '';/.test(full),
+    '④ Claude 完整外部 MCP 仍仅 exec 且未 capped 时生成,加密策略只会进一步收窄');
+  ok(Boolean(selected && internal)
+    && /const mcpConfigPath = config\.workDataEncryptionV1 === true\s*\? path\.join\(paths\.generated, `workbench\.memory-mcp\.\$\{subagentId\}\.json`\) : nodeFullMcpPath;/.test(selected)
+    && internal.includes("const raw = JSON.parse(await fsp.readFile(nodeFullMcpPath, 'utf8'));")
+    && internal.includes('InternalMcpHooks.createNode({ config, context: memoryCliContext })')
+    && /MemoryCliHooks\.createNode\(\{ config, context: memoryCliContext, subagentId, baseConfigPath: nodeFullMcpPath \}\)/.test(fnSlice),
+    '④ 加密记忆使用独立受限配置,完整桥接与原执行上下文仍受各自真实入口约束');
 }
 
 // ---- ⑤ NATIVE_TOOL_TIER 分级不变量 ----

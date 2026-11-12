@@ -15,9 +15,9 @@ const path = require('path');
 const { startFakeProvider, textFrames, toolCallFrames, usageFrame } = require('../lib/fake-openai-provider');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-sub-compact-stop-'));
-process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
-process.env.RUYI_HOME = root;
-const { runSubAgentCore } = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), root));
+const { runSubAgentCore, readConfig, writeConfig, flushWorkbenchLogs } = require('../lib/server-internals')
+  .loadServerInternals(['runSubAgentCore', 'readConfig', 'writeConfig', 'flushWorkbenchLogs']);
 const sleep = ms => new Promise(r => { const t = setTimeout(r, ms); if (t.unref) t.unref(); });
 
 const SUMMARY = '【目标】x\n【已确认的决定】无\n【未完成事项】无\n【当前执行状态】已完成:a;正在进行:b;阻塞:无;下一步:c\n【关键文件与上下文】无';
@@ -31,6 +31,16 @@ let summaryDelayMs = 0;
 let summaryStartedAt = 0;
 let fake;
 test('setup', async () => {
+  // Audit writes require the real committed policy, even though runSub below
+  // receives its own unchanged in-memory cancellation fixture configuration.
+  // Missing policy must not be treated as OFF by the production logger.
+  await writeConfig({ ...(await readConfig()), workDataEncryptionV1: false, credentialEncryptionV1: false, privacyModeV1: 'off',
+    autoImportClaudeCodeMcp: false, autoImportKimiCodeMcp: false, includeWorkbenchMcp: false, enableMcpDropIn: false,
+    externalMcpServers: [], desktopMcp: { enabled: false, autodetect: false }, schedulerEnabledV1: false, stewardEnabledV1: false });
+  const committed = await readConfig();
+  assert.equal(committed.workDataEncryptionV1, false);
+  assert.equal(committed.credentialEncryptionV1, false);
+  assert.equal(committed.privacyModeV1, 'off');
   fake = await startFakeProvider({
     async handler(rq) {
       if (isSummary(rq)) {
@@ -99,16 +109,18 @@ test('[K1] L2 摘要在飞时停止:当场收住、不重播种、不算摘要�
     '「压缩中」收成 failed + aborted(带 subagentId):' + JSON.stringify(failed));
   assert.equal(compactEvents(events, 'completed').length, 0, '被取消的摘要没有重播种进子代理历史');
   assert.equal(fake.requests.length, requestsAtStop, '停止之后没有再发任何模型请求');
-  let rows = [];
-  for (let i = 0; i < 50; i++) {
-    rows = logRows('auto_compact').filter(x => x.subagentId === 'sa_k1' && x.mode === 'summary');
-    if (rows.length) break;
-    await sleep(40);
-  }
+  // logEvent only enqueues. Await the real audit barrier, which also rejects a
+  // failed policy/write, before inspecting the same unique persisted record.
+  await flushWorkbenchLogs();
+  const rows = logRows('auto_compact').filter(x => x.subagentId === 'sa_k1' && x.mode === 'summary');
   assert.ok(rows.length === 1 && rows[0].ok === false && rows[0].aborted === true && rows[0].error === undefined,
     '走的是 aborted 那一支(不进 10 分钟摘要失败冷却):' + JSON.stringify(rows));
 });
 
-test('teardown', async () => { await fake.close(); });
+test('teardown', async () => {
+  const results = await Promise.allSettled([flushWorkbenchLogs(), fake ? fake.close() : Promise.resolve()]);
+  const errors = results.filter(row => row.status === 'rejected').map(row => row.reason);
+  if (errors.length) throw new AggregateError(errors, 'subagent cancellation fixture teardown failed', { cause: errors[0] });
+});
 
 process.on('exit', () => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });

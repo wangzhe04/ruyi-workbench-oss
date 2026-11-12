@@ -31,6 +31,7 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const { stripJsComments } = require('./lib/port-audit');
+const { functionBlock, bracedBlock, sliceBlock } = require('./lib/source-slice');
 const os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -254,29 +255,38 @@ function killTree(child) {
   ok(/const PORT_FALLBACK_SPAN = 9;/.test(routerSrc), '⑤ 端口回退宽度是常量(port+1..port+9)');
   ok(/const LAST_START_ERROR_FILE = 'last-start-error\.json';/.test(routerSrc),
     '⑤ 文件名是常量(103c 登记用的锚点)');
-  const consumeStart = routerSrc.indexOf('async function consumeStartError()');
-  const consumeBlock = consumeStart >= 0 ? routerSrc.slice(consumeStart, routerSrc.indexOf('\n}\n', consumeStart)) : '';
+  const consumeBlock = functionBlock(routerSrc, 'consumeStartError');
   ok(!!consumeBlock && consumeBlock.includes('fsp.unlink(file)') && consumeBlock.indexOf('fsp.unlink(file)') > consumeBlock.indexOf('fsp.readFile(file'),
     '⑤ 先读后删,且删除在形状判定【之前】(坏记录也会被清掉)');
-  ok(/const port = await listenWithFallback\(server, requestedPort, host, config\);/.test(routerSrc)
-    && /\{ port, host, pid: process\.pid/.test(routerSrc),
-    '⑤ runtime.json 写的是 listenWithFallback 返回的【实际】端口,不是请求的端口');
+  const boot = functionBlock(routerSrc, 'startServerInner');
+  const listener = functionBlock(routerSrc, 'listenForWorkbenchServe');
+  const strictListener = bracedBlock(listener, 'if (strict)');
+  const listenStatement = 'const port = await listenForWorkbenchServe(server, requestedPort, host, config, opts);';
+  ok(Boolean(boot && listener && strictListener) && boot.includes(listenStatement)
+    && /\{ port, host, pid: process\.pid/.test(boot)
+    && listener.includes('WorkDataMaintenanceRuntimeHooks.strictSamePort(opts) === true')
+    && strictListener.includes('await listenOnce(server, port, host); return port;')
+    && !strictListener.includes('listenWithFallback')
+    && listener.indexOf('return listenWithFallback(server, port, host, config);') > listener.indexOf(strictListener) + strictListener.length,
+    '⑤ runtime.json 使用真实监听组合返回的实际端口,普通回退与严格原端口不混用');
   ok(/START_NOTICE\.portFallback = \{ requested: port, actual: candidate \};/.test(routerSrc),
     '⑤ 改用端口时如实登记 requested/actual 两端');
   // 本刀真实踩过的坑:第一版把 consumeStartError 放在 listen 之后,于是「已经在监听」与「握手常量写好」
   // 之间多了一个 await -- 那段窗口里进来的请求看到空 RUNTIME.token,能力探测与桥接回调偶发失败
   // (capabilities e2e 稳定复现)。这条断言防止任何人再往这段临界区里塞 await。
-  const listenAt = routerSrc.indexOf('const port = await listenWithFallback(server, requestedPort, host, config);');
-  const runtimeAt = routerSrc.indexOf('RUNTIME.token = runtimeToken;');
-  const criticalSection = listenAt >= 0 && runtimeAt > listenAt ? routerSrc.slice(listenAt, runtimeAt) : 'await';
-  const hasHandshakeAwait = section => /\bawait\b/.test(stripJsComments(section).replace('const port = await listenWithFallback', ''));
+  const listenAt = boot.indexOf(listenStatement);
+  const runtimeAt = boot.indexOf('RUNTIME.token = runtimeToken;');
+  const selectedCriticalSection = sliceBlock(boot, listenStatement, 'RUNTIME.token = runtimeToken;');
+  const criticalSection = listenAt >= 0 && runtimeAt > listenAt && selectedCriticalSection ? selectedCriticalSection : 'await';
+  const hasHandshakeAwait = section => /\bawait\b/.test(stripJsComments(section).replace(listenStatement, ''));
   ok(!hasHandshakeAwait(criticalSection),
     '⑤ listen 与 RUNTIME 握手常量赋值之间零 await(服务可服务时 token 必须已就位)');
   ok(!hasHandshakeAwait(criticalSection + '\n// await in a comment is not a suspension point\n'),
     '⑤ 临界区检查忽略注释中的 await');
   ok(hasHandshakeAwait(criticalSection + '\nawait Promise.resolve();\n') && hasHandshakeAwait('await'),
     '⑤ 临界区检查仍拒绝真实 await 和缺失锚点');
-  ok(routerSrc.indexOf('START_NOTICE.lastError = await consumeStartError();') < listenAt,
+  const consumeAt = boot.indexOf('START_NOTICE.lastError = await consumeStartError();');
+  ok(consumeAt >= 0 && listenAt > consumeAt,
     '⑤ 上次失败记录在 listen 【之前】读出(不占用上面那段临界区)');
   const inventory = fs.readFileSync(path.join(__dirname, 'durable-state-inventory.js'), 'utf8');
   ok(inventory.includes("'last-start-error','<data>/last-start-error.json','13-http-router.js'"),

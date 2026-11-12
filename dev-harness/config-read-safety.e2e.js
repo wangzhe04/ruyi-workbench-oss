@@ -54,7 +54,37 @@ const diskText = () => fs.readFileSync(CONFIG, 'utf8');
 let configReader = null;
 // 81-P1: retain exact recovery assertions against encrypted credentials, not plaintext disk slots.
 const diskJson = () => configReader ? configReader.recover(JSON.parse(diskText())) : JSON.parse(diskText());
-const logText = () => { const d = path.join(HOME, 'logs'); return fs.existsSync(d) ? fs.readdirSync(d).filter(f => f.endsWith('.ndjson')).map(f => fs.readFileSync(path.join(d, f), 'utf8')).join('\n') : ''; };
+const logSnapshot = () => {
+  const d = path.join(HOME, 'logs');
+  return JSON.stringify(fs.existsSync(d) ? fs.readdirSync(d).filter(f => /^workbench-.*\.ndjson$/.test(f)).sort()
+    .map(f => [f, fs.readFileSync(path.join(d, f)).toString('base64')]) : []);
+};
+const auditDiagnostics = [];
+const unknownPolicyAudit = async (before, stage) => {
+  // This production endpoint awaits the strict audit barrier. Recovery policy
+  // or unreadable policy must refuse; it may never silently become plaintext.
+  const view = await reqJson('GET', '/api/logs/tail?lines=200');
+  const after = logSnapshot(), errorCode = view.json?.error?.code || view.json?.code || null;
+  // WorkDataJournals.isEnabled catches the unavailable audit-policy callback
+  // at its outer operation boundary and exposes this exact journal error.
+  const accepted = view.status === 503 && errorCode === 'work_data_journal.switch_unavailable' && after === before;
+  if (!accepted) {
+    const metadata = snapshot => {
+      const rows = JSON.parse(snapshot);
+      return { files: rows.length, bytes: rows.reduce((n, row) => n + Buffer.from(row[1], 'base64').length, 0),
+        sha256: require('node:crypto').createHash('sha256').update(snapshot).digest('hex') };
+    };
+    const diagnostic = { stage, status: view.status, errorCode, responseOk: view.json?.ok === true,
+      logBytesEqual: after === before, before: metadata(before), after: metadata(after),
+      responseBytes: Buffer.byteLength(view.text), responseSha256: require('node:crypto').createHash('sha256').update(view.text).digest('hex'),
+      bodiesAndCredentialsOmitted: true };
+    auditDiagnostics.push(diagnostic);
+    console.log('AUDIT_POLICY_DIAGNOSTIC ' + JSON.stringify(diagnostic));
+    try { fs.writeFileSync(path.join(HOME, 'audit-policy-diagnostics.json'), JSON.stringify(auditDiagnostics, null, 2) + '\n'); }
+    catch (error) { console.log('AUDIT_DIAGNOSTIC_SAVE_FAILED ' + String(error.code || 'unknown')); }
+  }
+  return accepted;
+};
 
 let wb = null;
 try {
@@ -70,6 +100,9 @@ try {
   ok(r.status === 200, 'A1 normal write ok');
   ok(fs.existsSync(PREV) && JSON.parse(fs.readFileSync(PREV, 'utf8')).locale === 'zh-CN', 'A2 config.json.prev holds the previous version');
   ok(diskJson().providers.length === 1 && diskJson().providers[0].apiKey === 'sk-real-key-A', 'A3 providers intact after the write');
+  const knownAudit = await reqJson('GET', '/api/logs/tail?lines=200');
+  ok(knownAudit.status === 200 && knownAudit.json?.ok === true, 'A4 known committed policy permits the strict audit reader');
+  const beforeRecoveryAudit = logSnapshot();
 
   // ② JSON 被外部写坏 + 有 .prev → 读时从 .prev 恢复，磁盘重新变成合法配置且服务商还在。
   fs.writeFileSync(CONFIG, '{ this is not json');
@@ -78,7 +111,7 @@ try {
   let disk = null; try { disk = diskJson(); } catch { disk = null; }
   ok(r.status === 200 && disk && Array.isArray(disk.providers) && disk.providers.length === 1 && disk.providers[0].apiKey === 'sk-real-key-A',
     'B1 corrupt config recovers from .prev (providers + key survive) instead of being reset to defaults');
-  ok(/config_recovered/.test(logText()), 'B2 recovery logged as config_recovered');
+  ok(await unknownPolicyAudit(beforeRecoveryAudit, 'B2'), 'B2 recovered unconfirmed policy refuses the audit barrier and leaves original log bytes unchanged');
   // hunt2-P7:恢复那一次落盘经 writeConfigAtomic —— 修前它先把【当前那份坏文件】无条件拷到 .prev 上,
   // 唯一的好备份被坏文件盖掉(再坏一次就只剩降级)。现在只有当前那份是 JSON 对象时才刷新 .prev。
   let prevAfter = null; try { prevAfter = configReader.recover(JSON.parse(fs.readFileSync(PREV, 'utf8'))); } catch { prevAfter = null; }
@@ -87,13 +120,14 @@ try {
 
   // ③ JSON 坏了且 .prev 也不可用，但本进程刚才读成功过 → 用内存里上一次的好配置顶着：读不写坏文件；
   //    写入在好配置之上合并后落盘 = 自愈（不是丢失）。
+  const beforeFailedReadAudit = logSnapshot();
   fs.writeFileSync(CONFIG, '{ still not json');
   fs.writeFileSync(PREV, 'also broken');
   r = await reqJson('GET', '/api/status');
   await sleep(300);
   ok(r.status === 200, 'C1 status still answers on the in-memory last-good copy');
   ok(diskText() === '{ still not json', 'C2 a read never overwrites the broken file');
-  ok(/config_read_failed/.test(logText()), 'C3 the failed read is logged as config_read_failed');
+  ok(await unknownPolicyAudit(beforeFailedReadAudit, 'C3'), 'C3 unreadable policy refuses the audit barrier without a plaintext fallback or log mutation');
   r = await reqJson('POST', '/api/config', { locale: 'zh-CN' });
   ok(r.status === 200 && diskJson().locale === 'zh-CN' && diskJson().providers.length === 1 && diskJson().providers[0].apiKey === 'sk-real-key-A',
     'C4 a write merges onto the last-good copy and heals the file (providers + key intact)');
@@ -116,6 +150,9 @@ try {
   r = await reqJson('GET', '/api/status');
   r = await reqJson('POST', '/api/config', { locale: 'zh-CN' });
   ok(r.status === 200 && diskJson().locale === 'zh-CN' && diskJson().providers.length === 1, 'D4 once readable again, writes resume and providers are still there');
+  const resumedAudit = await reqJson('GET', '/api/logs/tail?lines=200');
+  ok(resumedAudit.status === 200 && resumedAudit.json?.ok === true && !resumedAudit.text.includes('sk-real-key-A'),
+    'D4b restored known policy resumes strict audit reads without exposing provider credentials');
 
   // ⑤ 文件被删但 .prev 在 → 从 .prev 恢复而不是当全新安装。
   fs.copyFileSync(CONFIG, PREV);
@@ -142,7 +179,8 @@ try {
 } finally {
   configReader?.close();
   killp(wb);
-  try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
+  if (fail === 0) { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } }
+  else console.log('[keep] ' + HOME);
 }
 console.log(fail ? `CONFIG READ SAFETY E2E: FAIL (${fail})` : 'CONFIG READ SAFETY E2E: ALL PASS');
 process.exit(fail ? 1 : 0);

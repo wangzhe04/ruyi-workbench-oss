@@ -2134,7 +2134,16 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
       const encodedBootstrap = Buffer.from(selectedBootstrap, 'utf16le').toString('base64');
       const commandUnits = 1 + ctx.executable.length + 2 + ['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',encodedBootstrap].reduce((n, arg) => n + 1 + arg.length + 2, 0);
       if (commandUnits > 32767) throw Error('native_code_command_limit');
-      if (!hit) { sink = await io.mkdtemp(nodePath.join(nodePath.resolve(nodeOs.tmpdir()), 'ruyi-native-code-')); lineage = await directories(sink); }
+      if (!hit) {
+        const temporaryRoot = nodePath.resolve(nodeOs.tmpdir());
+        // Optional cold-cache compilation has a narrower supported TEMP geometry
+        // than the original source compiler. This is our conservative UTF-16
+        // root budget, not an OS path limit; reject before allocating a sink.
+        // A validated hot byte hit needs no compiler sink and retains its path.
+        if (temporaryRoot.length > 128) throw Error('native_code_temp_root_limit');
+        sink = await io.mkdtemp(nodePath.join(temporaryRoot, 'ruyi-native-code-'));
+        lineage = await directories(sink);
+      }
       const env = { ...process.env };
       for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('RUYI_SKILL_CAPSULE_')) delete env[key];
       const meta = { ...ctx, ...(hit ? { artifactHash: hit.sha256, clr: hit.clr, mvid: hit.mvid } : {}) };

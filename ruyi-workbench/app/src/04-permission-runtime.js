@@ -1447,7 +1447,18 @@ class McpStdioClient {
       const prepared = await ManagedMcp.prepare(this, method, params, options);
       let result, rpcError;
       try { result = await this._rpc(method, prepared.params, timeoutMs, prepared.options); } catch (error) { rpcError = error; }
-      try { prepared.assert(); } catch (error) { error.mcpOperationMayHaveExecuted = prepared.sent; throw error; }
+      try { prepared.assert(); }
+      catch (error) {
+        // A sent stdio call still needs its existing transport-cancel cleanup
+        // when the postflight privacy guard withholds the result. Keep that
+        // original privacy error primary; cleanup never authorizes a replay.
+        if (prepared.sent && (rpcError?.mcpAborted === true || rpcError?.mcpTimeout === true)) {
+          try { this.kill(); }
+          catch (cleanupError) { try { Object.defineProperty(error, 'mcpCleanupError', { value: cleanupError }); } catch { /* Preserve the primary guard failure. */ } }
+        }
+        error.mcpOperationMayHaveExecuted = prepared.sent;
+        throw error;
+      }
       if (rpcError) throw rpcError;
       return result;
     }

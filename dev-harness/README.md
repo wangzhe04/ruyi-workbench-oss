@@ -25,6 +25,10 @@ node dev-harness\run-all.js --parallel 4
 
 远程待决的密封浏览器组合可在 Windows 串行运行 `node dev-harness/external-bots-human-decisions.e2e.js --sealed-browser`，用 `RUYI_C2_EVIDENCE_DIR` 指定全新或空的绝对证据目录。该 opt-in 使用真实 CurrentUser DPAPI、活动加密代与 Edge/Chrome，覆盖飞书签名提问作答、飞书任务池批准及 QQ 本机拒绝后旧 Allow 的三种重放；提问完成后还会等待原服务退出并冷启同一目录，核验浏览器成功刷新后已回答问题不再进入待决、没有该问题的可执行控件，并从实际 HTTP 历史复核原终态及回答。重复回调不得新增执行或发送。平台令牌、回调、模型和外发均为隔离本地合成件，不操作真实账号；缺 DPAPI、浏览器或读取凭证会失败。密文原始字节与生产 reader 的逻辑事实分别核验，观察接口只读，不参与业务写入。默认五种待决九个动作及原 `--stale-browser-offer` 明文门保持，群聊成员版本权限仍不在本件验收范围。
 
+未认领旧 offer 的加密冷启拒绝另用 `node dev-harness/external-bots-human-decisions.e2e.js --sealed-unclaimed-offer` 单独运行，同样使用全新证据目录。它先从真实原 permission consumer 发布完整已发送的 QQ Allow offer，确认仍为 `offered`、没有 claim 或执行阶段，再等待原服务退出并冷启同一活动加密代。启动正常产生的 `cancelled_restart` 与版本变化单独留证；之后旧代码的首次提交、同消息换事件和新消息复用都须在原期限内同步拒绝，回调前后均记录实际时间并核对原 `expiresAt`，不续期或注入时钟，且不得新增 inbox、claim、模型、发送、文件效应或改写冷启后的密文。真实浏览器还须成功刷新并排除已结算待决。本件证明真实重启后未认领代码不能授权；重启也取消了原 live consumer，因此不单独归因于 boot 绑定检查，也不替代已认领动作的冷启幂等门。
+
+线程接力和定时 Playbook 的加密浏览器组合分别用 `node dev-harness/thread-relay.browser.e2e.js --sealed`、`node dev-harness/scheduled-playbooks.browser.e2e.js --sealed` 串行运行。它们保留默认真实 UI、双语及原有业务断言，另以真实 Windows owner 和 CurrentUser DPAPI 建立活动加密代；原服务退出后，用全新只读生产进程核对完整任务、Playbook 和运行收据，要求密文无业务明文、没有稳定根回退，也不新增模型或文件效应。成功和失败的进程事实均留在输出的资格目录；测试收尾不追认先前的清理未知。
+
 ### 实际发布包验收（Windows，按需）
 
 先用 `ruyi-workbench/tools/package-offline.ps1` 分别生成真正包含 EXE 的 Slim 和 Full，保留打包退出码、日志、ZIP 及其同名 stage。Full 需要已验证的 ACC 离线载荷。不要用 `-SkipExeBuild` 的源码运行包代替 EXE 验收。
@@ -34,6 +38,8 @@ node dev-harness/release-package-acceptance.js --slim <Slim.zip> --full <Full.zi
 ```
 
 脚本验证实际 ZIP 及当前源码字节、随包 Node 和 EXE 的四份全新数据目录、候选特有的隐私保护行为、丢失配置后的两种冷恢复、旧版数据副本升级/重启/续写/备份回退、每包 19 项核心旅程，以及 Full 安装版 Python 的完整性、重复安装、WinSDK OCR 和两个真实 MCP stdio 入口。旧数据由固定 `v3.0.1` 标签源码和随包 Node 生成，不冒充下载的旧发行二进制。`validation.json` 逐项记录结果和来源 SHA-256；失败保留现场，已有输出目录会拒绝复用。测试采用离线 Fake provider，原用户配置及工具箱目录被隔离。桌面窗口的实际启动/操作/关闭仍须另行观察，并核对 GUI 与后台的进程归属。
+
+包内 EXE 的工作数据加密及默认媒体路径另用 `node dev-harness/lib/offline-package-qualification.cjs --stage <绝对目录> --zip <绝对ZIP路径> --output <全新或空的绝对目录> --expected-server-sha <server.js的SHA256>`。它逐项解压读取 ZIP 至 CRC 校验结束，并与完整 stage 双向核对字节；随后在两个全新目录直接启动 `Ruyi.exe`，核验真实模型／原生文件工具回环。加密分支使用真实 CurrentUser DPAPI、独立生产冷读取和密封盘面检查。Full-local 加 `--full-media`，通过 EXE 默认组件与来源路径准备、预览并发送同一受保护 PNG；不会用环境变量重定向到开发组件。归档核验使用宿主 Python 标准库（默认 `py.exe -3`，可用 `--python <绝对exe>`），并非应用运行依赖。该手动入口不进入默认回归，也不替代上面的升级／安装门、桌面 GUI 验收或公开分发来源审核；Full-local 仍仅为本机开发资格包。
 
 隐私规则另有按需真实输入框验证：`node dev-harness/privacy-31/browser-input-validation.js --output=ruyi-workbench/dist/privacy-validation`。它在独立 home 启动真实浏览器，通过聊天与管家输入框填写、点击发送 45 条目录及对抗语料，检查四档位／技术开关、公开负例、未保存草稿和工具代号读写闭环；另用三代自然段验证整段输入、实际文件返回及代号回填，最新一代含 27 个敏感正例、25 个公开或已打码负例，并审计递归 JSON 解码后的完整模型请求。使用本地假模型，不连接用户实例或真实模型。标题截断与策略切换另由 `unit/privacy-thread-brief-boundary.test.js` 验证；用户显示与 HTTP／历史隔离由 `unit/privacy-display.test.js` 和 `unit/privacy-display-http.test.js` 验证。真实端点矩阵为 `privacy-31/live-matrix.js --live --report=<path>`，含 28 个场景（包括第二／三轮六场景正反例、管家自然语言规则管理和类型异常历史续跑），须显式启用并使用合成材料。
 

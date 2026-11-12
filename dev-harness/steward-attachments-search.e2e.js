@@ -12,7 +12,7 @@ const { ok } = t;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-attachments-'));
 process.env.RUYI_HOME = root;
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
-const s = loadServerInternals(['readConfig', 'writeConfig', 'createSession', 'loadSession', 'saveSession', 'makeAttachmentRecord', 'stewardRunAct', 'stewardImplThreadContinue', 'stewardRelayChannelFor', 'runSessionTurn', 'searchSessionsByContent', 'stewardImplThreadsSearch', 'stewardLaunchingTurns', 'stewardContinueAttachments']);
+const s = loadServerInternals(['readConfig', 'writeConfig', 'createSession', 'loadSession', 'saveSession', 'makeAttachmentRecord', 'stewardRunAct', 'stewardImplThreadContinue', 'stewardRelayChannelFor', 'runSessionTurn', 'searchSessionsByContent', 'stewardImplThreadsSearch', 'stewardLaunchingTurns', 'stewardContinueAttachments', 'ensureStewardSession', 'SessionFullTextHooks']);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const act = (sid, message, attachments) => ({ kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message, attachments } });
 async function idle(sid) {
@@ -66,7 +66,9 @@ async function idle(sid) {
     const retry = await s.stewardRunAct(failedInput, cfg, { attemptId: 'attachment-attempt-02' });
     ok(retry.executed && !retry.replayed, '同一 attempt 修复附件后可以真实重试');
     await idle(target.id);
-    const ctx = { session: { id: 'steward', kind: 'steward' }, trigger: 'user' };
+    const ensured = await s.ensureStewardSession(await s.readConfig());
+    if (!ensured.ok || !ensured.session || ensured.session.kind !== 'steward') throw new Error('persisted steward session unavailable');
+    const ctx = { session: ensured.session, turnSeq: ensured.session.turnSeq, trigger: 'user' };
     const traversal = await s.stewardImplThreadContinue({ sessionId: target.id, message: '不要递送', attachments: [{ id: file.id, name: '../config.json' }] }, ctx, cfg);
     ok(!traversal.ok && traversal.error === 'invalid_request', '越目录附件名被拒绝');
     const missingTarget = await s.stewardImplThreadContinue({ sessionId: 'missing-thread', message: '不要另开一件', attachments: [file] }, ctx, cfg);
@@ -85,12 +87,39 @@ async function idle(sid) {
       ok(code === 'SESSION_NOT_FOUND' || code === 'SESSION_WORKSPACE_CHANGED', '启动时再次拒绝目标消失或工作区变化');
     }
     const long = await s.createSession({ title: '历史报告', cwd: root });
-    long.messages = Array.from({ length: 25 }, (_, i) => ({ role: 'user', content: (i === 24 ? 'UNINDEXED_FINAL_NEEDLE ' : 'earlier material ' + i + ' ') + 'a'.repeat(500), turnSeq: i + 1, createdAt: new Date().toISOString() }));
+    const needle = 'UNINDEXED_FINAL_NEEDLE';
+    long.messages = Array.from({ length: 25 }, (_, i) => ({ id: 'long_tail_' + i, role: i === 24 ? 'assistant' : 'user', content: (i === 24 ? needle + ' ' : 'earlier material ' + i + ' ') + 'a'.repeat(500), turnSeq: i + 1, createdAt: new Date().toISOString() }));
     await s.saveSession(long);
-    const found = await s.searchSessionsByContent('UNINDEXED_FINAL_NEEDLE', 10);
-    ok(found.scope.fullText === false && found.scope.maxCharsPerSession === 8192 && !found.results.some(row => row.id === long.id), '长会话末段未命中时如实返回有界索引范围');
-    const metadata = await s.stewardImplThreadsSearch({ q: 'no-such-task' }, ctx, { ...cfg, sessionSearchIndexV1: false });
-    ok(metadata.scope && metadata.scope.mode === 'metadata_only' && metadata.scope.fullText === false && metadata.scope.note.includes('未命中'), '管家未命中也携带范围说明,不宣称从未做过');
+    let bareCode = '';
+    try { await s.searchSessionsByContent(needle, 10); } catch (error) { bareCode = error.code; }
+    ok(bareCode === 'session_search.scope_required', '无真实调用域的正文搜索严格拒绝');
+    const scoped = work => s.SessionFullTextHooks.withModel(ctx, 'steward_threads_search', null, work);
+    // M3 retired the 8192-character bounded adapter: 13d delegates to 13as's
+    // admitted message-shard consumer. A miss can no longer be its oracle.
+    const found = await scoped(() => s.searchSessionsByContent(needle, 10));
+    const hit = found.results.find(row => row.id === long.id);
+    ok(hit && hit.snippet.includes(needle) && hit.reference.sessionId === long.id && hit.reference.messageId === 'long_tail_24'
+      && hit.reference.turnSeq === 25 && hit.reference.source === 'content' && hit.reference.coordinate === 'utf16'
+      && hit.reference.matchStart === 0 && hit.reference.matchEnd === needle.length
+      && long.messages.slice(0, 24).reduce((sum, row) => sum + row.content.length, 0) > 8192,
+    '授权搜索真实命中旧8192范围之后的消息并返回原文来源坐标');
+    ok(found.scope.mode === 'message_shards' && found.scope.messageText === true && found.scope.sampling === false
+      && found.scope.maxQueryChars === 256 && found.scope.coverageUnit === 'committed-display-message-sources'
+      && found.coverage.fullTextSampling === false && Number.isInteger(found.coverage.attachments.unverifiedFullText)
+      && found.scope.fullText === found.coverage.complete
+      && (found.coverage.attachments.unverifiedFullText === 0 || found.scope.fullText === false),
+    '消息分片不采样且如实声明附件未验证时的覆盖缺口');
+    const stewardFound = await scoped(() => s.stewardImplThreadsSearch({ q: needle }, ctx, cfg));
+    ok(stewardFound.ok && stewardFound.results.some(row => row.sessionId === long.id)
+      && stewardFound.scope.mode === 'message_shards' && stewardFound.scope.sampling === false,
+    '管家搜索在同一真实调用域内也能找到长会话末段');
+    await s.writeConfig({ ...(await s.readConfig()), sessionSearchIndexV1: false });
+    const disabledCfg = await s.readConfig();
+    const metadata = await scoped(() => s.stewardImplThreadsSearch({ q: needle }, ctx, disabledCfg));
+    ok(metadata.ok && metadata.results.length === 0 && metadata.degraded === 'index_disabled'
+      && metadata.scope.mode === 'metadata_only' && metadata.scope.messageText === false && metadata.scope.fullText === false
+      && metadata.scope.note === '正文搜索已关闭，仅搜索会话元数据。',
+    '关闭正文搜索后正文独有词不命中并明确仅检索元数据');
   } catch (error) { t.fail(error.stack); }
   finally { if (fake) await fake.close(); }
   t.done({ exit: true });

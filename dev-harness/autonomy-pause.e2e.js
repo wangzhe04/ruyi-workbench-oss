@@ -5,6 +5,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // [S] 静态锁:config 默认 opt-in false + TTL clamp;provider gate 仅 driverAuto 启用;CLI 桥仅 driverAutoSessions;两路径 fail-closed deny。
 'use strict';
 const { readServerSource } = require('./src-reader');
+const assert = require('node:assert/strict');
+const { constBlock, functionBlock } = require('./lib/source-slice');
 const fs = require('fs'), path = require('path');
 const SERVER = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'server.js');
 const src = readServerSource();
@@ -37,8 +39,9 @@ ok(/if \(reg\) reg\.pausePending = true;/.test(src) && /if \(reg\) \{ reg\.pause
 // [P] 源抽取 requestNativePermission 两段定时实跑
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 console.log('\n── [P] requestNativePermission 两段定时 ──');
-const m = src.match(/function requestNativePermission\(sessionId, toolName, input, onEvent, timeoutMs, tier, pause\) \{[\s\S]*?\n\}/);
-ok(!!m, 'P 源抽取 requestNativePermission(含 pause 形参)');
+const permissionSource = functionBlock(src, 'requestNativePermission');
+ok(Boolean(permissionSource), 'P 源抽取真实 requestNativePermission(含 pause 与原 consumer)');
+assert.ok(permissionSource, 'requestNativePermission source unavailable');
 const pending = new Map();
 let idc = 0; const makeId = p => p + '_' + (++idc);
 const toolIsRevertible = () => false;
@@ -56,19 +59,33 @@ const fireNext = () => { const live = timers.filter(x => !x.cleared).sort((a, b)
 const schedulerAskWait = new Map();
 // 2026-09-24:「等多久」的归一改走 04 的 promptWaitMs(0/缺省 = 不限时)。同一条纪律:注进来的是源里抽出来的
 // 【真函数】,不是桩 —— 本件各组传的都是显式 120000,真函数原样返回,定时行为一个字不变。
-const pwSrc = src.match(/const PROMPT_WAIT_UNLIMITED_MS = \d+;[\s\S]*?\nfunction promptWaitMs\(value, floorMs = 5000\) \{[\s\S]*?\n\}/);
-ok(!!pwSrc, 'P 源抽取 promptWaitMs(04:0/缺省 = 不限时)');
-const promptWaitMs = new Function(pwSrc[0] + '\nreturn promptWaitMs;')();
-const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention', 'runAutomaticInterventionDecision', 'schedulerAskWaitOverrideMs', 'promptWaitMs',
-  m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {}, (_command, fallback) => fallback(),
-  sid => Number(schedulerAskWait.get(String(sid))) || 0, promptWaitMs);
+const pwSrc = constBlock(src, 'PROMPT_WAIT_UNLIMITED_MS') + '\n' + functionBlock(src, 'promptWaitMs');
+assert.ok(constBlock(src, 'PROMPT_WAIT_UNLIMITED_MS') && functionBlock(src, 'promptWaitMs'));
+ok(Boolean(pwSrc), 'P 源抽取 promptWaitMs(04:0/缺省 = 不限时)');
+const promptWaitMs = new Function(pwSrc + '\nreturn promptWaitMs;')();
+// Capture and registration use the real consumer implementation, with this clock
+// fixture's original AbortSignal. Only disk persistence and command-core fallback
+// remain isolated as before; neither consumer authority check is replaced.
+const turnOwners = new Map(), liveChildren = new Map(), consumerOrigins = new WeakMap();
+const consumerNames = ['captureInterventionConsumer', 'registerInterventionConsumer', 'assertInterventionConsumer',
+  'assertSessionExecutionOwner', 'revalidateSessionExecutionPermission'];
+const consumerSource = consumerNames.map(name => {
+  const body = functionBlock(src, name); assert.ok(body, 'real consumer function missing: ' + name); return body;
+}).join('\n');
+const { requestNativePermission, assertInterventionConsumer } = new Function(
+  'makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention',
+  'runAutomaticInterventionDecision', 'schedulerAskWaitOverrideMs', 'promptWaitMs', 'turnSettlers', 'activeChildren', 'interventionConsumerOrigins',
+  consumerSource + '\n' + permissionSource + '\nreturn { requestNativePermission, assertInterventionConsumer };'
+)(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {}, (_command, fallback) => fallback(),
+  sid => Number(schedulerAskWait.get(String(sid))) || 0, promptWaitMs, turnOwners, liveChildren, consumerOrigins);
+const origin = () => ({ owner: null, reg: null, signal: new AbortController().signal });
 
 (async () => {
   const settle = p => Promise.race([p, sleep(0).then(() => '__pending__')]);
   // (1) 无 pause:基础超时 → deny。
   {
     timers = []; const events = [];
-    const p = requestNativePermission('s1', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null);
+    const p = requestNativePermission('s1', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null, origin());
     fireNext(); // 基础超时
     const d = await p;
     ok(d.behavior === 'deny' && !d.pausedTimeout, 'P(1) 无 pause:基础超时→deny(非 pausedTimeout)');
@@ -77,7 +94,7 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
   // (2) pause 启用:基础超时→发 permission_paused + onPause;延长到 TTL→回落 deny(pausedTimeout)。
   {
     timers = []; const events = []; let paused = 0;
-    const p = requestNativePermission('s2', 'powershell_run', {}, e => events.push(e), 120000, 'exec', { enabled: true, ttlMs: 2700000, onPause: () => { paused++; } });
+    const p = requestNativePermission('s2', 'powershell_run', {}, e => events.push(e), 120000, 'exec', { enabled: true, ttlMs: 2700000, onPause: () => { paused++; } }, origin());
     fireNext(); // 基础超时 → 进 pause 分支(同步:onPause + emit + 注册 TTL 定时器)
     ok(events.some(e => e.type === 'permission_paused') && paused === 1, 'P(2) 基础超时→发 permission_paused + onPause 检查点(1 次)');
     ok((await settle(p)) === '__pending__', 'P(2) pause 窗口内 promise 仍挂起(未 resolve)');
@@ -88,11 +105,12 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
   // (3) pause 窗口内决定(模拟 /api/permission/decision:取 entry 直接 resolve allow),不被 TTL 覆盖。
   {
     timers = []; const events = [];
-    const p = requestNativePermission('s3', 'file_write', { path: 'a' }, e => events.push(e), 120000, 'edit', { enabled: true, ttlMs: 2700000, onPause: () => {} });
+    const p = requestNativePermission('s3', 'file_write', { path: 'a' }, e => events.push(e), 120000, 'edit', { enabled: true, ttlMs: 2700000, onPause: () => {} }, origin());
     fireNext(); // 进 pause 窗口(TTL 定时器已注册但未触发)
     const rid = events.find(e => e.type === 'permission_request').requestId;
     const entry = pending.get(rid);
     ok(!!entry, 'P(3) pending 有该 requestId 条目');
+    assertInterventionConsumer(entry);
     clearTimeoutF(entry.timer); pending.delete(rid); entry.resolve({ behavior: 'allow', updatedInput: { path: 'b' } }); // 模拟 UI 决定
     const d = await p;
     ok(d.behavior === 'allow' && d.updatedInput.path === 'b', 'P(3) pause 窗口内 UI 决定 allow→按决定返回(不被 TTL 覆盖)');
@@ -100,9 +118,9 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
   // (4) 基础超时前决定(pause 启用但用户很快决定)→ 不进 pause 窗口,不发 permission_paused。
   {
     timers = []; const events = [];
-    const p = requestNativePermission('s4', 'powershell_run', {}, e => events.push(e), 120000, 'exec', { enabled: true, ttlMs: 2700000, onPause: () => {} });
+    const p = requestNativePermission('s4', 'powershell_run', {}, e => events.push(e), 120000, 'exec', { enabled: true, ttlMs: 2700000, onPause: () => {} }, origin());
     const rid = events.find(e => e.type === 'permission_request').requestId;
-    const entry = pending.get(rid); clearTimeoutF(entry.timer); pending.delete(rid); entry.resolve({ behavior: 'deny', message: 'user denied' }); // 基础超时前决定
+    const entry = pending.get(rid); assertInterventionConsumer(entry); clearTimeoutF(entry.timer); pending.delete(rid); entry.resolve({ behavior: 'deny', message: 'user denied' }); // 基础超时前决定
     const d = await p;
     ok(d.behavior === 'deny' && !events.some(e => e.type === 'permission_paused'), 'P(4) 基础超时前决定→不进 pause 窗口(无 permission_paused)');
   }
@@ -111,7 +129,7 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
   //     毫秒数 —— 而定时器一到点,走的还是同一条 deny。**子集律:只能拒,永不放行。**
   {
     timers = []; const events = [];
-    const p = requestNativePermission('s5', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null);
+    const p = requestNativePermission('s5', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null, origin());
     ok(timers.length === 1 && timers[0].ms === 120000, `P(5a) 没登记过的会话:基础窗口仍是 timeoutMs(实测 ${timers[0] && timers[0].ms})`);
     fireNext();
     ok((await p).behavior === 'deny', 'P(5a) 到点仍是 deny');
@@ -119,7 +137,7 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
   {
     timers = []; const events = [];
     schedulerAskWait.set('s6', 30 * 60000);   // = config.schedulerAskWaitMinutes 默认 30 分钟
-    const p = requestNativePermission('s6', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null);
+    const p = requestNativePermission('s6', 'powershell_run', {}, e => events.push(e), 120000, 'exec', null, origin());
     ok(timers.length === 1 && timers[0].ms === 1800000,
       `P(5b) 定时任务的会话:基础窗口换成 30 分钟(实测 ${timers[0] && timers[0].ms},不是 120000)`);
     fireNext();
@@ -127,6 +145,29 @@ const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pend
     ok(d.behavior === 'deny' && !d.pausedTimeout,
       'P(5b) 【子集律】窗口再长,到点仍然是 deny —— 无人值守遇 ask 绝不自动放行');
     schedulerAskWait.delete('s6');
+  }
+
+  // The real registration must bind the original consumer and exact permission
+  // input. A missing origin, changed input, or stopped consumer never authorizes.
+  {
+    timers = []; const orphanEvents = [];
+    const orphan = requestNativePermission('s7-missing', 'file_write', { path: 'no-consumer' }, e => orphanEvents.push(e), 120000, 'edit', null);
+    const orphanId = orphanEvents.find(e => e.type === 'permission_request').requestId, orphanEntry = pending.get(orphanId);
+    assert.throws(() => assertInterventionConsumer(orphanEntry), { code: 'intervention.consumer_unavailable' });
+    clearTimeoutF(orphanEntry.timer); pending.delete(orphanId); orphanEntry.resolve({ behavior: 'deny', message: 'no original consumer' });
+    assert.equal((await orphan).behavior, 'deny');
+    const events = [], controller = new AbortController(), input = { path: 'owned-input' };
+    const p = requestNativePermission('s7', 'file_write', input, e => events.push(e), 120000, 'edit', null,
+      { owner: null, reg: null, signal: controller.signal });
+    const rid = events.find(e => e.type === 'permission_request').requestId, entry = pending.get(rid);
+    assertInterventionConsumer(entry);
+    assert.throws(() => assertInterventionConsumer({}), { code: 'intervention.consumer_unavailable' });
+    input.path = 'changed-input';
+    assert.throws(() => assertInterventionConsumer(entry), { code: 'intervention.consumer_input_changed' });
+    input.path = 'owned-input'; assertInterventionConsumer(entry); controller.abort();
+    assert.throws(() => assertInterventionConsumer(entry), { code: 'intervention.consumer_changed' });
+    clearTimeoutF(entry.timer); pending.delete(rid); entry.resolve({ behavior: 'deny', message: 'fixture owner stopped' });
+    ok((await p).behavior === 'deny', 'P(6) 真实 consumer 注册拒绝缺失来源、输入变化与停止,清理仍只拒绝');
   }
 
   console.log('');

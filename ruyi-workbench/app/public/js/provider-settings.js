@@ -1845,6 +1845,9 @@ async function saveSettings() {
     providers: state.providersDraftSeeded === true ? (state.providersDraft || []) : undefined,
   };
   if (patch.providers === undefined) return false;
+  // Only the first unselected, unique chat provider may become the main engine.
+  // The server checks its current configuration under the existing write lock.
+  patch.selectFirstChatProvider = true;
   const button = $('saveConfigBtn');
   if (button) button.disabled = true;
   const saved = await saveConfigPartial(patch);

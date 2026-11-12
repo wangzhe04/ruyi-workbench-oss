@@ -1,6 +1,6 @@
 'use strict';
 // Actual generated runtime with isolated synthetic data and real Windows DPAPI.
-const path=require('node:path'),repo=process.env.RUYI_MEMORY_BODY_REPO||process.cwd();require(path.join(repo,'dev-harness/lib/self-isolate-home'));
+const path=require('node:path'),repo=process.env.RUYI_MEMORY_BODY_REPO||path.resolve(__dirname, '..');require(path.join(repo,'dev-harness/lib/self-isolate-home'));
 const fs=require('node:fs'),os=require('node:os'),assert=require('node:assert/strict');
 const base=path.resolve(os.tmpdir()),root=fs.mkdtempSync(path.join(base,'ruyi-memory-body-e2e-'));
 Object.assign(process.env,require(path.join(repo,'dev-harness/lib/release-checks')).releaseEnvironment(path.join(root,'home'),path.join(root,'data')));

@@ -246,20 +246,36 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
       'f1 那一处就是 recordMissionCheckResult(不许有第二条赋值)');
     // f2:落章的调用点恰两处,都是真的跑了检查那两条路。
     const stampCallers = srcNames.filter(name => name !== '02-session-store.js' && /recordMissionCheckResult\(/.test(readSrc(name)));
-    ok(stampCallers.length === 2 && stampCallers.includes('06e-mission-domain.js') && stampCallers.includes('13-http-router.js'),
-      'f2 落章的调用点恰两处:驱动器每轮 + action:check(实 ' + JSON.stringify(stampCallers) + ')');
+    ok(stampCallers.length === 2 && stampCallers.includes('06e-mission-domain.js') && stampCallers.includes('13ae-cli-business-services.js'),
+      'f2 落章的调用点恰两处:驱动器每轮 + shared action:check(实 ' + JSON.stringify(stampCallers) + ')');
+    const { functionBlock, bracedBlock } = require('./lib/source-slice');
+    const services = readSrc('13ae-cli-business-services.js');
+    const missionService = functionBlock(services, 'cliMissionService');
+    ok(Boolean(missionService), 'f2 action:check 的来源锁限定在真实 cliMissionService 内');
     for (const name of stampCallers) {
-      // 128b:action:check 的落盘改走 mutateSession(撤回插在中间时在新读的副本上重放),章不能再紧挨着检查写 ——
-      // 检查先在读到的那份上真跑,结果按里程碑 id 收进 byId,落盘时从 byId 取回来落章。判据改钉这条数据链本身:
-      // 章的来源只能是那次真跑的结果(真跑 → results → byId → 取回 → 落章),不许凭空落章。驱动器那一处形状不变。
-      const src = readSrc(name);
+      // HTTP action:check 已委托给共享服务。原检查结果仍按 id 收进 byId,
+      // 在 mutateSession 的新读副本中取回落章;ownerCheck 不能被当作可跳过的字节。
+      const src = name === '13ae-cli-business-services.js' ? missionService : readSrc(name);
       const direct = /evaluateMissionCheck\([\s\S]{0,400}?recordMissionCheckResult\(/.test(src);
-      const viaMap = /const r = await evaluateMissionCheck\(m\.check, cwd\);\s*results\.push\(\{ id: m\.id, checkType: [^\n]*result: r \}\);/.test(src)
+      const viaMap = /const r = await evaluateMissionCheck\(m\.check, cwd\); ownerCheck\(\);\s*results\.push\(\{ id: m\.id, checkType: [^\n]*result: r \}\);/.test(src)
         && /const byId = new Map\(results\.map\(item => \[item\.id, item\.result\]\)\);/.test(src)
-        && /const r = byId\.get\(m\.id\);\s*if \(!r\) continue;\s*recordMissionCheckResult\(m, r\);/.test(src);
-      ok(name === '13-http-router.js' ? viaMap : direct,
+        && /written = await mutateSession\(sessionId, async fresh => \{ ownerCheck\(\);\s*for \(const m of \(\(fresh\.mission && fresh\.mission\.milestones\) \|\| \[\]\)\) \{\s*const r = byId\.get\(m\.id\);\s*if \(!r\) continue;\s*recordMissionCheckResult\(m, r\);/.test(src)
+        && src.indexOf('const byId = new Map(') > src.indexOf('const r = await evaluateMissionCheck(')
+        && src.indexOf('written = await mutateSession(') > src.indexOf('const byId = new Map(');
+      ok(name === '13ae-cli-business-services.js' ? viaMap : direct,
         'f2 ' + name + ' 的章来自真跑过的那次 evaluateMissionCheck(不是凭空落章)');
     }
+    const router = readSrc('13-http-router.js');
+    const missionRoute = bracedBlock(router, "if (pathname === '/api/mission')");
+    ok(Boolean(missionRoute)
+      && /if \(!tokenOk\(req\) && !tokenMatches\(bodyOrQ\.token\)\) return send\(res, json\(\{ ok: false, error: 'missing or invalid workbench token' \}, 403\)\);/.test(missionRoute)
+      && /return send\(res, await CliBusinessHooks\.mission\(bodyOrQ, \{ method: req\.method, trusted: tokenOk\(req\) \}\)\);/.test(missionRoute),
+    'f2 HTTP 适配器仍先鉴权且只把 UI header token 判为 trusted');
+    ok(/Object\.assign\(CliBusinessHooks, \{[^\n]*mission: cliMissionService/.test(services)
+      && /async function cliMissionService\(bodyOrQ, \{[^\n]*trusted = false/.test(services)
+      && /normalizeMission\(input, null, trusted\)/.test(missionService)
+      && /applyMissionUpdate\(fresh\.mission, bodyOrQ\.patch \|\| bodyOrQ, trusted\)/.test(missionService),
+    'f2 同一共享服务接真实 mission hook,缺席授权默认不可信且保留检查定义权限门');
     // f3:容器验收项的写面 —— 规范器只在 02,HTTP 侧三条路由全是 UI header token,模型工具面零处。
     const acceptanceWriters = srcNames.filter(name => /normalizeMissionAcceptance\(/.test(readSrc(name)));
     ok(acceptanceWriters.length === 1 && acceptanceWriters[0] === '02-session-store.js',

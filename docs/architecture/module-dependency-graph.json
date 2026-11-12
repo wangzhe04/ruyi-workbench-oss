@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 141,
-    "providedSymbols": 4356,
-    "requiredSymbols": 4306,
+    "providedSymbols": 4357,
+    "requiredSymbols": 4310,
     "edges": 948,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -2360,6 +2360,7 @@
         "registerIntervention",
         "releaseSessionBodyLineCache",
         "rememberLastUsedEngineRoute",
+        "rememberLastUsedEngineRouteInConfig",
         "removeSessionToolImages",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
@@ -8469,6 +8470,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "ConfigPatchHooks",
           "kinds": [
@@ -8485,6 +8493,13 @@
         {
           "provider": "01-config.js",
           "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "normalizeConfig",
           "kinds": [
             "call"
           ]
@@ -8526,7 +8541,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "rememberLastUsedEngineRoute",
+          "symbol": "rememberLastUsedEngineRouteInConfig",
           "kinds": [
             "call"
           ]
@@ -8575,7 +8590,21 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "sanitizeProvider",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "unmaskSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardChatCapableProvider",
           "kinds": [
             "call"
           ]
@@ -38335,6 +38364,7 @@
       "from": "06k-config-patch.js",
       "to": "00-boot.js",
       "symbols": [
+        "URL",
         "fsp",
         "os",
         "path",
@@ -38349,6 +38379,7 @@
         "ConfigPatchHooks",
         "invalidateAgentCliPathCaches",
         "mutateConfig",
+        "normalizeConfig",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
@@ -38368,7 +38399,7 @@
       "from": "06k-config-patch.js",
       "to": "02-session-store.js",
       "symbols": [
-        "rememberLastUsedEngineRoute"
+        "rememberLastUsedEngineRouteInConfig"
       ],
       "direction": "backward"
     },
@@ -38396,6 +38427,7 @@
       "symbols": [
         "maskedSecretConflictMessage",
         "maskedSecretConflicts",
+        "sanitizeProvider",
         "unmaskSecrets"
       ],
       "direction": "backward"
@@ -38404,7 +38436,8 @@
       "from": "06k-config-patch.js",
       "to": "06i-steward-core.js",
       "symbols": [
-        "StewardHooks"
+        "StewardHooks",
+        "stewardChatCapableProvider"
       ],
       "direction": "backward"
     },

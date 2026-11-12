@@ -21,7 +21,13 @@ function fakeUp(port, env) {
   const proc = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(port)], {
     env: { ...process.env, FAKE_OPENAI_PORT: String(port), ...env }, windowsHide: true,
   });
-  proc.stdout.on('data', () => {}); proc.stderr.on('data', () => {});
+  const observed = proc.fixtureObservation = { port, pid: proc.pid || null, spawn: false, error: null, exit: null, close: null, stdout: '', stderr: '' };
+  proc.on('spawn', () => { observed.spawn = true; observed.pid = proc.pid; });
+  proc.on('error', error => { observed.error = { code: error.code || '', message: error.message }; });
+  proc.on('exit', (code, signal) => { observed.exit = { code, signal }; });
+  proc.on('close', (code, signal) => { observed.close = { code, signal }; });
+  proc.stdout.on('data', chunk => { observed.stdout += chunk; });
+  proc.stderr.on('data', chunk => { observed.stderr += chunk; });
   return proc;
 }
 const user = content => ({ role: 'user', content });
@@ -87,14 +93,27 @@ function payloads(dir) {
     const port = await getFreePort();
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-105h-many-'));
     const fake = fakeUp(port, { FAKE_RECORD_SUMMARY_DIR: dir });
+    const failuresBefore = failures;
+    let completed = false;
     try {
       await sleep(400);
       const provider = { id: 'many', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'k', model: 'many-m', contextWindow: 8000 };
-      const result = await srv.providerSummaryCall(provider, historyNearTokens(22000, 10, false), { config: { runtimeSummarySingleShotV1: false, runtimeSummaryFactTableV1: false, runtimeSummaryRefineV1: true } });
+      const history = historyNearTokens(22000, 10, false);
+      const result = await srv.providerSummaryCall(provider, history, { config: { runtimeSummarySingleShotV1: false, runtimeSummaryFactTableV1: false, runtimeSummaryRefineV1: true } });
       const rows = payloads(dir);
+      // Keep the original 400ms timing and A4 conjunction. The historical first
+      // failure did not retain its result, so readiness is not a proven cause.
+      // These original-child/request/result facts distinguish the next failure
+      // without retrying a request or changing the refine/chunk threshold.
+      const diagnostic = { provider: { id: provider.id, contextWindow: provider.contextWindow },
+        estimatedHistoryTokens: srv.estimateHistoryTokens(history), historyMessages: history.length,
+        requests: rows.length, child: fake.fixtureObservation, result };
+      fs.writeFileSync(path.join(dir, 'a4-diagnostic.json'), JSON.stringify(diagnostic, null, 2) + '\n');
+      console.log('[A4-DIAGNOSTIC] ' + JSON.stringify(diagnostic));
       ok(result.ok && result.mapReduce && result.mapReduce.chunks > 4 && !result.mapReduce.refine, 'A4 >4 块不启用 refine');
       ok(rows.every(row => !row.includes('当前累计摘要')), 'A4a >4 块请求体保持现有 map-reduce');
-    } finally { kill(fake); await sleep(200); fs.rmSync(dir, { recursive: true, force: true }); }
+      completed = true;
+    } finally { kill(fake); await sleep(200); if (completed && failures === failuresBefore) fs.rmSync(dir, { recursive: true, force: true }); else console.log('[keep A4] ' + dir); }
   }
   {
     const port = await getFreePort();

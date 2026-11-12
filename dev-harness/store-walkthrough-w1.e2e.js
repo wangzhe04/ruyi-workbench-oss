@@ -6,9 +6,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   [F] #9  任何响应都带 X-Frame-Options: DENY 与 Content-Security-Policy: frame-ancestors 'none'(防被嵌入);
 //   [H] #11 /health 带 app 字段(freeStalePort 的工作台识别口径,见 unit/health-looks-like-workbench);
 //   [R] #10 项目级 agent-roles / workflows 的 cwd 不存在或是文件 → 400 人话(不再 500 + ENOTDIR 原文),正常目录照存;
-//   [S] #12 会话内容搜索:正文头/尾 1MB 边界上的消息补读成整行(≤2MB 整个读;更大的头尾补行),冷索引并发搜索只建一遍(单飞)。
+//   [S] #12 会话内容搜索:正文头/尾 1MB 边界上的消息补读成整行(≤2MB 整个读;更大的头尾补行),冷索引并发搜索只构建一代(双扫描及披露复验分别计数)。
 const { createRunner } = require('./lib/harness');
 const { killOwnTree } = require('./lib/kill-own-tree');
+const { constBlock, functionBlock } = require('./lib/source-slice.js');
 const cp = require('child_process');
 const http = require('http');
 const path = require('path');
@@ -22,6 +23,40 @@ const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-store-w1-'));
 const KIMI_HOME = path.join(HOME, '.kimi');
 const OPEN_LOG = path.join(HOME, 'open-count.log');
+const PHYSICAL_OPEN_LOG = path.join(HOME, 'physical-open-count.log');
+const ROLE_OPEN_LOG = path.join(HOME, 'role-open-count.jsonl');
+const BODY_SCAN_PRELOAD = path.join(HOME, 'count-body-scan.cjs');
+// The current authenticated reader also opens message files for classification
+// and identity checks. Count the original full-text body's actual scan opening,
+// not those required probes. This observer never replaces a read or its result.
+function installBodyScanCounter() {
+  const fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path');
+  const entry = fs.realpathSync.native(path.resolve(process.argv[1]));
+  const source = fs.readFileSync(entry, 'utf8');
+  if (entry.toLowerCase() !== fs.realpathSync.native(process.env.RUYI_SCAN_SERVER_FILE).toLowerCase()
+    || require('node:crypto').createHash('sha256').update(source).digest('hex') !== process.env.RUYI_SCAN_SERVER_SHA) throw Error('W1 actual body-scan file pin changed');
+  const marker = "handle=await fsp.open(sessionBodyPaths(id).messages,'r');";
+  const at = source.indexOf(marker);
+  if (at < 0 || source.indexOf(marker, at + 1) !== -1) throw Error('W1 actual body-scan source binding unavailable');
+  const line = source.slice(0, at).split('\n').length;
+  const frame = (entry + ':' + line + ':').toLowerCase(), original = fsp.open;
+  const selectedRoles = JSON.parse(process.env.RUYI_SCAN_ROLE_LINES);
+  const expectedRoles = ['build-preview','build-proof','coverage-proof','hit-proof'];
+  if (!Array.isArray(selectedRoles) || selectedRoles.length !== 4 || selectedRoles.some((row,index)=>!row || Object.keys(row).sort().join(',') !== 'line,role' || row.role !== expectedRoles[index] || !Number.isSafeInteger(row.line) || row.line < 1 || row.line > source.split('\n').length)) throw Error('W1 diagnostic role locations invalid');
+  const roles = selectedRoles.map(row=>[row.role,(entry+':'+row.line+':').toLowerCase()]);
+  fsp.open = function (file, ...args) {
+    if (/\.messages\.ndjson$/.test(String(file))) {
+      fs.appendFileSync(process.env.RUYI_PHYSICAL_OPEN_LOG, String(file) + '\n');
+      const stack = String(new Error().stack).toLowerCase();
+      if (stack.includes(frame)) {
+        fs.appendFileSync(process.env.RUYI_OPEN_LOG, String(file) + '\n');
+        const matches = roles.filter(([, location]) => stack.includes(location));
+        fs.appendFileSync(process.env.RUYI_ROLE_OPEN_LOG, JSON.stringify({file:String(file), role:matches.length === 1 ? matches[0][0] : 'unknown-or-ambiguous', matchedRoles:matches.map(([role]) => role)}) + '\n');
+      }
+    }
+    return Reflect.apply(original, this, [file, ...args]);
+  };
+}
 const APP_NAME = '如意 Ruyi';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -107,12 +142,31 @@ const wireFile = path.join(KIMI_HOME, 's1', 'agents', 'main', 'wire.jsonl');
   let server = null;
   try {
     seed();
+    const actualScanSource = fs.readFileSync(path.join(WB,'app','server.js'),'utf8');
+    const indexBlock = constBlock(actualScanSource,'SessionFullTextIndex');
+    if (!indexBlock) throw Error('W1 diagnostic full-text index block unavailable');
+    const roleLine = (name,marker) => {
+      const block = functionBlock(indexBlock,name);
+      if (!block) throw Error('W1 diagnostic full-text function unavailable');
+      const offset = actualScanSource.indexOf(block), within = block.indexOf(marker);
+      if (offset < 0 || actualScanSource.indexOf(block,offset+1) !== -1 || within < 0 || block.indexOf(marker,within+1) !== -1) throw Error('W1 diagnostic role callsite unavailable');
+      return actualScanSource.slice(0,offset+within).split('\n').length;
+    };
+    const scanRoleLines = [
+      {role:'build-preview',line:roleLine('build','const preview=await host.scan(sid,async(row,ordinal)=>{')},
+      {role:'build-proof',line:roleLine('build','const proof=await host.scan(sid,async(row,ordinal)=>{')},
+      {role:'coverage-proof',line:roleLine('rawCoverage','const proof=await host.scan(sid,async(row,ordinal)=>{')},
+      {role:'hit-proof',line:roleLine('search','const proof=await host.scan(sid,async(row,ordinal)=>{')},
+    ];
+    fs.writeFileSync(BODY_SCAN_PRELOAD, '(' + installBodyScanCounter.toString() + ')();\n', { flag: 'wx' });
     const PORT = await getFreePort();
     server = cp.spawn(process.execPath, [path.join(WB, 'app', 'server.js')], {
       env: {
         ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME, HOME, USERPROFILE: HOME, PORT: String(PORT), WCW_NO_BROWSER: '1',
         CLAUDE_CONFIG_DIR: path.join(HOME, '.claude'), KIMI_CODE_HOME: KIMI_HOME,
-        RUYI_OPEN_LOG: OPEN_LOG, NODE_OPTIONS: `--require ${JSON.stringify(path.join(__dirname, 'lib', 'count-fsp-open-preload.js'))}`,
+        RUYI_OPEN_LOG: OPEN_LOG, RUYI_PHYSICAL_OPEN_LOG: PHYSICAL_OPEN_LOG, RUYI_ROLE_OPEN_LOG: ROLE_OPEN_LOG, RUYI_SCAN_ROLE_LINES: JSON.stringify(scanRoleLines),
+        RUYI_SCAN_SERVER_FILE: path.join(WB, 'app', 'server.js'), RUYI_SCAN_SERVER_SHA: require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(WB, 'app', 'server.js'))).digest('hex'),
+        NODE_OPTIONS: `--require ${JSON.stringify(BODY_SCAN_PRELOAD)}`,
       },
       cwd: WB, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -200,9 +254,13 @@ const wireFile = path.join(KIMI_HOME, 's1', 'agents', 'main', 'wire.jsonl');
     ok(fixture.big.size > 2 * MB && bigSpans.zzheadbeta[0] < MB && bigSpans.zzheadbeta[1] > MB
       && bigSpans.zztailbeta[0] < fixture.big.size - MB && bigSpans.zztailbeta[1] > fixture.big.size - MB, `S0b 夹具:>2MB 文件的头/尾窗口边界各压一条消息(${fixture.big.size} 字节)`);
     try { fs.writeFileSync(OPEN_LOG, ''); } catch { /* 日志会被预加载件追加创建 */ }
+    fs.writeFileSync(PHYSICAL_OPEN_LOG, '');
+    fs.writeFileSync(ROLE_OPEN_LOG, '');
+    console.log('S5-INDEX-BEFORE ' + JSON.stringify({exists:fs.existsSync(path.join(HOME, 'sessions', '_fulltext-index-v1'))}));
     // 冷索引 + 4 个并发搜索(边打字边搜的形态):修前每个请求各自重抽全部单元。
     const queries = ['zzseamalpha', 'zzheadbeta', 'zztailbeta', 'zzsingleflight3'];
     const results = await Promise.all(queries.map(q => request(PORT, 'GET', '/api/sessions/search?q=' + q, { token })));
+    console.log('S5-HTTP-RESPONSES ' + JSON.stringify(results.map((r,index) => ({query:queries[index],status:r.status,indexed:r.json?.indexed,coverage:r.json?.coverage,scope:r.json?.scope,resultIds:r.json?.results?.map(row=>row.id)}))));
     const hit = (r, id) => r.json && Array.isArray(r.json.results) && r.json.results.some(x => x.id === id);
     ok(hit(results[0], 'sess-seam-small'), 'S1 ≤2MB 文件:跨 1MB 接缝的那条消息搜得到(修前两边都丢)');
     ok(hit(results[1], 'sess-seam-big'), 'S2 >2MB 文件:头窗口边界上的消息补读成整行,搜得到');
@@ -211,9 +269,32 @@ const wireFile = path.join(KIMI_HOME, 's1', 'agents', 'main', 'wire.jsonl');
     const opens = (fs.existsSync(OPEN_LOG) ? fs.readFileSync(OPEN_LOG, 'utf8') : '').split('\n').filter(Boolean);
     const perFile = new Map();
     for (const f of opens) perFile.set(f, (perFile.get(f) || 0) + 1);
-    const sessionFiles = ['sess-seam-small', 'sess-seam-big', ...Array.from({ length: 8 }, (_, i) => 'sess-sf-' + i)];
+    const seededSessionFiles = ['sess-seam-small', 'sess-seam-big', ...Array.from({ length: 8 }, (_, i) => 'sess-sf-' + i)];
+    const sessionFiles = [...seededSessionFiles,kOld.id,kNew.id];
+    const knownMessageFiles = new Set(sessionFiles.map(id=>path.join(HOME,'sessions',id+'.messages.ndjson')));
+    ok(sessionFiles.length===12 && knownMessageFiles.size===12, 'S5a 显式覆盖十个正文种子及两个 K 阶段真实 HTTP 会话');
     const counts = sessionFiles.map(id => perFile.get(path.join(HOME, 'sessions', id + '.messages.ndjson')) || 0);
-    ok(counts.every(n => n === 1), `S5 单飞:4 个并发冷索引搜索,每个会话正文只被读一遍(各文件打开次数 ${counts.join(',')};修前最多 4 倍)`);
+    const physical = fs.readFileSync(PHYSICAL_OPEN_LOG, 'utf8').split('\n').filter(Boolean);
+    const physicalCounts = sessionFiles.map(id => physical.filter(file => file === path.join(HOME, 'sessions', id + '.messages.ndjson')).length);
+    const roleRows = fs.readFileSync(ROLE_OPEN_LOG, 'utf8').split('\n').filter(Boolean).map(row=>JSON.parse(row));
+    const roleCounts = Object.fromEntries(['build-preview','build-proof','coverage-proof','hit-proof','unknown-or-ambiguous'].map(role=>[role,sessionFiles.map(id=>roleRows.filter(row=>row.role===role&&row.file===path.join(HOME,'sessions',id+'.messages.ndjson')).length)]));
+    const generations = sessionFiles.map(id=>{
+      const directory=path.join(HOME,'sessions','_fulltext-index-v1',id),value=JSON.parse(fs.readFileSync(path.join(directory,'manifest.json'),'utf8'));
+      const expected=['manifest.json',...value.shards.map(ref=>value.generation+'.'+ref.ordinal+'.json')].sort(),actual=fs.readdirSync(directory).sort();
+      const head=JSON.parse(fs.readFileSync(path.join(HOME,'sessions',id+'.json'),'utf8'));
+      return {sessionId:id,manifestSessionId:value.sessionId,schema:value.schema,format:value.format,generation:value.generation,epoch:value.epoch,sourceRevision:value.sourceRevision,shards:value.shards?.length,messages:value.messages,headMessages:head.messageCount,onePhysicalGeneration:JSON.stringify(expected)===JSON.stringify(actual)&&actual.every(name=>{const stat=fs.lstatSync(path.join(directory,name));return stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1;})};
+    });
+    console.log('S5-OBSERVED-OPEN-COUNTS ' + JSON.stringify({bodyScanOpens:counts,allObservedMessageOpens:physicalCounts,roles:roleCounts,notAllKernelOrNativeOpens:true}));
+    console.log('S5-INDEX-AFTER ' + JSON.stringify(generations));
+    const expectedHits=sessionFiles.map(id=>id==='sess-seam-small'||id==='sess-sf-3'?1:id==='sess-seam-big'?2:0);
+    const allRolesKnown=roleRows.every(row=>knownMessageFiles.has(row.file)&&['build-preview','build-proof','coverage-proof','hit-proof'].includes(row.role)&&Array.isArray(row.matchedRoles)&&row.matchedRoles.length===1&&row.matchedRoles[0]===row.role);
+    ok(allRolesKnown && physical.every(file=>knownMessageFiles.has(file)) && roleRows.length===counts.reduce((sum,n)=>sum+n,0) && roleCounts['unknown-or-ambiguous'].every(n=>n===0), 'S5d 全部十二会话的观察记录均纳入分解，未知 scope/角色不忽略');
+    ok(roleCounts['build-preview'].every(n=>n===1) && roleCounts['build-proof'].every(n=>n===1), 'S5 单飞:4 个并发冷索引搜索，每会话只构建一代，构建预检和证明各恰一次');
+    ok(roleCounts['coverage-proof'].every(n=>n===8), 'S5e 四次准备 coverage 及四次查询 coverage 的真实正文复验各保留');
+    ok(JSON.stringify(roleCounts['hit-proof'])===JSON.stringify(expectedHits), 'S5f 四个实际命中均复验完整源，含同一大文件的两个查询');
+    ok(counts.every((n,index)=>n===2+8+expectedHits[index]), 'S5g 总观察正文 fsp.open 精确等于构建双扫+八次 coverage+命中复验，不宣称总扫描一次');
+    ok(results.every(r=>r.status===200&&r.json?.ok===true&&r.json.indexed===12&&r.json.coverage?.sessions===12&&r.json.coverage.indexedSessions===12&&r.json.coverage.pendingSessions===0&&r.json.coverage.complete===true&&r.json.coverage.messages?.unverifiedText===0&&r.json.coverage.attachments?.unverifiedFullText===0&&r.json.coverage.fullTextSampling===false&&r.json.scope?.mode==='message_shards'&&r.json.scope.sampling===false&&r.json.scope.coordinate==='utf16'), 'S5h 四响应全部声明十二会话完整且无采样/未验证来源');
+    ok(generations.every(row=>row.manifestSessionId===row.sessionId&&row.schema===1&&row.format===3&&/^[a-f0-9]{32}$/.test(row.generation)&&/^[a-f0-9]{64}$/.test(row.epoch)&&/^[a-f0-9]{64}$/.test(row.sourceRevision)&&row.messages===row.headMessages&&row.onePhysicalGeneration), 'S5i 十二会话 manifest 与源头绑定，物理目录恰含当前单代分片');
   } catch (e) {
     t.fail('fatal: ' + (e && e.stack || e));
   } finally {

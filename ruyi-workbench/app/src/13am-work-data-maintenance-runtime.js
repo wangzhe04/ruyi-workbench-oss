@@ -58,7 +58,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       ||[host.httpApi,host.resultApi,host.controlApi].some(api=>typeof api.create!=='function')
       ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command','assertOwnership','withColdSource','withWarmSource'].some(name=>typeof host[name]!=='function')
       ||!host.workerHooks||typeof host.workerHooks!=='object')throw fail('runtime_host_invalid');
-    let warm=null,worker=null,coldStarted=false,successorStarted=false,helperUncertain=false;
+    let warm=null,worker=null,coldStarted=false,successorStarted=false,helperUncertain=false,unsupportedServe=false;
     // The successor slot and its strict-port ticket belong to the process, not to one
     // runtime instance: preparation happens before configure, completion after it.
     const slot=shared||{successor:null,strictOptions:new WeakSet()};
@@ -140,7 +140,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       return helperUncertain;
     }catch{helperUncertain=true;return true;}};
     const guardNative=async work=>{try{return await work();}catch(error){latch(error);throw error;}};
-    const ready=()=>{try{return host.adaptersReady()===true&&!helpers();}catch{return false;}};
+    const ready=()=>{try{return !unsupportedServe&&host.adaptersReady()===true&&!helpers();}catch{return false;}};
     const ownership=(owner,base)=>{try{return ServerOwnership.owns(owner,base)&&host.assertOwnership(owner,base)===true;}catch{return false;}};
     const command=mode=>{const value=host.command(mode);if(!value||typeof value.command!=='string'||!Array.isArray(value.args)||!value.args.every(arg=>typeof arg==='string'))throw fail('command_invalid');return value;};
     const actualListener=(server,expected)=>{
@@ -253,10 +253,22 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       return host.resultApi.create({base:captured.base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(captured.base)}).read();
     };
     async function captureServe(context) {
-      if(coldStarted||warm)throw fail('runtime_already_bound');
+      if(coldStarted||warm||unsupportedServe)throw fail('runtime_already_bound');
       const owner=context.ownership,server=context.server,original=context.base,expected={...context.listener};
-      const base=await host.canonical(original),capturedListener=actualListener(server,expected);
+      const base=await host.canonical(original);
       if(!ownership(owner,base))throw fail('ownership_required');
+      if(!listener(expected)){
+        // Ordinary --allow-remote serve is valid, but cannot own the loopback
+        // maintenance handoff. Record only this explicit unavailable outcome;
+        // do not weaken actualListener or install any worker capability.
+        if(typeof server?.address!=='function')throw fail('listener_changed');
+        const bound=server.address();
+        if(keys(expected)!=='host,port'||typeof expected.host!=='string'||!expected.host.length||expected.host!==expected.host.trim()
+          ||!Number.isInteger(expected.port)||expected.port<1||expected.port>65535||!server?.listening
+          ||!bound||typeof bound!=='object'||typeof bound.address!=='string'||!bound.address.length||bound.port!==expected.port)throw fail('listener_changed');
+        unsupportedServe=true;return false;
+      }
+      const capturedListener=actualListener(server,expected);
       const captured={base,ownership:owner,server,listener:capturedListener};
       warm=captured;
       const readResult=()=>readWarmResult(captured);
@@ -274,6 +286,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       return ready();
     }
     function activateServe() {
+      if(unsupportedServe)return false;
       const captured=warm;if(!captured||coldStarted||worker)throw fail('runtime_not_captured');
       const base=captured.base;actualListener(captured.server,captured.listener);
       if(!ready())return false; // Missing native/result/successor adapters do not advertise a worker.
@@ -427,7 +440,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     //   complete - re-verify warm capture/readiness/root/port/authority/result (or the
     //              activation receipt), then publish serve-ready and drop the parent channel
     async function prepareSuccessor(channel=host.workerApi.processChannel(proc),{base}={}) {
-      if(warm||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
+      if(warm||unsupportedServe||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
       if(!channel||typeof channel.parentConnected!=='function'||typeof channel.readInput!=='function'||typeof channel.parentPid!=='function'
         ||channel.parentConnected()!==true)throw fail('successor_unavailable');
       if(typeof base!=='string'||!p.isAbsolute(base))throw fail('successor_input_invalid');

@@ -30,6 +30,8 @@ async function applyConfigPatch(rawBody, options = {}) {
   const confirmed = raw.confirm === true;
   const body = { ...raw };
   delete body.confirm;
+  // Only the authenticated HTTP route can convey this request-only intent via options.
+  delete body.selectFirstChatProvider;
   if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
   }
@@ -101,6 +103,25 @@ async function applyConfigPatch(rawBody, options = {}) {
       const foreign = merged.providers.filter(p => !isToolbox(p));
       if (owned.length || foreign.length !== merged.providers.length) merged.providers = [...foreign, ...owned];
     }
+    // Saving the first service in Settings is a main-engine default intent only
+    // while no earlier engine choice or usable chat service exists. Re-check the
+    // actual current state here, not the browser's potentially stale snapshot.
+    if (options.selectFirstChatProvider === true && Array.isArray(body.providers)
+      && !['activeProvider', 'agentCliType', 'model'].some(key => Object.hasOwn(body, key))
+      && !current.activeProvider && current.lastUsedEngineRoute == null
+      && !['activeProvider', 'agentCliType', 'model'].some(key => (current.configExplicitKeysV1 || []).includes(key))) {
+      const usableChatProviders = providers => (Array.isArray(providers) ? providers : []).map(sanitizeProvider).filter(provider => {
+        if (!stewardChatCapableProvider(provider)) return false;
+        try { const target = new URL(provider.baseUrl); return target.protocol === 'http:' || target.protocol === 'https:'; } catch { return false; }
+      });
+      const previous = usableChatProviders(current.providers), candidates = usableChatProviders(merged.providers);
+      if (previous.length === 0 && candidates.length === 1) {
+        merged.activeProvider = candidates[0].id;
+        // One committed selection: avoid an after-write history update racing
+        // a later explicit choice. Existing thread routes remain untouched.
+        rememberLastUsedEngineRouteInConfig(merged, sessionEngineRouteFromConfig({ ...merged, providers: candidates }));
+      }
+    }
     // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
     if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
       merged.knownModels = [...(merged.knownModels || []), body.model];
@@ -125,6 +146,12 @@ async function applyConfigPatch(rawBody, options = {}) {
         logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
       }
     }
+    // An explicit global engine choice includes choosing the current CLI again.
+    // Commit its canonical remembered route in this same write: two locks could
+    // otherwise let a first-provider save slip between choice and memory.
+    if (['activeProvider', 'agentCliType', 'model'].some(key => Object.hasOwn(body, key))) {
+      rememberLastUsedEngineRouteInConfig(merged, sessionEngineRouteFromConfig(normalizeConfig(merged).config));
+    }
     return { next: merged, value: current };
   });
   const next = patched.config;
@@ -138,15 +165,6 @@ async function applyConfigPatch(rawBody, options = {}) {
   if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
   if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
     invalidateAgentCliPathCaches();
-  }
-  // 123-N2 合并复核（主会话）：用户在设置里改全局引擎（activeProvider／agentCliType／model）也是一次
-  // 【显式选择】，要成为「上次用的」—— 否则改完全局、新开一条线程，仍跟着改之前的那一路走
-  // （agent-team-mode.e2e 合并后串行必红：切回 Claude 驱动后新会话仍走上一轮的 fake 端点）。
-  // 只在这三个键真的在 body 里时记；与现值相同则 rememberLastUsedEngineRoute 自己短路不落盘。
-  // 【await 而不是 void】：保存请求回 200 之前记录就得落盘——调用方（设置页、e2e）改完全局马上
-  // 新开线程是常见序列，fire-and-forget 会让那条新线程仍跟着上一路走（本机实测 agent-team-mode 就这么红）。
-  if (body && ['activeProvider', 'agentCliType', 'model'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
-    await rememberLastUsedEngineRoute(sessionEngineRouteFromConfig(next), next);
   }
   // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
   if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {

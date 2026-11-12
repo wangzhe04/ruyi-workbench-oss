@@ -16,6 +16,7 @@
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
+const { functionBlock } = require('./lib/source-slice');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -148,17 +149,29 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
   //      改为委托调用。锁形态随之迁移:①两处委托在;②中心实现里 pid+随机 tmp + rename 失败 unlink 都在。
   //      (深度断言:并发/无孤儿由 autonomy-durability.e2e 的 A 段实跑覆盖。)----
   {
-    // v1.9 存储 v2 后 saveSession 显著变长(头构建+prevbody 防线),窗口 1400 → 6000;锁定的不变量本身不变。
-    // 代码走查 C2(旧副本补齐:写链内先把盘上多出来的消息补进旧副本再写)又加了约 430 字,头写落在 6320 处,窗口 6000 → 8000。
-    const ss = src.slice(src.indexOf('async function saveSession('), src.indexOf('async function saveSession(') + 8000);
+    // M3 keeps the same atomic writer through the real session-head adapter.
+    // Bind the full delegation chain instead of assuming a direct call fits a
+    // fixed prefix of saveSession; the per-ID write chain remains mandatory.
+    const ss = functionBlock(src, 'saveSession');
+    const headWriter = functionBlock(src, 'writeSessionHead');
+    const headStore = functionBlock(src, 'sessionHeadStore');
+    ok(Boolean(ss && headWriter && headStore), 'P2#8 真 session 保存、头提交与存储适配器均可完整抽取');
     // hunt2-P7 在写链里加了「只在当前 config 可解析时才刷新 .prev」的注释与判断,固定 600 字窗口够不着委托行 → 改按函数切。
-    const wc = src.includes('let configWriteChain') ? require('./lib/source-slice').functionBlock(src, 'writeConfigAtomic') : '';
-    ok(/atomicWriteJson\(finalPath, payload\)/.test(ss) && /sessionWriteChains/.test(ss), 'P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)');
+    const wc = src.includes('let configWriteChain') ? functionBlock(src, 'writeConfigAtomic') : '';
+    ok(/await writeSessionHead\(id, payload\)/.test(ss)
+      && /sessionWriteChains\.get\(id\)/.test(ss) && /sessionWriteChains\.set\(id, thisWrite\)/.test(ss)
+      && /await writeSessionToDisk\(\)/.test(ss)
+      && /return await sessionHeadStore\(id\)\.write\(text\)/.test(headWriter)
+      && /return WorkDataStore\.createText\(\{/.test(headStore) && /file: \(\) => sessionPath\(id\)/.test(headStore)
+      && /purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA, scopeId: 'sessions', recordId: String\(id\)/.test(headStore)
+      && /keys: workDataKeys, writeJson: atomicWriteJson/.test(headStore),
+    'P2#8 saveSession 经真实 session 头存储委托 atomicWriteJson + per-id 写链(防重试窗口旧覆新)');
     // 安全走查 S11 起委托调用多带一个 { mode: 0o600 }(密钥文件只给属主读写):委托这件事不变,判据放宽到「data 之后可以有选项」,
     // 另钉 0600 确实传下去了。
     ok(/atomicWriteJson\(paths\.config, data[,)]/.test(wc) && /configWriteChain/.test(wc), 'P2#8 writeConfigAtomic 委托 atomicWriteJson + 全局写链');
     ok(/atomicWriteJson\(paths\.config, data, \{ mode: 0o600 \}\)/.test(wc), 'P2#8b writeConfigAtomic 写 config.json 用 0600(S11)');
-    const awj = src.slice(src.indexOf('async function atomicWriteJson('), src.indexOf('async function atomicWriteJson(') + 1200);
+    const awj = functionBlock(src, 'atomicWriteJson');
+    ok(Boolean(awj), 'P2#8 真共享 atomicWriteJson 可完整抽取');
     ok(/finalPath \+ '\.' \+ process\.pid \+ '\.' \+ crypto\.randomBytes/.test(awj), 'P2#8 atomicWriteJson 用 pid+随机 tmp 名(不变量中心化)');
     ok(/fsp\.unlink\(tmpPath\)/.test(awj), 'P2#8 atomicWriteJson 失败清 tmp(唯一名无覆写自愈路径)');
   }

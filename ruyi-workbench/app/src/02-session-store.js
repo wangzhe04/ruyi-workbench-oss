@@ -2525,7 +2525,7 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
 //
 // 记(rememberLastUsedEngineRoute)与读(newSessionEngineRoute)分两处,共用 config 上的一个字段。
 // ────────────────────────────────────────────────────────────────────────────────────────
-// 记:**两个写入点共用这一个函数**,不许各写一遍。
+// 记:线程/回合与配置选择共用下面的配置内更新函数,不许各写一遍。
 //   ① 用户在线程头上换引擎/模型 → PATCH /api/sessions/:id → applySessionMetaPatch;
 //   ② 用户自己发起的回合 → 10 的 runSessionTurn 且 source === 'http'。
 // 三条纪律:
@@ -2534,6 +2534,14 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
 //   · 【与现值不同才落盘】,否则每个回合都要写一次 config.json;权威比对在 mutateConfig 的锁内
 //     再做一次(锁外那一次只是拿调用方手上的现成副本做便宜短路,可能已经陈旧);
 //   · 【失败静默】。这是旁路记账 —— 写不进去最多是下一条新线程回落全局,绝不能弄坏回合或 PATCH。
+// Pure configuration update shared by the asynchronous remembered-route writer
+// and configuration-patch commits that already own the config write lock.
+function rememberLastUsedEngineRouteInConfig(current, nextRoute) {
+  const clean = normalizeSessionEngineRoute(nextRoute);
+  if (!clean || JSON.stringify(normalizeSessionEngineRoute(current.lastUsedEngineRoute)) === JSON.stringify(clean)) return false;
+  current.lastUsedEngineRoute = clean;
+  return true;
+}
 async function rememberLastUsedEngineRoute(nextRoute, knownConfig) {
   try {
     const clean = normalizeSessionEngineRoute(nextRoute);
@@ -2543,8 +2551,7 @@ async function rememberLastUsedEngineRoute(nextRoute, knownConfig) {
       && JSON.stringify(normalizeSessionEngineRoute(knownConfig.lastUsedEngineRoute)) === wanted) return false;
     let wrote = false;
     await mutateConfig(async current => {
-      if (JSON.stringify(normalizeSessionEngineRoute(current.lastUsedEngineRoute)) === wanted) return { abort: 'unchanged' };
-      current.lastUsedEngineRoute = clean;
+      if (!rememberLastUsedEngineRouteInConfig(current, clean)) return { abort: 'unchanged' };
       wrote = true;
     });
     return wrote;

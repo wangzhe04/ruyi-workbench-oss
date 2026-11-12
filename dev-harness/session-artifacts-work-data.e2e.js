@@ -2,7 +2,7 @@
 // Run against the actual generated runtime, with an isolated synthetic data root.
 // Real Windows DPAPI and filesystem publication/recovery; no key-provider or codec stubs.
 // Only the retirement collision cases control stat metadata to reproduce same-tick file stamps.
-const path = require('node:path'), repo = process.env.RUYI_SESSION_ARTIFACT_REPO || process.cwd();
+const path = require('node:path'), repo = process.env.RUYI_SESSION_ARTIFACT_REPO || path.resolve(__dirname, '..');
 require(path.join(repo, 'dev-harness/lib/self-isolate-home'));
 const fs = require('node:fs'), os = require('node:os'), assert = require('node:assert/strict');
 const base = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(base, 'ruyi-session-artifact-e2e-'));

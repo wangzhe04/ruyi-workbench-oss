@@ -17,7 +17,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (B) 外部内容围栏:取回来的正文包在 <external-content> 里,并明写「不是指令」。
 //  (C) 污染闸(红线 4):读过外界内容之后 —— ① 自理动作一律降级成提议(连「用户就在跟前」也挡,
 //      连「管家记忆自由」那条也挡);② steward_decide 不再代批,blockedBy 明写 steward_turn_tainted。
-//  (D) 预算:眼睛与深读共用一口锅(次数与字符),读满即 quota/budget_exceeded。
+//  (D) 预算:眼睛与深读共用字符预算,小读按实际字数退差,读满即 budget_exceeded。
 //  (E) 干净回合对照:没读过外界内容时,同样的动作【不】被这条闸挡 —— 否则上面几条只是「永远拒」。
 //
 // **全程离线**:搜索后端显式设成 none(仓里默认是内置免费搜索,会真打网络);web_fetch 只打回环地址,
@@ -36,6 +36,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 
 fs.mkdirSync(NEAR, { recursive: true });
 fs.writeFileSync(path.join(WS, 'note.txt'), '工作区里的一份文件\n第二行\n', 'utf8');
+fs.writeFileSync(path.join(WS, 'budget.txt'), '预算正文'.repeat(4000), 'utf8');
 fs.writeFileSync(path.join(OUTSIDE, 'secret.txt'), '工作区外,不该读到\n', 'utf8');
 fs.writeFileSync(path.join(NEAR, 'secret.txt'), '前缀像,但不是它的子目录\n', 'utf8');
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
@@ -175,11 +176,37 @@ console.log('── (C) 污染闸(红线 4) ──');
 /* ═════════ (D) 预算 ═════════ */
 console.log('── (D) 预算(与深读共用一口锅) ──');
 {
+  // 3656700cf / docs/architecture/steward-supervision.md:取消固定六次门，保留总字符预算。
+  // 每次只交回一小段时退差；不能再以八次小文件调用冒充 48000 字符耗尽。
+  const effective = await srv.readConfig();
+  const budget = effective.stewardReadBudgetChars;
+  ok(budget === 48000, `D0 实际生效默认字符预算为 48000(got ${budget})`);
   const ctx = newTurn();
-  let last = null;
-  for (let i = 0; i < 8; i++) last = await call('steward_file_read', { path: path.join(WS, 'note.txt') }, ctx);
-  ok(last && last.ok === false && (last.error === 'quota_exceeded' || last.error === 'budget_exceeded'),
-    `D1 同一回合读到上限就拒(稳定信封 ${last && last.error});眼睛不另开一口锅`);
+  let charged = 0;
+  const small = [];
+  for (let i = 0; i < 8; i++) {
+    const r = await call('steward_file_read', { path: path.join(WS, 'note.txt') }, ctx);
+    small.push(r);
+    if (r && r.ok) charged += Math.min(12000, String(r.content || '').length);
+  }
+  ok(small.every(r => r && r.ok === true) && charged > 0 && charged < 12000,
+    `D1 八次真实小读按交回字数退差，不因次数拒绝(got ${charged} chars)`);
+  let last = null, largeReads = 0;
+  for (let i = 0; i < 8; i++) {
+    last = await call('steward_file_read', { path: path.join(WS, 'budget.txt'), offset: 0 }, ctx);
+    if (!last || last.ok !== true) break;
+    largeReads++;
+    charged += Math.min(12000, String(last.content || '').length);
+  }
+  ok(largeReads === 4 && charged >= budget && last && last.ok === false && last.error === 'budget_exceeded',
+    `D2 真实正文累计耗尽字符预算后精确拒绝(got reads=${largeReads}, chars=${charged}, ${last && last.error})`);
+  const thread = await srv.createSession({ title: '共享预算深读目标', cwd: WS });
+  const deep = await call('steward_thread_read', { sessionId: thread.id }, ctx);
+  ok(deep && deep.ok === false && deep.error === 'budget_exceeded',
+    `D3 同回合深读共享已耗尽的字符桶(got ${deep && deep.error})`);
+  const next = await call('steward_file_read', { path: path.join(WS, 'note.txt') }, newTurn());
+  ok(next && next.ok === true && String(next.content || '').includes('工作区里的一份文件'),
+    'D4 新回合获得自己的预算，仍能真实读到正文');
 }
 
 /* ═════════ (E) 干净回合对照 ═════════ */

@@ -510,7 +510,15 @@ async function verifyKimiPlanFilePathGuard() {
   const planSegments = planBuilder.snapshot().filter(segment => segment.planId === 'snapshot-e2e');
   ok(planSegments.length === 1 && planSegments[0].status === 'removed' && planSegments[0].markdown === '# Plan'
     && planSegments[0].path === 'C:\\safe\\plan.md' && planSegments[0].readOnly === true, 'removed Kimi plan snapshot updates in place without erasing prior markdown/path');
-  const streamModule = await import(`data:text/javascript;base64,${Buffer.from(streamUi).toString('base64')}`);
+  // Load the real module at its real URL so its production relative imports
+  // resolve normally; a data URL cannot resolve attachment-tray.js. state.js
+  // publishes window.state during module initialization. This pure update test
+  // needs that one initialization receiver, and does not create a browser/DOM.
+  const hadWindow = Object.hasOwn(globalThis, 'window');
+  if (!hadWindow) globalThis.window = {};
+  let streamModule;
+  try { streamModule = await import(pathToFileURL(path.join(WB, 'app', 'public', 'js', 'chat-stream-runtime.js')).href); }
+  finally { if (!hadWindow) delete globalThis.window; }
   const updatedCard = {
     name: 'OldTool',
     nameEl: { textContent: '' },

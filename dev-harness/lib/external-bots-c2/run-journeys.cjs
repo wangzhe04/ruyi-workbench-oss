@@ -6,6 +6,7 @@ const { createExpectation, observeReceived, hash } = require('./forge-observatio
 const { ROOT, BUDGET, createActualFixture } = require('./actual-http-fixture.cjs');
 const { assertThat, actionCommand, inspectTerminal } = require('./journey-contract.cjs');
 const { createRunner } = require(path.join(ROOT, 'dev-harness/lib/harness.js'));
+const { unclaimedColdOfferJourney } = require('./unclaimed-cold-offer.cjs');
 const NATIVE = ['permission', 'question', 'plan'];
 const ACTIONS = { permission: ['allow', 'deny'], question: ['answer'], plan: ['approve', 'reject'], pool: ['approve', 'reject'], replan: ['approve', 'reject'] };
 const PLATFORM = { permission: 'qq', question: 'feishu', plan: 'qq', pool: 'feishu', replan: 'qq' };
@@ -184,10 +185,13 @@ async function oneJourney(fx, type, action, sequence, t, output) {
       : !after.nodes.some(node => node.fromPool && node.proposedBy === iv.proposedBy), 'duplicate/reuse leaves the original pool helper effect exactly once or absent after rejection');
   }
   const sealedStorage = fx.sealed ? await fx.assertSealed(sid, [title, offered.code, type === 'question' ? '选择原始稳定选项并补充' : 'C2_POOL_HELPER']) : null;
+  const sealedRunSnapshot = fx.sealed && type === 'pool' && action === 'approve'
+    ? await fx.assertSealedRun(sid, scenario.runId, [title, offered.code, 'C2_POOL_PROPOSER', 'C2_POOL_HELPER', 'C2_POOL_HELPER_ACTUAL_CONSUMED'],
+      { coldRestart: true, requiredPlaintext: ['C2_POOL_HELPER', 'C2_POOL_HELPER_ACTUAL_CONSUMED'] }) : null;
   const coldRestart = fx.sealed && type === 'question' ? await coldRestartJourney(fx, scenario, { offered, text, id, terminal, platform }, t, output) : null;
   const evidence = { type, action, platform, sessionId: sid, interventionId: iv.id, status: terminal.status, pages: offered.pages.length, botItemId: completed.id, botAttemptId: completed.delivery.attemptId,
     coreIdempotencyKey: terminal.idempotencyKey, coreFingerprint: terminal.decisionFingerprint, source: terminal.source, runId: scenario.runId || '', modelProbe };
-  if (fx.sealed) Object.assign(evidence, { sealedStorage, coldRestart });
+  if (fx.sealed) Object.assign(evidence, { sealedStorage, sealedRunSnapshot, coldRestart });
   fs.writeFileSync(path.join(output, type + '-' + action + '.json'), JSON.stringify(evidence, null, 2));
   t.ok(true, type + '/' + action + ': actual HTTP/callback/original consumer/terminal once' + (fx.browser ? '/browser receipt' : ''));
   return evidence;
@@ -232,8 +236,8 @@ async function coldBrowserPendingAbsence(fx, iv, output) {
     fs.writeFileSync(path.join(output, 'cold-pending.png'), await fx.bounded(b.screenshot(), 'cold pending screenshot'), { flag: 'wx' });
     assertThat(response.status === 200 && data.ok === true && Array.isArray(data.pending) && data.index?.degraded?.active === false
       && Object.hasOwn(data, 'nextCursor') && !data.nextCursor
-      && !data.pending.some(row => row.id === iv.id && row.sessionId === iv.sessionId), 'the fresh browser receives a complete nondegraded pending projection without the completed question');
-    assertThat(expectedNotice && ready && ready.matchingRows === 0 && ready.controls.length === 0, 'after successful refresh the fresh browser offers no completed question or decision controls');
+      && !data.pending.some(row => row.id === iv.id && row.sessionId === iv.sessionId), 'the fresh browser receives a complete nondegraded pending projection without the settled intervention');
+    assertThat(expectedNotice && ready && ready.matchingRows === 0 && ready.controls.length === 0, 'after successful refresh the fresh browser offers no settled intervention or decision controls');
     await fx.bounded(b.escape(), 'cold browser close decisions');
     return diagnostic;
   } catch (error) { originalError = error; throw error; }
@@ -367,7 +371,8 @@ async function runJourneys(options = {}) {
   const t = createRunner(options.browser ? 'EXTERNAL BOTS C2 ACTUAL BROWSER' : 'EXTERNAL BOTS C2 ACTUAL HTTP');
   const output = path.resolve(options.output || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'ruyi-c2-actual-')));
   assertThat(!fs.existsSync(output) || !fs.readdirSync(output).length, 'evidence directory must be new or empty'); fs.mkdirSync(output, { recursive: true });
-  const actions = options.sealedBrowser ? { question: ['answer'], pool: ['approve'], permission: ['deny'] }
+  const actions = options.unclaimedColdOffer ? { permission: ['allow'] }
+    : options.sealedBrowser ? { question: ['answer'], pool: ['approve'], permission: ['deny'] }
     : options.staleBrowserOffer ? { permission: ['deny'] } : ACTIONS;
   const selected = options.types || Object.keys(actions), count = selected.reduce((n, type) => n + (options.positiveOnly ? 1 : actions[type].length), 0);
   const executionDeadline = Date.now() + BUDGET.startup + count * BUDGET.journey, cleanupDeadline = executionDeadline + BUDGET.cleanup;
@@ -404,10 +409,11 @@ async function runJourneys(options = {}) {
       current = { id, type, action, output: caseOutput, business: 'pending', cleanup: { status: 'pending' } }; cases.push(current);
       fx = null;
       try {
-        fx = await createActualFixture({ browser: options.browser, sealed: options.sealedBrowser, ok: t.ok, output: caseOutput, deadline: executionDeadline, cleanupDeadline, signal: controller.signal });
+        fx = await createActualFixture({ browser: options.browser, sealed: options.sealedBrowser || options.unclaimedColdOffer, ok: t.ok, output: caseOutput, deadline: executionDeadline, cleanupDeadline, signal: controller.signal });
         owners.push(fx); // Hold the exact original owner even after close.
         await fx.configure('qq'); await fx.configure('feishu');
-        const result = options.staleBrowserOffer || options.sealedBrowser && type === 'permission' ? await staleBrowserOfferJourney(fx, sequence, t, caseOutput)
+        const result = options.unclaimedColdOffer ? await unclaimedColdOfferJourney(fx, sequence, t, caseOutput, { nativePending, browserPending, coldBrowserPendingAbsence })
+          : options.staleBrowserOffer || options.sealedBrowser && type === 'permission' ? await staleBrowserOfferJourney(fx, sequence, t, caseOutput)
           : await oneJourney(fx, type, action, sequence, t, caseOutput);
         assertThat(!fx.model.errors.length, 'scripted model has no hidden errors');
         if (fx.browser) assertThat(!fx.browser.exceptions.length && !fx.browser.consoleErrors.length, 'actual UI has no exception/console errors');
@@ -447,8 +453,8 @@ async function runJourneys(options = {}) {
       selectedJourneys: { status: completed.length === count ? 'completed' : 'incomplete', requested: count, completed }, cases,
       cleanup: { status: !cleanupUnknown && cases.length && cases.every(row => row.cleanup.status === 'known-held-actors-closed') ? 'known-held-actors-closed' : 'unknown-or-failed' }, diagnosticErrors,
       browser: !!options.browser, executionDeadline, cleanupDeadline, budgets: BUDGET,
-      bounds: ['offline synthetic platform transport', options.sealedBrowser ? 'Windows CurrentUser DPAPI; selected encrypted generation' : 'encryption OFF only',
-        'not real account/platform', 'group revision contract not accepted', ...(options.sealedBrowser ? [] : ['no DPAPI evidence']), 'no all-descendant kernel-exit certification'], evidence: evidence() }, null, 2)); }
+      bounds: ['offline synthetic platform transport', options.sealedBrowser || options.unclaimedColdOffer ? 'Windows CurrentUser DPAPI; selected encrypted generation' : 'encryption OFF only',
+        'not real account/platform', 'group revision contract not accepted', ...(options.sealedBrowser || options.unclaimedColdOffer ? [] : ['no DPAPI evidence']), 'no all-descendant kernel-exit certification'], evidence: evidence() }, null, 2)); }
     catch (error) { firstFailure(error); t.fail('root evidence: ' + (error.stack || error)); }
     t.done();
     if (retainedPending) {

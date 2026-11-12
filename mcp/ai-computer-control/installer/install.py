@@ -53,6 +53,8 @@ REQUIRED_FULL_IMPORTS = (
     "winsdk.windows.globalization",
 )
 IMPORT_PROBE = "; ".join(f"import {name}" for name in REQUIRED_FULL_IMPORTS)
+PYTHON_PROBE_TIMEOUT_SECONDS = 20
+COPIED_RUNTIME_PROBE_TIMEOUT_SECONDS = 60
 ERROR_LOG = os.path.join(
     os.environ.get("LOCALAPPDATA") or os.environ.get("TEMP") or "C:\\Users\\Public",
     "Ruyi", "logs", "acc-install-latest.log",
@@ -77,18 +79,66 @@ def _native_path(path):
     return "\\\\?\\" + full
 
 
-def _python_ok(command, require_acc=False):
+class _RuntimeProbeFailure(RuntimeError):
+    """Fixed metadata only; never echo import stderr, command text or environment."""
+
+    _LABELS = {
+        "copied-staging": "bundled runtime failed its ACC/winsdk OCR import check after copying",
+        "first-activation": "installed runtime failed its ACC/winsdk OCR import check",
+    }
+
+    def __init__(self, phase, outcome):
+        if phase not in self._LABELS:
+            raise ValueError("invalid copied runtime probe phase")
+        self.phase = phase
+        self.failure_kind = outcome["kind"]
+        if self.failure_kind not in {"timeout", "nonzero", "spawn", "probe_error"}:
+            self.failure_kind = "probe_error"
+        self.timeout_seconds = COPIED_RUNTIME_PROBE_TIMEOUT_SECONDS
+        for name in ("returncode", "errno", "winerror"):
+            value = outcome.get(name)
+            setattr(self, name, value if isinstance(value, int) and not isinstance(value, bool) else None)
+        super().__init__(
+            self._LABELS[phase]
+            + f" [phase={phase}; probe={self.failure_kind}; timeout={self.timeout_seconds}s; "
+            + f"returncode={self.returncode}; errno={self.errno}; winerror={self.winerror}]"
+        )
+
+
+def _python_probe(command, require_acc=False, *, timeout_seconds=PYTHON_PROBE_TIMEOUT_SECONDS):
     code = IMPORT_PROBE if require_acc else "import sys; assert sys.version_info >= (3, 12)"
     try:
         result = subprocess.run(
             [command, "-I", "-B", "-X", "utf8", "-c", code],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=20,
+            timeout=timeout_seconds,
         )
-        return result.returncode == 0
+        return {"ok": result.returncode == 0,
+                "kind": "ok" if result.returncode == 0 else "nonzero",
+                "returncode": result.returncode, "errno": None, "winerror": None}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "kind": "timeout", "returncode": None, "errno": None, "winerror": None}
+    except OSError as error:
+        return {"ok": False, "kind": "spawn", "returncode": None,
+                "errno": getattr(error, "errno", None), "winerror": getattr(error, "winerror", None)}
     except Exception:
-        return False
+        return {"ok": False, "kind": "probe_error", "returncode": None, "errno": None, "winerror": None}
+
+
+def _python_ok(command, require_acc=False):
+    # Existing installed/source/legacy checks retain their boolean contract and 20s budget.
+    return _python_probe(command, require_acc, timeout_seconds=PYTHON_PROBE_TIMEOUT_SECONDS)["ok"]
+
+
+def _require_copied_runtime(command, phase):
+    if phase not in _RuntimeProbeFailure._LABELS:
+        raise ValueError("invalid copied runtime probe phase")
+    # Only a newly copied staging or its first activation receives the cold budget.
+    # The full capability tuple, isolation flags and DEVNULL behavior stay identical.
+    outcome = _python_probe(command, require_acc=True, timeout_seconds=COPIED_RUNTIME_PROBE_TIMEOUT_SECONDS)
+    if not outcome["ok"]:
+        raise _RuntimeProbeFailure(phase, outcome)
 
 
 def verify_offline_payload():
@@ -194,9 +244,11 @@ def install_bundled_runtime(source_python):
         shutil.rmtree(staging)
     shutil.copytree(_native_path(PYTHON_EMBED_DIR), _native_path(staging))
     staging_python = os.path.join(staging, "python.exe")
-    if not _python_ok(staging_python, require_acc=True):
+    try:
+        _require_copied_runtime(staging_python, "copied-staging")
+    except _RuntimeProbeFailure:
         shutil.rmtree(staging, ignore_errors=True)
-        raise RuntimeError("bundled runtime failed its ACC/winsdk OCR import check after copying")
+        raise
 
     if os.path.exists(backup):
         shutil.rmtree(backup)
@@ -207,8 +259,7 @@ def install_bundled_runtime(source_python):
             moved_old = True
         os.replace(staging, RUNTIME_DIR)
         final_python = os.path.join(RUNTIME_DIR, "python.exe")
-        if not _python_ok(final_python, require_acc=True):
-            raise RuntimeError("installed runtime failed its ACC/winsdk OCR import check")
+        _require_copied_runtime(final_python, "first-activation")
         if moved_old:
             shutil.rmtree(backup, ignore_errors=True)
         print(f"  -> Runtime installed at {RUNTIME_DIR}")

@@ -12,9 +12,11 @@ const { getFreePort } = require('./free-port.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
-const HOME = path.join(os.tmpdir(), 'ruyi-long-tool-liveness-steer');
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-long-tool-liveness-steer-'));
 const NOTIFY_CAPTURE = path.join(HOME, 'notify.jsonl');
 const PID_CAPTURE = path.join(HOME, 'fake-mcp.pid');
+const CHILD_CAPTURE = path.join(HOME, 'original-mcp-children.jsonl');
+const CHILD_PRELOAD = path.join(HOME, 'observe-original-mcp.cjs');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
 const ok = (value, label) => { if (value) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
@@ -56,14 +58,80 @@ function stream(port, payload, onEvent) {
 }
 async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
-function pidAlive(pid) {
-  try { return new RegExp('\\b' + pid + '\\b').test(cp.execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf8', windowsHide: true })); }
-  catch { return false; }
+function childObservation() {
+  const rows = fs.existsSync(CHILD_CAPTURE) ? fs.readFileSync(CHILD_CAPTURE, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)) : [];
+  const latest = new Map();
+  for (const row of rows) if (row.kind === 'child') latest.set(row.ordinal, row);
+  return { rows: [...latest.values()], diagnostics: rows.filter(row => row.kind === 'observer-error') };
+}
+function originalConsumerClosed(row) {
+  const f = row && row.facts;
+  return Boolean(f && f.spawn && !f.error && f.exit && f.close
+    && f.exit.code === f.close.code && f.exit.signal === f.close.signal
+    && ['stdout', 'stderr'].every(name => f.streams[name]?.availability === 'original-pipe'
+      && f.streams[name].end && f.streams[name].close && !f.streams[name].error));
 }
 
 (async () => {
   const providerPort = await getFreePort(); const workbenchPort = await getFreePort();
-  fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+  // Observe the actual server-owned original child before spawn returns to the
+  // product. The startup PID log also contains probes and cannot identify the
+  // consumer of this slow tools/call. This preload never kills a process.
+  fs.writeFileSync(CHILD_PRELOAD, String.raw`
+'use strict';
+const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process');
+const expectedServer = ${JSON.stringify(path.join(WB, 'app', 'server.js'))};
+if (path.resolve(process.argv[1] || '').toLowerCase() === expectedServer.toLowerCase()) {
+  const { observeHeldChild } = require(${JSON.stringify(path.join(HERE, 'lib', 'external-bots-c2', 'actual-http-fixture.cjs'))});
+  const output = ${JSON.stringify(CHILD_CAPTURE)}, target = ${JSON.stringify(path.join(HERE, 'fake-mcp.js'))};
+  const expectedPidCapture = ${JSON.stringify(PID_CAPTURE)}, owned = new Set();
+  let ordinal = 0, evidenceFailed = false;
+  const diagnostic = error => {
+    evidenceFailed = true;
+    try { fs.appendFileSync(output, JSON.stringify({ kind: 'observer-error', code: String(error.code || ''), name: String(error.name || 'Error') }) + '\n'); } catch {}
+  };
+  const save = row => {
+    try { fs.appendFileSync(output, JSON.stringify({ kind: 'child', ordinal: row.ordinal, facts: row.facts,
+      calls: row.calls, cancellations: row.cancellations, evidenceFailed }) + '\n'); }
+    catch (error) { diagnostic(error); }
+  };
+  const originalSpawn = cp.spawn;
+  cp.spawn = function (...args) {
+    const child = Reflect.apply(originalSpawn, this, args);
+    try {
+      const argv = args[1], options = args[2];
+      if (!Array.isArray(argv) || !argv.some(arg => typeof arg === 'string' && path.resolve(arg).toLowerCase() === target.toLowerCase())
+        || options?.env?.FAKE_MCP_PID_CAPTURE !== expectedPidCapture) return child;
+      const row = observeHeldChild(child, 'actual-fake-mcp', { stdio: options.stdio });
+      row.ordinal = ++ordinal; row.calls = []; row.cancellations = [];
+      owned.add(row); // retain the original owner even if a later diagnostic write fails
+      let pending = '';
+      const originalWrite = child.stdin.write;
+      child.stdin.write = function (...writeArgs) {
+        try {
+          const chunk = writeArgs[0];
+          pending += typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
+          let newline;
+          while ((newline = pending.indexOf('\n')) >= 0) {
+            const line = pending.slice(0, newline); pending = pending.slice(newline + 1);
+            if (!line.trim()) continue;
+            const message = JSON.parse(line);
+            if (message.method === 'tools/call') row.calls.push({ id: message.id, name: message.params?.name, ms: message.params?.arguments?.ms });
+            if (message.method === 'notifications/cancelled') row.cancellations.push({ requestId: message.params?.requestId, reason: message.params?.reason });
+            save(row);
+          }
+        } catch (error) { diagnostic(error); }
+        // Preserve the actual receiver, arguments, return value and thrown error.
+        return Reflect.apply(originalWrite, this, writeArgs);
+      };
+      for (const event of ['spawn', 'error', 'exit', 'close']) child.on(event, () => save(row));
+      for (const name of ['stdout', 'stderr']) for (const event of ['end', 'close', 'error']) child[name]?.on(event, () => save(row));
+      save(row);
+    } catch (error) { diagnostic(error); }
+    return child;
+  };
+}
+`);
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
@@ -73,7 +141,7 @@ function pidAlive(pid) {
     desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
   }));
   let fakeProvider = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { windowsHide: true, env: { ...process.env, FAKE_OPENAI_PORT: String(providerPort), FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'fake__slow_task', args: { ms: 30000 } }]) } });
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(workbenchPort)], {
+  const wb = cp.spawn(process.execPath, ['--require', CHILD_PRELOAD, 'app/server.js', 'serve', '--port', String(workbenchPort)], {
     cwd: WB, windowsHide: true,
     env: { ...process.env, RUYI_HOME: HOME, WCW_TOOL_HEARTBEAT_MS: '200', WCW_TURN_IDLE_MS: '1000' },
   });
@@ -108,9 +176,16 @@ function pidAlive(pid) {
 
     const notifications = fs.existsSync(NOTIFY_CAPTURE) ? fs.readFileSync(NOTIFY_CAPTURE, 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean) : [];
     ok(notifications.some(row => row.method === 'notifications/cancelled' && row.params && row.params.reason === 'user_steer'), 'MCP receives notifications/cancelled reason=user_steer');
-    const firstPid = fs.existsSync(PID_CAPTURE) ? Number(fs.readFileSync(PID_CAPTURE, 'utf8').split(/\r?\n/).filter(Boolean)[0]) : 0;
-    for (let i = 0; i < 20 && pidAlive(firstPid); i++) await sleep(150);
-    ok(firstPid > 0 && !pidAlive(firstPid), 'interrupted MCP process tree is reaped');
+    const actualConsumers = view => view.rows.filter(row => row.calls.some(call => call.name === 'slow_task' && call.ms === 30000));
+    let observed = childObservation();
+    for (let i = 0; i < 20 && !actualConsumers(observed).every(originalConsumerClosed); i++) { await sleep(150); observed = childObservation(); }
+    const consumers = actualConsumers(observed), consumer = consumers[0];
+    const request = consumer?.calls.find(call => call.name === 'slow_task' && call.ms === 30000);
+    console.log('[original-MCP-consumer] ' + JSON.stringify({ home: HOME, consumers, diagnostics: observed.diagnostics }));
+    ok(consumers.length === 1 && consumer.calls.filter(call => call.name === 'slow_task' && call.ms === 30000).length === 1
+      && consumer.cancellations.some(cancel => cancel.requestId === request.id && cancel.reason === 'user_steer')
+      && !consumer.evidenceFailed && observed.diagnostics.length === 0 && originalConsumerClosed(consumer),
+      'interrupted actual MCP consumer has original exit/close and both pipe EOFs within the original 20×150ms window');
 
     // Repeat the same contract through the native PowerShell runner: its AbortSignal must kill the command
     // tree and settle promptly, not merely make the provider stop awaiting a still-running process.
@@ -163,7 +238,7 @@ function pidAlive(pid) {
       ok(queuedEvents.some(event => event.type === 'steered' && event.text === '完成后请附上简短摘要'), 'addition reaches the model after tool completion');
     }
   } catch (error) { failures++; console.error(error && error.stack || error); }
-  finally { kill(wb); kill(fakeProvider); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  finally { kill(wb); kill(fakeProvider); await sleep(200); if (failures === 0) fs.rmSync(HOME, { recursive: true, force: true }); else console.log('[keep] ' + HOME); }
   console.log('\nLONG TOOL LIVENESS/STEER E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

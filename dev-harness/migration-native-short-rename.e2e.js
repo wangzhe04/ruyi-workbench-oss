@@ -42,7 +42,7 @@ async function run(){
   for(const dir of [S,path.join(S,'D'),C,objects,Q]){admit();fs.mkdirSync(dir);admit();}
   for(const row of F.fixture())try{admit();fs.writeFileSync(path.join(S,...row.rel.split('/'))+(row.stream?':public-ads':''),row.data,{flag:'wx'});admit();}finally{row.data.fill(0);}
   admit();fs.chmodSync(path.join(S,'D','A'),0o444);admit();events=fs.openSync(path.join(root,'events.jsonl'),'wx');admit();
-  const sourceText=api.__eval('MIGRATION_SKILL_CAPSULE_NATIVE');a.equal(F.sha(sourceText),'c9d7d11fa79a99ace71353a6fb3010eca69eedac855034e3b848a1e91e25e033');
+  const sourceText=api.__eval('MIGRATION_SKILL_CAPSULE_NATIVE');a.equal(F.sha(sourceText),'16103d148b7832e2243794aa3673051c4f91b0e1ed83ea683605600d106e9e15');
   const common=(args,native=false)=>{admit();a.equal(args[0],native?path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'):'powershell.exe');a.deepEqual(args[1].slice(0,4),['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand']);a.equal(args[1].length,5);a.equal(args[2].windowsHide,true);a.equal(args[2].env.PSModulePath,env.PSModulePath);};
   tap=install(cp,{state,emit,latch,getPhase:()=>phase,now,beforeNative(args){common(args,true);a.deepEqual(args[2].stdio,['pipe','pipe','pipe']);a.equal(F.sha(Buffer.from(args[2].env.RUYI_SKILL_CAPSULE_SOURCE,'base64')),F.sha(sourceText));},beforeMetadata(args){common(args);a.equal(args[2].timeout,30000);a.equal(args[2].encoding,'utf8');a.equal(F.sha(Buffer.from(args[2].env.RUYI_NATIVE_FIXTURE_SOURCE,'base64')),'7d4f26d9888acebe7597ae528c5b69d4876407077a60e582c4fc2b37152ebbc0');}});
   let factories=0;seam=F.installAdmission(api,{admit,latch,afterFactory(broker){a.equal(Object.isFrozen(broker),true);a.deepEqual(Object.keys(broker).sort(),['close','command']);a.equal(tap.rows.length,++factories,'one real original child per original factory');}});
@@ -59,8 +59,13 @@ async function run(){
   const witness=await metadataCall('metadata-after');F.metadata(witness,N0,baseline);
   captured=await group('final-preserved',()=>tree.capture(target));const finalProof=tree.fingerprint(captured),finalVerified=await group('final-verify',()=>tree.verify(captured));a.equal(finalProof.sha256,finalVerified.sha256);a.equal(finalProof.nativeSha256,finalVerified.nativeSha256);a.equal(captured.release(),undefined);captured=null;
   const final=await group('final-native',()=>api.migrationCapsuleCapturePreserved(target,revision));F.check(final);F.same(final,N0);F.metadata(witness,final,baseline);t.ok(true,'all original IDs DATA ADS Basic4 including Access aliases readonly and readable security remain exact');
-  a.equal(state.native,12);a.equal(state.metadata,2);a.equal(tap.allKnown(),true);safe();
-  const cache=api.__eval('migrationCapsuleCode');await cache.idle();admit();const codeStats=cache.stats();a.equal(codeStats.disabled,false);a.equal(codeStats.pending,0);a.equal(codeStats.published,1);a(codeStats.loaded>0);a.equal(codeStats.compiled+codeStats.loaded,12);a.equal(codeStats.sourceChildren+codeStats.byteChildren,12);emit('native-code-cache',codeStats);admit();
+  a.equal(state.native,8);a.equal(state.metadata,2);a.equal(tap.allKnown(),true);
+  // Four real preserved owners each keep the production first/final census in
+  // one original broker. Both ACKs and that same child's complete close count.
+  for(const [label,commands] of F.PHASES){const issued=tap.rows.filter(row=>row.label===label);a.equal(issued.length,1);a.equal(issued[0].acks,commands.length);}
+  a.equal(tap.rows.filter(row=>['initial-preserved','initial-verify','final-preserved','final-verify'].includes(row.label)).reduce((n,row)=>n+row.acks,0),8);
+  a.equal(tap.rows.reduce((n,row)=>n+row.acks,0),17);safe();
+  const cache=api.__eval('migrationCapsuleCode');await cache.idle();admit();const codeStats=cache.stats();a.equal(codeStats.disabled,false);a.equal(codeStats.pending,0);a.equal(codeStats.published,1);a(codeStats.loaded>0);a.equal(codeStats.compiled+codeStats.loaded,8);a.equal(codeStats.sourceChildren+codeStats.byteChildren,8);emit('native-code-cache',codeStats);admit();
   const restored=seam.restore();seam=null;a.equal(restored.sourceSha256,F.FACTORY_SHA);a.equal(restored.originalHelperUnknown,false);tap.restore();tapRestored=true;safe();releasing=true;
   await keeper.releaseChecked(safe);safe();await finalKeeper.releaseOwner(safe);safe();ownerReleased=true;
   emit('genuine-keepers-and-owner-released',{knownHelpers:state.native,metadata:state.metadata});safe();

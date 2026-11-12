@@ -495,12 +495,18 @@ try {
   // 60 s 的边上（反向验证那一轮实测过一次 3 拍 —— 是相位边界，不是节拍变了）。对齐之后窗口取
   // 60 s 减 1.5 s 的余量，于是「30 s 一拍」这一档在窗口里最多 2 拍、「5 s／8 s」那两档必然 ≥7 拍。
   const seenBefore = (await cdp.evaluate(missionsAtExpr)) || [];
-  await waitForEval(cdp, `${missionsCountExpr} > ${seenBefore.length} ? 1 : null`, 800);
+  const quietAligned = await waitForEval(cdp, `${missionsCountExpr} > ${seenBefore.length} ? 1 : null`, 800);
+  ok(Boolean(quietAligned), 'C0 the observation window follows an actual missions request');
   const quietStart = Date.now();
   await sleep(QUIET_WINDOW_MS - 1500);
+  const quietWake = Date.now();
   const seenAfter = (await cdp.evaluate(missionsAtExpr)) || [];
   const inWindow = (Array.isArray(seenAfter) ? seenAfter : []).filter(at => at >= quietStart);
   const quietPolls = inWindow.length;
+  if (quietPolls > 2) console.log('C1-REQUEST-TIMING ' + JSON.stringify({
+    aligned: Boolean(quietAligned), quietStart, quietWake, observedAt: Date.now(),
+    before: seenBefore.slice(-4), aroundWindow: seenAfter.filter(at => at >= quietStart - 2000),
+  }));
   ok(quietPolls <= 2,
     `C1 连接正常的 ${Math.round((Date.now() - quietStart) / 1000)} s 里 /api/missions 只发了 ${quietPolls} 拍（≤2；兜底节拍 30 s，config.stewardPollMs=${POLL_MS} 那一档没有生效）`);
   // 为什么 ≤2 就已经把节拍钉紧了（而不需要再补一条「相邻间隔 ≥25 s」）：**一个兜底拍本来就要

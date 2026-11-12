@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const cp = require('node:child_process');
+const assert = require('node:assert/strict');
 const ROOT = path.resolve(__dirname, '../../..');
 const fromRepo = name => path.join(ROOT, name);
 const { fixtureChildEnv } = require(fromRepo('dev-harness/lib/fixture-home.js'));
@@ -13,6 +14,7 @@ const { startFakeProvider, textFrames, toolCallFrames } = require(fromRepo('dev-
 const { FAKE_BOT_ENV, qqWire, feishuWire, feishuEvent } = require(fromRepo('dev-harness/lib/external-bot-fixtures.js'));
 const { assertThat, platformText, findView, assertStagedPage } = require('./journey-contract.cjs');
 const { assertSameDirectory } = require('./sealed-observer.cjs');
+const { assertRunCoordinates, assertCompleteRun, inspectSealedRunBytes } = require('./sealed-run-contract.cjs');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Caller caps, not product performance claims. Original request cap is 45s;
 // stream cap follows the existing 300s permission prompt. Each selected action
@@ -221,12 +223,12 @@ async function createActualFixture(options = {}) {
     desktopMcp: { enabled: false, autodetect: false }, onboarding: { completedAt: '2026-10-30T00:00:00.000Z', version: 1, skipped: false } };
   const env = () => ({ ...isolated.env, ...FAKE_BOT_ENV, RUYI_BOT_TEST_F_APP: 'C2_SYNTHETIC_APP_SECRET', RUYI_FAKE_EXTERNAL_API_PORT: String(officialPort), RUYI_C2_FAULT_DIR: faultDir,
     RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, RUYI_TEST_HOOKS: '0', NODE_OPTIONS: '' });
-  const observation = (op, sid) => {
+  const observation = (op, sid, runId) => {
     assertThat(options.sealed && observerReady && observer?.connected && !lifetime.aborted && Date.now() < deadline, 'live read-only observer required');
     const id = ++observerSerial;
     const pending = new Promise((resolve, reject) => {
       observations.set(id, { resolve, reject });
-      observer.send({ id, op, ...(sid === undefined ? {} : { sid }) }, error => {
+      observer.send({ id, op, ...(sid === undefined ? {} : { sid }), ...(runId === undefined ? {} : { runId }) }, error => {
         if (error) { observations.delete(id); reject(error); }
       });
     });
@@ -437,9 +439,72 @@ async function createActualFixture(options = {}) {
       decodedItems: state.items.length, decodedJournalRows: rows.length, forbiddenStrings: forbidden.length };
   };
   const readRun = async (sid, runId) => { const r = await request('GET', '/api/agent-runs/' + runId + '?sessionId=' + sid); assertThat(r.status === 200 && r.json?.run, 'original run reader'); return r.json.run; };
+  const assertSealedRun = async (sid, runId, forbidden, { coldRestart = false, requiredPlaintext } = {}) => {
+    assertThat(options.sealed, 'sealed run assertion must not silently accept OFF');
+    assertThat(Array.isArray(requiredPlaintext) && requiredPlaintext.length >= 2
+      && requiredPlaintext.every(value => typeof value === 'string' && value.length > 0), 'explicit source/result plaintext witnesses required');
+    assertRunCoordinates(sid, runId);
+    const file = path.join(data, 'agent-runs', sid, runId + '.json');
+    const readBytes = () => {
+      const before = fs.lstatSync(file, { bigint: true });
+      assertThat(before.isFile() && !before.isSymbolicLink() && before.nlink === 1n && before.ino > 0n, 'run snapshot is an original single-link regular file');
+      const canonical = fs.realpathSync.native(file), fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+      assert.equal(fold(canonical), fold(file), 'run snapshot has no path alias');
+      const bytes = fs.readFileSync(file), after = fs.lstatSync(file, { bigint: true });
+      for (const key of ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs', 'nlink']) assert.equal(after[key], before[key], 'run snapshot changed while observing physical bytes');
+      return bytes;
+    };
+    const expected = await wait(async () => {
+      const run = await readRun(sid, runId);
+      return run.live !== true && run.status === 'succeeded' && run;
+    }, 'finished pool leaves original live map before sealed snapshot observation');
+    assertThat(expected.persistenceDegraded !== true, 'finished run persistence is not degraded');
+    const plain = JSON.stringify(expected);
+    for (const text of requiredPlaintext) assertThat(plain.includes(text), 'source/result witness is present in the complete logical run');
+    assertThat(Array.isArray(forbidden), 'explicit forbidden strings required');
+    const canaries = [...forbidden, ...requiredPlaintext];
+    const raw = readBytes(), observed = await observation('run', sid, runId);
+    assertCompleteRun(expected, observed, sid, runId);
+    assert.deepEqual(readBytes(), raw, 'independent production read does not rewrite the run snapshot');
+    const keyHeader = JSON.parse(fs.readFileSync(path.join(data, 'work-data-key-v1.json'), 'utf8'));
+    const physical = inspectSealedRunBytes(raw, { sid, runId, instanceId: keyHeader.instanceId, forbidden: canaries });
+    assertThat(!fs.existsSync(path.join(home, 'agent-runs', sid, runId + '.json')), 'run has no plaintext fallback in the stable control base');
+    const result = { mode: 'encrypted', reader: 'independent process readAgentRunSnapshot(strict), outside active-run map',
+      observerInitialization: 'original fixture seed before execution; the snapshot read occurs after run settlement',
+      physical, logicalSha256: require('node:crypto').createHash('sha256').update(plain).digest('hex'),
+      status: expected.status, nodeCount: expected.nodes.length, requiredPlaintextWitnesses: requiredPlaintext.length, coldRestart: null };
+    if (coldRestart) {
+      const original = server, previous = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+      assertThat(original?.pid === previous.pid && previous.token === token && previous.overlayId, 'held pre-cold server matches its published runtime');
+      const journalBytes = fs.readFileSync(journalFile(sid)), queueBytes = fs.readFileSync(ledgerFile());
+      const effects = { model: model.requests.length, outbound: outbound.length };
+      await stop();
+      const closed = facts().actors.find(row => row.pid === original.pid);
+      assertThat(closed?.exit && closed.close, 'old held server has actual exit and close before pool cold spawn');
+      await start();
+      const current = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+      const health = await request('GET', '/health', undefined, { admin: false });
+      assertThat(server !== original && server.pid === current.pid && current.pid !== previous.pid
+        && current.overlayId !== previous.overlayId && current.token !== previous.token && health.status === 200
+        && health.json?.overlayId === current.overlayId, 'new actual serve boot on the same selected home');
+      const cold = await readRun(sid, runId);
+      assertCompleteRun(expected, cold, sid, runId);
+      assertCompleteRun(cold, await observation('run', sid, runId), sid, runId);
+      assert.deepEqual(readBytes(), raw, 'actual cold serve and isolated production reader preserve exact run ciphertext');
+      assert.deepEqual(fs.readFileSync(journalFile(sid)), journalBytes, 'pool cold read has no extra intervention phase');
+      assert.deepEqual(fs.readFileSync(ledgerFile()), queueBytes, 'pool cold read has no extra queue state');
+      assert.deepEqual({ model: model.requests.length, outbound: outbound.length }, effects, 'cold snapshot verification never re-executes or sends');
+      assertThat(!fs.existsSync(path.join(home, 'agent-runs', sid, runId + '.json')), 'cold run reader has no stable-base fallback');
+      result.coldRestart = { previousPid: previous.pid, pid: current.pid, previousOverlayId: previous.overlayId,
+        overlayId: current.overlayId, oldHeldExit: closed.exit, oldHeldClose: closed.close,
+        status: 'complete-run-exact-after-actual-cold-serve', fullRunUnchanged: true, ciphertextUnchanged: true,
+        queueAndJournalUnchanged: true, modelAndOutboundUnchanged: true };
+    }
+    return result;
+  };
   const launch = async (sid, nodes, poolPolicy = 'off') => { const r = await request('POST', '/api/agent-workflow/launch', { token, sessionId: sid, nodes, poolPolicy, async: true }); assertThat(r.status === 200 && r.json?.runId, 'original workflow launch: ' + r.text); return r.json.runId; };
   return { get home() { return home; }, get work() { return work; }, get data() { return data; }, get port() { return port; }, get token() { return token; }, get server() { return server; }, sealed: !!options.sealed, output: options.output, browser, model, outbound, tokenRequests, stderr,
-    request, configure, connection, wire, callback, nextId, items, item, delivered, settledCallback, sent, command, offer, createSession, stream, pending, journalFile, ledgerFile, journal, ledger, assertSealed, readRun, launch, start, stop, close, faultDir, bounded, wait,
+    request, configure, connection, wire, callback, nextId, items, item, delivered, settledCallback, sent, command, offer, createSession, stream, pending, journalFile, ledgerFile, journal, ledger, assertSealed, assertSealedRun, readRun, launch, start, stop, close, faultDir, bounded, wait,
     setFault: spec => fs.writeFileSync(path.join(faultDir, 'fault.json'), JSON.stringify(spec)),
     clearFault: () => { try { fs.unlinkSync(path.join(faultDir, 'fault.json')); } catch (error) { if (error.code !== 'ENOENT') throw error; } },
     evidence: facts,

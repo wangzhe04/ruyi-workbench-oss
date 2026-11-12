@@ -8,7 +8,7 @@ const REFS=['mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c56
 // Independent test-side wire reader; the production encoder is not reused.
 function metadata(record){const fields=Buffer.from(record.env.RUYI_SKILL_CAPSULE_CODE_META,'base64').toString('utf8').split('\0');a([41,44].includes(fields.length));a.deepEqual(fields.slice(0,3),['rnc-meta-v1','1','x64']);a.equal(fields[6],'14');a.equal(fields[35],'4');const result={revision:1,arch:fields[2],executable:fields[3],key:fields[4],sourceHash:fields[5],files:Array.from({length:14},(_,n)=>({file:fields[7+n*2],sha256:fields[8+n*2]})),references:fields.slice(36,40)};a.equal(fields[40],fields.length===44?'1':'0');if(fields.length===44)Object.assign(result,{artifactHash:fields[41],clr:fields[42],mvid:fields[43]});return result;}
 function fixture(options={}){
- const win=path.win32,rows=new Map(),deleted=[],readPaths=[];let sequence=0,closed=0,allocated=0;
+ const win=path.win32,rows=new Map(),deleted=[],readPaths=[];let sequence=0,closed=0,allocated=0,temporaryRoot=options.tmpdir||'T:\\owned';
  const key=file=>win.resolve(file).toLowerCase(),norm=file=>win.resolve(file);
  function directory(file){file=norm(file);if(rows.has(key(file)))return rows.get(key(file));if(win.dirname(file)!==file)directory(win.dirname(file));const row={file,dir:true,id:++sequence,bytes:null,link:false,nlink:1n};rows.set(key(file),row);return row;}
  function put(file,bytes){file=norm(file);directory(win.dirname(file));const row={file,dir:false,id:++sequence,bytes:Buffer.from(bytes),link:false,nlink:1n};rows.set(key(file),row);return row;}
@@ -22,10 +22,10 @@ function fixture(options={}){
   async unlink(file){if(options.unlinkError)throw Error('cache optional cleanup');deleted.push(norm(file));rows.delete(key(file));},
   async rmdir(file){if((await io.readdir(file)).length)throw Error('not empty');deleted.push(norm(file));rows.delete(key(file));},
  };
- directory('T:\\owned');
+ directory(temporaryRoot);
  const process={arch:options.arch||'x64',env:{SystemRoot:'W:\\Windows',ruyi_skill_capsule_code_0:'UNTRUSTED',RUYI_SKILL_CAPSULE_SOURCE:'UNTRUSTED'},platform:'win32'};
  const broker=function migrationCapsuleBroker(){};
- const context={Buffer,process,migrationCapsuleBroker:broker,require:name=>name==='node:fs/promises'?io:name==='node:path'?win:name==='node:os'?{tmpdir:()=> 'T:\\owned'}:name==='node:timers'?{setImmediate:fn=>queueMicrotask(fn)}:require(name)};
+ const context={Buffer,process,migrationCapsuleBroker:broker,require:name=>name==='node:fs/promises'?io:name==='node:path'?win:name==='node:os'?{tmpdir:()=>temporaryRoot}:name==='node:timers'?{setImmediate:fn=>queueMicrotask(fn)}:require(name)};
  let body=options.block||block;if(options.contextOnly){const anchor='return Object.freeze({ prepare, idle:';a.equal(body.split(anchor).length,2);body=body.replace(anchor,'return Object.freeze({ testContext:context, prepare, idle:');}
  vm.createContext(context);vm.runInContext(body+'\nthis.api=migrationCapsuleCode;',context);
  const child=()=>{const ch=new EventEmitter();ch.stdout=new EventEmitter();ch.stderr=new EventEmitter();return ch;};
@@ -35,7 +35,7 @@ function fixture(options={}){
   if(missing!=='exit')ch.emit('exit',0,null);if(missing!=='close')ch.emit('close',0,null);record.complete(success);
  };
  const materialize=(record,change={})=>{const root=record.env.RUYI_SKILL_CAPSULE_CODE_SINK,meta=metadata(record),bytes=Buffer.from('PUBLIC_ASSEMBLY_BYTES');directory(win.join(root,'compiler'));put(win.join(root,'capsule.dll'),bytes);const manifest={revision:1,key:meta.key,sourceHash:meta.sourceHash,artifactHash:hash(bytes),artifactBytes:bytes.length,clr:'4.0.30319.42000',type:'RuyiSkillCapsule',mvid:'12345678-1234-1234-1234-123456789abc',references:REFS,...change};put(win.join(root,'manifest.json'),JSON.stringify(manifest));return{root,meta,bytes,manifest};};
- return{api:context.api,broker,process,io,rows,put,directory,get,deleted,readPaths,child,complete,materialize,key,closed:()=>closed,allocated:()=>allocated};
+ return{api:context.api,broker,process,io,rows,put,directory,get,deleted,readPaths,child,complete,materialize,key,closed:()=>closed,allocated:()=>allocated,setTmpdir:value=>{temporaryRoot=norm(value);directory(temporaryRoot);}};
 }
 async function published(f){const r=await f.api.prepare('PUBLIC SOURCE'),ch=f.child();r.observe(ch);const info=f.materialize(r);f.complete(r,ch);await f.api.idle();a.equal(f.api.stats().published,1);return info;}
 
@@ -148,10 +148,10 @@ test('ACL capability fallback preserves owner and selects one compiler before an
  const fallback=block.slice(block.indexOf("[Console]::Error.WriteLine('RUYI_CODE_V1_ACL_FALLBACK')"),block.indexOf('} else {\n  $bytes='));a(fallback.includes('Add-Type -ReferencedAssemblies $meta.references[2] -TypeDefinition $source -PassThru'));a.equal(fallback.includes('-OutputAssembly'),false);a.equal(fallback.includes('Run()'),false);a.equal(fallback.includes('ReadLine'),false);
 });
 function brokerFixture(prepare){
- let now=0n,spawned=0,writes=0,kills=0;const timers=new Map(),child=new EventEmitter();child.pid=123;child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.stderr.resume=()=>{};child.stdin=new EventEmitter();child.stdin.write=()=>{writes++;};child.stdin.end=()=>{};child.kill=()=>{kills++;};
- const context={Buffer,process:{platform:'win32',env:{},hrtime:{bigint:()=>now}},MIGRATION_SKILL_CAPSULE_NATIVE:'PUBLIC SOURCE',MIGRATION_CAPSULE_ARCHIVE_LIMIT:1024,migrationCapsuleFail:code=>{throw Error(code);},migrationCapsuleCode:{prepare:async()=>prepare?.({setNow:ms=>{now=BigInt(ms)*1000000n;},context})||null},require:name=>name==='node:child_process'?{spawn(){spawned++;return child;}}:name==='node:timers'?{setTimeout(fn,ms){const token={fn,ms};timers.set(token,token);return token;},clearTimeout:token=>timers.delete(token)}:require(name)};
+ let now=0n,spawned=0,writes=0,kills=0;const spawns=[],timers=new Map(),child=new EventEmitter();child.pid=123;child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.stderr.resume=()=>{};child.stdin=new EventEmitter();child.stdin.write=()=>{writes++;};child.stdin.end=()=>{};child.kill=()=>{kills++;};
+ const context={Buffer,process:{platform:'win32',env:{},hrtime:{bigint:()=>now}},MIGRATION_SKILL_CAPSULE_NATIVE:'PUBLIC SOURCE',MIGRATION_CAPSULE_ARCHIVE_LIMIT:1024,migrationCapsuleFail:code=>{throw Error(code);},migrationCapsuleCode:{prepare:async()=>prepare?.({setNow:ms=>{now=BigInt(ms)*1000000n;},context})||null},require:name=>name==='node:child_process'?{spawn(executable,args,options){spawned++;spawns.push({executable,args,options});return child;}}:name==='node:timers'?{setTimeout(fn,ms){const token={fn,ms};timers.set(token,token);return token;},clearTimeout:token=>timers.delete(token)}:require(name)};
  vm.createContext(context);vm.runInContext(functionBlock(source,'migrationCapsuleBroker')+'\nthis.make=migrationCapsuleBroker;',context);
- return{context,make:context.make,child,timers,setNow:ms=>{now=BigInt(ms)*1000000n;},counts:()=>({spawned,writes,kills})};
+ return{context,make:context.make,child,timers,spawns,setNow:ms=>{now=BigInt(ms)*1000000n;},counts:()=>({spawned,writes,kills})};
 }
 test('first command retains one120s end-to-end envelope through async cache preparation',async()=>{const f=brokerFixture(({setNow})=>setNow(30000)),broker=await f.make();const one=broker.command({cmd:'one'});a([...f.timers].some(([t])=>t.ms===90000));f.child.stdout.emit('data',Buffer.from('{"ok":true,"value":1}\n'));a.equal(await one,1);f.setNow(40000);const two=broker.command({cmd:'two'});a([...f.timers].some(([t])=>t.ms===120000));f.child.stdout.emit('data',Buffer.from('{"ok":true,"value":2}\n'));a.equal(await two,2);const close=broker.close();a([...f.timers].some(([t])=>t.ms===2000));f.child.emit('close',0,null);await close;a.deepEqual(f.counts(),{spawned:1,writes:2,kills:0});});
 test('expired preparation or a different helper becoming unknown refuses before new spawn',async()=>{const expired=brokerFixture(({setNow})=>setNow(120000));await a.rejects(expired.make(),e=>e.code==='work_data_backup.native_timeout');a.equal(expired.counts().spawned,0);const unknown=brokerFixture(({context})=>{context.migrationCapsuleBroker.helperMayStillRun=true;});await a.rejects(unknown.make(),e=>e.helperMayStillRun===true);a.equal(unknown.counts().spawned,0);});
@@ -173,3 +173,37 @@ test('Windows metadata parser accepts full semantic values and refuses every tra
  try{const r=cp.spawnSync(path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{env,windowsHide:true,encoding:'utf8',input:payload,maxBuffer:2*1024*1024,timeout:30000});a.equal(r.status,0,r.stderr);a.equal(r.stderr,'');const rows=JSON.parse(Buffer.from(r.stdout.trim(),'base64').toString('utf8'));a.equal(rows.length,cases.length);for(let n=0;n<cases.length;n++){a.equal(rows[n].name,cases[n].name);a.equal(rows[n].valid,cases[n].valid,cases[n].name);if(cases[n].valid)a.deepEqual(rows[n].value,cases[n].value);}}finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 function bracedDecoder(bootstrap){const {bracedBlock}=require('../lib/source-slice');return bracedBlock(bootstrap,'function CodeMetaDecode');}
+
+
+for(const length of [128,129,203])test('cold cache TEMP root '+length+' UTF-16 units uses the explicit optional budget before allocation',async()=>{
+ const root='T:\\'+'t'.repeat(length-3),f=fixture({tmpdir:root}),before=JSON.stringify(f.process.env);
+ a.equal(path.win32.resolve(root).length,length);const prepared=await f.api.prepare('PUBLIC SOURCE');
+ a.equal(JSON.stringify(f.process.env),before,'optional admission never rewrites the original process TEMP or other environment');
+ if(length<=128){a(prepared);a.equal(f.allocated(),1);a.equal(path.win32.dirname(prepared.env.RUYI_SKILL_CAPSULE_CODE_SINK),path.win32.resolve(root));a.equal(metadata(prepared).sourceHash,hash('PUBLIC SOURCE'));}
+ else{a.equal(prepared,null);a.equal(f.allocated(),0);a.equal(f.api.stats().pending,0);a.equal(f.api.stats().published,0);a.equal(f.api.stats().disabled,true);a.equal([...f.rows.values()].some(row=>path.win32.basename(row.file).startsWith('ruyi-native-code-')),false);}
+});
+test('cold cache counts UTF-16 units and admits a short Unicode root without an encoding blanket ban',async()=>{
+ const root='T:\\'+'演'.repeat(125),f=fixture({tmpdir:root});a.equal(path.win32.resolve(root).length,128);a(Buffer.byteLength(root,'utf8')>128);
+ const prepared=await f.api.prepare('PUBLIC SOURCE');a(prepared);a.equal(f.allocated(),1);a.equal(path.win32.dirname(prepared.env.RUYI_SKILL_CAPSULE_CODE_SINK),path.win32.resolve(root));
+});
+test('validated hot bytes bypass cold TEMP geometry without skipping source and context identity',async()=>{
+ const f=fixture(),info=await published(f),key=f.api.stats().codeIdentity.contextKey;
+ f.setTmpdir('T:\\'+'t'.repeat(200));const hot=await f.api.prepare('PUBLIC SOURCE');a(hot);a.equal(hot.env.RUYI_SKILL_CAPSULE_CODE_SINK,'');a.equal(f.allocated(),1);
+ const meta=metadata(hot);a.equal(meta.key,key);a.equal(meta.artifactHash,hash(info.bytes));a.equal(Buffer.from(hot.env.RUYI_SKILL_CAPSULE_CODE_0,'base64').toString(),info.bytes.toString());
+ const child=f.child();hot.observe(child);f.complete(hot,child,{marker:'RUYI_CODE_V1_LOAD|'+meta.artifactHash+'\r\n'});await f.api.idle();a.equal(f.api.stats().loaded,1);a.equal(f.api.stats().disabled,false);
+ a.equal(await f.api.prepare('CHANGED SOURCE'),null);a.equal(f.api.stats().disabled,true);a.equal(f.allocated(),1);
+});
+test('declined cold-cache geometry preserves one original source child and its remaining deadline and close',async()=>{
+ const cache=fixture({tmpdir:'T:\\'+'t'.repeat(200)}),f=brokerFixture(({setNow})=>{setNow(30000);return cache.api.prepare('PUBLIC SOURCE');}),broker=await f.make();
+ a.equal(cache.allocated(),0);a.equal(f.spawns.length,1);const spawn=f.spawns[0];a.equal(spawn.executable,'powershell.exe');a.deepEqual(Array.from(spawn.args.slice(0,4)),['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand']);
+ const plain=vm.runInNewContext(constBlock(functionBlock(source,'migrationCapsuleBroker'),'bootstrap')+';bootstrap',{});a.equal(Buffer.from(spawn.args[4],'base64').toString('utf16le'),plain);
+ a.deepEqual(Object.keys(spawn.options.env),['RUYI_SKILL_CAPSULE_SOURCE']);a.equal(Buffer.from(spawn.options.env.RUYI_SKILL_CAPSULE_SOURCE,'base64').toString(),'PUBLIC SOURCE');
+ const command=broker.command({cmd:'one'});a([...f.timers].some(([timer])=>timer.ms===90000));f.child.stdout.emit('data',Buffer.from('{"ok":true,"value":1}\n'));a.equal(await command,1);
+ let closed=false;const closing=broker.close().then(()=>{closed=true;});await Promise.resolve();a.equal(closed,false);a([...f.timers].some(([timer])=>timer.ms===2000));f.child.emit('exit',0,null);await Promise.resolve();a.equal(closed,false);f.child.emit('close',0,null);await closing;a.deepEqual(f.counts(),{spawned:1,writes:1,kills:0});
+});
+test('an issued source child failure after cache decline is never retried or settled before original close',async()=>{
+ const cache=fixture({tmpdir:'T:\\'+'t'.repeat(200)}),f=brokerFixture(()=>cache.api.prepare('PUBLIC SOURCE')),broker=await f.make();
+ const command=broker.command({cmd:'one'}),rejected=a.rejects(command,error=>error.code==='work_data_backup.native_exit');f.child.emit('exit',1,null);
+ let closed=false;const closing=broker.close().then(()=>{closed=true;},error=>{closed=true;throw error;});const closeRejected=a.rejects(closing,error=>error.code==='work_data_backup.native_exit');await Promise.resolve();a.equal(closed,false);a.equal(f.spawns.length,1);
+ f.child.emit('close',1,null);await rejected;await closeRejected;a.equal(cache.allocated(),0);a.deepEqual(f.counts(),{spawned:1,writes:1,kills:0});
+});

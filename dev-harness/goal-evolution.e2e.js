@@ -6,15 +6,25 @@ const path = require('path');
 const { createRunner } = require('./lib/harness');
 const { loadServerInternals } = require('./lib/server-internals');
 const taskHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-goal-evolution-'));
-process.env.RUYI_HOME = taskHome;
-process.env.WIN_CLAUDE_WORKBENCH_HOME = taskHome;
+Object.assign(process.env, require('./lib/release-checks').releaseEnvironment(path.join(taskHome, 'home'), taskHome));
 const t = createRunner('GOAL EVOLUTION');
 const { ok } = t;
-const s = loadServerInternals(['CompactionPlan', 'compactionTaskText', 'historyStartsWithCompactionSummary', 'sessionMeta', 'createSession', 'saveSession', 'rewindSession', 'listSessions', 'safeSessionId', 'getPromptPack', 'stewardThreadDigestRows', 'stewardOverviewBlock', 'stewardImplThreadsSearch', 'stewardImplThreadRead', 'mergeSessionNotes', 'renderSessionNotesMarkdown', 'buildSessionNotesInjectPrompt', 'CONTEXT_GOVERNANCE_RULES', 'SUMMARY_PROMPT', 'SUMMARY_PROMPT_EN']);
+const s = loadServerInternals(['CompactionPlan', 'compactionTaskText', 'historyStartsWithCompactionSummary', 'sessionMeta', 'createSession', 'saveSession', 'rewindSession', 'listSessions', 'safeSessionId', 'getPromptPack', 'stewardThreadDigestRows', 'stewardOverviewBlock', 'stewardImplThreadsSearch', 'stewardImplThreadRead', 'mergeSessionNotes', 'renderSessionNotesMarkdown', 'buildSessionNotesInjectPrompt', 'CONTEXT_GOVERNANCE_RULES', 'SUMMARY_PROMPT', 'SUMMARY_PROMPT_EN', 'readConfig', 'writeConfig', 'ensureStewardSession', 'SessionFullTextHooks', 'flushWorkbenchLogs']);
 const summary = (goal, historical = 'A cancelled') => '## Goal\n' + goal + '\n## Decisions\nKeep offline; taught workflow: inspect, edit, verify.\n## Open\nFinish ' + goal + '\n## Current Status\nDone: ' + historical + '; In progress: ' + goal + '; Blocked: None; Next step: verify.\n## Files\nA history retained; B current files.';
 const plan = (task, extra = {}) => ({ scope: 'main', trigger: 'auto', task, kept: [], recentFiles: [], ...extra });
 (async () => {
   try {
+    // This scenario exercises committed metadata search, without a model call.
+    // A real persisted steward session supplies the production disclosure scope;
+    // the loopback endpoint is unused and carries no credential.
+    await s.writeConfig({ ...(await s.readConfig()), workDataEncryptionV1: false, credentialEncryptionV1: false, privacyModeV1: 'off',
+      stewardEnabledV1: true, sessionSearchIndexV1: false, engineMode: 'interactive', activeProvider: 'goal-fixture',
+      providers: [{ id: 'goal-fixture', label: 'Unused local goal fixture', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9/v1', apiKey: '', model: 'fixture' }],
+      autoImportClaudeCodeMcp: false, autoImportKimiCodeMcp: false, includeWorkbenchMcp: false, enableMcpDropIn: false, externalMcpServers: [],
+      desktopMcp: { enabled: false, autodetect: false }, schedulerEnabledV1: false, stewardThreadBriefV1: false });
+    const config = await s.readConfig(), ensured = await s.ensureStewardSession(config);
+    if (!ensured.ok || ensured.session?.kind !== 'steward') throw new Error('persisted steward session unavailable');
+    const ctx = { session: ensured.session, turnSeq: ensured.session.turnSeq, trigger: 'user' };
     for (const historical of ['A cancelled', 'A completed']) {
       let h = [{ role: 'user', content: 'Start A' }];
       for (let i = 0; i < 3; i++) {
@@ -70,10 +80,13 @@ const plan = (task, extra = {}) => ({ scope: 'main', trigger: 'auto', task, kept
       ok(overview.includes('B_TARGET') && (locale !== 'en-US' || overview.includes('Recent request:')), locale + ' overview exposes current activity and localized label');
       ok(!overview.includes(secret), locale + ' overview redacts recent user secrets');
     }
-    const search = await s.stewardImplThreadsSearch({ q: 'B_TARGET' }, { session: { id: 'steward-test' } }, { runtimeSessionSearchIndexV1: false });
+    const search = await s.SessionFullTextHooks.withModel(ctx, 'steward_threads_search', null,
+      () => s.stewardImplThreadsSearch({ q: 'B_TARGET' }, ctx, config));
+    ok(search.scope.mode === 'metadata_only' && search.scope.messageText === false && search.scope.fullText === false,
+      'real committed metadata-only configuration governs the admitted steward search');
     ok(search.results.some(row => row.sessionId === session.id && row.recentUserRequest.text.includes('B_TARGET')), 'cross-thread search finds latest request even with original title A');
     ok(!JSON.stringify(search.results.map(row => row.recentUserRequest)).includes(secret), 'search recent evidence is redacted');
-    const read = await s.stewardImplThreadRead({ sessionId: session.id, tail: 2 }, { session: { id: 'steward-test', turnSeq: 1 } }, {});
+    const read = await s.stewardImplThreadRead({ sessionId: session.id, tail: 2 }, ctx, config);
     ok(read.ok && read.recentUserRequest && read.recentUserRequest.text.includes('B_TARGET'), 'cross-thread deep read exposes latest request');
     ok(!JSON.stringify(read.recentUserRequest).includes(secret), 'deep read recent evidence is redacted');
     const rewind = await s.rewindSession(session.id, 2, false);
@@ -82,5 +95,8 @@ const plan = (task, extra = {}) => ({ scope: 'main', trigger: 'auto', task, kept
     ok(reverted.recentUserRequest.text === 'Start A', 'surviving message tail rebuilds recent request after rewind');
     ok(s.sessionMeta({ id: 'bounded', messages: [{ role: 'user', content: 'B'.repeat(1000) }] }).recentUserRequest.text.length === 240, 'recent activity metadata stays bounded');
   } catch (error) { t.fail(error.stack || String(error)); }
-  finally { fs.rmSync(taskHome, { recursive: true, force: true }); t.done(); }
+  finally {
+    try { await s.flushWorkbenchLogs(); } catch (error) { t.fail(error.stack || String(error)); }
+    fs.rmSync(taskHome, { recursive: true, force: true }); t.done();
+  }
 })();

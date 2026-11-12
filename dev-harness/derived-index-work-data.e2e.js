@@ -1,6 +1,6 @@
 'use strict';
 // Actual generated runtime, cold instances and real Windows DPAPI. All data is synthetic.
-const path = require('node:path'), repo = process.env.RUYI_DERIVED_INDEX_REPO || process.cwd();
+const path = require('node:path'), repo = process.env.RUYI_DERIVED_INDEX_REPO || path.resolve(__dirname, '..');
 require(path.join(repo, 'dev-harness/lib/self-isolate-home'));
 const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os');
 const base = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(base, 'ruyi-derived-index-e2e-'));

@@ -21,7 +21,7 @@ test('missing Slim component gives typed refusal',()=>fixture(async(root,row)=>{
 {
 'use strict';
 const{test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),p=require('node:path'),c=require('node:crypto'),vm=require('node:vm'),tools=p.resolve(__dirname,'../../ruyi-workbench/tools'),source=fs.readFileSync(p.join(tools,'verify-media-artifacts.cjs'),'utf8');
-function model(gate,read=fs.readFileSync){const module={exports:{}},request=name=>name==='./media-runtime-lock.cjs'?{verifyArtifactFiles:gate}:name==='node:fs'?{readFileSync:read}:require(name);request.main={};vm.runInNewContext('(function(require,module,exports,__dirname){'+source+'\n})',{console,process:{argv:[]}})(request,module,module.exports,tools);return module.exports;}
+function model(gate,read=fs.readFileSync,hostProcess={argv:[]}){const module={exports:{}},request=name=>name==='./media-runtime-lock.cjs'?{verifyArtifactFiles:gate}:name==='node:fs'?{readFileSync:read}:require(name);request.main={};vm.runInNewContext('(function(require,module,exports,__dirname){'+source+'\n})',{console,process:hostProcess})(request,module,module.exports,tools);return module.exports;}
 const proof=rows=>({ok:true,artifacts:rows.length,verifiedBytes:rows.reduce((sum,row)=>sum+row.bytes,0),installsPerformed:false,mediaEgressEnabled:false});
 const runtime=p.resolve('synthetic-media-runtime'),sources=p.resolve('synthetic-media-sources');
 test('bundled private locks are captured before await and both exact artifact groups gate inventory-only success',async()=>{const calls=[],reads=[];const api=model(async(root,rows)=>{a.equal(reads.length,2);a.equal(Object.isFrozen(rows),true);a.equal(rows.every(Object.isFrozen),true);a.throws(()=>{rows[0].sha256='f'.repeat(64);},TypeError);calls.push({root,count:rows.length,first:rows[0].path});return proof(rows);},(...args)=>{reads.push(args[0]);return fs.readFileSync(...args);});const result=await api.verifyMediaArtifacts(runtime,sources);a.equal(calls.length,11);a.equal(calls[0].root,sources);a.equal(calls[0].count,1);a.equal(calls[0].first,'opencv-windows-ffmpeg-source-sidecar.zip');a.equal(calls[1].root,runtime);a.equal(calls.slice(1).reduce((n,row)=>n+row.count,0),4987);a.equal(result.dependencyFilesVerified,true);a.equal(result.sourceArchiveVerified,true);a.equal(result.pythonVersion,'3.12.10');a.equal(result.verifiedSourceBytes,19922194);a.equal(result.installsPerformed,false);a.equal(result.mediaProcessingEnabled,false);a.equal(result.mediaEgressEnabled,false);a.equal(Object.isFrozen(result),true);});
@@ -47,6 +47,51 @@ test('the staged Full-local lock requires both replacement artifacts and identif
   const fault = Object.assign(Error('changed replacement source'), { code: 'media.artifact_changed' });
   const refuses = model(async root => { a.equal(root, sources); throw fault; }, read);
   await a.rejects(refuses.verifyMediaArtifacts(runtime, sources), error => error === fault);
+});
+function executableInventory(profile='local-full-v2',packaged=true) {
+  // Only the host process identity/filesystem are modeled. Real pinned manifest
+  // bytes and the actual verifier execute; no EXE/native/media payload is used.
+  const exeRoot=p.resolve('synthetic-full-local-exe'),external=p.join(exeRoot,'resources'),embedded=p.resolve(tools,'../resources');
+  const runtimeName='media-runtime-dependencies.json',sourceName='media-runtime-sources.json';
+  const runtimeBytes=fs.readFileSync(p.join(embedded,runtimeName)),legacy=fs.readFileSync(p.join(embedded,sourceName));
+  const local=fs.readFileSync(p.join(tools,'media-runtime-sources-local-full.json'));
+  const files=new Map([[p.join(embedded,runtimeName),runtimeBytes],[p.join(embedded,sourceName),legacy],
+    [p.join(external,runtimeName),runtimeBytes],[p.join(external,sourceName),profile==='legacy'?legacy:local]]);
+  const reads=[],calls=[],host={argv:[],execPath:p.join(exeRoot,'Ruyi.exe'),cwd:()=>sources,
+    env:{RUYI_MEDIA_INVENTORY_ROOT:sources,RUYI_MEDIA_RUNTIME_ROOT:runtime,RUYI_MEDIA_SOURCES_ROOT:sources}};
+  if(packaged)host.pkg={entrypoint:'synthetic-pkg-entry'};
+  for(const root of [runtime,sources])for(const [name,bytes] of [[runtimeName,runtimeBytes],[sourceName,legacy]])files.set(p.join(root,name),bytes);
+  const api=model(async(root,rows)=>{calls.push({root,rows});return proof(rows);},file=>{
+    reads.push(file);if(!files.has(file))throw Object.assign(Error('synthetic missing inventory'),{code:'ENOENT'});return Buffer.from(files.get(file));
+  },host);
+  return{api,files,reads,calls,external,embedded,runtimeName,sourceName};
+}
+test('pkg verifier uses the real EXE resources Full-local lock instead of the embedded legacy inventory',async()=>{
+  const f=executableInventory(),result=await f.api.verifyMediaArtifacts(runtime,sources,{inventoryRoot:sources,resourceRoot:runtime});
+  a.deepEqual(f.reads,[p.join(f.external,f.runtimeName),p.join(f.external,f.sourceName)]);
+  a.equal(result.sourceProfile,'local-full-v2');a.equal(result.verifiedSourceBytes,189682945);
+  a.equal(f.calls[0].rows.length,2);a.equal(f.calls.length,11);a.equal(result.runtimeArtifacts,4987);
+  a.equal(result.mediaProcessingEnabled,false);a.equal(result.mediaEgressEnabled,false);a.equal(result.installsPerformed,false);
+});
+test('ordinary Full EXE still admits the original pinned legacy source profile',async()=>{
+  const f=executableInventory('legacy'),result=await f.api.verifyMediaArtifacts(runtime,sources);
+  a.deepEqual(f.reads,[p.join(f.external,f.runtimeName),p.join(f.external,f.sourceName)]);
+  a.equal(result.sourceProfile,'legacy');a.equal(result.verifiedSourceBytes,19922194);a.equal(f.calls[0].rows.length,1);
+});
+test('ordinary Node keeps verifier-relative inventories despite a different execPath, cwd, env and option roots',async()=>{
+  const f=executableInventory('local-full-v2',false),result=await f.api.verifyMediaArtifacts(runtime,sources,{inventoryRoot:f.external});
+  a.deepEqual(f.reads,[p.join(f.embedded,f.runtimeName),p.join(f.embedded,f.sourceName)]);
+  a.equal(result.sourceProfile,'legacy');a.equal(result.verifiedSourceBytes,19922194);
+});
+for(const name of ['media-runtime-dependencies.json','media-runtime-sources.json'])test('pkg missing external '+name+' refuses without embedded/env/cwd fallback or artifact IO',async()=>{
+  const f=executableInventory();f.files.delete(p.join(f.external,name));
+  await a.rejects(f.api.verifyMediaArtifacts(runtime,sources),{code:'media.component_missing',retry:false});
+  a.equal(f.calls.length,0);a.ok(f.reads.every(file=>p.dirname(file)===f.external));
+});
+for(const profile of ['legacy','local-full-v2'])test('pkg changed external '+profile+' inventory refuses even when valid embedded legacy bytes remain',async()=>{
+  const f=executableInventory(profile),file=p.join(f.external,f.sourceName);f.files.set(file,Buffer.concat([f.files.get(file),Buffer.from('\n')]));
+  await a.rejects(f.api.verifyMediaArtifacts(runtime,sources),{code:'media.lock_changed',retry:false});a.equal(f.calls.length,0);
+  a.deepEqual(f.reads,[p.join(f.external,f.runtimeName),file]);
 });
 test('missing Slim runtime or changed Full payload never returns an admission receipt',async()=>{for(const code of ['media.component_missing','media.artifact_changed']){let calls=0;const fault=Object.assign(Error(code),{code}),api=model(async(_root,rows)=>{if(++calls===2)throw fault;return proof(rows);});await a.rejects(()=>api.verifyMediaArtifacts(runtime,sources),error=>error===fault);a.equal(calls,2);}});
 test('a lock byte change refuses before asynchronous verifier even if JSON still parses',async()=>{let calls=0;const api=model(async()=>{calls++;},file=>Buffer.concat([fs.readFileSync(file),Buffer.from('\n')]));await a.rejects(()=>api.verifyMediaArtifacts(runtime,sources),{code:'media.lock_changed'});a.equal(calls,0);});

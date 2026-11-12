@@ -1,0 +1,240 @@
+{
+  "schema": 1,
+  "kind": "INDEPENDENT_READ_ONLY_PROGRESS_HANDOFF_EVIDENCE_REVIEW",
+  "reviewer": "/root/m4_media_review",
+  "reviewedAt": "2026-11-12T10:35:48.820Z",
+  "status": "GO_PROGRESS_HANDOFF_NOT_RELEASE_QUALIFICATION",
+  "recommendedRepositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-handoff-review-20261112.json",
+  "reviewedFinalFile": {
+    "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-handoff-20261112.json",
+    "bytes": 354185,
+    "sha256": "977ff484d5dabe8ad9019cf7d5d83ec1bc23017f8d851f25a58f4dde5da85977"
+  },
+  "originalAssemblerOutput": {
+    "path": "C:/r31-1111/m5-m6-local/final-command-line-evidence-1.json",
+    "bytes": 341913,
+    "sha256": "423215eb94c722749410596c473ff4e00a0dbef16f0a97946d528927e950382c"
+  },
+  "mergeReview": {
+    "allowedChangedPaths": [
+      "externalDraftOnly",
+      "pending.finalDocumentationIndependentReview",
+      "assemblerProvenance",
+      "artifactRole",
+      "handoff",
+      "portableOriginalEvidence"
+    ],
+    "existingQualificationStatisticsAndHistoriesUnchanged": true,
+    "note": "Original assembler content is unchanged except externalDraftOnly/review-pointer wording; committed artifact role, handoff and portable index are additive. The separate receipt does not rewrite the reviewed JSON."
+  },
+  "facts": {
+    "scope": "SCOPED_COMMAND_LINE_DEFAULT_631",
+    "accepted": false,
+    "originalRunnerExit": 1,
+    "originalRunnerClose": 1,
+    "originalDualPipeEof": true,
+    "originalErrors": [],
+    "originalKillReceipt": null,
+    "e2e": {
+      "pass": 612,
+      "fail": 19,
+      "knownFail": 0,
+      "unexpectedPass": 0,
+      "flakyPassSubset": 13,
+      "ran": 631,
+      "originalLiveSkipped": 7,
+      "userNotExecuted": 4,
+      "allFirstAttemptsPassed": false
+    },
+    "unit": {
+      "tests": 5331,
+      "pass": 5298,
+      "fail": 0,
+      "skip": 33,
+      "countScope": "Separate original unit stage, not part of631 E2E count"
+    },
+    "completedReleaseAttempt": "RED_NOT_ACCEPTED",
+    "fullInstall": "Independent partial scope passed; never flips complete release RED",
+    "newDesktopGui": "NOT_EXECUTED_USER_COMMAND_LINE_ONLY",
+    "wholeDefault635Executed": false,
+    "M5": {
+      "acceptedExecutions": 8,
+      "passLabels": 166
+    },
+    "consolePackages": {
+      "acceptedExecutions": 4,
+      "passLabels": 34
+    }
+  },
+  "postAttemptFix": {
+    "file": "dev-harness/process-safety.static.e2e.js",
+    "draftSha256": "efa8c5e865f714a0157fb9eb880619f239e17cfaa225a6bd8f30fa00263d68d6",
+    "originalInputFiles": 1924,
+    "originalInputSha256": "4183510b169173b7e42f02fef2a860a6262162728e37e11abc71f8a7041308d1",
+    "finalInputFiles": 1924,
+    "finalInputSha256": "603f140be9a540cf02975e3be3181a7294ceeca2bbde9058ca3cda0a6eac885c",
+    "exactChangedInputPaths": [
+      "dev-harness/process-safety.static.e2e.js"
+    ],
+    "directStaticOriginalExit": 0,
+    "directStaticLogSha256": "fa6d47629971a3a0f1d84fc57e8533a01b1abde7c0f5aac23bd730aa35df8ec8",
+    "wholeUnitOrE2eRerunAfterFix": false,
+    "originalFailureCount": 19,
+    "remainingOriginalFailureCount": 18,
+    "remainingListExactlyEqualsOriginalFailuresMinusKnownFixedCase": true
+  },
+  "portableArchiveReview": {
+    "items": 15,
+    "totalGzipBytes": 605309,
+    "allCompressedSizesAndHashesMatchIndex": true,
+    "allGunzipRawSizesAndHashesMatchIndex": true,
+    "allGunzipBytesExactlyEqualExternalOriginals": true,
+    "itemsReviewed": [
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-receipt.json.gz",
+        "rawSha256": "ac55dbc64769182262e20214690596512a3011d64c944a35259eef93bc1310b7",
+        "gzipSha256": "1ca9ab104f78dab1312ef0126015765c8ace2d22fa85e3dafead45c06662eaeb",
+        "gzipBytes": 8223,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-root-exit.json.gz",
+        "rawSha256": "f0ab456bd05002cc67c7692f69529706a5542bd1afed885cf1389ff8260b8658",
+        "gzipSha256": "38260147bab89cf7592b181991b73480886d4d240c5c8951b9fd23d6d11332fb",
+        "gzipBytes": 443,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4.log.gz",
+        "rawSha256": "a3e3d8eab2703aa7e4c2f5a1923f3caf6a5d10d63d53347ab358f78b90693e43",
+        "gzipSha256": "f2961a570ca011c428f61aefd9b7bade5b992afdcdb91293d6f574619d598d93",
+        "gzipBytes": 21069,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-results.log.gz",
+        "rawSha256": "9d52b8f02992cc76ca1929ca267ae5f994c4ad84948e1d686c1a46c3ea755891",
+        "gzipSha256": "da677210babded8c52f4975c94d60a7aee2126a749b7c5aa97bcd5d2fa2dd49b",
+        "gzipBytes": 7786,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/command-line-default-4-unit.log.gz",
+        "rawSha256": "a67dd6ef55239eb603bb5cef52c10bb96c15233e19134f5a076bb75535191d92",
+        "gzipSha256": "226e4711c98d5e8088b4ed449c2d271e45c609818d7141227d35ce4d5da50713",
+        "gzipBytes": 255361,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/inputs-before-command-line-default-4.json.gz",
+        "rawSha256": "a0b5c5583d5d4a87304250e3af68c43583bd0dc77a2855650e6fb92065815471",
+        "gzipSha256": "3809faf7e2ec18de3c9e055236f480a866bf4d62419ad2089aa7ee7b71300545",
+        "gzipBytes": 100950,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/inputs-after-command-line-default-4.json.gz",
+        "rawSha256": "1c45a739a3471b5917dd1c8ac30fa573461bbbb5ff4f60db1ce3a66373a6a8ad",
+        "gzipSha256": "08f1c9c9a88054c95878b6735b11376d5f4c8d7de8e9788c037051c490bcfa77",
+        "gzipBytes": 100949,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/inputs-after-process-safety-owner-fix-1.json.gz",
+        "rawSha256": "1d8cc21cb12a445d391c134236b4470d3ce0c8e0992413ce1879ff858174f274",
+        "gzipSha256": "5a7a5e005b3890be21807948f773eab56f415de4ed82aa70a1bb5edcc3033840",
+        "gzipBytes": 100950,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-final-3--validation.json.gz",
+        "rawSha256": "1bb528a422a68dfa960fc8ddf786ad75c2b311c8fc6c72c21c1c9a91ad3c23cd",
+        "gzipSha256": "84d3841fa10b7ccbc81a65fcd99c607441c4133075bd5f55a001b18b536c74ba",
+        "gzipBytes": 4558,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-final-3-exit.json.gz",
+        "rawSha256": "d35175dcb09d6ec2634f786eba028d5b34a84728641093dccfab70146e9a8375",
+        "gzipSha256": "95b1f8753c63597fd27abdaba9c77f22c7f7befce532318efd40e4a8e561feb0",
+        "gzipBytes": 248,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-final-3--slim-core-journeys.log.gz",
+        "rawSha256": "4525a68c2ad8765069228e75e728d1dc4af070062d754ab8b9c71a02e5fa0796",
+        "gzipSha256": "1ad41b2dfbd07a54a4dd028653144820294e7749002ea0c0488569c3de857bfa",
+        "gzipBytes": 1585,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-full-install-1--validation.json.gz",
+        "rawSha256": "1e9209fe9c0c519276bf79725ccf4663eddeb74258d11654146a98b7267794c3",
+        "gzipSha256": "f9dd5042675e8ca4e3e83adaeeb8a375bbf9804cd70558c5017a4be0b6490139",
+        "gzipBytes": 1943,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/release-full-install-1-exit.json.gz",
+        "rawSha256": "c0e01ee7c3a85e48cef8cf9ffecaacd8da430fc6dc96e95907279ba5e1d0db75",
+        "gzipSha256": "6133927b3c63d8df67dc330f69470551b04fa5520e47f06d2a70fadc47e5536f",
+        "gzipBytes": 302,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/process-safety-owner-fixed-1.log.gz",
+        "rawSha256": "fa6d47629971a3a0f1d84fc57e8533a01b1abde7c0f5aac23bd730aa35df8ec8",
+        "gzipSha256": "7533cfc8cd5f4a196e0dbdeb904fc4863b64336b176fd0da21066389c1f46e71",
+        "gzipBytes": 599,
+        "byteExact": true
+      },
+      {
+        "repositoryPath": "docs/optimization-plan/evidence/m4-m6-command-line-20261112/process-safety-owner-fixed-1-exit.json.gz",
+        "rawSha256": "8e8d3340cea04691477ca8a4b418eb2a2a9dbd9655198deab164f16fc797e1d9",
+        "gzipSha256": "44ddfa735b99bef78e4265e4982daf8d081ea6c84ea93091bdef626bcc6ebd9c",
+        "gzipBytes": 343,
+        "byteExact": true
+      }
+    ]
+  },
+  "remainingFailureList": [
+    "external-bots.browser.e2e.js",
+    "rail-session-search.browser.e2e.js",
+    "work-data-completed-claim-recovery.e2e.js",
+    "attachment-http-roundtrip.e2e.js",
+    "config-read-safety.e2e.js",
+    "overlay-update-core.e2e.js",
+    "privacy-gateway.e2e.js",
+    "scheduler-crash.e2e.js",
+    "budget-guard.e2e.js",
+    "checkpoint-mcpchild.e2e.js",
+    "context-compact-v2.e2e.js",
+    "external-bot-setup.browser.e2e.js",
+    "privacy-channels.e2e.js",
+    "privacy-managed-mcp.e2e.js",
+    "shell-session.e2e.js",
+    "work-data-bound-directory-deep-path.e2e.js",
+    "work-data-completed-intent-recovery.e2e.js",
+    "work-data-owned-source-recovery.e2e.js"
+  ],
+  "preservedBoundaries": [
+    "Original631 remains RED with all19 original failures and13 flaky passes preserved; the one targeted static follow-up is separate.",
+    "Remaining18 are failed cases requiring handoff investigation, not18 proven product root causes.",
+    "Earlier adjacent-B progress misattributions are superseded; the authoritative final compact records supply the actual names/counts.",
+    "Historical CF54/B145/D879 positive results remain version-scoped; old GUI results do not qualify the current new GUI.",
+    "Full installation partial, M5 and console package positives do not supply whole release/default acceptance.",
+    "Real QQ/Feishu platform accounts, member revision continuity, public source/build/notices audit and historical M4 UNKNOWN causes remain unclosed.",
+    "Only the15 indexed primary originals are verified as portable here; other unchanged external references keep their existing scope."
+  ],
+  "reviewExecution": {
+    "filesystemAndBuiltinGunzipOnly": true,
+    "tests": false,
+    "native": false,
+    "subprocess": false,
+    "git": false,
+    "computerUse": false,
+    "mainFilesModified": false
+  },
+  "commitIdentity": "containing_commit",
+  "selfReferenceRule": "This receipt binds the final evidence file hash. The final evidence JSON is not rewritten with this receipt hash, avoiding a circular dependency."
+}

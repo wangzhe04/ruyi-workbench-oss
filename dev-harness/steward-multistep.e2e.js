@@ -166,7 +166,9 @@ async function until(test, label) { for (let i = 0; i < 800; i++) { if (await te
     await settle(held.sessionId);
     const stoppedRun = (await s.listAgentRuns(held.sessionId))[0];
     ok(stoppedRun.status === 'stopped' && stoppedRun.nodes[1].attempts === 0 && !s.activeAgentRuns.has(stoppedRun.id), '停止传播到正在运行的子步骤，后序不启动，无残余运行');
-    s.__eval('globalThis.multistepOriginalWorkflow = runAgentWorkflow; globalThis.multistepLateReached = false; runAgentWorkflow = async options => { const result = await globalThis.multistepOriginalWorkflow(options); if (options.runKind === "steward_delegation" && options.contextText.includes("LATE_COORDINATOR")) { globalThis.multistepLateReached = true; await new Promise(resolve => { globalThis.multistepReleaseLate = resolve; }); } return result; };');
+    // The real maintenance admission re-enters the global workflow. Hold this
+    // artificial late result once, including across its inner/outer wrappers.
+    s.__eval('globalThis.multistepOriginalWorkflow = runAgentWorkflow; globalThis.multistepLateReached = false; runAgentWorkflow = async options => { const result = await globalThis.multistepOriginalWorkflow(options); if (options.runKind === "steward_delegation" && options.contextText.includes("LATE_COORDINATOR") && !globalThis.multistepLateReached) { globalThis.multistepLateReached = true; await new Promise(resolve => { globalThis.multistepReleaseLate = resolve; }); } return result; };');
     const late = await make('LATE_COORDINATOR', ['NODE_FIRST', 'NODE_SECOND']);
     await until(() => s.__eval('globalThis.multistepLateReached'), 'late result');
     const oldStatus = await s.StewardHooks.threadStatus({ sessionId: late.sessionId }, ctx);

@@ -4,6 +4,9 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const LOCKS=Object.freeze({runtime:Object.freeze({file:'media-runtime-dependencies.json',sha256:'4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f',count:4987}),sources:Object.freeze({file:'media-runtime-sources.json',sha256:'96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29',count:1,profile:'legacy'})});
 const LOCAL_SOURCE_LOCK=Object.freeze({sha256:'ee7bc948d5211ede4fe97aeda21c3d6e8b6b74082ac1c3da19b515ae07a44bb7',count:2,profile:'local-full-v2'});
 const failure=(code,cause)=>Object.assign(new Error(code,cause===undefined?undefined:{cause}),{code,retry:false});
+// pkg's virtual __dirname retains build-time inventories. Match the real EXE's
+// installation root; only these private fixed-hash files are read, with no fallback.
+const inventoryRoot=typeof process.pkg!=='undefined'?path.join(path.dirname(process.execPath),'resources'):path.join(__dirname,'../resources');
 function groupRows(supplied){
  const names=new Set(),groups=[];let rows=[],bytes=0,total=0;
  for(const value of supplied){
@@ -18,7 +21,7 @@ function groupRows(supplied){
  return Object.freeze({groups:Object.freeze(groups),count:supplied.length,bytes:total});
 }
 function readLock(selected,alternate){
- let bytes;try{bytes=fs.readFileSync(path.join(__dirname,'../resources',selected.file));}catch(cause){throw failure(cause?.code==='ENOENT'?'media.component_missing':'media.lock_unavailable',cause);}
+ let bytes;try{bytes=fs.readFileSync(path.join(inventoryRoot,selected.file));}catch(cause){throw failure(cause?.code==='ENOENT'?'media.component_missing':'media.lock_unavailable',cause);}
  const digest=crypto.createHash('sha256').update(bytes).digest('hex');
  const pin=digest===selected.sha256?selected:digest===alternate?.sha256?alternate:null;
  if(!pin)throw failure('media.lock_changed');

@@ -30,6 +30,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
+const { bracedBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -248,8 +249,23 @@ try {
       'G4 源码单点:arbiterRefresh 就挂在 applyConfigPatch 里(路由与管家共用同一条落盘路径)');
     {
       const routerSrc = fs.readFileSync(path.join(WB, 'app', 'src', '13-http-router.js'), 'utf8');
-      ok(!/function applyConfigPatch\(/.test(routerSrc) && (routerSrc.match(/await ConfigPatchHooks\.applyConfigPatch\(body\)/g) || []).length === 1,
-        'G4b 路由层只剩一处经 ConfigPatchHooks 的调用,不另留一份 applyConfigPatch');
+      const configRoute = bracedBlock(routerSrc, "if (req.method === 'POST' && pathname === '/api/config')");
+      const invalidIntent = bracedBlock(configRoute, 'if (hasFirstProviderIntent &&');
+      const callAt = configRoute.indexOf('await ConfigPatchHooks.applyConfigPatch(');
+      const stripAt = configRoute.indexOf('delete body.selectFirstChatProvider');
+      // Request-only metadata may add one trusted option; it cannot add a second
+      // config writer or survive in the body forwarded for persistence.
+      ok(!/function applyConfigPatch\(/.test(routerSrc)
+        && (routerSrc.match(/await ConfigPatchHooks\.applyConfigPatch\(body(?:,|\))/g) || []).length === 1
+        && configRoute.length > 100 && invalidIntent.length > 100
+        && /Object\.hasOwn\(body, 'selectFirstChatProvider'\)/.test(configRoute)
+        && /typeof body\.selectFirstChatProvider !== 'boolean'/.test(configRoute)
+        && /body\.selectFirstChatProvider && !Array\.isArray\(body\.providers\)/.test(configRoute)
+        && /return send\(res, apiFailure\('config\.first_provider_intent_invalid',[^\n]*, 400\)\)/.test(invalidIntent)
+        && /const selectFirstChatProvider = hasFirstProviderIntent && body\.selectFirstChatProvider === true;/.test(configRoute)
+        && stripAt >= 0 && callAt > stripAt
+        && /await ConfigPatchHooks\.applyConfigPatch\(body,\s*\{\s*selectFirstChatProvider\s*\}\)/.test(configRoute),
+        'G4b 路由层唯一配置写口:严格抽取一次性意图并从 body 剥离后,只经受信选项调用 ConfigPatchHooks');
     }
     // 117 波 T1(32 号文 §2.1)重钉:steward_config_set 的实现随拆分搬进了 13l-steward-ops.js
     // (纯搬家,逐字节不变)。原来钉的是「13g 这个文件里有这一行」—— 钉的是落点;改成钉

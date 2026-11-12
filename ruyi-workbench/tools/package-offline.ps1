@@ -320,7 +320,7 @@ function Assert-MediaArtifactInventory([string]$WorkbenchRoot, [string]$AccRoot,
   if (-not $mediaNode) { throw "Node.js is required to verify the frozen media artifact inventory." }
   $mediaTools = @{
     "media-runtime-lock.cjs" = "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0"
-    "verify-media-artifacts.cjs" = "34f290e561af2931309f8f62b489ae726568e001576f4242a318ef021e520871"
+    "verify-media-artifacts.cjs" = "d72f49f86e0956d7263feca1a321503b7f8aca8cd1dc37b1bdf0a903b7757f74"
   }
   foreach ($entry in $mediaTools.GetEnumerator()) {
     $tool = Join-Path $WorkbenchRoot ("tools\" + $entry.Key)

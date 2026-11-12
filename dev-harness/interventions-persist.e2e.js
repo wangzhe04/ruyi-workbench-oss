@@ -15,6 +15,7 @@ const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的�
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
 const { readServerSource } = require('./src-reader');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -347,7 +348,10 @@ function spawnWb() {
     ok(/registerIntervention\(sessionId, 'plan', planId,/.test(src), 'e 07 plan 注册点调 registerIntervention');
     ok(/settleIntervention\(sessionId, requestId, decision && decision\.behavior === 'allow' \? 'allowed' : 'denied'/.test(src), 'e 07 permission settle 调 settleIntervention');
     ok(/source: 'legacy_permission'/.test(src) && /source: 'legacy_plan'/.test(src), 'e 13d permission/plan 经典端点适配到 decideIntervention');
-    ok(/async function decideIntervention\(command = \{\}\)/.test(src) && /transitionInterventionState\(/.test(src), 'e 13d 单一 command core 调权威 CAS');
+    const decisionCore = functionBlock(src, 'decideIntervention');
+    ok(Boolean(decisionCore) && /await transitionInterventionState\(/.test(decisionCore)
+      && decisionCore.includes('consumeInterventionHumanWitness(humanWitness, command)')
+      && decisionCore.includes('human_witness_invalid'), 'e 13d 单一 command core 核对原 human witness 并调权威 CAS');
     ok(/\{ m: 'POST', p: '\/api\/missions\/', auth: 'token', prefix: true \}/.test(src), 'e 75b Mission decision 契约 ROUTE_AUTH=token');
     ok(src.includes("const contractMatch = pathname.match(/^\\/api\\/missions\\/") && /source: 'contract'/.test(src), 'e 75b 契约路由进入 decideIntervention');
     ok(['legacy_question', 'legacy_permission', 'legacy_plan', 'legacy_pool'].every(source => src.includes(`source: '${source}'`)), 'e 75b 经典四端点全部是 command-core 适配器');

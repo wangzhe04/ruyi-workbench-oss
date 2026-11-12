@@ -2,18 +2,27 @@
 require('./lib/self-isolate-home');
 // Natural settings entrance, bilingual/theme form, preview errors, edits and a
 // real scheduled Playbook model turn using the existing file_write tool.
+// --sealed preserves every original assertion, then verifies real DPAPI task /
+// Playbook containers with a fresh owned production reader after serve closes.
 const fs = require('node:fs'), path = require('node:path');
+const assert = require('node:assert/strict');
+const { createSealedWorkflowBrowser } = require('./lib/sealed-workflow-browser.cjs');
+const flags = process.argv.slice(2);
+assert.ok(flags.length === 0 || flags.length === 1 && flags[0] === '--sealed', 'only --sealed is supported');
+const sealed = flags.length === 1, qualification = sealed ? createSealedWorkflowBrowser() : null;
 const { startBrowserFixture, READY } = require('./lib/browser-fixture');
 const { createRunner } = require('./lib/harness');
 const t = createRunner('SCHEDULED PLAYBOOKS BROWSER');
-let fx, finalPrompt = '';
+let fx, finalPrompt = '', modelCalls = 0;
 const open = `(() => { document.getElementById('openSettingsBtn').click(); document.querySelector('#settingsTabs button[data-stab="steward"]').click(); return true; })()`;
 (async () => {
   try {
     fx = await startBrowserFixture({ ok: t.ok, prefix: 'ruyi-scheduled-playbooks-browser-',
-      config: { schedulerEnabledV1: true, stewardEnabledV1: false, permissionMode: 'acceptEdits' },
+      ...(sealed ? { beforeServe: qualification.beforeServe, evidenceObserver: qualification.observer } : {}),
+      config: { schedulerEnabledV1: true, stewardEnabledV1: false, permissionMode: 'acceptEdits', ...(sealed ? { workDataEncryptionV1: true } : {}) },
       serverEnv: { WCW_TEST_NO_NET_ANCHORS: '1' },
       provider: ctx => {
+        modelCalls++;
         const message = String(ctx.messages.findLast(row => row.role === 'user')?.content || '');
         if (message.includes('SCHEDULE_BROWSER') && !ctx.answered) {
           finalPrompt = message;
@@ -89,6 +98,21 @@ const open = `(() => { document.getElementById('openSettingsBtn').click(); docum
       await fx.escape();
     }
     t.ok(fx.exceptions.length === 0, 'zero uncaught browser errors');
-  } catch (error) { t.fail(error.stack || String(error)); }
-  finally { if (fx) await fx.close({ keepRoot: t.failures > 0 }); t.done({ exit: true }); }
+    if (sealed) {
+      const tasks = await fx.request('GET', '/api/scheduler/tasks'), playbooks = await fx.request('GET', '/api/playbooks');
+      assert.equal(tasks.status, 200); assert.equal(playbooks.status, 200);
+      const listed = playbooks.json.playbooks.find(row => row.id === 'pb_schedule_browser');
+      assert.ok(listed);
+      // Only API capability annotations are excluded; every persisted template
+      // field, including its revision, is compared with the cold production read.
+      const { available, unavailableReason, missingCaps, status, ...playbook } = listed;
+      const reports = [0, 1].map(index => fs.readFileSync(path.join(fx.work, 'report-' + index + '.md')));
+      const evidence = await qualification.qualifyCold(fx, { kind: 'scheduler', playbookId: 'pb_schedule_browser' },
+        { tasks: tasks.json.tasks, playbook }, ['SCHEDULE_BROWSER', 'Current source 0', 'Current source 1', 'Write this run’s report and give evidence'], () => modelCalls);
+      for (const index of [0, 1]) assert.deepEqual(fs.readFileSync(path.join(fx.work, 'report-' + index + '.md')), reports[index]);
+      t.ok(evidence.containers.length === 2 && evidence.coldReader.exit.code === 0, 'DPAPI task and Playbook containers have no plaintext; fresh owned cold readers preserve complete definitions, pinned payloads and run receipts without model or file effects');
+      console.log('Sealed scheduled Playbook evidence retained at ' + fx.root);
+    }
+  } catch (error) { qualification?.recordFailure(error); t.fail(error.stack || String(error)); }
+  finally { fx ||= qualification?.fixture; if (fx) { try { await fx.close({ keepRoot: sealed || t.failures > 0 }); } catch (error) { t.fail(error.stack || String(error)); } } t.done({ exit: true }); }
 })();

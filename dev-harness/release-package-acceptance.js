@@ -113,6 +113,38 @@ function config(work) {
     activeProvider: 'release-fake', providers: [{ id: 'release-fake', label: 'Release fixture', type: 'openai-compat',
       baseUrl: fake.url, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model' }] }], legacyReleaseAcceptance: { marker: 'preserve-v301' } };
 }
+// Candidate-only: prove the built Node/EXE owns the first-service default branch
+// before conversation() supplies an explicit activeProvider. The old tag never
+// enters this helper, and the synthetic session stays inside its fresh data root.
+async function candidateFirstProviderDefault(server, work, label) {
+  check(/^(slim|full)-(node|exe)$/.test(label) && path.basename(server.data) === label + '-fresh-data', label + ': first-provider check is limited to a fresh candidate root');
+  const initial = await server.request('/api/status');
+  const before = initial.config;
+  check(before && Array.isArray(before.providers) && before.providers.length === 0 && !before.activeProvider && before.lastUsedEngineRoute == null,
+    label + ': fresh candidate has no provider, selected engine or remembered route');
+  const provider = { ...config(work).providers[0] };
+  const saved = await server.request('/api/config', { providers: [provider], selectFirstChatProvider: true });
+  const selected = value => value && value.activeProvider === provider.id
+    && value.lastUsedEngineRoute?.engine === 'openai'
+    && value.lastUsedEngineRoute.providerId === provider.id && value.lastUsedEngineRoute.model === provider.model;
+  check(saved?.ok === true && selected(saved.config), label + ': actual config response selects and remembers the unique first provider without an explicit route');
+  const status = await server.request('/api/status');
+  check(selected(status.config), label + ': actual runtime status retains the first-provider default');
+  // Never log or copy effective credentials into the report. Only these routing
+  // fields and absence of request-only metadata are inspected in the raw config.
+  const persisted = JSON.parse(fs.readFileSync(path.join(server.data, 'config.json'), 'utf8'));
+  check(selected(persisted) && !Object.hasOwn(persisted, 'selectFirstChatProvider')
+    && !Object.hasOwn(saved.config, 'selectFirstChatProvider') && !Object.hasOwn(status.config, 'selectFirstChatProvider'),
+    label + ': first-provider routing is committed and request-only intent is never persisted or returned');
+  const created = await server.request('/api/sessions', { title: label + ' first-provider default', cwd: work });
+  const route = created?.session?.engineRoute;
+  check(Boolean(created?.session?.id) && route?.engine === 'openai' && route.providerId === provider.id && route.model === provider.model,
+    label + ': actual session creation without engine or engineRoute binds the configured first provider and model');
+  const reread = await server.request('/api/sessions/' + encodeURIComponent(created.session.id));
+  check(reread?.session?.id === created.session.id && reread.session.engineRoute?.engine === 'openai'
+    && reread.session.engineRoute.providerId === provider.id && reread.session.engineRoute.model === provider.model,
+    label + ': package session reader preserves the first-provider binding');
+}
 async function conversation(server, work, label) {
   await server.request('/api/config', config(work));
   const created = await server.request('/api/sessions', { title: label, cwd: work, engine: 'openai' });
@@ -520,6 +552,7 @@ async function installedMcp(python, module, env) {
         const server = await serve(bundle, data, home, executable);
         try { const status = await server.request('/api/status'); check(status.version === report.applicationVersion && path.resolve(status.dataRoot) === data, label + ': actual runtime version/data root correct');
           check(String(await server.request('/')).includes('如意'), label + ': packaged UI is served');
+          await candidateFirstProviderDefault(server, work, label);
           await conversation(server, work, label);
           const counts = await server.request('/api/tools/workbench_self_status', { section: 'counts' }); check(counts.result?.counts?.nativeTools === expectedNativeTools, label + ': actual runtime has the candidate tool registry');
           await candidatePrivacy(server, data, work, label);

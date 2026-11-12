@@ -3,15 +3,23 @@
 // real existing A/B/C selections, reviews exact material, starts B once, accepts
 // B and starts C. Includes same-title identity, bilingual labels, narrow layout
 // and explicit cancellation. Execute only in the serial actual-test window.
+// --sealed repeats the entire journey with real CurrentUser DPAPI, then stops
+// the held serve and compares a fresh production cold reader with HTTP state.
 require('./lib/self-isolate-home');
 const { createRunner } = require('./lib/harness');
 const { startBrowserFixture } = require('./lib/browser-fixture');
+const { createSealedWorkflowBrowser } = require('./lib/sealed-workflow-browser.cjs');
+const assert = require('node:assert/strict');
+const flags = process.argv.slice(2);
+assert.ok(flags.length === 0 || flags.length === 1 && flags[0] === '--sealed', 'only --sealed is supported');
+const sealed = flags.length === 1, qualification = sealed ? createSealedWorkflowBrowser() : null;
 const t = createRunner('THREAD RELAY BROWSER'); const { ok } = t;
 let fx, a, b, c, calls = [];
 (async () => {
   try {
     fx = await startBrowserFixture({ prefix: 'ruyi-thread-relay-ui-', ok, width: 1440,
-      config: { permissionMode: 'auto', agentAutoWake: false, agentTaskPoolPolicy: 'off' },
+      ...(sealed ? { beforeServe: qualification.beforeServe, evidenceObserver: qualification.observer } : {}),
+      config: { permissionMode: 'auto', agentAutoWake: false, agentTaskPoolPolicy: 'off', ...(sealed ? { workDataEncryptionV1: true } : {}) },
       provider: ctx => {
         const text = String([...ctx.messages].reverse().find(row => row.role === 'user')?.content || ''); calls.push(text);
         ctx.text(text.includes('SOURCE_BROWSER_RELAY') ? 'APPROVED_BROWSER_MATERIAL' : 'BROWSER_TARGET_DELIVERY'); ctx.stop();
@@ -67,7 +75,14 @@ let fx, a, b, c, calls = [];
     const result = await fx.request('GET', '/api/thread-relays?sessionId=' + a + '&relayId=' + relayId);
     ok(result.json.relays[0].threadRelay.cancelled, 'UI cancellation survives independent HTTP readback');
     ok(fx.exceptions.length === 0, 'relay journey has no uncaught browser exceptions');
-  } catch (error) { t.fail(error.stack || String(error)); }
-  finally { if (fx) await fx.close(); }
+    if (sealed) {
+      assert.equal(result.status, 200); assert.equal(result.json.relays.length, 1);
+      const evidence = await qualification.qualifyCold(fx, { kind: 'relay', sessionId: a, relayId }, result.json.relays[0],
+        ['BROWSER_EXISTING_B', 'BROWSER_EXISTING_C', 'APPROVED_BROWSER_MATERIAL'], () => calls.length);
+      ok(evidence.originalServe.exit && evidence.coldReader.exit.code === 0, 'DPAPI relay task container has no plaintext and the fresh owned cold reader preserves the full contract and receipts without another model turn');
+      console.log('Sealed relay evidence retained at ' + fx.root);
+    }
+  } catch (error) { qualification?.recordFailure(error); t.fail(error.stack || String(error)); }
+  finally { fx ||= qualification?.fixture; if (fx) { try { await fx.close({ keepRoot: sealed || t.failures > 0 }); } catch (error) { t.fail(error.stack || String(error)); } } }
   t.done();
 })();

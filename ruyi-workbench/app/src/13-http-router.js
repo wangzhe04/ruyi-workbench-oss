@@ -423,9 +423,16 @@ async function handleApi(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
+    // Settings-only request metadata is not a persisted configuration field.
+    const hasFirstProviderIntent = body && typeof body === 'object' && Object.hasOwn(body, 'selectFirstChatProvider');
+    if (hasFirstProviderIntent && (typeof body.selectFirstChatProvider !== 'boolean' || body.selectFirstChatProvider && !Array.isArray(body.providers))) {
+      return send(res, apiFailure('config.first_provider_intent_invalid', {}, 'selectFirstChatProvider must be a boolean accompanying providers', 400));
+    }
+    const selectFirstChatProvider = hasFirstProviderIntent && body.selectFirstChatProvider === true;
+    if (hasFirstProviderIntent) delete body.selectFirstChatProvider;
     let next = null;
     try {
-      next = await ConfigPatchHooks.applyConfigPatch(body); // 06k 填入(见 01 的 ConfigPatchHooks 头注)
+      next = await ConfigPatchHooks.applyConfigPatch(body, { selectFirstChatProvider }); // 06k 填入(见 01 的 ConfigPatchHooks 头注)
     } catch (error) {
       // 116-3 B1:切全局默认权限到「全自动」缺 confirm:true -> 409,错误码与 13d 的线程级 PATCH 同一个。
       if (error && error.code === 'permission.confirm_required') {

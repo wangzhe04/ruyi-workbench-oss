@@ -287,7 +287,20 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     // ── M 增量取 ?fromIndex=N&prefixStamp=S(经典壳自己起的回合收尾时用)────────────────────────────────
     // 底子来自回合起点那条 session 事件(带 messagesStamp);客户端逻辑用的是前端模块里【同一个】fetchSessionAfterTurn,
     // api 换成打真服务的那一发。每一种情形都断言「客户端拿到的信封 === 无参全量(去掉 providerHistory)」。
-    const runtime = await import(pathToFileURL(path.join(WB, 'app', 'public', 'js', 'chat-stream-runtime.js')).href);
+    // Load the real ESM graph in its browser-shaped module realm. The image
+    // preparation dependency now imports state.js, which publishes window.state.
+    // No DOM/image behavior is replaced; the transport functions below still
+    // call the actual module and real HTTP service. Restore the Node global even
+    // when module initialization fails.
+    const priorWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    let runtime;
+    try {
+      Object.defineProperty(globalThis, 'window', { configurable: true, writable: true, value: {} });
+      runtime = await import(pathToFileURL(path.join(WB, 'app', 'public', 'js', 'chat-stream-runtime.js')).href);
+    } finally {
+      if (priorWindow) Object.defineProperty(globalThis, 'window', priorWindow);
+      else delete globalThis.window;
+    }
     const getPath = (route, extra = {}) => request(WP, 'GET', route, { headers: { ...auth, ...extra } });
     const deltaRoute = (id, from, stamp) => `/api/sessions/${encodeURIComponent(id)}?fromIndex=${encodeURIComponent(from)}&prefixStamp=${encodeURIComponent(stamp)}`;
     const startEvent = async (id, message) => {

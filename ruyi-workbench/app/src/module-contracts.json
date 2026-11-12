@@ -2264,6 +2264,7 @@
         "registerIntervention",
         "releaseSessionBodyLineCache",
         "rememberLastUsedEngineRoute",
+        "rememberLastUsedEngineRouteInConfig",
         "removeSessionToolImages",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
@@ -8315,6 +8316,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "ConfigPatchHooks",
           "kinds": [
@@ -8331,6 +8339,13 @@
         {
           "provider": "01-config.js",
           "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "normalizeConfig",
           "kinds": [
             "call"
           ]
@@ -8372,7 +8387,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "rememberLastUsedEngineRoute",
+          "symbol": "rememberLastUsedEngineRouteInConfig",
           "kinds": [
             "call"
           ]
@@ -8421,7 +8436,21 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "sanitizeProvider",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "unmaskSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardChatCapableProvider",
           "kinds": [
             "call"
           ]

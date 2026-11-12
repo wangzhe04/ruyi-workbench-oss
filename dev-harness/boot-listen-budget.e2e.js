@@ -23,6 +23,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { readServerSource } = require('./src-reader');
+const assert = require('node:assert/strict');
+const { functionBlock, bracedBlock, sliceBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -114,18 +116,44 @@ function getJson(pathname, token, timeoutMs) {
     const src = readServerSource();
     // 锚点必须落在 boot 段【自己】那一句上:`await invalidateSessionIndex();` 在全文里第一处出现于 02，
     // 拿它切片会把半个仓库都算进 "listen 之前"。这一句带注释的 readConfig 是 boot 段独有的。
-    const bootStart = src.indexOf('let config = await readConfig(); // let: autoImportClaudeCodeMcp 写回后需重绑到最新引用');
-    const listenAt = src.indexOf('const port = await listenWithFallback(server, requestedPort, host, config);');
-    ok(bootStart > 0 && listenAt > bootStart, 's 定位到 boot 段与 listenWithFallback');
-    const beforeListen = src.slice(bootStart, listenAt);
-    const afterListen = src.slice(listenAt);
+    const boot = functionBlock(src, 'startServerInner');
+    const listenWrapper = functionBlock(src, 'listenForWorkbenchServe');
+    const warm = functionBlock(src, 'warmWorkbenchServices');
+    assert.ok(boot && listenWrapper && warm, 'real boot/listener/warmup functions must be present');
+    const bootStart = boot.indexOf('let config = await readConfig();');
+    const listenAt = boot.indexOf('const port = await listenForWorkbenchServe(server, requestedPort, host, config, opts);');
+    ok(bootStart > 0 && listenAt > bootStart, 's 定位到真实 boot 段与 serve 监听组合口');
+    assert.ok(bootStart > 0 && listenAt > bootStart, 'cannot establish real listen boundary');
+    const beforeListen = boot.slice(bootStart, listenAt);
+    const afterListen = boot.slice(listenAt);
+    // The wrapper deliberately separates ordinary fallback from the identity-
+    // issued strict-port successor ticket. Moving the anchor must not hide that.
+    const strictBranch = bracedBlock(listenWrapper, 'if (strict)');
+    ok(listenWrapper.includes('WorkDataMaintenanceRuntimeHooks.strictSamePort(opts) === true')
+      && strictBranch.includes('await listenOnce(server, port, host); return port;')
+      && !strictBranch.includes('listenWithFallback')
+      && listenWrapper.indexOf('return listenWithFallback(server, port, host, config);') > listenWrapper.indexOf(strictBranch) + strictBranch.length,
+    's 真 wrapper 仅严格 successor 使用原端口,普通 serve 仍走 listenWithFallback');
     // 架构还债批 4:启动时的 Kimi MCP 同步收进 01 syncAgentCliMcpManifests(按 CLI 登记表推给从用户配置读 MCP 的那一家)。
     for (const name of ['syncMcpServersToClaude(config)', 'syncAgentCliMcpManifests(config)', 'getCapabilities(config)']) {
-      ok(!beforeListen.includes(name) && afterListen.includes(name), `s boot 段 listen 之前不再调 ${name}，挪到了 listen 之后`);
+      ok(!beforeListen.includes(name) && !afterListen.includes(name) && warm.includes(name), `s boot 段 listen 之前不再调 ${name}，统一在延后 warmup helper`);
     }
     ok(!/await generateMcpConfig\(config\.mcpCommandMode\)/.test(beforeListen)
-      && /void generateMcpConfig\(config\.mcpCommandMode\)/.test(afterListen),
-    's MCP 配置预热也在 listen 之后（原来 autoImportClaudeCodeMcp 内那一发已摘除）');
+      && !/generateMcpConfig\(config\.mcpCommandMode\)/.test(afterListen)
+      && warm.includes('generateMcpConfig(config.mcpCommandMode)'),
+    's MCP 配置预热只在延后 warmup helper（原来 autoImportClaudeCodeMcp 内那一发已摘除）');
+    const deferredWarmup = bracedBlock(afterListen, 'setTimeout(() => setImmediate(() =>');
+    const freshBranch = bracedBlock(deferredWarmup, "if(typeof WorkDataMaintenanceHooks.fresh==='function')");
+    const parkedBranch = bracedBlock(freshBranch, 'if(!WorkDataMaintenanceHooks.accepting())');
+    assert.ok(deferredWarmup && freshBranch && parkedBranch, 'complete deferred callback and maintenance gates must be sliced');
+    ok(deferredWarmup.startsWith('setTimeout(() => setImmediate(() =>') && deferredWarmup.trimEnd().endsWith('}')
+      && deferredWarmup.includes('else void work().catch(()=>{});')
+      && deferredWarmup.includes('const work=()=>warmWorkbenchServices(config);')
+      && parkedBranch.includes('WorkDataMaintenanceHooks.deferBootWarmup(work);return;')
+      && freshBranch.includes("void WorkDataMaintenanceHooks.fresh('boot-warmup',work).catch(()=>{});")
+      && freshBranch.indexOf(parkedBranch) < freshBranch.indexOf("WorkDataMaintenanceHooks.fresh('boot-warmup',work)")
+      && !beforeListen.includes('warmWorkbenchServices(config)'),
+    's listen 后定时 warmup 通过 fresh 维护入场,暂停时先停放并返回');
     ok(/const BOOT_PROBE_WARMUP_MS = \d+;/.test(afterListen) && /setTimeout\(\(\) => setImmediate\(\(\) => \{/.test(afterListen),
       's 探针段用「listen 之后再让一小段起跑延迟」的形状（同步 spawnSync 会占住事件循环，只 setImmediate 不够）');
     ok(/^\s*const imp = await autoImportClaudeCodeMcp\(config\)/m.test(beforeListen),
@@ -137,9 +165,12 @@ function getJson(pathname, token, timeoutMs) {
       's 异步孪生 detectDesktopMcpAsync／pickPythonAsync 都在');
     ok(/function probeDesktopPythonAsync\(/.test(src) && /cp\.execFile\(candidate\.command/.test(src),
       's 异步探针走 cp.execFile（不过 shell，与 spawnSync 那支同口径）');
-    const warmAt = afterListen.indexOf('void ensureDesktopMcpWarm(config).then(() => {');
-    ok(warmAt > 0 && warmAt < afterListen.indexOf('syncMcpServersToClaude(config)'),
-      's boot 段先 ensureDesktopMcpWarm()，三处 fire-and-forget 排在它的 .then 里（预热之后它们的同步前缀全部吃缓存）');
+    const warmAt = warm.indexOf('ensureDesktopMcpWarm(config).then(');
+    const afterProbe = sliceBlock(warm, 'settle(ensureDesktopMcpWarm(config).then(()=>Promise.all([', '])))', { inclusive: true });
+    ok(warmAt > 0 && afterProbe
+      && ['syncMcpServersToClaude(config)', 'syncAgentCliMcpManifests(config)', 'getCapabilities(config)', 'generateMcpConfig(config.mcpCommandMode)']
+        .every(name => afterProbe.includes(name) && warm.indexOf(name) > warmAt),
+      's 真 warmup helper 先 ensureDesktopMcpWarm(),四处工作均在完成后的同一分支（同步前缀全部吃缓存）');
   } finally {
     kill(wb);
     await sleep(300);

@@ -7,6 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
+const { functionBlock } = require('./lib/source-slice');
 const { readFrontendSrc } = require('./read-frontend-src.js'); // 2.2 门修复:845bb8c 拆域后前端增量缓存逻辑搬到 js/ 域文件,单读 app.js 9 条 S 锁恒红
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
@@ -50,9 +51,20 @@ ok(/const AGENT_RUN_EVENTS_PAGE_MAX = 500;/.test(src) && /async function readAge
 ok(/const evt = safeJsonParse\(t, null\);\s*\n\s*if \(!evt \|\| !Number\.isFinite\(Number\(evt\.seq\)\)\) continue;/.test(src), 'S 事件解析逐行 safeJsonParse 跳坏行(尾行半写免疫)');
 // 长任务优化(对抗轮 #1):大文件只读尾窗,回溯不足才回落全读。
 ok(/const AGENT_RUN_EVENTS_TAIL_BYTES = 512 \* 1024;/.test(src), 'S 尾窗/整读阈值 512KB');
-ok(/if \(size <= AGENT_RUN_EVENTS_TAIL_BYTES\) return fullRead\(\);/.test(src), 'S 小文件整读(便宜恒完整)');
-ok(/if \(minSeq <= floor \+ 1\) return finish\(matched\);/.test(src) && /return fullRead\(\);/.test(src), 'S 尾窗回溯到 afterSeq+1 即完整,否则回落全读(冷客户端保正确性)');
-ok(/parseEventWindow\(buf\.toString\('utf8', 0, bytesRead\), floor, true\)/.test(src), 'S 尾窗按字节切 + 丢半行(droppedHead)');
+const eventReader = functionBlock(src, 'readAgentRunEvents'), eventWindow = functionBlock(src, 'agentRunEventWindow');
+const eventJournal = functionBlock(src, 'agentRunEventsJournal'), eventParser = functionBlock(src, 'parseEventWindow');
+ok(Boolean(eventReader && eventWindow && eventJournal) && eventReader.includes('runKeyedChain(agentRunEventChains, runId,')
+  && eventReader.includes('.withOperation(async operation =>') && eventJournal.includes('return WorkDataJournals.create(')
+  && eventReader.includes('AGENT_RUN_EVENTS_TAIL_BYTES, AGENT_RUN_EVENTS_TAIL_BYTES, operation')
+  && eventWindow.includes('if (size <= fullBytes) return { text: await fsp.readFile(file, \'utf8\'), droppedHead: false };'),
+  'S 同一真实 journal operation 内小文件整读(便宜恒完整)');
+ok(eventReader.includes('if (!window.droppedHead || minSeq <= floor + 1) return finish(matched);')
+  && eventReader.includes('agentRunEventWindow(sessionId, runId, Infinity, 1, operation)'),
+  'S 尾窗回溯到 afterSeq+1 即完整,否则同 operation 回落全读(冷客户端保正确性)');
+ok(eventWindow.includes('await readFileTail(file, tailBytes)') && eventWindow.includes("text: buf.toString('utf8', 0, bytesRead), droppedHead: true")
+  && eventReader.includes('parseEventWindow(window.text, floor, window.droppedHead)')
+  && eventParser.includes('const start = droppedHead ? 1 : 0;'),
+  'S journal 尾窗仍按字节切 + 真实解析器丢半行(droppedHead)');
 // 路由顺序:events 端点必须排在通配 GET /api/agent-runs/ 之前(线性 if 链顺序即优先级)。
 const evRouteIdx = src.indexOf("pathname.endsWith('/events')");
 const genericGetIdx = src.indexOf("const runId = safeSessionId(pathname.slice('/api/agent-runs/'.length));");

@@ -2,9 +2,9 @@
 // Test-only, bounded B0 plan/assertions. Importing this file does no FS/native work.
 const path=require('node:path'),crypto=require('node:crypto'),a=require('node:assert/strict');
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
-const LIMITS=Object.freeze({outerMs:120000,commandMs:120000,closeMs:2000,metadataMs:30000,capsules:12,metadata:2,wireBytes:1048576});
+const LIMITS=Object.freeze({outerMs:120000,commandMs:120000,closeMs:2000,metadataMs:30000,capsules:8,metadata:2,wireBytes:1048576});
 const RELS=Object.freeze(['','D','D/A','D/B']);
-const PHASES=Object.freeze([['initial-preserved',['capture-preserved','capture-preserved']],['initial-verify',['capture-preserved','capture-preserved']],['N0',['capture-preserved']],['seal',['attach','seal-attached','verify']],['restore',['attach','publish-check','restore','publish']],['final-preserved',['capture-preserved','capture-preserved']],['final-verify',['capture-preserved','capture-preserved']],['final-native',['capture-preserved']]]);
+const PHASES=Object.freeze([['initial-preserved',['capture-preserved-census-first','capture-preserved-census-final']],['initial-verify',['capture-preserved-census-first','capture-preserved-census-final']],['N0',['capture-preserved']],['seal',['attach','seal-attached','verify']],['restore',['attach','publish-check','restore','publish']],['final-preserved',['capture-preserved-census-first','capture-preserved-census-final']],['final-verify',['capture-preserved-census-first','capture-preserved-census-final']],['final-native',['capture-preserved']]]);
 const FACTORY_SHA='d32f7de37b6f8c16df0eb7a773303051003a90a1e9b64453bde4f4160bfe32b8';
 function error(code,cause){return Object.assign(Error(code),{code,...(cause===undefined?{}:{cause})});}
 class State{

@@ -5,6 +5,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { assertRunCoordinates, assertRunIdentity } = require('./sealed-run-contract.cjs');
 
 function assertSameDirectory(left, right) {
   // RootAuthority canonicalizes Windows names; a manifest may preserve the
@@ -20,9 +21,10 @@ function assertSameDirectory(left, right) {
 function requestShape(message) {
   assert.ok(message && typeof message === 'object' && !Array.isArray(message));
   assert.ok(Number.isSafeInteger(message.id) && message.id > 0);
-  assert.ok(['ledger', 'journal'].includes(message.op), 'read-only observer operation');
-  assert.deepEqual(Object.keys(message).sort(), message.op === 'journal' ? ['id', 'op', 'sid'] : ['id', 'op']);
-  if (message.op === 'journal') assert.match(message.sid, /^[A-Za-z0-9_-]{1,128}$/, 'session identity, never a caller path');
+  assert.ok(['ledger', 'journal', 'run'].includes(message.op), 'read-only observer operation');
+  assert.deepEqual(Object.keys(message).sort(), message.op === 'run' ? ['id', 'op', 'runId', 'sid'] : message.op === 'journal' ? ['id', 'op', 'sid'] : ['id', 'op']);
+  if (message.op !== 'ledger') assert.match(message.sid, /^[A-Za-z0-9_-]{1,128}$/, 'session identity, never a caller path');
+  if (message.op === 'run') assertRunCoordinates(message.sid, message.runId);
   return message;
 }
 
@@ -37,6 +39,10 @@ async function readObservation(api, selected, manifest, raw) {
   await verifyRoot();
   let value;
   if (message.op === 'ledger') value = await api.externalBotReadState();
+  else if (message.op === 'run') {
+    value = await api.readAgentRunSnapshot(message.sid, message.runId, { strict: true });
+    assertRunIdentity(value, message.sid, message.runId);
+  }
   else {
     const text = fs.readFileSync(path.join(selected.root, 'sessions', message.sid + '.interventions.ndjson'), 'utf8');
     const decoded = await api.decodeSessionJournalText(message.sid, 'interventions', text);
@@ -59,7 +65,7 @@ async function serve(home) {
   assert.equal(config.workDataEncryptionV1, true);
   const api = require('../server-internals.js').loadServerInternals([
     'WorkDataManifest', 'WorkDataKeys', 'LocalSecretCrypto', 'ServerOwnership', 'atomicWriteJson',
-    'WorkDataRootHooks', 'workDataKeys', 'externalBotReadState', 'decodeSessionJournalText', 'paths',
+    'WorkDataRootHooks', 'workDataKeys', 'externalBotReadState', 'decodeSessionJournalText', 'readAgentRunSnapshot', 'paths',
   ]);
   const manifest = api.WorkDataManifest.create({ base: home });
   const owner = await api.ServerOwnership.acquire([home]);

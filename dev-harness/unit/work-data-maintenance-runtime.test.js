@@ -5,12 +5,12 @@ const runtimeGlobals={};
 const load=(file,symbol)=>vm.runInNewContext(fs.readFileSync(file==='13am-work-data-maintenance-runtime.js'?runtimeSource:p.join(__dirname,'../../ruyi-workbench/app/src',file),'utf8')+'\n'+symbol,{require,Buffer,process,http,crypto:require('node:crypto'),URL,setTimeout,clearTimeout,...runtimeGlobals});
 const GenuineOwnership=load('01g-server-ownership.js','ServerOwnership');runtimeGlobals.ServerOwnership=GenuineOwnership;
 const Runtime=load('13am-work-data-maintenance-runtime.js','WorkDataMaintenanceRuntime'),Result=load('01ae-work-data-maintenance-result.js','WorkDataMaintenanceResult'),Control=load('13aj-work-data-control.js','WorkDataMaintenanceControl'),Manifest=load('01v-work-data-manifest.js','WorkDataManifest');
-async function fixture(t){
+async function fixture(t,bindHost='127.0.0.1'){
  const root=await io.mkdtemp(p.join(os.tmpdir(),'ruyi-runtime-unit-')),base=p.join(root,'base');await io.mkdir(base);
  const canonicalBase=await GenuineOwnership.canonicalRoot(base),ownership=await GenuineOwnership.acquire([base]),sourceKeeper=GenuineOwnership.createSourceKeeper(ownership,canonicalBase);
  const server=http.createServer();
  t.after(async()=>{if(server.listening)await new Promise(resolve=>server.close(resolve));await sourceKeeper.releaseChecked(()=>GenuineOwnership.owns(ownership,canonicalBase));await ownership.release();assert.equal(p.dirname(root),p.resolve(os.tmpdir()));assert.ok(p.basename(root).startsWith('ruyi-runtime-unit-'));await io.rm(root,{recursive:true,force:true});});
- await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ await new Promise(resolve=>server.listen(0,bindHost,resolve));
  // This fixture's real keeper spans the entire test, including parked no-IO failure progress.
  const scoped=async(owner,work)=>{if(!GenuineOwnership.owns(owner,canonicalBase)||!sourceKeeper.assertExclusive(owner))throw Object.assign(Error('fixture source owner unavailable'),{code:'work_data_setup.ownership_required'});return work();};
  const workerHooks={},state={ready:true,helpers:false,retired:false,creates:[],starts:[],exits:[],reads:0,fresh:0};
@@ -21,7 +21,7 @@ async function fixture(t){
   adaptersReady:()=>state.ready,helperMayStillRun:()=>state.helpers,isRetired:()=>state.retired===true,
   retiredReceipt:()=>state.retired===true?{phase:'retired',admitted:0,writers:0,dirty:0,busy:{}}:null,
   stopUncommitted:async()=>{},exit:async code=>state.exits.push(code),command:mode=>({command:process.execPath,args:['fixture',mode]}),startFreshServe:async()=>{state.fresh++;}};
- const runtime=Runtime.create(host),context={base,ownership,server,listener:{host:'127.0.0.1',port:server.address().port}};return {root,base,host,runtime,context,state,workerHooks,server,ownership};
+ const runtime=Runtime.create(host),context={base,ownership,server,listener:{host:bindHost,port:server.address().port}};return {root,base,host,runtime,context,state,workerHooks,server,ownership};
 }
 test('missing real adapter capability captures actual owner/readResult but never advertises start',async t=>{
  const f=await fixture(t);f.state.ready=false;assert.equal(await f.runtime.captureServe(f.context),false);assert.equal(f.runtime.activateServe(),false);assert.equal(f.workerHooks.start,undefined);assert.equal(typeof f.workerHooks.readResult,'function');assert.equal(await f.workerHooks.readResult(),null);assert.equal(f.state.creates.length,0);
@@ -31,6 +31,38 @@ test('only exact true readiness and false helper status can advertise a worker',
 });
 test('actual listener port host and captured OS-owner root must agree',async t=>{
  for(const change of [f=>f.context.listener.port++,f=>f.context.listener.host='::1',f=>f.context.ownership={roots:[f.root]}]){const f=await fixture(t);change(f);await assert.rejects(()=>f.runtime.captureServe(f.context));assert.equal(f.workerHooks.start,undefined);}
+});
+test('ordinary non-loopback serve remains live without acquiring a loopback maintenance capability',async t=>{
+ const f=await fixture(t,'0.0.0.0');
+ assert.equal(await f.runtime.captureServe(f.context),false);
+ assert.equal(f.server.listening,true);assert.equal(f.server.address().address,'0.0.0.0');
+ assert.equal(f.runtime.activateServe(),false);assert.equal(f.runtime.workerReady(),false);
+ assert.equal(f.workerHooks.start,undefined);assert.equal(f.workerHooks.readResult,undefined);
+ assert.equal(f.state.creates.length,0);assert.equal(f.state.starts.length,0);
+ await assert.rejects(()=>f.runtime.runCold(),{code:'work_data_setup.worker_unavailable'});
+ let channelCalls=0;
+ const channel={parentConnected:()=>{channelCalls++;return true;},parentPid:()=>{channelCalls++;return 88;},
+  readInput:async()=>{channelCalls++;return Buffer.from('{}');},send:async()=>{channelCalls++;}};
+ await assert.rejects(()=>f.runtime.prepareSuccessor(channel,{base:f.base}),{code:'work_data_setup.successor_unavailable'});
+ await assert.rejects(()=>f.runtime.runSuccessor(channel),{code:'work_data_setup.successor_unavailable'});
+ assert.equal(channelCalls,0);assert.equal(f.state.fresh,0);
+ await assert.rejects(()=>f.runtime.completeSuccessor(),{code:'work_data_setup.successor_not_prepared'});
+ await assert.rejects(()=>f.runtime.captureServe(f.context),{code:'work_data_setup.runtime_already_bound'});
+});
+test('ordinary unsupported capture still requires its exact live port, complete shape and genuine OS owner',async t=>{
+ for(const mutate of [f=>f.context.listener.port++,f=>f.context.ownership={roots:[f.root]},
+  f=>f.context.listener.extra=true,f=>f.context.listener.host=' 0.0.0.0']){
+  const f=await fixture(t,'0.0.0.0');mutate(f);
+  await assert.rejects(()=>f.runtime.captureServe(f.context));assert.equal(f.workerHooks.start,undefined);
+  assert.throws(()=>f.runtime.activateServe(),{code:'work_data_setup.runtime_not_captured'});
+ }
+ const f=await fixture(t,'0.0.0.0');await new Promise(resolve=>f.server.close(resolve));
+ await assert.rejects(()=>f.runtime.captureServe(f.context),{code:'work_data_setup.listener_changed'});
+ for(const address of [null,7,{}]){
+  const f=await fixture(t,'0.0.0.0');f.context.server={listening:true,address};
+  await assert.rejects(()=>f.runtime.captureServe(f.context),{code:'work_data_setup.listener_changed'});
+  assert.throws(()=>f.runtime.activateServe(),{code:'work_data_setup.runtime_not_captured'});
+ }
 });
 test('handshake may start after drain but old process exits only on exactly retired admission',async t=>{
  const f=await fixture(t);assert.equal(await f.runtime.captureServe(f.context),true);assert.equal(f.workerHooks.start,undefined);f.runtime.activateServe();await f.workerHooks.start({id:'a'.repeat(48)});assert.equal(f.state.starts.length,1);

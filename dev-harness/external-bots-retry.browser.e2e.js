@@ -4,16 +4,16 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const PINS=Object.freeze({
- 'dev-harness/external-bots.browser.e2e.js':'705afbde85d9ef1db75bb50de7ed1d5d58c1a8d1ffa8e26fe76cbc572dda1e14',
- 'ruyi-workbench/app/src/13w-external-bots.js':'b2f8ace6d451c10d4d7248d08979dfd65256be4ab0b67331ded41916a1378e97',
- 'ruyi-workbench/app/src/01b-route-auth.js':'aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2',
- 'ruyi-workbench/app/src/13x-external-channel-delivery.js':'3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b',
- 'ruyi-workbench/app/public/js/external-bots.js':'aa7ce51e790e4715d68736fe98a9dc2e912e5cb1a565130426429a9120705f62',
+ 'dev-harness/external-bots.browser.e2e.js':'f493381bf29f9580f5f57cb357d53c576823eea749bb78ac7bf2ccfa1e3df171',
+ 'ruyi-workbench/app/src/13w-external-bots.js':'3d55ac5bb0f0a92851323b4a8d208d419ee37ae9565da32a51f67f5246bec826',
+ 'ruyi-workbench/app/src/01b-route-auth.js':'c587587d7f3fbc37925682c221d5b5bba27812991418d28c3bd47577b93031d5',
+ 'ruyi-workbench/app/src/13x-external-channel-delivery.js':'fc8be61895159daa8b5ec219078b1c944f11fe3f3593c44a51473737348606d3',
+ 'ruyi-workbench/app/public/js/external-bots.js':'ae6ed77e9027153ba1f90975681d42ca8c29f50d829e356b621d2905cb384095',
  'ruyi-workbench/app/public/js/external-bot-retry-state.js':'5d265f023ceafe4fc12e769d782cd06d255995562e32cbe685d537706ad4e56a',
- 'ruyi-workbench/app/public/index.html':'36db89aab9f38ad4efd247a360cd9545921dc5ed5a6facaacffe61d763df3a3b',
- 'ruyi-workbench/app/public/locales/en-US.json':'2963eddf70fd51b484e698e4fdac53908a6f1b0e3e273ad7d9ae807603ff91ab',
- 'ruyi-workbench/app/public/locales/zh-CN.json':'f7333e1cd4ac632740203bdffdb8569162bf8b35ad9cd8c0dcd906d5859378fa',
- "dev-harness/lib/browser-fixture.js":"7b74bc900ccf127ce37f48342efb6903453e174a33f9421fc36bbfa6ae46afbf",
+ 'ruyi-workbench/app/public/index.html':'68a1f703535897b66bed3a0fe8c1ed3b308144eb3582ce7d18411f2746f2ca1b',
+ 'ruyi-workbench/app/public/locales/en-US.json':'ee3ac57c69683d04843f532e83f7a1990336d49fa137a5844892406d0ec10c65',
+ 'ruyi-workbench/app/public/locales/zh-CN.json':'45aae6bf6be59438598a5e44a8a11f9f555b00408113f3a942a413704f86c116',
+ "dev-harness/lib/browser-fixture.js":"faad219e74c2976b94bba9ee472279c2fb9eef264aa632e58e6f158c291a96b2",
  "dev-harness/lib/external-channel-delivery-preload.js":"983925b6c43a47be1ac831147fa37c39746c222657a824750f925669c456b63f",
  "dev-harness/lib/external-bot-fixtures.js":"52df68555db7f9c89dcf3140e9a0b8856995ed62a6418928e71befecdcf07e02"
 });

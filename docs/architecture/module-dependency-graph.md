@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4356 | 4306 | 948 | 67 | 0 | 1 |
+| 141 | 4357 | 4310 | 948 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -57,7 +57,7 @@
 | 39 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 40 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 41 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 42 | `02-session-store.js` | foundation | 416 | 86 | 22 |
+| 42 | `02-session-store.js` | foundation | 417 | 86 | 22 |
 | 43 | `03-bridge-guard.js` | foundation | 122 | 31 | 7 |
 | 44 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 45 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -86,7 +86,7 @@
 | 68 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 69 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 70 | `06j-scheduler-core.js` | engine | 47 | 0 | 0 |
-| 71 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
+| 71 | `06k-config-patch.js` | engine | 1 | 25 | 8 |
 | 72 | `07-autonomy.js` | orchestration | 157 | 92 | 21 |
 | 73 | `08-agent-runs.js` | orchestration | 133 | 128 | 25 |
 | 74 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
@@ -390,14 +390,14 @@
 | `06g-resource-leases.js` | `02-session-store.js` | backward | `collectBridgedWriteTargets` |
 | `06g-resource-leases.js` | `03-bridge-guard.js` | backward | `pathWithinRoot` |
 | `06i-steward-core.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
-| `06k-config-patch.js` | `00-boot.js` | backward | `fsp`, `os`, `path`, `paths` |
-| `06k-config-patch.js` | `01-config.js` | backward | `ConfigPatchHooks`, `invalidateAgentCliPathCaches`, `mutateConfig`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude` |
+| `06k-config-patch.js` | `00-boot.js` | backward | `URL`, `fsp`, `os`, `path`, `paths` |
+| `06k-config-patch.js` | `01-config.js` | backward | `ConfigPatchHooks`, `invalidateAgentCliPathCaches`, `mutateConfig`, `normalizeConfig`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude` |
 | `06k-config-patch.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES_REQUIRING_CONFIRM` |
-| `06k-config-patch.js` | `02-session-store.js` | backward | `rememberLastUsedEngineRoute` |
+| `06k-config-patch.js` | `02-session-store.js` | backward | `rememberLastUsedEngineRouteInConfig` |
 | `06k-config-patch.js` | `02e-session-engine-route.js` | backward | `sessionEngineRouteFromConfig` |
 | `06k-config-patch.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `invalidateMcpRuntime`, `logEvent` |
-| `06k-config-patch.js` | `05-claude-engine.js` | backward | `maskedSecretConflictMessage`, `maskedSecretConflicts`, `unmaskSecrets` |
-| `06k-config-patch.js` | `06i-steward-core.js` | backward | `StewardHooks` |
+| `06k-config-patch.js` | `05-claude-engine.js` | backward | `maskedSecretConflictMessage`, `maskedSecretConflicts`, `sanitizeProvider`, `unmaskSecrets` |
+| `06k-config-patch.js` | `06i-steward-core.js` | backward | `StewardHooks`, `stewardChatCapableProvider` |
 | `07-autonomy.js` | `00-boot.js` | backward | `EventStreamHooks`, `InternalMcpHooks`, `MemoryCliHooks`, `TOOL_TIER_RANK`, `URL`, `apiFailure`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `07-autonomy.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID` |
 | `07-autonomy.js` | `01-config.js` | backward | `atomicWriteJson`, `buildUserEnvelope`, `decodeClaudeCliText`, `detectClaudePath`, `effectiveAnthropicEnv`, `generateAgentNodeMcpConfig`, `readConfig`, `safeSessionId` |
