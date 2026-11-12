@@ -1,0 +1,10 @@
+{
+  "candidate": "/tmp/ruyi-p6-candidate-full-fifth",
+  "sourceCommit": "eee685123a2124b71522f59ed44a40f2c4f679ba",
+  "treeSha256": "6fa48187350c2898da8c24955896ec13886505dcc05736e0e5412140648ba5fc",
+  "manifestSha256": "e75e40c83ed152fd8c5b8000a199b6d6ecd6280f1767ed15447ddddedce29af5",
+  "files": 9790,
+  "native": 209,
+  "bytes": 1165679168,
+  "note": "Development candidate before the relative-data-root correction; all other production inputs bound in its full manifest. Final commit-bound candidates are recorded separately."
+}

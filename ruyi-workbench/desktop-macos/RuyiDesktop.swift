@@ -59,7 +59,10 @@ final class RuyiDesktop: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         if report != nil, let path = argument("--acceptance-screenshot") { screenshot = URL(fileURLWithPath: path) }
         if report != nil, let path = argument("--acceptance-script"), let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
            data.count <= 65536, let script = String(data: data, encoding: .utf8) { acceptanceScript = script }
-        let root = argument("--workbench-root") ?? Bundle.main.object(forInfoDictionaryKey: "RuyiWorkbenchRoot") as? String ?? ""
+        let bundled = Bundle.main.object(forInfoDictionaryKey: "RuyiBundledWorkbench") as? String == "true"
+        let bundledRoot = Bundle.main.resourceURL?.appendingPathComponent("workbench").path ?? ""
+        let root = bundled ? bundledRoot
+            : argument("--workbench-root") ?? Bundle.main.object(forInfoDictionaryKey: "RuyiWorkbenchRoot") as? String ?? ""
         service = DesktopService(root: URL(fileURLWithPath: root), environment: ProcessInfo.processInfo.environment)
         buildMenu()
         hostBridge.activate = { [weak self] in self?.activateWindow() }

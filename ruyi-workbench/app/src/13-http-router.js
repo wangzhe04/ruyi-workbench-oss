@@ -2596,11 +2596,20 @@ async function startMcp() {
   // in the serve process and cannot survive across this transient child's turns.
   RUNTIME.isMcpChild = true;
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  let inputClosed = false;
+  let pendingRequests = 0;
+  const closeBridgesWhenDrained = () => {
+    if (inputClosed && pendingRequests === 0) killAllMcpClients();
+  };
+  // EOF accepts no new calls. Finish already accepted requests, then close their bridges so
+  // pipe handles and a live ACC child cannot keep a disconnected stdio server alive forever.
+  rl.once('close', () => { inputClosed = true; closeBridgesWhenDrained(); });
   rl.on('line', line => {
     void (async () => {
-      if (!line.trim()) return;
+      if (inputClosed || !line.trim()) return;
       const msg = safeJsonParse(line);
       if (!msg || !msg.method) return;
+      pendingRequests += 1;
       try {
         if (msg.method === 'initialize') {
           return sendMcp(msg.id, {
@@ -2709,6 +2718,9 @@ async function startMcp() {
         try { PrivacyGateway.assertSupported(await readConfig(), 'external-error'); }
         catch (policyError) { err = new Error(policyError.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'); }
         return sendMcp(msg.id, null, err);
+      } finally {
+        pendingRequests -= 1;
+        closeBridgesWhenDrained();
       }
     })();
   });

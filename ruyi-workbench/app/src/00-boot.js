@@ -80,8 +80,8 @@ function dataRootMemoKey() {
   return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
 }
 function resolveDataRootUncached() {
-  if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
-  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
+  if (process.env.RUYI_HOME) return path.resolve(process.env.RUYI_HOME);
+  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return path.resolve(process.env.WIN_CLAUDE_WORKBENCH_HOME);
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return next;
   const old = lstatOrNull(legacy);
@@ -163,19 +163,23 @@ function externalRoot() {
 // system Python that cannot import openpyxl/winsdk. Expose the bundled interpreter process-wide so
 // native provider tools, Claude CLI children, PowerShell tasks, and direct Ruyi.exe launches agree.
 function exposeBundledPythonRuntime() {
-  if (process.platform !== 'win32') return '';
-  const pythonDir = path.join(externalRoot(), 'mcp', 'ai-computer-control', 'python_embed');
-  const pythonExe = path.join(pythonDir, 'python.exe');
+  if (!['win32', 'darwin'].includes(process.platform)) return '';
+  const pythonDir = process.platform === 'darwin'
+    ? path.join(externalRoot(), 'mcp', 'ai-computer-control', 'runtime', 'python', 'bin')
+    : path.join(externalRoot(), 'mcp', 'ai-computer-control', 'python_embed');
+  const pythonExe = path.join(pythonDir, process.platform === 'darwin' ? 'python3' : 'python.exe');
   try { if (!fs.existsSync(pythonExe)) return ''; } catch { return ''; }
   const currentPath = String(process.env.PATH || process.env.Path || '');
   const pathDirs = currentPath.split(path.delimiter).filter(Boolean);
-  if (!pathDirs.some(dir => path.resolve(dir).toLowerCase() === path.resolve(pythonDir).toLowerCase())) {
+  const normalized = dir => process.platform === 'win32' ? path.resolve(dir).toLowerCase() : path.resolve(dir);
+  if (!pathDirs.some(dir => normalized(dir) === normalized(pythonDir))) {
     process.env.PATH = [pythonDir, ...pathDirs].join(path.delimiter);
   }
   process.env.PYTHON = pythonExe;
   process.env.PYTHONUTF8 = '1';
   // Keep the signed release runtime immutable when user scripts import source-only packages.
   process.env.PYTHONDONTWRITEBYTECODE = '1';
+  if (process.platform === 'darwin') process.env.PYTHONNOUSERSITE = '1';
   process.env.RUYI_BUNDLED_PYTHON = pythonExe;
   return pythonExe;
 }

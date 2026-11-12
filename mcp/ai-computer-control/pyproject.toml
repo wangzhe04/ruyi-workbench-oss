@@ -7,6 +7,7 @@ name = "ai-computer-control"
 version = "1.9.1"
 description = "MCP Server for AI computer control - offline deployable toolkit"
 requires-python = ">=3.12"
+license = {file = "LICENSE"}
 # v1.9 (49d, 03 Phase B #5 / T2): 依赖声明与 README「可选优雅降级」对齐 —— 只有缺了就连
 # 桌面基础操控都做不了的留在硬依赖;browser/uia/pptx/charts 全部移入 extras(代码本就
 # graceful-degrade,此前硬依赖声明与文档矛盾,且白白拉大最小安装体积)。

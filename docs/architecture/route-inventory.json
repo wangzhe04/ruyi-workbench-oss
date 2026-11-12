@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-11T23:49:11.418Z",
+  "generatedAt": "2026-11-12T06:46:46.453Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1031,6 +1031,7 @@
         "dev-harness\\help-viewer.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\macos-office-artifacts.e2e.js",
+        "dev-harness\\macos-offline-package.e2e.js",
         "dev-harness\\macos-overlay-boundary.e2e.js",
         "dev-harness\\macos-platform-templates.e2e.js",
         "dev-harness\\net-token-replay.static.e2e.js",
@@ -2346,6 +2347,7 @@
         "dev-harness\\i18n.e2e.js",
         "dev-harness\\macos-native-entry.e2e.js",
         "dev-harness\\macos-office-artifacts.e2e.js",
+        "dev-harness\\macos-offline-package.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\tools-v3.e2e.js"
@@ -3748,6 +3750,7 @@
         "dev-harness\\macos-native-readiness.e2e.js",
         "dev-harness\\macos-neutral-abort.e2e.js",
         "dev-harness\\macos-office-artifacts.e2e.js",
+        "dev-harness\\macos-offline-package.e2e.js",
         "dev-harness\\macos-runtime-start.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
@@ -4055,6 +4058,7 @@
         "dev-harness\\macos-native-readiness.e2e.js",
         "dev-harness\\macos-neutral-abort.e2e.js",
         "dev-harness\\macos-office-artifacts.e2e.js",
+        "dev-harness\\macos-offline-package.e2e.js",
         "dev-harness\\macos-runtime-start.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",

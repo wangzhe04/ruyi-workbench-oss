@@ -1,0 +1,31 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const repo='/Users/jiming/Documents/ruyi-workbench-mac';
+require(path.join(repo,'dev-harness/lib/self-isolate-home'));
+const {fixtureChildEnv}=require(path.join(repo,'dev-harness/lib/fixture-home'));
+const {killOwnTree}=require(path.join(repo,'dev-harness/lib/kill-own-tree'));
+const server=path.join(repo,'ruyi-workbench/app/server.js');
+const directory=__dirname;
+const fake=path.join(directory,'fake.cjs');
+fs.writeFileSync(fake,`const fs=require('fs');fs.writeFileSync(process.env.REVIEW_PID,String(process.pid));const rl=require('readline').createInterface({input:process.stdin});rl.on('line',l=>{let m;try{m=JSON.parse(l)}catch{return}if(m.id===undefined)return;let result=m.method==='initialize'?{protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'review',version:'1'}}:m.method==='tools/list'?{tools:[{name:'review_echo',description:'review EOF fixture',inputSchema:{type:'object'}}]}:{content:[{type:'text',text:'ok'}]};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);
+const preload=path.join(directory,'cleanup-preload.cjs');
+fs.writeFileSync(preload,`const timers=[];for(const name of ['setTimeout','setInterval']){const orig=global[name];global[name]=(...args)=>{const h=orig(...args);timers.push({name,h,ms:args[1],stack:new Error().stack});return h;}}process.stdin.once('end',()=>{require(${JSON.stringify(server)}).killAllMcpClients();setTimeout(()=>console.error('ACTIVE_RESOURCES',JSON.stringify({resources:process.getActiveResourcesInfo(),timers:timers.filter(t=>!t.h._destroyed&&t.h.hasRef()).map(t=>({name:t.name,ms:t.ms,stack:t.stack}))})),1000);});`);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const alive=pid=>{try{process.kill(pid,0);return true}catch{return false}};
+(async()=>{const outcomes=[];
+for(const cleanup of [false,true]){
+ const fixture=fixtureChildEnv({perTest:true});const root=path.join(fixture.home,'data');fs.mkdirSync(root);const marker=path.join(fixture.home,'backend.pid');
+ fs.writeFileSync(path.join(root,'config.json'),JSON.stringify({configSchema:7,includeWorkbenchMcp:false,autoImportClaudeCodeMcp:false,stewardEnabledV1:false,schedulerEnabledV1:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[{id:'review',command:process.execPath,args:[fake],env:{REVIEW_PID:marker}}],providers:[]}));
+ const child=cp.spawn(process.execPath,[...(cleanup?['--require',preload]:[]),server,'mcp'],{cwd:directory,env:{...fixture.env,RUYI_HOME:root,WIN_CLAUDE_WORKBENCH_HOME:root},stdio:['pipe','pipe','pipe']});
+ const replies=new Map();let stdout='',stderr='';child.stdout.on('data',d=>{stdout+=d;for(const l of stdout.split('\n')){try{const m=JSON.parse(l);if(m.id!==undefined)replies.set(m.id,m)}catch{}}});child.stderr.on('data',d=>stderr+=d);
+ async function rpc(id,method,params={}){child.stdin.write(JSON.stringify({jsonrpc:'2.0',id,method,params})+'\n');const until=Date.now()+20000;while(!replies.has(id)&&Date.now()<until)await sleep(50);if(!replies.has(id))throw new Error('missing RPC '+method+' '+stderr);return replies.get(id)}
+ try{
+ await rpc(1,'initialize',{protocolVersion:'2024-11-05'});
+ const response=await rpc(2,'tools/call',{name:'tool_search',arguments:{query:'review_echo'}});
+ if(!fs.existsSync(marker))throw new Error('fake backend not started '+JSON.stringify(response));const backendPID=Number(fs.readFileSync(marker,'utf8'));
+ child.stdin.end();const until=Date.now()+(cleanup?12000:3000);while(child.exitCode===null&&child.signalCode===null&&Date.now()<until)await sleep(50);
+ outcomes.push({cleanup,backendPID,rootPID:child.pid,rootExitCode:child.exitCode,rootSignal:child.signalCode,backendAlive:alive(backendPID),stderr,toolReply:response.result});
+ }finally{await killOwnTree(child);await sleep(100);}
+}
+fs.writeFileSync(path.join(directory,'report.json'),JSON.stringify(outcomes,null,2));console.log(JSON.stringify(outcomes,null,2));
+})().catch(e=>{console.error(e);process.exitCode=1});

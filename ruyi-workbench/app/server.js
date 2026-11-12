@@ -120,8 +120,8 @@ function dataRootMemoKey() {
   return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
 }
 function resolveDataRootUncached() {
-  if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
-  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
+  if (process.env.RUYI_HOME) return path.resolve(process.env.RUYI_HOME);
+  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return path.resolve(process.env.WIN_CLAUDE_WORKBENCH_HOME);
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return next;
   const old = lstatOrNull(legacy);
@@ -203,19 +203,23 @@ function externalRoot() {
 // system Python that cannot import openpyxl/winsdk. Expose the bundled interpreter process-wide so
 // native provider tools, Claude CLI children, PowerShell tasks, and direct Ruyi.exe launches agree.
 function exposeBundledPythonRuntime() {
-  if (process.platform !== 'win32') return '';
-  const pythonDir = path.join(externalRoot(), 'mcp', 'ai-computer-control', 'python_embed');
-  const pythonExe = path.join(pythonDir, 'python.exe');
+  if (!['win32', 'darwin'].includes(process.platform)) return '';
+  const pythonDir = process.platform === 'darwin'
+    ? path.join(externalRoot(), 'mcp', 'ai-computer-control', 'runtime', 'python', 'bin')
+    : path.join(externalRoot(), 'mcp', 'ai-computer-control', 'python_embed');
+  const pythonExe = path.join(pythonDir, process.platform === 'darwin' ? 'python3' : 'python.exe');
   try { if (!fs.existsSync(pythonExe)) return ''; } catch { return ''; }
   const currentPath = String(process.env.PATH || process.env.Path || '');
   const pathDirs = currentPath.split(path.delimiter).filter(Boolean);
-  if (!pathDirs.some(dir => path.resolve(dir).toLowerCase() === path.resolve(pythonDir).toLowerCase())) {
+  const normalized = dir => process.platform === 'win32' ? path.resolve(dir).toLowerCase() : path.resolve(dir);
+  if (!pathDirs.some(dir => normalized(dir) === normalized(pythonDir))) {
     process.env.PATH = [pythonDir, ...pathDirs].join(path.delimiter);
   }
   process.env.PYTHON = pythonExe;
   process.env.PYTHONUTF8 = '1';
   // Keep the signed release runtime immutable when user scripts import source-only packages.
   process.env.PYTHONDONTWRITEBYTECODE = '1';
+  if (process.platform === 'darwin') process.env.PYTHONNOUSERSITE = '1';
   process.env.RUYI_BUNDLED_PYTHON = pythonExe;
   return pythonExe;
 }
@@ -7960,6 +7964,13 @@ async function desktopMcpFromRepoAsync(repoRoot) {
 // installed package rather than a checkout with src/, so it needs its own recognizer.
 function desktopMcpInstalledEnv(root) {
   const desktopEnv = { PYTHONUTF8: '1' };
+  if (process.platform === 'darwin') {
+    desktopEnv.PYTHONPATH = '';
+    desktopEnv.PYTHONNOUSERSITE = '1';
+    desktopEnv.PYTHONDONTWRITEBYTECODE = '1';
+    desktopEnv.RUYI_MACOS_AUTOMATION_HELPER = path.join(externalRoot(), 'runtime', 'macos', 'ruyi-automation-helper');
+    desktopEnv.ACC_BROWSER_MODE = 'bundled';
+  }
   const bundledBrowsers = path.join(root, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
@@ -7967,8 +7978,12 @@ function desktopMcpInstalledEnv(root) {
 }
 function desktopMcpInstalledPickOptions(root, options) {
   const installedCandidates = [
-    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
-    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ...(process.platform === 'darwin' ? [
+      { command: path.join(root, 'runtime', 'python', 'bin', 'python3'), args: [], source: 'installed-runtime', requireExisting: true },
+    ] : [
+      { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
+      { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ]),
   ];
   return {
     candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
@@ -8020,6 +8035,9 @@ function desktopMcpRootPlan() {
       env.USERPROFILE && path.join(env.USERPROFILE, 'Documents', 'Claude Code', 'ai-computer-control'),
     ].filter(Boolean);
     for (const dir of repoCandidates) {
+      if (process.platform === 'darwin' && fs.existsSync(path.join(dir, 'runtime', 'python', 'bin', 'python3'))) {
+        steps.push({ kind: 'installed', root: path.resolve(dir) });
+      }
       if (!isDesktopMcpRepo(dir)) continue;
       steps.push({ kind: 'repo', root: path.resolve(dir) });
     }
@@ -72899,11 +72917,20 @@ async function startMcp() {
   // in the serve process and cannot survive across this transient child's turns.
   RUNTIME.isMcpChild = true;
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  let inputClosed = false;
+  let pendingRequests = 0;
+  const closeBridgesWhenDrained = () => {
+    if (inputClosed && pendingRequests === 0) killAllMcpClients();
+  };
+  // EOF accepts no new calls. Finish already accepted requests, then close their bridges so
+  // pipe handles and a live ACC child cannot keep a disconnected stdio server alive forever.
+  rl.once('close', () => { inputClosed = true; closeBridgesWhenDrained(); });
   rl.on('line', line => {
     void (async () => {
-      if (!line.trim()) return;
+      if (inputClosed || !line.trim()) return;
       const msg = safeJsonParse(line);
       if (!msg || !msg.method) return;
+      pendingRequests += 1;
       try {
         if (msg.method === 'initialize') {
           return sendMcp(msg.id, {
@@ -73012,6 +73039,9 @@ async function startMcp() {
         try { PrivacyGateway.assertSupported(await readConfig(), 'external-error'); }
         catch (policyError) { err = new Error(policyError.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'); }
         return sendMcp(msg.id, null, err);
+      } finally {
+        pendingRequests -= 1;
+        closeBridgesWhenDrained();
       }
     })();
   });

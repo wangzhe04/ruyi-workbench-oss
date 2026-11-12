@@ -63,7 +63,9 @@ final class DesktopService {
         let files = FileManager.default
         var environment = ProcessInfo.processInfo.environment
         let home = environment["HOME"] ?? files.homeDirectoryForCurrentUser.path
-        let selected = environment["RUYI_NODE_PATH"].flatMap { $0.isEmpty ? nil : $0 }
+        let bundled = Bundle.main.object(forInfoDictionaryKey: "RuyiBundledWorkbench") as? String == "true"
+        let selected = bundled ? root.appendingPathComponent("runtime/node/bin/node").path
+            : environment["RUYI_NODE_PATH"].flatMap { $0.isEmpty ? nil : $0 }
         let candidates = selected.map { [$0] }
             ?? [root.appendingPathComponent("runtime/node/bin/node").path, "\(home)/.local/bin/node", "/opt/homebrew/bin/node", "/usr/local/bin/node"]
         guard let node = candidates.first(where: { $0.hasPrefix("/") && files.isExecutableFile(atPath: $0) }) else {
@@ -75,10 +77,18 @@ final class DesktopService {
             throw DesktopFailure.unavailable("workbench_missing")
         }
         // Finder and terminal share the same explicit environment. Never execute login profiles.
-        environment["PATH"] = [URL(fileURLWithPath: node).deletingLastPathComponent().path,
-                               "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"].joined(separator: ":")
+        environment["PATH"] = ([URL(fileURLWithPath: node).deletingLastPathComponent().path]
+            + (bundled ? [] : ["/opt/homebrew/bin", "/usr/local/bin"])
+            + ["/usr/bin", "/bin", "/usr/sbin", "/sbin"]).joined(separator: ":")
         environment.removeValue(forKey: "NODE_OPTIONS")
         environment.removeValue(forKey: "NODE_PATH")
+        if bundled {
+            for key in ["PYTHONHOME", "PYTHONPATH", "PYTHON", "RUYI_BUNDLED_PYTHON", "RUYI_RG_PATH",
+                        "AI_COMPUTER_CONTROL_HOME", "PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_NODEJS_PATH",
+                        "RUYI_MACOS_PROCESS_HELPER", "RUYI_MACOS_KEYCHAIN_HELPER", "RUYI_MACOS_AUTOMATION_HELPER"] {
+                environment.removeValue(forKey: key)
+            }
+        }
         let child = Process()
         let input = Pipe()
         let output = Pipe()

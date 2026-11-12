@@ -2,6 +2,8 @@
 
 P4 使用 Swift、AppKit 与 WKWebView。当前开发 App 由本机 Apple SDK 构建，使用 ad-hoc 开发签名，读取构建时记录的工作台源码目录。P6 负责离线运行时闭包、Developer ID、公证和正式安装升级。
 
+P6-01 另提供自包含的 arm64 Full/Slim 离线候选构建，程序与运行时放在 App 内部，搬移后不读取开发源码路径。准备资产与离线打包命令见 [离线打包说明](OFFLINE-PACKAGING.md)。这些候选仍使用开发签名，正式身份、公证、干净标准用户安装及 macOS14 实际运行继续待验。
+
 ## 构建与启动
 
 从仓库根目录执行，开发检查使用 Node.js 24。

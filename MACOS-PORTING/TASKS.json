@@ -2107,7 +2107,7 @@
       "dependsOn": [
         "P5"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "effortDays": {
         "low": 8,
         "high": 14
@@ -2121,9 +2121,10 @@
             "high": 4
           },
           "deliverable": "打包 Node/Python/rg/必要 wheels 与浏览器；区分各发行变体承诺能力、许可、hash 校验和版本锁；不打入官方 Agent CLI。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [],
+          "progress": "P6-01 自包含 Full/Slim 构建与独立复核进行中；资产离线重建摘要一致，当前执行搬移/只读/受限网络专项；正式签名、公证、macOS14与干净用户安装未计通过。"
         },
         {
           "id": "P6-02",

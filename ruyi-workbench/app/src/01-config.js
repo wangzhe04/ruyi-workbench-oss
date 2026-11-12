@@ -3650,6 +3650,13 @@ async function desktopMcpFromRepoAsync(repoRoot) {
 // installed package rather than a checkout with src/, so it needs its own recognizer.
 function desktopMcpInstalledEnv(root) {
   const desktopEnv = { PYTHONUTF8: '1' };
+  if (process.platform === 'darwin') {
+    desktopEnv.PYTHONPATH = '';
+    desktopEnv.PYTHONNOUSERSITE = '1';
+    desktopEnv.PYTHONDONTWRITEBYTECODE = '1';
+    desktopEnv.RUYI_MACOS_AUTOMATION_HELPER = path.join(externalRoot(), 'runtime', 'macos', 'ruyi-automation-helper');
+    desktopEnv.ACC_BROWSER_MODE = 'bundled';
+  }
   const bundledBrowsers = path.join(root, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
@@ -3657,8 +3664,12 @@ function desktopMcpInstalledEnv(root) {
 }
 function desktopMcpInstalledPickOptions(root, options) {
   const installedCandidates = [
-    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
-    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ...(process.platform === 'darwin' ? [
+      { command: path.join(root, 'runtime', 'python', 'bin', 'python3'), args: [], source: 'installed-runtime', requireExisting: true },
+    ] : [
+      { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
+      { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ]),
   ];
   return {
     candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
@@ -3710,6 +3721,9 @@ function desktopMcpRootPlan() {
       env.USERPROFILE && path.join(env.USERPROFILE, 'Documents', 'Claude Code', 'ai-computer-control'),
     ].filter(Boolean);
     for (const dir of repoCandidates) {
+      if (process.platform === 'darwin' && fs.existsSync(path.join(dir, 'runtime', 'python', 'bin', 'python3'))) {
+        steps.push({ kind: 'installed', root: path.resolve(dir) });
+      }
       if (!isDesktopMcpRepo(dir)) continue;
       steps.push({ kind: 'repo', root: path.resolve(dir) });
     }

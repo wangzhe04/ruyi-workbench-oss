@@ -2,6 +2,8 @@
 
 **当前状态（2026-11-12）：P5 已按用户选择的已验 Mac 范围完成交付验收，未验项保留后续。** 详见 [收尾记录](evidence/P5/closeout/README.md)。下文旧日期状态保留为历史快照。
 
+P6-01 已开始自包含 arm64 Full/Slim 离线包实现与验证；当前进展及最终候选绑定见 [离线打包记录](evidence/P6/offline/README.md)。正式签名、公证、最低系统与干净安装仍按原阶段关口保留。
+
 版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
 状态更新于2026-11-11。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。
 

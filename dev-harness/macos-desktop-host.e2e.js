@@ -205,11 +205,37 @@ return { previewLoaded: await preview };`);
     const localBin = path.join(fixture.home, '.local', 'bin');
     fs.mkdirSync(localBin, { recursive: true });
     fs.symlinkSync(process.execPath, path.join(localBin, 'node'));
+    // A newly ad-hoc-signed App launched by LaunchServices has a different Documents TCC
+    // identity from its development terminal. Test the LS lifecycle against an exact isolated
+    // program snapshot; real Documents authorization is a separate identity acceptance gate.
+    const launchSource = path.join(root, 'launch-source');
+    const originalSource = path.resolve(__dirname, '../ruyi-workbench');
+    fs.mkdirSync(launchSource);
+    const sourceBinding = [];
+    function bindSnapshot(directory) {
+      for (const item of fs.readdirSync(path.join(originalSource, directory), { withFileTypes: true })) {
+        const relative = path.join(directory, item.name);
+        if (item.isDirectory()) bindSnapshot(relative);
+        else {
+          const fingerprint = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+          const sourceSha256 = fingerprint(path.join(originalSource, relative));
+          const snapshotSha256 = fingerprint(path.join(launchSource, relative));
+          if (sourceSha256 !== snapshotSha256) throw new Error('LaunchServices snapshot differs: ' + relative);
+          sourceBinding.push({ relative, sha256: sourceSha256 });
+        }
+      }
+    }
+    for (const directory of ['app', 'resources', 'config', 'desktop-macos', 'runtime']) {
+      fs.cpSync(path.join(originalSource, directory), path.join(launchSource, directory), { recursive: true });
+      bindSnapshot(directory);
+    }
+    fs.writeFileSync(path.join(root, 'launch-source-binding.json'), JSON.stringify({ originalSource, launchSource, files: sourceBinding }, null, 2));
+    ok(sourceBinding.length > 0, 'LaunchServices fixture program snapshot is bound byte-for-byte to current sources outside Documents');
     const launchReport = path.join(root, 'launch-services.json');
     const launcher = cp.spawn('/usr/bin/open', ['-n', '-W', '-a', bundle,
       '--env', 'HOME=' + fixture.home, '--env', 'USERPROFILE=' + fixture.home,
       '--env', 'RUYI_HOME=' + data, '--env', 'RUYI_NODE_PATH=',
-      '--env', 'PATH=/usr/bin:/bin', '--args', '--acceptance-report', launchReport, '--acceptance-auto-quit'],
+      '--env', 'PATH=/usr/bin:/bin', '--args', '--acceptance-report', launchReport, '--acceptance-auto-quit', '--workbench-root', launchSource],
     { env: { ...process.env, ...fixture.env }, stdio: ['ignore', 'pipe', 'pipe'] });
     children.push(launcher);
     launcher.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-12000); });
