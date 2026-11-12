@@ -1,0 +1,14 @@
+[
+  {
+    "variant": "full",
+    "previous": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+    "preserved": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01-b33",
+    "sourceCommit": "b33d1c6a80569e8d3d50db183a67dd2a7e08f139"
+  },
+  {
+    "variant": "slim",
+    "previous": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01",
+    "preserved": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01-b33",
+    "sourceCommit": "b33d1c6a80569e8d3d50db183a67dd2a7e08f139"
+  }
+]

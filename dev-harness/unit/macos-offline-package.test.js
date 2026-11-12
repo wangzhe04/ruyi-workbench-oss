@@ -56,12 +56,14 @@ test('manifest paths cannot escape their payload root', t => {
   for (const input of ['/absolute', '../escape', 'a/../../escape', 'a\\b', '', 'a//b']) assert.throws(() => safeChild(root, input));
   assert.equal(safeChild(root, 'a/b'), path.join(root, 'a/b'));
 });
-test('native audit rejects a real missing loader-relative dylib', { skip: process.platform !== 'darwin' || process.arch !== 'arm64' }, t => {
+test('native audit handles parenthesis paths and rejects a real missing loader-relative dylib', { skip: process.platform !== 'darwin' || process.arch !== 'arm64' }, t => {
   const root = fixture(t); const source = path.join(root, 'library.c'), main = path.join(root, 'main.c');
   fs.writeFileSync(source, 'int sample(void) { return 0; }\n');
   fs.writeFileSync(main, 'int sample(void); int main(void) { return sample(); }\n');
   run('/usr/bin/xcrun', ['clang', '-arch', 'arm64', '-mmacosx-version-min=14.0', '-dynamiclib', source, '-install_name', '@loader_path/libsample.dylib', '-o', path.join(root, 'libsample.dylib')]);
-  run('/usr/bin/xcrun', ['clang', '-arch', 'arm64', '-mmacosx-version-min=14.0', main, '-L' + root, '-lsample', '-o', path.join(root, 'app')]);
+  const executable = path.join(root, 'app (with parentheses)');
+  run('/usr/bin/xcrun', ['clang', '-arch', 'arm64', '-mmacosx-version-min=14.0', main, '-L' + root, '-lsample', '-o', executable]);
   assert.ok(nativeAudit(root).length >= 2);
+  assert.equal(run(executable, []), '');
   fs.unlinkSync(path.join(root, 'libsample.dylib')); assert.throws(() => nativeAudit(root), /Unresolved/);
 });

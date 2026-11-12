@@ -1,0 +1,2 @@
+PASS full ZIP extraction preserves manifest and complete signed App payload
+PASS slim ZIP extraction preserves manifest and complete signed App payload

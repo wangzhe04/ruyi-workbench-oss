@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_review",
+  "baseCommit": "d46d1469",
+  "reviewedAt": "2026-11-12T07:19:43.750450+00:00",
+  "file": "ruyi-workbench/tools/macos-offline-lib.js",
+  "sha256": "3b5dfc6be1e85bd222be9209e3169f821c041d3f3ab79eabef90596a0e98029c",
+  "conclusion": "No blocking findings in the narrow developer-tool selection change",
+  "scope": "Resolve actual Apple lipo/otool paths once with xcrun --find; pass read-only fd3 directly to those tools",
+  "unchangedChecks": [
+    "arm64 requirement",
+    "minimum OS deployment metadata",
+    "relative/system-only native dependency graph",
+    "internal symlink constraints",
+    "failed subprocess process-group cleanup"
+  ],
+  "runtimeQualification": "Pending independent native regression replay and final rebuilt Full/Slim artifacts",
+  "rootCauseLimit": "The earlier 180-second build timeout did not reproduce in four path/fd/sandbox controls. This change narrows FD handoff and is not proof of a unique root cause."
+}

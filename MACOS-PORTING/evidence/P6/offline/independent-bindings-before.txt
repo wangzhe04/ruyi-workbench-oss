@@ -1,0 +1,18 @@
+Checking full
+/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:68
+  if (result.error || result.status !== 0) throw new Error(path.basename(command) + ' failed: '
+                                           ^
+
+Error: lipo failed: spawnSync /Library/Developer/CommandLineTools/usr/bin/lipo ETIMEDOUT
+    at run (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:68:50)
+    at inspect (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:115:18)
+    at Object.nativeAudit (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:125:27)
+    at Object.<anonymous> (/private/tmp/ruyi-p6-review-package-bindings.cjs:27:17)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+
+Node.js v24.15.0

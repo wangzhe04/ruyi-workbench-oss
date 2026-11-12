@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { nativeAudit, run } = require('../../ruyi-workbench/tools/macos-offline-lib');
+const { nativeAudit, run, sha256 } = require('../../ruyi-workbench/tools/macos-offline-lib');
 
 const native = process.platform === 'darwin' && process.arch === 'arm64';
 function fixture(t) {
@@ -89,4 +89,42 @@ test('a nonzero offline build probe also prevents its same-group child from writ
   assert.throws(() => run(process.execPath, ['-e', parent, descendant, late], { timeout: 3000 }), /failed/);
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1300);
   assert.equal(fs.existsSync(late), false, 'ready descendant cannot perform delayed writes after nonzero exit');
+});
+
+test('native inspection clones an identical alias after simulated EXDEV and cleans every alias', { skip: !native }, t => {
+  const root = fixture(t);
+  const source = write(root, 'main.c', 'int main(void) { return 0; }\n');
+  const binary = path.join(root, 'helper (arm64)');
+  compile(source, binary);
+  const before = sha256(binary);
+  const originalLink = fs.linkSync, originalCopy = fs.copyFileSync;
+  const aliases = [];
+  try {
+    fs.linkSync = () => { throw Object.assign(new Error('simulated cross-volume link'), { code: 'EXDEV' }); };
+    fs.copyFileSync = (from, to, flags) => { aliases.push(to); return originalCopy(from, to, flags); };
+    assert.ok(nativeAudit(root).some(item => item.path === 'helper (arm64)'));
+  } finally { fs.linkSync = originalLink; fs.copyFileSync = originalCopy; }
+  assert.ok(aliases.length > 0, 'the cross-volume copy branch was actually exercised');
+  for (const alias of aliases) assert.equal(fs.existsSync(path.dirname(alias)), false, 'private inspection directory is removed');
+  assert.equal(sha256(binary), before, 'inspection leaves the original executable unchanged');
+});
+
+test('native inspection refuses a corrupt fallback copy and removes its private alias', { skip: !native }, t => {
+  const root = fixture(t);
+  const source = write(root, 'main.c', 'int main(void) { return 0; }\n');
+  const binary = path.join(root, 'helper (arm64)');
+  compile(source, binary);
+  const before = sha256(binary);
+  const originalLink = fs.linkSync, originalCopy = fs.copyFileSync;
+  const aliases = [];
+  try {
+    fs.linkSync = () => { throw Object.assign(new Error('simulated cross-volume link'), { code: 'EXDEV' }); };
+    fs.copyFileSync = (from, to, flags) => {
+      aliases.push(to); originalCopy(from, to, flags); fs.appendFileSync(to, Buffer.from([0]));
+    };
+    assert.throws(() => nativeAudit(root), /Native inspection alias differs from payload/);
+  } finally { fs.linkSync = originalLink; fs.copyFileSync = originalCopy; }
+  assert.ok(aliases.length > 0, 'the deliberately corrupt copy was created');
+  for (const alias of aliases) assert.equal(fs.existsSync(path.dirname(alias)), false, 'failed inspection removes its private directory');
+  assert.equal(sha256(binary), before, 'copy corruption never changes the source executable');
 });

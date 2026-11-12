@@ -1,0 +1,34 @@
+{
+  "commit": "b33d1c6a80569e8d3d50db183a67dd2a7e08f139",
+  "sourceSha256": {
+    "ruyi-workbench/tools/macos-offline-lib.js": "3b5dfc6be1e85bd222be9209e3169f821c041d3f3ab79eabef90596a0e98029c",
+    "ruyi-workbench/tools/package-macos-offline.js": "c44d7bd015c76424e290524278bff6dd269d19f7a351df7ecc6c4909ce065de7",
+    "ruyi-workbench/tools/macos-offline-python.py": "6255d7153f6e1f70a62b2807ed35b613367036e70e1de069375e024c0a593670",
+    "ruyi-workbench/tools/prepare-macos-offline-assets.py": "79c6c5538b28eca6996800f92288fbb3fa68361c10d2ab00bc5b5d8be3eb7817",
+    "ruyi-workbench/tools/build-macos-desktop.js": "014781e85a7523279f5d26259743dc7c48cdac52871e960cc593a020bde9a79b",
+    "ruyi-workbench/tools/build-macos-process-helper.js": "edd189489054a0054ab682f7049bb9eb580f07f967b1c6451056b23fb1ed5e6f",
+    "ruyi-workbench/desktop-macos/DesktopService.swift": "76e241f2702bcb00a43d9d92bbeae489a5c8b15c0a7adcec6e1f364846d559a8",
+    "ruyi-workbench/desktop-macos/RuyiDesktop.swift": "36771afb69e39b7aaf6b2dbf1c51e76cbbeb30192cc89190373a705973857548",
+    "ruyi-workbench/app/src/00-boot.js": "b290b539503dbedfccebd24376f5f742a29c0f28ecb52ce29d258ec54f2b76c3",
+    "ruyi-workbench/app/src/01-config.js": "808aaa15c38f4f281f8aa115cecaff324799d2019f58b27fc5d5969d585c1328",
+    "ruyi-workbench/app/src/13-http-router.js": "7826d819aa6e8390d4b46ddcc7bf9efb91a612ceef5b4445fd20b4fe01f0e311",
+    "ruyi-workbench/app/server.js": "cba901c6a6b86a35001af0f527c3065158817ad7ebca0112bd946db1dbead902",
+    "ruyi-workbench/package.json": "183667ea195f2dd9415fae7bcb7ad25063fe5f5b42738e43357a879106fdbf40",
+    "mcp/ai-computer-control/pyproject.toml": "507b34e11241f5424301f89f687288e0f19363f048a5d5c244f904d8cf0244cd",
+    "mcp/ai-computer-control/LICENSE": "f5fbb6f3a6ca411459987d36be8f683107c55b01a251451f4c889e488a8390e9",
+    "MACOS-PORTING/dependencies/macos-offline-arm64.assets.json": "577b8c08ea33d0e8f295ecbdb3b2a6161e594574ae107241f2fb3b0fbaef236a",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-full.lock.txt": "02d01b26456efbb7025ffac0a1af301acb1e008a00cb4cd222cdab93d7daef64",
+    "dev-harness/mcp-stdio-eof.e2e.js": "3dc31c738f9525e8780515c08dc01f7dfba14d3a14b3c258c9001b973d09404f",
+    "dev-harness/unit/macos-offline-native.test.js": "fb5313f98fca6d87ec5fffd24e6ccd39744f6d940bdb98b73dc63e1345c4b5b2"
+  },
+  "sourceMatchedGit": true,
+  "sourceStableAfterNativeTests": true,
+  "changesFromPriorPrereqs": [
+    "ruyi-workbench/tools/macos-offline-lib.js"
+  ],
+  "nativeLog": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P6/offline/independent-native-final.txt",
+  "nativeExitCode": 0,
+  "previousPrereqs": "/tmp/ruyi-p6-review-final-prereqs.json",
+  "eofTestSourcesByteEquivalent": true,
+  "finishedAt": "2026-11-12T07:21:22.375405+00:00"
+}

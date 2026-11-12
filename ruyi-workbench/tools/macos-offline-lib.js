@@ -99,8 +99,8 @@ function verifyAssets(root, lock, variant) {
 function nativeAudit(root) {
   root = fs.realpathSync(root);
   const result = [];
-  // Resolve selector shims before passing an inherited descriptor. The actual developer tool
-  // receives fd3 directly, without an intermediate xcrun handoff that may reuse descriptors.
+  // Resolve the selected developer tools once. Pass normal filesystem paths rather than
+  // /dev/fd: lipo can block opening an inherited descriptor for a protected-directory image.
   const lipo = run('/usr/bin/xcrun', ['--find', 'lipo']);
   const otool = run('/usr/bin/xcrun', ['--find', 'otool']);
   const systemPath = value => {
@@ -109,11 +109,21 @@ function nativeAudit(root) {
     return normalized.startsWith('/System/Library/') || normalized.startsWith('/usr/lib/');
   };
   function inspect(command, args, file) {
-    // otool interprets parentheses in a filename as archive-member syntax. An inherited read-only
-    // descriptor avoids that ambiguity and also supports arbitrary Unicode and space-containing paths.
-    const descriptor = fs.openSync(file, 'r');
-    try { return run(command, [...args, '/dev/fd/3'], { stdio: ['ignore', 'pipe', 'pipe', descriptor] }); }
-    finally { fs.closeSync(descriptor); }
+    if (!/[()]/.test(file)) return run(command, [...args, file]);
+    // otool interprets parentheses as archive-member syntax. Inspect identical bytes through a
+    // private filename without parentheses; rpath resolution below still uses the original path.
+    // A caller-supplied TMPDIR may itself contain parentheses, so use macOS's fixed /tmp alias.
+    const temporary = fs.mkdtempSync('/tmp/ruyi-macho-inspect-');
+    const alias = path.join(temporary, 'image');
+    try {
+      try { fs.linkSync(file, alias); }
+      catch (error) {
+        if (error.code !== 'EXDEV') throw error;
+        fs.copyFileSync(file, alias, fs.constants.COPYFILE_FICLONE);
+      }
+      if (sha256(alias) !== sha256(file)) throw new Error('Native inspection alias differs from payload');
+      return run(command, [...args, alias]);
+    } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
   }
   for (const entry of inventory(root)) {
     if (entry.type !== 'file' || entry.bytes < 4) continue;
