@@ -1,0 +1,11 @@
+Error: ENOSPC: no space left on device, copyfile '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-build-4ZscT1/Ruyi-macos-arm64-full-internal-trial.dmg' -> '/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final/Ruyi-macos-arm64-full-internal-trial.dmg'
+    at Object.copyFileSync (node:fs:3105:11)
+    at buildTrial (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:215:8)
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:242:17)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47

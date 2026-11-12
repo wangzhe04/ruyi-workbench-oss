@@ -1,0 +1,46 @@
+── S 段: 静态锁(PS1 安全原语 / API 路由 / manifest 模块) ──
+PASS S1 PS1 含 precheck+audit action
+PASS S2 PS1 路径逃逸检测在(含 .. / 盘符 / 绝对路径)
+PASS S3 PS1 版本预检在(128g:宿主必须恰好是包的版本)
+PASS S4 PS1 幂等拒绝 + -Force 覆盖在
+PASS S5 PS1 审计日志(append-only jsonl)在
+PASS S6 apply 内联 precheck(写入前先全检)在
+PASS S7 API 编排层 handleOverlayApiRoutes 入 bundle
+PASS S8 四条 overlay 路由入 ROUTE_AUTH(token 级)
+PASS S9 manifest 模块 18(13c-overlay-routes.js)注册
+PASS S10 apply 把上一份 .overlay-applied.json 存进备份
+PASS S11 rollback:备份里没有上一份标记就清掉(不再只看有没有旧 manifest)
+PASS S12 apply 与 rollback 都经 Copy-OverlayFile 写文件(被占用的 .exe/.dll 改名挪开再放新文件)
+FATAL <ref *1> Error: spawnSync powershell ENOENT
+    at Object.spawnSync (node:internal/child_process:1143:20)
+    at spawnSync (node:child_process:911:24)
+    at Object.execFileSync (node:child_process:954:15)
+    at Object.guardedFixtureSpawn [as execFileSync] (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fixture-home-guard.js:80:21)
+    at zipOverlayPkg (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/overlay-update-core.e2e.js:116:6)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/overlay-update-core.e2e.js:170:3
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/overlay-update-core.e2e.js:560:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'spawnSync powershell',
+  path: 'powershell',
+  spawnargs: [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    "Compress-Archive -Path '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-overlay-ec/pkg-valid/*' -DestinationPath '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-overlay-ec/pkg-valid.zip' -Force"
+  ],
+  error: [Circular *1],
+  status: null,
+  signal: null,
+  output: null,
+  pid: 0,
+  stdout: undefined,
+  stderr: undefined
+}
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-feDgDC

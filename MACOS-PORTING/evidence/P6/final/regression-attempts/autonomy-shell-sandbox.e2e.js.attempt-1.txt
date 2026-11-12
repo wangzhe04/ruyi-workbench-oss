@@ -1,0 +1,30 @@
+── A 段: guardFileToolPath 直接单元 ──
+PASS L1 .git/hooks/pre-commit write → autoexec-denied
+PASS L1 .git/hooks/post-commit delete → autoexec-denied
+PASS L1 .git/hooks read → ok(不拦读)
+PASS L1 .GIT/hooks(大小写) → autoexec-denied
+PASS L1 .git./hooks(尾点) → autoexec-denied
+PASS L1 .git /hooks(尾空格) → autoexec-denied
+PASS L1 .github/workflows/ci.yml → autoexec-denied
+PASS L1 .gitlab-ci.yml → autoexec-denied
+PASS L1 Jenkinsfile → autoexec-denied
+PASS L1 .gitignore write → ok(不误伤)
+PASS L1 .gitattributes write → ok(不误伤)
+PASS L1 .git/config write → autoexec-denied(core.hooksPath 绕过)
+PASS L1 .git/config.worktree write → autoexec-denied
+PASS L1 .vscode/tasks.json → autoexec-denied
+PASS L1 .vscode/launch.json → autoexec-denied
+PASS L1 .vscode/settings.json write → ok(不误伤,非 tasks/launch)
+PASS L1 .githooks/pre-commit → autoexec-denied
+PASS L1 .husky/pre-commit → autoexec-denied
+
+── B 段: 全工具分发路径验证 ──
+PASS B workbench up on :57828
+PASS B1 file_write .git/hooks → autoexec-denied(全路径)
+PASS B2 file_edit .git/hooks → autoexec-denied(对称)
+PASS B3 file_delete .git/hooks → autoexec-denied(对称)
+PASS B4 file_write .gitignore → ok(不误伤)
+PASS B5 file_write .github/workflows/ci.yml → autoexec-denied
+PASS B6 file_read .git/hooks → ok(不拦读)
+
+SHELL-SANDBOX E2E: ALL PASS

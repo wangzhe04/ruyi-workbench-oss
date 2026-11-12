@@ -1,0 +1,21 @@
+PASS (a) csv ok, err=undefined
+PASS (a) csv row=5 col=3 (got csv/5/3)
+PASS (a) amount 列为 numeric
+PASS (a) amount 缺失 1 个
+PASS (a) amount 离群点 1 个(1000)
+PASS (a) amount min=10 max=1000
+PASS (a) flag 列为 boolean
+PASS (b) tsv row=3 col=2
+PASS (b) tsv 分隔符自动探测为 tab
+PASS (c) json row=2 col=2
+PASS (d) jsonl row=3 col=2(键并集 a,b)
+PASS (d2) 无扩展名 JSONL 回落 jsonl(row=2 col=2, got jsonl)
+PASS (d3) 极值列 std=null(非 Infinity, got null)
+PASS (e) text/log row=3
+PASS (e) text 行首模式统计非空
+PASS (f) 越界 path 被工作区读闸拒绝(code=not-allowed)
+PASS (g) 缺 path 拒绝(err=data_profile: missing required 'path' (string))
+PASS (h) 不存在文件拒绝
+PASS (i) 坏 JSON 拒绝
+
+DATA-PROFILE E2E: ALL PASS

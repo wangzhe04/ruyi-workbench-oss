@@ -1,0 +1,71 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 线程已建（sess_12e7767f6228e898）
+PASS A4 回合已跑完（HTTP 200）
+PASS A5 落盘的助手消息里带着 ```mermaid 围栏
+PASS A5b 第二条线程（一条回复 8 张图）已跑完（sess_655fdd875329f167）
+PASS A6 Edge/Chrome found
+PASS A7 browser target available
+PASS A8 首屏就绪
+PASS A9 打开这条线程
+PASS B1 mermaid 围栏真渲染成 SVG（5 个节点；vendor 懒加载链路真机首验）
+PASS B1b 零降级提示（不是「图表库未就绪」那一支）
+PASS B2 工具条 = 源码 / 复制 / 放大 / 导出 SVG / 导出 PNG（实得 源码|复制|放大|导出 SVG|导出 PNG）
+PASS B3a 工作台视角可见后检查键盘焦点
+PASS B3a 「放大」开出全屏灯箱（role=dialog、aria-modal、可见）
+PASS B3b 灯箱里是【同一份】SVG（5 个节点）
+PASS B3c 开箱即「适应窗口」落位（scale=1.83801）
+PASS B3d 控制条 = 放大 / 缩小 / 适应窗口 / 关闭（实得 ＋ 放大|－ 缩小|适应窗口|关闭）
+PASS B3-shot 灯箱实拍已存（/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-NcjDEB/ruyi-mermaid-viewer-tsVw2O/mermaid-lightbox.png）
+PASS B4a 滚轮向上 = 放大（scale 1.83801 → 2.24495）
+PASS B4b 「适应窗口」按回开箱落位（scale=1.83801 ≈ 1.83801）
+PASS B5a Esc 退出灯箱
+PASS B5b 点图本身也能开出灯箱
+PASS B5c 「关闭」按钮退出灯箱
+PASS B5d 点遮罩空白处退出灯箱
+PASS B5e Tab/Shift+Tab stay inside viewer; close restores trigger focus {"initial":true,"forward":true,"backward":true,"returned":true}
+PASS B7 SVG export produces a download
+PASS B7b PNG export produces a download
+PASS B7c 导出带图的底色（PNG 角落不透明、SVG 根上写着暗色 --panel-2；实得 alpha=255）
+PASS B7d 导出的 SVG 带固有宽高（实得 width=804 height=135；修前 width="100%"、无高）
+PASS B6 invalid diagrams preserve source; subsequent valid diagram still renders
+PASS B6b no leaked syntax-error SVG or temporary render hosts
+PASS B8a 暗色下节点走工作台色板（填充 rgb(34, 51, 90)、图底 rgb(26, 36, 54)；修前是 mermaid 自带的近黑块）
+PASS B8b 切到浅色后同一张图按浅色色板重画（填充 rgb(231, 237, 250)、图底 rgb(247, 249, 252)）
+PASS B8c 切回暗色也收敛（填充 rgb(34, 51, 90)）
+PASS B9 四张甘特图都画出来（4）
+PASS B9a 刻度不再同日连标两遍（01-06 01-07 01-08 01-09 01-10 01-11 01-12）
+PASS B9b 按栏宽排版（画布宽 874，栏宽 900；修前离屏宿主不定宽，排成一小条）
+PASS B9c 「今天」线：排期外去掉（false）、排期内保留（true）
+PASS B9d 网格线用色板线色而不是继承页面正文色（rgb(51, 66, 94)）
+PASS B9e 上下两条坐标轴（gantt.topAxis）各自去重、各自留字（7 / 7）
+PASS B9f 源码自己写了 tickInterval：刻度线一根不少（3），只摘重复的字（Jan）
+PASS B10a 浅色下灯箱幕布是压暗的实色（rgba(20, 28, 44, 0.62)；修前是 46% 白毛玻璃，白芯光标糊在里面）
+PASS B10b 图落在实底卡片上（卡片 rgb(247, 249, 252)、内边距 20px、图底 rgb(247, 249, 252)）
+PASS B10c 灯箱仍是抓手光标（grab）
+PASS B11n 交付卡图表失败默认折叠，点击仍能读取原始源码和错误
+PASS B11o 重复渲染及换主题保留一份图表源码与折叠详情
+PASS B11a 模型常写错的三种（括号标签+行尾注释、中文 xychart、中文桑基图）自动修好再画（实得 {"special":"ok+repaired","xy":"ok+repaired","sankey":"ok+repaired","styled":"ok","click":"ok","arch":"ok","c4":"ok","seqRect":"ok","wide":"ok","bad":"fallback","badDelivery":"fallback","autonum":"ok","annot":"ok","sankeyAscii":"ok+repaired"}；修前全部回落成源码）
+PASS B11b 其余照常画；真写坏的那张仍回落成源码
+PASS B11c 桑基图画完把代号换回中文节点名（线上渠道
+120|注册用户
+120|付费用户
+40）
+PASS B11d style A fill:#ffccff 的节点配深字（rgb(27, 36, 54)；修前浅字压浅粉 1.2:1）
+PASS B11e click 画出的链接摘掉 href（修前点一下整个工作台被导走；实得 [""]）
+PASS B11f 架构图图标（嵌套 <svg>）落在自己的位置上，不被 .mermaid-view 的 height:auto 撑成整图高、整排下移（偏移 [0,0,0] px；修前 ~90）
+PASS B11g 暗色下 C4 关系字不再是写死的 #444444（rgb(170, 183, 204)）
+PASS B11h 时序图浅色 rect 高亮块在暗色下变淡，字与箭头读得清（fill-opacity=0.28）
+PASS B11i 16 步横向流程图不缩成一条：有最小宽度、改为横向滚动（min-width=1778px）
+PASS B11k 时序图 autonumber 的序号字色不被对比度兜底翻掉（序号画在箭头标记的圆上；实得 {"fill":"rgb(15, 21, 32)","inline":""}）
+PASS B11l 带空格的类注解 <<Aggregate Root>> 仍画成注解（«…»），不被预处理转成实体
+PASS B11m 桑基图真实 ASCII 节点 N1xa 不被当成代号换掉（N1xa 10|注册用户 10|付费 4）
+PASS B11j 真画不了的：回落里有解析器原话与「复制」钮（解析器提示：Parse error on line 3:（可连同源码一起复制给模型修正）｜复制）
+PASS B12a 在遮罩上拖拽平移后松手，灯箱不关（修前松手补发的 click 把它关了）
+PASS B12b 十个 deltaY=-4 的小滚动只放大 1.083 倍（修前每个事件 ×1.25，一下撞到 8 倍上限）
+PASS B12c 不拖拽的单击遮罩照旧关闭
+PASS B13a 打开八张图那条线程
+PASS B13b 8 张图画完（图共 4113px 高）后聊天区仍贴着底（距底 0px / 总高 5032px；修前停在半途）
+SHOTS /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-NcjDEB/ruyi-mermaid-viewer-tsVw2O/mermaid-lightbox.png
+
+MERMAID VIEWER BROWSER E2E: ALL PASS

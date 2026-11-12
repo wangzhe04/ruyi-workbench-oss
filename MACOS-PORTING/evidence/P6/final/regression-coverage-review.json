@@ -1,0 +1,42 @@
+{
+  "checkedAt": "2026-11-12T11:58:48.924Z",
+  "mode": "Read-only independent crosscheck of all final coverage rows against raw attempt metadata and output; no test reruns",
+  "coverageFile": "MACOS-PORTING/evidence/P6/final/regression-coverage.json",
+  "coverageSha256": "334e7a95f9c7bc45ef99eb7d442be8fdf2640e8c80a6a90ac785aa5b0f98fd8d",
+  "selectedFromCurrentRunner": 594,
+  "coveredUnique": 594,
+  "selectionMatches": true,
+  "rawMetadataAndLogMismatches": [],
+  "processPassed": 558,
+  "processFailed": 36,
+  "passedAfterRetry": 3,
+  "retried": 39,
+  "filesWithInternalSkips": 27,
+  "liveExcluded": 14,
+  "recoveryRows": 50,
+  "failedFilesAllPresentInOld55": true,
+  "assertionLevelEquivalenceEstablished": false,
+  "allRegressionPassed": false,
+  "failuresAccepted": false,
+  "specialUnpassedAppQualifications": [
+    {
+      "file": "macos-capture-host.e2e.js",
+      "log": "MACOS-PORTING/evidence/P6/final/regression-attempts/macos-capture-host.e2e.js.attempt-2.txt",
+      "attempt": 2,
+      "failures": [
+        "FAIL Error: App acceptance timed out"
+      ],
+      "diagnosis": "LaunchServices acceptance report wait timed out using legacy dist/Ruyi.app; no usable report establishes permission denial or another root cause. Frozen final DMG startup/install success does not replace these P5 feature qualifications."
+    },
+    {
+      "file": "macos-input-host.e2e.js",
+      "log": "MACOS-PORTING/evidence/P6/final/regression-attempts/macos-input-host.e2e.js.attempt-2.txt",
+      "attempt": 2,
+      "failures": [
+        "FAIL Error: Controlled App input acceptance timed out"
+      ],
+      "diagnosis": "LaunchServices acceptance report wait timed out using legacy dist/Ruyi.app; no usable report establishes permission denial or another root cause. Frozen final DMG startup/install success does not replace these P5 feature qualifications."
+    }
+  ],
+  "pass": true
+}

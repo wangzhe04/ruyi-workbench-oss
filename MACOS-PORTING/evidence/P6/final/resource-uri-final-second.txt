@@ -1,0 +1,13 @@
+PASS MCP 子进程回了 initialize
+PASS R1 资源列表仍是那一条配置资源(实 1)
+PASS resource URI preserves the platform root and encodes Unicode, spaces, # and %
+PASS 读到了内容(7159 字)
+PASS R2 读出来的内容里没有明文密钥(泄漏:无)
+PASS R3 仍是合法 JSON,provider 密钥是掩码形并带 hasKey(实 "••••e5f6")
+PASS resource reader rejects unrelated/remote/malformed URI #1
+PASS resource reader rejects unrelated/remote/malformed URI #2
+PASS resource reader rejects unrelated/remote/malformed URI #3
+PASS resource reader rejects unrelated/remote/malformed URI #4
+PASS resource reader rejects unrelated/remote/malformed URI #5
+PASS resource reader rejects unrelated/remote/malformed URI #6
+MCP RESOURCE CONFIG MASK E2E: ALL PASS

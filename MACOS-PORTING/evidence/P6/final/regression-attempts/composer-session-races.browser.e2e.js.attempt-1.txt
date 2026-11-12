@@ -1,0 +1,22 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS N1 迟到创建不能夺回后来选择的 B
+PASS N1 上次会话仍是用户选的 B
+PASS N2 两次创建逆序回来仍选择最后一次
+PASS N3 自动创建被取代后不能把旧话发进 B
+PASS N4 创建后的列表 await 被取代也不能继续发送
+PASS S1 成功插话回包不清 B 草稿、不在 B 画 A 的话
+PASS S2 no_live_turn 迟到不能自动发送 B 的未发送草稿
+PASS S3 A→B→A 仍不接纳旧现场的回包
+PASS S4 同会话成功回包保留新草稿、显示发送的原话
+PASS S5 同会话 no_live_turn 重发捕获的原话
+PASS S5 新草稿未被重发消费
+PASS C1 批量撤回跨会话期间每条 DELETE 都属于 A
+PASS C1 B 的同文插话仍在队列中
+PASS C2 单条撤回迟到回包不能删 B 的同文项
+PASS 页面无未捕获异常: 
+
+COMPOSER SESSION RACES BROWSER E2E: ALL PASS

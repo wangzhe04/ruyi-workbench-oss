@@ -1,0 +1,14 @@
+PASS exact target confirmation remains required
+PASS current package cannot be discarded
+PASS a directory containing business data is protected
+PASS symbolic package aliases cannot authorize a move
+PASS a registered running package is retained
+PASS an externally referenced old package is retained
+PASS a reference to the native host outside workbench also protects the whole App
+PASS production migration handler moves the whole owned App through native macOS Trash
+PASS actual Trash contains the same complete directory, including resources outside workbench
+PASS the exact test-owned trashed App can be restored without loss
+PASS successful disposal removes only its old registry entry
+PASS native helper rejects the filesystem root before attempting a move
+
+MACOS MIGRATION TRASH E2E: ALL PASS

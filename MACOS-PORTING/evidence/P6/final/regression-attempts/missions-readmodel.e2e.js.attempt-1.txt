@@ -1,0 +1,51 @@
+PASS workbench up on :61553
+PASS UI token scraped
+PASS (a) session A created
+PASS (a) 新会话显式 kind=quick_ask(实 quick_ask)
+PASS (a) quick-ask 会话也可读快照(200;实 200)
+PASS (a) 快照 kind=quick_ask 且 mission=null(实 quick_ask)
+PASS (a) 快照形状齐全(acceptance/runs/changes/checkpoints/usage/pending/cursor)
+PASS (a) 未决计数全 0(权限/提问/计划/任务池)
+PASS (a) GET /api/missions 列表 200(实 200)
+PASS (a) 121-K3:2.0 里新开的普通会话【进】任务列表(修前恒不进,那是本波要修的病根)
+PASS (a) 121-K3:它的来源是 user、管家不盯它(origin/watched 两个判据分开;实 origin=user watched=false)
+PASS (a) 无 kind 旧会话只读派生 quick_ask
+PASS (a) 读模型绝不回写磁盘(迁移契约:无破坏性改写;实 kind 键存在=false)
+PASS (b) session B created
+PASS (b) mission start ok
+PASS (b) start 后 kind=mission(显式动作标识,非启发式)
+PASS (b) acceptance 投影 total=2 done=0(实 {"t":2,"d":0})
+PASS (b) autoMode=off 且未完成 → status=idle(实 idle)
+PASS (b) 任务列表收录 B
+PASS (b) 列表卡片投影 goal/进度(实 {"t":2,"d":0})
+PASS (b) sessionMeta 携带 kind(侧栏/索引同源;实 mission)
+PASS (b) start 已把 kind 持久化进头文件(显式标识落盘)
+PASS (b) 有 mission 的无 kind 旧会话派生 mission
+PASS (b) 派生同样不回写磁盘
+PASS (c) fake up
+PASS (c) artifact.md written
+PASS (c) changes.filesChanged 含 artifact.md(实 1 条)
+PASS (c) 变更带 revertible/op 标注(不可逆显式可辨;实 {"r":true,"op":"create"})
+PASS (c) artifacts 含产物引用
+PASS (c) 检查点引用含 turnSeq=1(实 [1])
+PASS (c) 用量切片 turns>=1(fake usage 帧 → 账本行;实 1)
+PASS (c) 游标 turnSeq>=1(实 1)
+PASS (d) mission update m1 done ok
+PASS (d) acceptance done=1(实 1)
+PASS (d) 列表进度同步 done=1(实 1)
+PASS (d) 全部 done → status=complete(实 complete)
+PASS (g) 前置:新建会话头上的 mission 容器确实是空的
+PASS (g) GET /api/missions 仍是 200(修前整份投影抛错)
+PASS (g) 这条线程照常出现在列表里
+PASS (g) 没有 mission 容器时 status='none'、goal 空(got none/"")
+PASS (g) GET /api/missions/<id> 详情也是 200
+PASS (g) GET /api/interventions 也是 200(它走同一份投影,修前一起 500)
+PASS (f) 未知 sessionId → 404(实 404)
+PASS (e) ROUTE_AUTH /api/missions 标 token-browser
+PASS (e) ROUTE_AUTH /api/missions/ 前缀标 token-browser
+PASS (e) handleMissionsApiRoutes 在 13d 核心域路由
+PASS (e) 路由器挂载 missions 处理器
+PASS (e) createSession 显式写入 kind=quick_ask
+PASS (e) sessionKind 只读派生器在 02
+
+MISSIONS READMODEL E2E: ALL PASS

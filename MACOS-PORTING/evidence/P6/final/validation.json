@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "assessedAt": "2026-11-12T12:16:17.495389+00:00",
+  "scope": "用户已授权的本地／内部ad-hoc试用；当前管理员组账号的隔离HOME/Applications。P6原完整发行范围未通过。",
+  "environment": {
+    "macOS": "27.0.1",
+    "arch": "arm64",
+    "node": "v24.15.0",
+    "uid": 501,
+    "adminGroupMember": true,
+    "scope": "Current-account isolated temporary HOME/Applications, no elevation, account changes or system security-policy changes"
+  },
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+  "artifacts": [
+    {
+      "variant": "full",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final",
+      "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "nativeCount": 210,
+      "sourceFingerprintCount": 492,
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-final",
+      "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+      "imageSha256": "85470381ebeace5fb01c65bbf0452fdca73f80b8b752247c902e658a8ad9b9a0",
+      "imageBytes": 51628631,
+      "nativeCount": 7,
+      "sourceFingerprintCount": 492,
+      "pass": true
+    }
+  ],
+  "sourceBindings": {
+    "reviewedFiles": 49,
+    "applicationFingerprintsEach": 492,
+    "currentHashesUnchanged": true,
+    "report": "source-binding-after.json"
+  },
+  "engineering": {
+    "syntaxFiles": 1193,
+    "syntaxFailed": 0,
+    "unitPassed": 2651,
+    "unitExistingSkipped": 18,
+    "unitFailed": 0,
+    "unitLog": "unit-final.txt",
+    "staticPassed": 80,
+    "staticFailed": 0,
+    "buildFresh": true,
+    "buildLog": "build-check-final.txt",
+    "packagerDeltaUnitPassed": 5,
+    "packagerDeltaLog": "unit-dmg-clone.txt"
+  },
+  "artifactAcceptance": [
+    {
+      "actor": "main",
+      "variant": "full",
+      "cases": {
+        "installation": {
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "log": "install-full-main.txt"
+        },
+        "offline": {
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/main-full-install/offline-journey.txt"
+        },
+        "packagedTrash": {
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/main-full-install/packaged-trash.txt"
+        },
+        "upgradeRollback": {
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "log": "upgrade-full-main.txt"
+        }
+      },
+      "installationEvidence": "runs/main-full-install/acceptance.json",
+      "upgradeEvidence": "runs/main-full-upgrade/acceptance.json",
+      "pass": true
+    },
+    {
+      "actor": "main",
+      "variant": "slim",
+      "cases": {
+        "installation": {
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "log": "install-slim-main.txt"
+        },
+        "offline": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/main-slim-install/offline-journey.txt"
+        },
+        "packagedTrash": {
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/main-slim-install/packaged-trash.txt"
+        },
+        "upgradeRollback": {
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "log": "upgrade-slim-main.txt"
+        }
+      },
+      "installationEvidence": "runs/main-slim-install/acceptance.json",
+      "upgradeEvidence": "runs/main-slim-upgrade/acceptance.json",
+      "pass": true
+    },
+    {
+      "actor": "independent",
+      "variant": "full",
+      "cases": {
+        "installation": {
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "log": "install-full-independent.txt"
+        },
+        "offline": {
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/independent-full-install/offline-journey.txt"
+        },
+        "packagedTrash": {
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/independent-full-install/packaged-trash.txt"
+        },
+        "upgradeRollback": {
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "log": "upgrade-full-independent.txt"
+        }
+      },
+      "installationEvidence": "runs/independent-full-install/acceptance.json",
+      "upgradeEvidence": "runs/independent-full-upgrade/acceptance.json",
+      "pass": true
+    },
+    {
+      "actor": "independent",
+      "variant": "slim",
+      "cases": {
+        "installation": {
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "log": "install-slim-independent.txt"
+        },
+        "offline": {
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/independent-slim-install/offline-journey.txt"
+        },
+        "packagedTrash": {
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0,
+          "log": "runs/independent-slim-install/packaged-trash.txt"
+        },
+        "upgradeRollback": {
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "log": "upgrade-slim-independent.txt"
+        }
+      },
+      "installationEvidence": "runs/independent-slim-install/acceptance.json",
+      "upgradeEvidence": "runs/independent-slim-upgrade/acceptance.json",
+      "pass": true
+    }
+  ],
+  "regression": {
+    "selected": 594,
+    "covered": 594,
+    "processPassed": 558,
+    "processFailed": 36,
+    "retried": 39,
+    "passedAfterRetry": 3,
+    "filesWithInternalSkips": 27,
+    "liveExcluded": 14,
+    "recoveredMissingCases": 50,
+    "fullRegressionPassed": false,
+    "failuresAccepted": false,
+    "assertionLevelSameCauseEstablished": false,
+    "coverage": "regression-coverage.json",
+    "independentCrosscheck": "regression-coverage-review.json",
+    "failures": "REGRESSION.md"
+  },
+  "upgradeScope": "同产品版本3.0.1不同构建的整App替换；schema12向14正向归一化；回退保留旧App并将完整离线快照恢复到新数据根，保留升级后数据。不承诺任意新schema直接降级。",
+  "cleanup": {
+    "observedPidsGone": 48,
+    "ownedMountedImages": 0,
+    "pass": true,
+    "report": "cleanup-final.json"
+  },
+  "integrity": {
+    "pass": true,
+    "report": "integrity-final.json",
+    "originalInputsRetainedUnchanged": true
+  },
+  "independentReview": {
+    "report": "review-final.json",
+    "archiveMapping": "independent-archive-map.json",
+    "localArtifactScopePassed": true
+  },
+  "status": {
+    "P6-03": "done_with_bounded_local_trial_scope",
+    "P6-04": "in_progress_final_regression_gate_unpassed",
+    "P6": "in_progress",
+    "localTrialArtifactAcceptancePassed": true,
+    "fullOriginalScopeAccepted": false
+  },
+  "notAccepted": [
+    "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+    "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+    "real clean standard-user installation or clean second Mac without developer tools",
+    "macOS14 actual runtime",
+    "formal-identity Keychain/TCC upgrade/recovery stability",
+    "arbitrary future-schema direct backward compatibility",
+    "Windows same-candidate full regression",
+    "original unverified P5 environments and the36 still-failing current regression files, including capture/input App report timeouts of unconfirmed cause"
+  ]
+}

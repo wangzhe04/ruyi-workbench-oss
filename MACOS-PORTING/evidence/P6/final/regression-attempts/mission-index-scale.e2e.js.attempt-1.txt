@@ -1,0 +1,28 @@
+PASS workbench up
+PASS runtime token
+PASS (a) 冷列表300 Mission(229ms)
+PASS (a) 列表冷门≤1500ms(实 229ms)
+PASS (a) cursor 首页面37条+nextCursor
+PASS (a) 索引估算常驻≤50MB(实 7MB)
+PASS (a) persistent facts 与 live overlay freshness 分层
+PASS (b) 同 revision 第二页可读
+PASS (b) 稳定分页无重复
+PASS (b) ETag 命中 -> 304
+PASS (c) 列表热P95≤300ms(实 7ms)
+PASS (d) NDJSON 200→100行原子压缩
+PASS (d) 压缩前后事实+revision等价
+PASS (e) 详情 usage 聚合覆盖10万账本
+PASS (e) 详情冷P95≤800ms(实 96ms;三发 96/88/86)
+PASS (e) 详情 ETag -> 304
+PASS (f) 全局收件箱29,900 pending分页
+PASS (f) 收件箱冷P95≤1200ms(实 99ms;三发 99/96/88)
+PASS (f) 收件箱热P95≤250ms(实 3ms)
+PASS (g) 低配×2预算余量全绿
+PASS (h) 跨页 revision 变化 -> 409 明确重开快照
+PASS (i) 坏索引/中断tmp -> 自动原子重建
+PASS (j) journal有损显式 degraded，不以重建成功掩盖
+PASS (k) 静态锁:单一索引加载器+revision cursor冲突
+PASS (k) 静态锁:压缩不清洗损坏权威账
+PASS (k) 静态锁:live overlay freshness分层
+
+MISSION INDEX SCALE E2E: ALL PASS

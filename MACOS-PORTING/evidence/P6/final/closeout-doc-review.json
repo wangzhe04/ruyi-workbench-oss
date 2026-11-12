@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T12:26:56.332Z",
+  "mode": "Read-only delivery documentation, raw run evidence and source/reference review; no E2E, App/helper execution, mounts, or repeat full artifact hashing",
+  "reviewedDocuments": [
+    {
+      "file": "MACOS-PORTING/07-P6-RELEASE.md",
+      "sha256": "953966e9ba56e2b2ff59cc88d3cc712939ed3d0e20728f6a40c29ae7c2074a1a"
+    },
+    {
+      "file": "MACOS-PORTING/10-TRACKING.md",
+      "sha256": "34537eca9827a5f6b9ffa4f73fcbe529fc1926585bae387d555b9996dc426af2"
+    },
+    {
+      "file": "MACOS-PORTING/README.md",
+      "sha256": "d6785ca716b2b63f4b6ea373b5f5a9309f2ff239eee2773585b8747369c441a9"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/README.md",
+      "sha256": "d71569d9d4ca858b6b5630dbacbe4cce32f0501e7c4b19c3ff481f499ebea4dd"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/REGRESSION.md",
+      "sha256": "005e408ada675cc820b381a47f5a9001e4e30b8a2ad48e7f502a9aaad166d46e"
+    },
+    {
+      "file": "MACOS-PORTING/TASKS.json",
+      "sha256": "afd88c010a6a9be70ec249db8b33d9ac84ca20ce9507b0f24b9e4bc2123eeee9"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/validation.json",
+      "sha256": "8ebc678b334f48b7c5a3180d8d781709eb42d499dfb3ec8bfb03b767960f4933"
+    },
+    {
+      "file": "MACOS-PORTING/evidence/P6/final/integrity-final.json",
+      "sha256": "72f38313a6289f68dbaf03468a90b9439d4e092c052c21873ef06d38d92757a5"
+    }
+  ],
+  "checks": [
+    {
+      "name": "49 reviewed source files unchanged",
+      "passed": true
+    },
+    {
+      "name": "published artifact metadata, image size and checksum evidence agree",
+      "passed": true,
+      "details": [
+        {
+          "variant": "full",
+          "pass": true
+        },
+        {
+          "variant": "slim",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "name": "main full actual install/upgrade payload and ready reports",
+      "passed": true
+    },
+    {
+      "name": "main slim actual install/upgrade payload and ready reports",
+      "passed": true
+    },
+    {
+      "name": "independent full actual install/upgrade payload and ready reports",
+      "passed": true
+    },
+    {
+      "name": "independent slim actual install/upgrade payload and ready reports",
+      "passed": true
+    },
+    {
+      "name": "all8 primary runs and nested scope counts match logs",
+      "passed": true,
+      "details": [
+        {
+          "actor": "main",
+          "variant": "full",
+          "kind": "installation",
+          "log": "install-full-main.txt",
+          "pass": true,
+          "observedPass": 13
+        },
+        {
+          "actor": "main",
+          "variant": "full",
+          "kind": "offline",
+          "log": "runs/main-full-install/offline-journey.txt",
+          "pass": true,
+          "observedPass": 19
+        },
+        {
+          "actor": "main",
+          "variant": "full",
+          "kind": "packagedTrash",
+          "log": "runs/main-full-install/packaged-trash.txt",
+          "pass": true,
+          "observedPass": 12
+        },
+        {
+          "actor": "main",
+          "variant": "full",
+          "kind": "upgradeRollback",
+          "log": "upgrade-full-main.txt",
+          "pass": true,
+          "observedPass": 14
+        },
+        {
+          "actor": "main",
+          "variant": "slim",
+          "kind": "installation",
+          "log": "install-slim-main.txt",
+          "pass": true,
+          "observedPass": 13
+        },
+        {
+          "actor": "main",
+          "variant": "slim",
+          "kind": "offline",
+          "log": "runs/main-slim-install/offline-journey.txt",
+          "pass": true,
+          "observedPass": 7
+        },
+        {
+          "actor": "main",
+          "variant": "slim",
+          "kind": "packagedTrash",
+          "log": "runs/main-slim-install/packaged-trash.txt",
+          "pass": true,
+          "observedPass": 12
+        },
+        {
+          "actor": "main",
+          "variant": "slim",
+          "kind": "upgradeRollback",
+          "log": "upgrade-slim-main.txt",
+          "pass": true,
+          "observedPass": 14
+        },
+        {
+          "actor": "independent",
+          "variant": "full",
+          "kind": "installation",
+          "log": "install-full-independent.txt",
+          "pass": true,
+          "observedPass": 13
+        },
+        {
+          "actor": "independent",
+          "variant": "full",
+          "kind": "offline",
+          "log": "runs/independent-full-install/offline-journey.txt",
+          "pass": true,
+          "observedPass": 19
+        },
+        {
+          "actor": "independent",
+          "variant": "full",
+          "kind": "packagedTrash",
+          "log": "runs/independent-full-install/packaged-trash.txt",
+          "pass": true,
+          "observedPass": 12
+        },
+        {
+          "actor": "independent",
+          "variant": "full",
+          "kind": "upgradeRollback",
+          "log": "upgrade-full-independent.txt",
+          "pass": true,
+          "observedPass": 14
+        },
+        {
+          "actor": "independent",
+          "variant": "slim",
+          "kind": "installation",
+          "log": "install-slim-independent.txt",
+          "pass": true,
+          "observedPass": 13
+        },
+        {
+          "actor": "independent",
+          "variant": "slim",
+          "kind": "offline",
+          "log": "runs/independent-slim-install/offline-journey.txt",
+          "pass": true,
+          "observedPass": 7
+        },
+        {
+          "actor": "independent",
+          "variant": "slim",
+          "kind": "packagedTrash",
+          "log": "runs/independent-slim-install/packaged-trash.txt",
+          "pass": true,
+          "observedPass": 12
+        },
+        {
+          "actor": "independent",
+          "variant": "slim",
+          "kind": "upgradeRollback",
+          "log": "upgrade-slim-independent.txt",
+          "pass": true,
+          "observedPass": 14
+        }
+      ]
+    },
+    {
+      "name": "engineering counts match retained logs",
+      "passed": true
+    },
+    {
+      "name": "regression failures and exclusions remain unaccepted",
+      "passed": true
+    },
+    {
+      "name": "bounded P6-03 done; P6-04 and P6 remain in progress",
+      "passed": true
+    },
+    {
+      "name": "48 observed process identities and owned mounts cleanup evidence consistent",
+      "passed": true
+    },
+    {
+      "name": "reviewed Markdown relative links resolve",
+      "passed": true,
+      "details": {
+        "observedLinks": 295,
+        "broken": []
+      }
+    },
+    {
+      "name": "all original reviewer json/txt archived byte-for-byte",
+      "passed": true,
+      "details": {
+        "observedOriginalFiles": 52,
+        "missingOrDifferent": []
+      }
+    },
+    {
+      "name": "all absolute reviewer evidence paths resolve through persistent map",
+      "passed": true,
+      "details": {
+        "references": 51,
+        "missing": []
+      }
+    },
+    {
+      "name": "independent4-run evidence tree retained byte-for-byte",
+      "passed": true,
+      "details": []
+    }
+  ],
+  "findings": [],
+  "remainingBlockingFindings": [],
+  "archiveSupplement": "independent-archive-reference-check.json",
+  "sourceScope": {
+    "reviewedFiles": 49,
+    "unchanged": true,
+    "sourceCheckReport": "source-binding-closeout.json"
+  },
+  "regressionScope": "594 actual cases covered across original and50-case recovery;558 process-pass/36fail,3 retry-pass,27 internal-SKIP files and14 live exclusions.36 failures unaccepted; file membership in prior55 does not establish matching failed assertions. Old capture/input App report waits timed out with cause unconfirmed; final DMG startup is not their positive P5 qualification.",
+  "p6Status": "P6-03 done only for current local/internal same3.0.1 different-build replacement and full snapshot recovery. P6-04 and P6 remain in_progress. Formal/clean-user/macOS14/Windows/Keychain-TCC and original unverified P5 gates remain unaccepted.",
+  "evidenceHistory": "All original reviewer json/txt byte-preserved. Historical failures and raw log whitespace remain intact. closeout-format-check counts are point-in-time observations and are not asserted as final file counts.",
+  "conclusion": "Closeout documentation and persistent evidence review passed within stated scope; no additional fixes required. This is not approval of the36 failed regression cases or the original full P6 release gates.",
+  "pass": true
+}

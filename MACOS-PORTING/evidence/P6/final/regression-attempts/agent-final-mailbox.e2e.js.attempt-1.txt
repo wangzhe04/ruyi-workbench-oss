@@ -1,0 +1,26 @@
+PASS mail arriving during final response revises final output
+PASS exactly one existing-budget request consumes final-response mail
+PASS FIFO mail injected exactly once into next provider request
+PASS peer reference framing and structured reminder preserved
+PASS user steer precedes peer mail
+PASS sender queries delivered local injection
+PASS foreign sender cannot inspect receipt
+PASS sealed node steer command returns structured HTTP-compatible 409 body
+PASS post-seal arrival has explicit undeliverable receipt
+PASS no pending mail causes no extra provider request
+PASS exact maxIters closes pending mail without budget extension
+PASS abort settles pending receipts
+PASS failed provider seals pending receipts
+PASS completion envelope carries bounded receipt metadata without duplicate body
+PASS already-delivered completion short receipt preserves unsuccessful mail
+PASS production status is queued during held final response
+PASS status queries do not consume quota and invalid action cannot send
+PASS downstream receives only revised final answer
+PASS completed run retains sender-visible delivery status
+PASS idle cross-session receipt remains queued
+PASS cross-session receipt is source-session bound
+PASS invalid status target returns structured unavailable receipt
+PASS cross-session delivered receipt uses ledger
+PASS queued status remains distinct from delivered
+
+AGENT FINAL MAILBOX E2E: ALL PASS

@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-11-12T12:15:18.814Z",
+  "scope": "Read-only final package/distribution verification and previously independently bound hashes; no mount or runtime test",
+  "artifacts": [
+    {
+      "variant": "full",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final",
+      "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "nativeCount": 210,
+      "sourceFingerprintCount": 492,
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-final",
+      "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+      "imageSha256": "85470381ebeace5fb01c65bbf0452fdca73f80b8b752247c902e658a8ad9b9a0",
+      "imageBytes": 51628631,
+      "nativeCount": 7,
+      "sourceFingerprintCount": 492,
+      "pass": true
+    }
+  ],
+  "retained": [
+    {
+      "variant": "full",
+      "p6_01TreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "p6_02ImageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a",
+      "pass": true
+    },
+    {
+      "variant": "slim",
+      "p6_01TreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "p6_02ImageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+      "pass": true
+    }
+  ],
+  "pass": true
+}

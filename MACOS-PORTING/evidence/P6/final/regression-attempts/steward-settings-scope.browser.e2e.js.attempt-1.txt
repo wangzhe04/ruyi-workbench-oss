@@ -1,0 +1,32 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 真工具循环的设置直调生成可见实际值回执
+PASS 回执与设置页所读真配置一致
+PASS 真实设置控件随回执重读，不停在旧值
+PASS 1440px 回执完整换行，无横向溢出
+PASS 768px 回执完整换行，无横向溢出
+PASS 390px 回执完整换行，无横向溢出
+PASS 刷新历史仍显示值与真实生效时机
+PASS 旧回执撤销冲突如实显示，不覆盖后来改动
+PASS 冲突后真实配置保留
+PASS 英文回执说明应用范围和下次等待时机
+PASS 真实撤销成功后按恢复后的值回显
+PASS 撤销确实恢复原值
+PASS 撤销后真实设置控件同步恢复值
+PASS 行动流水重用同一设置回执与撤销入口
+PASS 真实撤销已提交但回包丢失时只说未确认
+PASS 未确认入口禁用，不自动重发
+PASS 在途回合在开始时绑定原模型
+PASS 任务模型入口显示下一回合选择
+PASS 模型选择提示插入真实模型名，并说明仅此任务和下一回合
+PASS 切换不替换在途回合的模型
+PASS 下一回合真实请求使用所选模型
+PASS 执行过仅此任务的模型后，新任务及上次默认仍保持原选择
+PASS 只有显式设为新任务默认才改变后续任务模型
+PASS 完整设置旅程没有未捕获浏览器异常
+ARTIFACTS /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-thELq2/ruyi-settings-scope-ui-XG8pzZ
+
+STEWARD SETTINGS SCOPE BROWSER E2E: ALL PASS

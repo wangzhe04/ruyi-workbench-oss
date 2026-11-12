@@ -1,0 +1,59 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 三条线程已建（sess_77448c41a86dac95 / sess_dc22e6c7d68a48a5 / sess_377c882defd77e41）
+PASS A4 事项容器已建（mission_7e551715a623a836）
+PASS A5 A 已挂进事项容器，行上 missionTitle 与 threadCount>1 都到位（③ 的面包屑判据就读这两样）
+PASS A6 线程 A 停在 question 待决（等你）
+PASS A7 线程 B 的回合一直在飞（⑥ 要停的就是它）
+PASS A8 Edge/Chrome found
+PASS A9 browser target available
+PASS A10 首屏就绪（config 真到达、线程头与那组 chip 已挂上）
+PASS A11 左栏点 C 那一行 → 工作台中栏换成这条线程（§2.3 点击语义）
+PASS B1 线程头恰有一组 chip＝三枚（权限／模型／引擎，实测 ["permission","model","engine"]）
+PASS B1b 整个工作台视角里只有这一个 chip 宿主、只有这三枚 chip（实测宿主 1 个 / chip 3 枚）
+PASS B2 #modelChip／#permChip／#permSelect／#permSelectHost／#stewardReturnBand 一个都不在（实测复活：无）
+PASS B3 线程头是两行结构：第一行「这是哪条线程」x=282/y=52/bottom=88，第二行「这条线程怎么跑」x=282/y=92，头高 77
+PASS B4 连接态落在线程头第二行那个真看得见的位置（§13.7 登记⑦）：可见文字「已连上本地服务」不含模型名，服务商 · 模型只进 title「Fake · fake-model」
+PASS C0 模型菜单开得出来，候选来自这条线程生效的那个端点
+PASS C1 切模型真的落到这条线程（PATCH /api/sessions/:id 那一个写口）
+PASS C2 切模型【零】/api/config 请求、恰一发 PATCH /api/sessions/:id（实测写请求 ["PATCH /api/sessions/sess_377c882defd77e41"]）
+PASS C3 模型菜单里有显式的「设为新任务默认」这一项
+PASS C4 「设为新任务默认」真的写进了全局默认（POST /api/config）
+PASS C5 而且恰【一】发 /api/config（实测写请求 ["POST /api/config"]）—— 默认从「隐式顺带」变成「显式一项」
+PASS C6 2.0 弹层独有的三件事都搬进了菜单尾部（强度 true／刷新 true／管理服务商 true）
+PASS D1 C 自成一件（单线程任务）→ 面包屑不出（实测 hidden=true、文本「」）
+PASS D2 换到 A（挂在事项容器下、同容器两条线程）
+PASS D3 A 是多线程任务 → 面包屑出「季度收尾」（＝事项容器名，读的是索引行上的 missionTitle／threadCount）
+PASS D4 线程头带着色条色号（hue=1）与五态药丸（「需要你」）—— 色说身份、药丸说状态（F1 纪律）
+PASS E0 管家条在，且小 avatar 与管家壳那张脸同源（同一套 sa-* 类名，本件只数环画出来了没有）
+PASS E1a 归并进事项容器的线程天然就在管家的视野里（K3 §4.1 的判据，界面只读它：watched=1）
+PASS E1b 换到 C（自成一件，没人交给管家盯）
+PASS E1 没盯：「如意看得见、不插手」（§2.1 第 12 条「看得见 ≠ 插手」）
+PASS E2 那枚开关写的是 PATCH /api/sessions/:id {stewardWatch:true} —— /api/missions 行上 C 的 watched 翻面（服务端事实，不是界面自说）
+PASS E3 盯着 ＋ 你正坐在这条线程上 → 「如意盯着这条，你坐着时它不动手」（§4.5：你坐着时它不动手）
+PASS E4a 切到管家视角之后，索引行上的 seatedBy 掉回空（在场信号随视角走，§4.3）
+PASS E4b 「别盯了」写回 false（开关是双向的，用户随时能收回来）
+PASS E4c 再交给它盯一次（这一发重取带回来的行上 seatedBy 是空的）
+PASS E4 盯着 ＋ 你不在这条线程上（切到管家视角，在场信号随之变）→ 「如意盯着这条」
+PASS F0a 管家视角先把焦点钉到 A（实测焦点卡标题「等华南的表」）
+PASS F0b 去工作台打开 C
+PASS F2 顶栏分段钮切回管家 → 焦点【原样】还是 A，不被工作台此刻的 C 改写（实测焦点卡标题「等华南的表」；§2.1 第 11 条）
+PASS F3 没有任何返回标记了（117g 的 sessionStorage 那一支随返回带整段退役；实测 null）
+PASS G0 停之前决策日志里没有 user_stop（实测 0 行）
+PASS G1 工作台换到 B（它的回合一直在飞，而且是【别处】起的那种）
+PASS G1b 后台回合通过原生输入框停止
+PASS G2 用户手按的停止在决策日志上多了一行 user_stop，且指着 B（33 号文 §0 那条不对称还清了）
+PASS G3 行形状与 steward_thread_stop 那一条对齐：mayAct=user、basis.origin=ui_stop、undoRef.kind=none
+PASS H1@1200 线程头仍是【两行】：两行同一个左边界 x=282，第二行整个落在第一行下面（y=92 ≥ bottom=88）且收在头里（118 ≤ 125）
+PASS H2@1200 三枚 chip 一枚不少、都在同一行上（y=94）、没被挤出配置行，退役那五个一个没回来
+PASS H3@1200 截图已存（/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-tQ3KVm/ruyi-thread-head-bC9hwB/k5-thread-head-1200.png）
+PASS H1@1600 线程头仍是【两行】：两行同一个左边界 x=282，第二行整个落在第一行下面（y=92 ≥ bottom=88）且收在头里（118 ≤ 125）
+PASS H2@1600 三枚 chip 一枚不少、都在同一行上（y=94）、没被挤出配置行，退役那五个一个没回来
+PASS H3@1600 截图已存（/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-tQ3KVm/ruyi-thread-head-bC9hwB/k5-thread-head-1600.png）
+PASS H1@1920 线程头仍是【两行】：两行同一个左边界 x=282，第二行整个落在第一行下面（y=92 ≥ bottom=88）且收在头里（118 ≤ 125）
+PASS H2@1920 三枚 chip 一枚不少、都在同一行上（y=94）、没被挤出配置行，退役那五个一个没回来
+PASS H3@1920 截图已存（/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-tQ3KVm/ruyi-thread-head-bC9hwB/k5-thread-head-1920.png）
+PASS H4 三档高度逐字相同（79 / 79 / 79 px）—— §13.7 登记①那条「1200 宽折行」到此关闭
+SHOTS /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-tQ3KVm/ruyi-thread-head-bC9hwB/k5-thread-head-1200.png /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-tQ3KVm/ruyi-thread-head-bC9hwB/k5-thread-head-1600.png /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-tQ3KVm/ruyi-thread-head-bC9hwB/k5-thread-head-1920.png
+
+WORKBENCH THREAD HEAD BROWSER E2E: ALL PASS

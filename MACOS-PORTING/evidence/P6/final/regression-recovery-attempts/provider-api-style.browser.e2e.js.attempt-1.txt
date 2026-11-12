@@ -1,0 +1,20 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S1 设置页里画出了服务商卡片的协议下拉
+PASS S1 下拉选项 = 服务端登记表的键(实测 ["chat","responses","anthropic"])
+PASS S1 选项文案已本地化(["Chat Completions","Responses API","Anthropic Messages"])
+PASS S1 没配协议的服务商显示 chat、服务端搜索开关隐藏(value=chat shown=false draft=chat)
+PASS S2 切到 responses:开关出现,草稿写上 apiStyle/serverWebSearch({"shownAfterSwitch":true,"apiStyle":"responses","serverWebSearch":true})
+PASS S3 切回 chat:开关隐藏且不再勾选,草稿删掉 apiStyle 与 serverWebSearch({"shown":false,"checked":false,"hasApiStyle":false,"hasSearch":false})
+PASS S5 思考强度:推理链关着置灰、开着可选并写进草稿({"disabledWhenOff":true,"enabledWhenOn":true,"reasoningEffort":"high","reasoning":true,"efforts":["","none","minimal","low","medium","high","xhigh","max"],"audioSet":"https://asr.example.com/v1","audioCleared":true,"subFirst":"","subHasMain":true,"anthHiddenOnChat":true})
+PASS S5 语音转写地址:trim 后写草稿,清空就删字段(["https://asr.example.com/v1",true])
+PASS S5 子代理模型下拉:首项是「跟随主模型」(空值),候选含该卡片的主模型(["",true])
+PASS S5 chat 协议下 Anthropic 专属三项隐藏
+PASS S5 切到 anthropic:专属三项出现,选值写草稿({"shown":true,"authValues":["","x-api-key","bearer"],"afterPick":{"anthropicAuth":"bearer","anthropicThinking":"adaptive"},"fallbacksDefaultOn":true,"off":"off","backOn":true,"cleared":true,"hiddenAgain":true})
+PASS S5 拒答改派缺省勾选、取消 = 'off'、勾回删字段;认证/思考方式选回「自动」删字段;切回 chat 再隐藏({"shown":true,"authValues":["","x-api-key","bearer"],"afterPick":{"anthropicAuth":"bearer","anthropicThinking":"adaptive"},"fallbacksDefaultOn":true,"off":"off","backOn":true,"cleared":true,"hiddenAgain":true})
+PASS S4 全程零未捕获异常([])
+
+PROVIDER API STYLE BROWSER E2E: ALL PASS

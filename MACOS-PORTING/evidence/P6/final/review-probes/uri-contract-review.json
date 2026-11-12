@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T10:26:40.602Z",
+  "scope": "Read-only URI production delta, legacy test contract corrections and independent interpretation of interruption guarantees",
+  "sourceBindings": {
+    "ruyi-workbench/app/src/13-http-router.js": "9149f3f80140d172b9655fd14aecd41a64c501ced110a9afe137715031771f03",
+    "ruyi-workbench/app/server.js": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+    "ruyi-workbench/app/src/manifest.json": "c6bfb7eab109ea2e1252e7e9d64857ff0b7b60b187b80772b25d02bc64ea882b",
+    "dev-harness/mcp-resource-config-mask.e2e.js": "5b11de71b46e79945cff183559c9b848bd475becca91fc3e982145eb116171ab",
+    "dev-harness/workbench-self-status.e2e.js": "07ae44c4e8a72eb96030444e23368b88dcdb491ebedd64bccba1ca782d56d8ad",
+    "dev-harness/tool-dispatch.e2e.js": "c806b43b8a78d06a952eb67ba4a1109f4148f3faa0fc702b3add7c9654e9a12c",
+    "dev-harness/subagent-net-tools.e2e.js": "d53746866486cc7db3f95b39c4d043c74beb7b303f56381bbd5f00a19a6b7c7c",
+    "dev-harness/provider-pairing-repair.e2e.js": "d4f3189d74306be39184514758b773898021f935e83b660231e3000e0078b9d1",
+    "docs/i18n/locales/zh-CN.json": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+    "docs/i18n/locales/en-US.json": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee"
+  },
+  "productionURIReview": {
+    "result": "passed",
+    "fix": "pathToFileURL emits encoded native absolute URI; URL/fileURLToPath parses it; non-file/remote-host/query/hash rejected; samePathKey admits only configured config path; masked config response unchanged.",
+    "baselineDefect": "mcp-resource-config-mask.e2e.js POSIX-root stripping",
+    "status": "closed_in_reviewed_code_with_main_real_stdio_logs",
+    "mainEvidence": [
+      {
+        "file": "MACOS-PORTING/evidence/P6/final/resource-uri-first.txt",
+        "sha256": "c25acfef538ce3a4bf60ea5e97117f43d46b77135582a90b38b25839b602f167",
+        "pass": 10,
+        "allPass": true,
+        "executedBy": "main; reviewer inspected archived output"
+      },
+      {
+        "file": "MACOS-PORTING/evidence/P6/final/resource-uri-second.txt",
+        "sha256": "c25acfef538ce3a4bf60ea5e97117f43d46b77135582a90b38b25839b602f167",
+        "pass": 10,
+        "allPass": true,
+        "executedBy": "main; reviewer inspected archived output"
+      }
+    ],
+    "remainingSuggestedNegativeCases": [
+      "advertised config URI with query",
+      "advertised config URI with fragment"
+    ],
+    "independentRuntimeExecution": "none; direct E2E window held by main"
+  },
+  "legacyTestCorrections": [
+    {
+      "file": "dev-harness/workbench-self-status.e2e.js",
+      "result": "approved:120->121 mirrors actual unchanged registry and retains facts.json equality checks"
+    },
+    {
+      "file": "dev-harness/tool-dispatch.e2e.js",
+      "result": "approved:120->121 mirrors unchanged registry and retains per-tool safety sweep and facts.json equality"
+    },
+    {
+      "file": "dev-harness/subagent-net-tools.e2e.js",
+      "result": "approved: verifies DesktopExecutionHooks.runNode forwards opts/lifecycle to same body while retaining heartbeat-finally and tier logic checks"
+    },
+    {
+      "file": "dev-harness/provider-pairing-repair.e2e.js",
+      "result": "approved: checks one missing saved result, unconfirmed execution/impact and no-repeat guidance rather than retired repair wording; underlying pairing and later-turn tests retained"
+    }
+  ],
+  "localeMirrors": [
+    {
+      "locale": "zh-CN",
+      "matches": true
+    },
+    {
+      "locale": "en-US",
+      "matches": true
+    }
+  ],
+  "readIslandJudgment": {
+    "basis": [
+      "09-workflow prepares <=8 native read island calls concurrently",
+      "between-tools interrupt preserves parallelReadResults that already exist; only not-executed calls receive refusal"
+    ],
+    "proposedTest": "Default fixture can start with PARALLEL_UNSAFE list_tools to preserve original serial one-result/two-not-executed-refusals invariant; additional explicit pure-read mode must preserve all3 real returned results plus contiguous history and subsequent steer.",
+    "status": "proposed contract adaptation is justified; revised test implementation/run not yet reviewed in this report",
+    "noProductionChangeRequired": true
+  },
+  "cancellationJudgment": {
+    "basis": "McpStdioClient._notify is fire-and-forget; _rpc cancellation is explicitly best-effort with no peer-consumption acknowledgement. callTool immediately kills the owned process tree and reports confirmed cleanup.",
+    "independentLogicProbe": "/tmp/ruyi-p603-review/cancel-notify-contract-probe.json",
+    "probePassed": 5,
+    "probeFailed": 0,
+    "verified": "Actual local requestId/reason cancellation packet is written before immediate synthetic kill, and AbortSignal yields failed steerInterrupted result.",
+    "receiverCaptureContract": "Remote notification file capture can be observed/not-observed INFO; never claim peer reception when absent.",
+    "requiredHardChecks": [
+      "local cancellation attempt is deterministically verified against production class",
+      "real AbortSignal reaches callTool",
+      "actual owned process identity exits promptly and next model iteration completes",
+      "Mac PID liveness must not use Windows tasklist catch=>false"
+    ],
+    "delayDecision": "Do not add a cancellation delivery delay that permits continued ACC actions just to satisfy peer capture.",
+    "scope": "Pure logic probe used in-memory stdin/kill seams; no real child process/UI/E2E/Trash/mount executed."
+  },
+  "remainingBlockingCodeFindings": [],
+  "pendingAcceptance": [
+    "review revised read-island and cancellation E2E adaptations",
+    "prove real Mac cleanup with valid native liveness observation",
+    "final candidate engineering/full-regression/applicable environment accounting"
+  ],
+  "conclusion": "Reviewed URI production delta and four legacy test contract updates approved. Interruption interpretations supported by production source and deterministic local notification probe; revised direct E2E acceptance remains pending."
+}

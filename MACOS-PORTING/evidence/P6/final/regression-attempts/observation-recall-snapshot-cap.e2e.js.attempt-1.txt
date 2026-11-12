@@ -1,0 +1,13 @@
+PASS S0 workbench listening
+PASS S1 session id captured
+PASS S2 压缩 L1 产出带 rawRef 的缩减视图(1 条)
+PASS S3 假模型从自己收到的请求里抠出了 rawRef 并调用 observation_recall
+PASS S4 前提成立:本会话自己的快照(127300 B)已经超过整仓上限(16384 B)
+PASS S5 本会话的历史快照仍在盘上(修前被整仓清扫连目录一起删光)
+PASS S6 observation_recall 回读成功,拿回原件(ok:true,originalChars=51040;修前 = undefined)
+PASS S7 无关的旧会话检查点照旧被整仓上限清掉(上限没有被放弃)
+PASS S8 回合 result ok:true
+PASS U1 快照缺失 → 稳定码 not_found 不变
+PASS U2 失败信息点明「原件取不回 / 别重试同一 rawRef / 重跑原工具」("observation recall failed: ENOENT — the raw snapshot is no longer on disk (removed by the checkpoint size cap or the se…)
+
+OBSERVATION-RECALL-SNAPSHOT-CAP E2E: ALL PASS

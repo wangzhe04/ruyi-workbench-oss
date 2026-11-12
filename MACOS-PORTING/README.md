@@ -4,6 +4,8 @@
 
 P6-01 已完成自包含 arm64 Full/Slim 离线候选实现与当前 Mac 验证，源码 `f059b7eb`；最终候选绑定见 [离线打包记录](evidence/P6/offline/README.md)。正式签名、公证、最低系统与干净安装仍按原阶段关口保留。
 
+P6 当前Mac内部试用剩余实现和最终评估已完成：P6-03整包升级／完整快照回退、原生Trash和迁移说明经验证；最终Full/Slim应用 `b662fff2`／打包器 `1953e3f3` 已通过主执行与独立两轮安装、离线、Trash及升级回退验收。P6-04文档与评估完成，但完整回归594件中558退出成功、36失败（未豁免），P6-04及P6仍进行中。正式身份、公证、干净标准用户、macOS14、Windows同候选与原P5未验门继续开放。[最终产物与验收](evidence/P6/final/README.md)／[未通过项](evidence/P6/final/REGRESSION.md)。
+
 版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
 状态更新于2026-11-11。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。
 

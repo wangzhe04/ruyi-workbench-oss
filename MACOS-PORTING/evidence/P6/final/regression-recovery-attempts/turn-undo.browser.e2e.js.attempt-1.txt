@@ -1,0 +1,27 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A0 线程已建（sess_f74ce8878aaf3d81）
+PASS A1 回合跑完
+PASS A2 report.md 真的写出来了
+PASS E1 本机端点、密钥为空：空状态不催「填写 … 密钥」（实测 {"cta":"","key":""}）
+PASS E2 用不了的一键任务卡都排在能用的后面（实测 [1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0]）
+PASS A3 「本轮变更」卡上 report.md 那一行有「撤销」（实测 {"text":"撤销"}）
+PASS B1 弹的是应用内确认面板，原生 confirm 一次都没叫（实测 native=0）
+PASS B2 撤销「新建」的说法是删除，不是「恢复到改动前」（实测 "撤销这个文件的改动“report.md”是这一轮新建的。撤销会把它删除，删除后不能再找回。取消确认"）
+PASS B3 确认之后 report.md 真的被删掉了
+PASS B4 当场变成「已撤销」（实测 "已撤销"）
+PASS C1 刷新后那一行画「已撤销」，不是一枚可点的「撤销」（实测 {"rowText":"新建/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-xImwDL/ruyi-turn-undo-VpK60O/work/report.md已撤销","undoBtn":false,"undoAllBtn":false,"chip":false}）
+PASS C2 刷新后「撤销整轮」不再可点（这一轮已经没有可撤的文件）
+PASS C3 产物 chip 不再给已经删掉的 report.md 一个「打开」
+PASS D0 第二个线程的回合改了两个文件
+PASS D1 一部分撤不回 → 如实说撤回了几个、几个没撤回、为什么（实测 "撤回了 1 个文件，另有 1 个没能撤回：改动前的内容太大，当时没有留底"）
+PASS D2 「撤销整轮」改成「部分已撤销」，不说「已撤销」（实测 "部分已撤销"）
+PASS D3 撤回了的 note.md 那一行当场改成「已撤销」，不再挂着可点的「撤销」
+PASS D4 撤不回的 big.log 那一行不说「已撤销」；note.md 真的删了、big.log 没被动（实测 {"bigText":"修改/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-xImwDL/ruyi-turn-undo-VpK60O/work/big.log","note":false,"big":6}）
+PASS T1 工作文件夹包含如意的数据目录时，文件树里不列出它（实测 ["profile","work"]）
+PASS F1 零未捕获异常（[]）
+
+TURN UNDO BROWSER E2E: ALL PASS

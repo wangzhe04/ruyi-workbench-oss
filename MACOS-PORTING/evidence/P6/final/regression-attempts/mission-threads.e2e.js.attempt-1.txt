@@ -1,0 +1,96 @@
+PASS (A) workbench up on :62946
+PASS (A) runtime token 可读
+PASS (A) 两条 mission 线程已建
+PASS (A) 没建过事项:<data>/missions 目录一个字节都不写
+PASS (A) GET /api/missions 200 且收录两条线程
+PASS (A) 无事项文件 -> derived:true(未归类,不落盘)
+PASS (A) 未归类事项只有它自己一条线程(threadCount=1;实 1)
+PASS (A) 未归类事项的 missionId === sessionId(75a 语义不变)
+PASS (A) 未归类事项无事项级验收项
+PASS (A) 117h-0:无容器 -> missionTitle === 本行标题(实 "线程一")
+PASS (A) 117h-0:无容器 -> goal 空串、acceptanceItems 空数组(不猜、不拿线程摘要冒充)
+PASS (A) 单线程事项的聚合态 === 该线程五态(期望 dispatching,实 dispatching)
+PASS (A) 读一遍列表:会话头文件 sha256 逐字节不变(零迁移、零回写)
+PASS (B) POST /api/missions -> 201(实 201)
+PASS (B) 事项文件落在 <data>/missions/<missionId>.json
+PASS (B) 新事项 schema=1 且反向索引为空(建事项不建会话)
+PASS (B) 预算归一(币种大写)
+PASS (B) 验收项 id 稳定且唯一
+PASS (B) POST /api/missions 无 token -> 403
+PASS (B) 缺 title -> 400 invalid_request
+PASS (B) attach 线程一 -> 200 changed:true
+PASS (B) attach 线程二 -> 200
+PASS (B) 两个会话头的 missionId 都指向事项
+PASS (B) 反向索引与会话头一致(sessionIds=[s1,s2];实 ["sess_48ab9e3108372420","sess_78b9ad2377156363"])
+PASS (B) 列表行 threadCount=2 / derived=false
+PASS (B) 同事项的另一条线程看到同一份聚合
+PASS (B) 列表行带事项级验收进度 0/2
+PASS (B) 117h-0:同事项的两条线程 missionTitle 都是容器标题(实 "跨会话事项")
+PASS (B) 117h-0:goal 直出容器目标
+PASS (B) 117h-0:acceptanceItems 是容器验收项整表(带 id 与 done;实 [{"id":"acc_cc1adf1eab94934e","text":"验收项甲","done":false},{"id":"acc_6524f839b6490a05","text":"验收项乙","done":false}])
+PASS (B) 列表行带事项级预算
+PASS (B) 列表行带按 sessionIds 汇总的费用桶
+PASS (B) 两线程事项的聚合态 === aggregateMissionState(两条五态)
+PASS (B) 既有卡片字段(sessionId/mission/status/runCount/pending)原样保留
+PASS (B) attach 幂等(第二次 changed:false)
+PASS (B) attach 幂等:反向索引不重复登记
+PASS (B) detach -> 200
+PASS (B) detach 后会话头 missionId 回到自身(未归类)
+PASS (B) detach 后反向索引摘除
+PASS (B) detach 幂等
+PASS (B) 移出后该线程回到未归类事项
+PASS (B) 原事项 threadCount 回到 1
+PASS (B) 目标事项不存在 -> 404
+PASS (B) 线程不存在 -> 404 session_not_found
+PASS (B) 非法 action -> 400
+PASS (C) 空数组 -> dispatching
+PASS (C) 任一 needs_you -> needs_you
+PASS (C) 全部 done -> done
+PASS (C) 有 running(且非全 done)-> running
+PASS (C) 有 dispatching(无 running)-> dispatching
+PASS (C) 其余 -> stopped
+PASS (D) merge -> 200
+PASS (D) from 的线程已搬到目标事项
+PASS (D) 验收项按文本去重并入(甲只留一条;实 ["验收项甲","验收项乙","验收项丙"])
+PASS (D) 目标事项反向索引 3 条线程
+PASS (D) from 事项标 archivedAt
+PASS (D) 再合一次仍 200
+PASS (D) merge 幂等:第二次零变化(除 updatedAt 外逐字段一致)
+PASS (D) 自己并自己 -> 400
+PASS (D) from 不存在 -> 404
+PASS (D) 归档事项不再出现在默认列表里
+PASS (D) 合并后三条线程同属一个事项
+PASS (E) split -> 200 created:true
+PASS (E) 被拆线程已归入新事项(两侧一致)
+PASS (E) split 幂等:同一组 sessionIds + 同标题返回同一个事项,不再建第二个
+PASS (E) 事项文件仍是 3 个(m1/m2/m3)
+PASS (E) 空 sessionIds -> 400
+PASS (E) 缺 title -> 400
+PASS (F) PATCH(经 x-http-method 双通道)-> 200
+PASS (F) 勾选项带 doneAt 时间戳
+PASS (F) 验收项 id 跨 PATCH 稳定
+PASS (F) 列表行 acceptance.done 随之变化(1/3;实 {"done":1,"total":3,"ledger":true,"tracked":true})
+PASS (F) 117h-0:acceptanceItems 随 PATCH 更新且带 doneAt(实 [{"id":"acc_cc1adf1eab94934e","text":"验收项甲","done":true,"doneAt":"2026-11-12T11:01:09.238Z"},{"id":"acc_6524f839b6490a05","text":"验收项乙","done":false},{"id":"acc_5b328e8f88452570","text":"验收项丙","done":false}])
+PASS (F) 原生 PATCH 通道同样可用
+PASS (F) 只改标题不动验收项(只认传进来的字段)
+PASS (F) PATCH 不存在的事项 -> 404
+PASS (F) 会话内任务账本 head.mission 一个字节都没被事项级操作动过
+PASS (G) attach 落了 mission_membership 变更记录(实 1 条)
+PASS (G) 变更记录带 action 与目标 missionId
+PASS (G) 变更记录带 seq(收件箱可消费的形态)
+PASS (G2) 删除前索引里有它
+PASS (G2) 删会话 -> 200(实 200)
+PASS (G2) 反向索引同步摘除(权威里不留死 id)
+PASS (H) 容量常量 = 2000(实 2000)
+PASS (H) 达上限后新建 -> 409 mission.capacity_exceeded(P2 稳定信封;实 409/"mission.capacity_exceeded")
+PASS (H) 信封带 params.limit 与人话 message
+PASS (H) 腾出位置后新建恢复
+PASS (I) 损坏前 m1 有两条线程
+PASS (I) 损坏文件整份隔离成 .corrupt(原件不再被读)
+PASS (I) 该 missionId 退化成未归类派生视图(会话头不改写)
+PASS (I) 反向索引从会话头重建,线程一条不丢(实 2)
+PASS (I) 事项级字段随文件一起失去(它们的唯一归属就是那个文件)
+PASS (J) 管家会话 attach -> 400 mission.invalid_target(实 400/"mission.invalid_target")
+PASS (J) 被拒的 attach 没有写进反向索引
+PASS (J) 管家会话头未被写入 missionId
+MISSION THREADS E2E: ALL PASS

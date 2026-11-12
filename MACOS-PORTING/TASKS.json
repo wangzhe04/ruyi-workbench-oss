@@ -2192,9 +2192,24 @@
             "high": 3
           },
           "deliverable": "首发支持整包替换升级和保留旧包的回退；Mac Trash 语义、路径映射、旧配置与凭据恢复文档；旧 Windows overlay 明确不可用。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex; independent p6_02_review",
+          "evidence": [
+            "evidence/P6/final/README.md",
+            "evidence/P6/final/validation.json",
+            "evidence/P6/final/review-final.json",
+            "evidence/P6/final/REGRESSION.md"
+          ],
+          "completedDate": "2026-11-12",
+          "commit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+          "completionScope": "当前macOS27.0.1 arm64内部试用版：同3.0.1不同构建整包替换、保留旧App与完整数据快照恢复，真实Mac Trash及迁移/凭据说明。",
+          "fullOriginalScopeAccepted": false,
+          "progress": "Full/Slim最终冻结DMG各经主执行与独立升级/快照回退14项、安装后原生Trash12项通过；坏分发/不完整暂存拒绝、保留旧App与升级后数据、恢复到新数据根均已验证。",
+          "notAccepted": [
+            "任意未来schema直接降级",
+            "正式身份下Keychain/TCC升级恢复稳定性",
+            "Windows至Mac实际业务数据与凭据迁移验收"
+          ]
         },
         {
           "id": "P6-04",
@@ -2204,13 +2219,50 @@
             "high": 4
           },
           "deliverable": "全量适用回归和受控真机验收；更新中英文用户/管理/离线部署说明及兼容清单；记录候选 SHA、版本、hash、测试和独立复核。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex; independent p6_02_review",
+          "evidence": [
+            "evidence/P6/final/README.md",
+            "evidence/P6/final/validation.json",
+            "evidence/P6/final/review-final.json",
+            "evidence/P6/final/REGRESSION.md"
+          ],
+          "commit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+          "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+          "implementationCompleted": true,
+          "currentLocalTrialAssessmentCompleted": true,
+          "completionScope": "双语交付文档及当前Mac内部试用产物评估完成；完整回归门未通过，工作包继续进行中。",
+          "fullOriginalScopeAccepted": false,
+          "progress": "同一冻结Full/Slim镜像主执行与独立各13安装、19/7离线、12Trash、14升级回退通过；工程单元2651通过/18既有跳过、静态80、语法1193通过。594件实际覆盖，558进程成功/36失败、27件内部SKIP、14live排除，未计全量通过。",
+          "notAccepted": [
+            "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+            "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+            "real clean standard-user installation or clean second Mac without developer tools",
+            "macOS14 actual runtime",
+            "formal-identity Keychain/TCC upgrade/recovery stability",
+            "arbitrary future-schema direct backward compatibility",
+            "Windows same-candidate full regression",
+            "original unverified P5 environments and the36 still-failing current regression files, including capture/input App report timeouts of unconfirmed cause"
+          ]
         }
       ],
       "owner": "Codex",
-      "progress": "P6-01与P6-02本地／内部试用范围完成；应用源码f059b7eb、P6-02包装源码3279b83d。Full/Slim各经主执行和独立安装12项、离线19/7项通过。正式签名/公证、真实下载来源Gatekeeper和干净标准用户继续待验；P6-03/04待开始。"
+      "progress": "P6-01/02已按既有本地试用范围交付，P6-03当前Mac整包替换/快照回退与Trash完成；P6-04文档、双轮冻结产物验收和完整回归评估完成，但36件回归失败未验收，P6-04与父阶段仍进行中。正式发行与原环境门继续开放。",
+      "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "packagerCommit": "1953e3f34afbaf9b0054791e0a41d8374d638f46",
+      "fullOriginalScopeAccepted": false,
+      "currentLocalTrialArtifactAcceptancePassed": true,
+      "acceptanceEvidence": "evidence/P6/final/validation.json",
+      "remainingGates": [
+        "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+        "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+        "real clean standard-user installation or clean second Mac without developer tools",
+        "macOS14 actual runtime",
+        "formal-identity Keychain/TCC upgrade/recovery stability",
+        "arbitrary future-schema direct backward compatibility",
+        "Windows same-candidate full regression",
+        "original unverified P5 environments and the36 still-failing current regression files, including capture/input App report timeouts of unconfirmed cause"
+      ]
     }
   ],
   "estimateCheckpoint": {

@@ -1,0 +1,20 @@
+[fake] [fake-openai] listening on 62399
+PASS workbench up on :62400
+PASS session created
+PASS turn1: a `todo` event was streamed (got 1)
+PASS turn1: todo event items.length === 3
+PASS turn1: turn_summary emitted
+PASS turn1: turn_summary.turnSeq is a number (got 1)
+PASS turn1: filesChanged contains the written path
+PASS turn1: commands === 1 (only powershell_run) (got 1)
+PASS turn1: artifacts has the created made.txt (kind txt) — v0.9-S4
+PASS turn1: journaled file_write is revertible:true (S4a)
+PASS turn1: journaled file_write op === create (S4a)
+PASS session.todos length === 3 (got 3)
+PASS last assistant message carries turnSummary
+PASS persisted turnSummary.commands === 1
+PASS turn2: turn_summary emitted
+PASS turn2: filesChanged empty (reassurance-line data)
+PASS turn2: commands === 0 (got 0)
+
+TODO-SUMMARY E2E: ALL PASS

@@ -1,0 +1,60 @@
+PASS A0 导出面齐(buildEngineEnvBrief / resolveEngineEnvBrief / probeRgAsync / peekRgProbe)
+PASS A1 Claude 版是整段 <ruyi-environment> 围栏
+PASS A2 身份:担任线程引擎的 Claude Code + 产品名 + 版本 v3.0.1
+PASS A3 原生工具分工 + CLAUDE.md 由 CLI 原生读取
+PASS A4 如意 MCP 工具按组列名(真实前缀 mcp__ruyi__)
+PASS A5 交互模式:提问走 request_user_input,禁原生 AskUserQuestion(与 --disallowedTools 一致)
+PASS A6 只提 orchestrate_agents,不出现 spawn_agent(W1 正在退役它)
+PASS A7 桌面开:如实写已开启
+PASS Mac CLI brief describes POSIX paths and the non-TTY bash runtime
+PASS Mac desktop switch does not claim implemented or authorized screen control
+PASS A8 终端 rg:随包来源 + 可直接用 rg
+PASS A9 界面渲染:mermaid 代码块画成图
+PASS A9b mermaid 写法建议(引号 / 注释独占一行 / 竖排)CLI 版同样带上(不写 %% 字样:A13 管 % 与 !)
+PASS A10 权限档含义 + 拒绝不可绕过
+PASS A11 管家看管 + 管家代开(createdBy=steward)时补一句交付会被转述
+PASS A11b 管家交付先结果和文件，省略内部日志但保留验证义务
+PASS A12 中文 Claude 版 ≤ 1800 字(实 1533)
+PASS A13 没有 % 与 !(claude.cmd 经 cmd.exe 展开)
+PASS A14 除自身围栏外没有尖括号标签(<ruyi-environment>,</ruyi-environment>)
+PASS A15 桌面关(desktopMcp.enabled=false):如实写未开启
+PASS A16 无 rg:告诉模型别在命令行调用 rg
+PASS A17 不是管家开的线程:不补管家代开那句
+PASS A18 会话级桌面覆盖(session.desktopTools=false)压过全局开关
+PASS A19 非交互模式不写「禁原生 AskUserQuestion」(那条 --disallowedTools 只在交互模式加)
+PASS A20 没接如意 MCP 时不列 MCP 工具(不许许诺不存在的工具)
+PASS A21 编排关(subagentMaxPerTurn=0)时不提 orchestrate_agents
+PASS A22 五个权限档各有自己的含义句
+PASS B1 Kimi 版身份是 Kimi Code
+PASS B2 Kimi 提问走原生 AskUserQuestion(经 ACP 落到如意提问卡),不提 request_user_input
+PASS B3 Kimi 原生 Bash 由如意代执行;不提 CLAUDE.md
+PASS B4 Kimi 版同样带能力事实(系统 rg / 如意 MCP / mermaid)
+PASS B5 中文 Kimi 版 ≤ 1800 字且无 % !(实 1313)
+PASS C1 provider 变体不出整段围栏(身份在稳定层),只给易变层几行
+PASS C2 稳定层补 mermaid 成图一句,且无 Claude/Workbench 字样(身份泄漏守卫)
+PASS C3 稳定层不含易变事实(权限档等)
+PASS C4 能力行说清终端里也能直接用 rg(rgShell=bundled)
+PASS C5 易变层:权限档 + 提问弹窗(工具在场) + 管家代开(envContext.session)
+PASS C6 不传会话/工具不在场/rg 只在 RUYI_RG_PATH(不进 PATH)时,对应几句都不出现
+PASS C7 易变层不重复身份层(没有第二份「本地 AI 工作台」自我介绍)
+PASS D1 同一能力集两次装配逐字节相同、指纹相同(bbbb0cba1ed8)
+PASS D2 能力集之外的东西(模型名/会话 id/cwd/rg 绝对路径)变了,文字逐字节不变
+PASS D3 能力集里任一项变了(桌面/rg/权限档/管家代开/引擎),指纹与文字都跟着变
+PASS D4 provider 易变层几行同一能力集两次相同
+PASS D5 provider 稳定层两次构建逐字节相同(prefix-cache)
+PASS E1 英文 Claude 版同构(身份/MCP/mermaid/桌面/管家代开;无 spawn_agent、无 % !、只有自身围栏)
+PASS E1b 英文版同样带 mermaid 写法建议
+PASS E2 英文 Kimi 版(原生提问/桌面关/无 rg)
+PASS F1 runClaudeTurn 经 resolveEngineEnvBrief 装配(按 agentCliType 出 Claude/Kimi 变体)
+PASS F2 注入位置:用户 append 之后、四层协议之前、sectionLimit 之前(无条件前缀,降级从尾部切)
+PASS F3 并进环境说明的两句旧提示只在没有环境说明时(管家会话)才注入,不重复
+PASS F4 管家会话不拿这段(它有自己的整套身份)
+PASS F5 meta 事件带环境说明指纹(可观测)
+PASS F6 装配器里不出现旧产品名
+PASS G1 require server.js 后进程 PATH 第一项就是随包 vendor-bin(子进程全继承;实 /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/vendor-bin)
+PASS G2 来源只会是 env/bundled/system 之一或 null ({"path":"/Applications/ChatGPT.app/Contents/Resources/codex-cli/codex-path/rg","source":"system","shell":"system"})
+PASS G3 探测结果进程级缓存(peek 不触发探测,拿到同一个对象)
+PASS G4 能力矩阵 binaries 加法字段 rgSource/rgShell ({"git":true,"rg":true,"rgSource":"system","rgShell":"system"})
+PASS G5 只前置锚定的真目录(联接/符号链接不算),且不改 USE_BUILTIN_RIPGREP(Claude Code 自带 rg 行为不动)
+
+ENGINE ENV BRIEF STATIC E2E: ALL PASS

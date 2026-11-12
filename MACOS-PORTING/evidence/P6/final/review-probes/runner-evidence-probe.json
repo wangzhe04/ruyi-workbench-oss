@@ -1,0 +1,14 @@
+{
+  "reviewedAt": "2026-11-12T09:56:52.110Z",
+  "sourceSha256": "4812ba10e265e094727871a2b10a6a801073269738dd88b82155ec34f6d91be7",
+  "mode": "Invoked only exact recordAttempt helper via repository source-slice in VM; no runner, unit preflight, test process, UI or E2E launched",
+  "checks": {
+    "successSkipInfoRetainedExactly": true,
+    "twoAttemptsSeparate": true,
+    "failedExitMetadataPreserved": true,
+    "duplicateRefusedWithoutOverwrite": true,
+    "disabledNoWrites": true
+  },
+  "outputContract": "result.out is existing runner stdout + stderr, concatenated; this does not retain cross-stream event ordering or separate stream labels.",
+  "pass": true
+}

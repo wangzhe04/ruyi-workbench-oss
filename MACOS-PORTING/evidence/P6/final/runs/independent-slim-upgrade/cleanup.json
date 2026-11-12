@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-11-12T11:54:40.236Z",
+  "kind": "upgrade",
+  "variant": "slim",
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-LNjSbq",
+  "files": [
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-upgrade-LNjSbq/acceptance.json"
+  ],
+  "observedPids": [
+    35540,
+    35543,
+    35589,
+    35592,
+    35625,
+    35628
+  ],
+  "stillPresent": [],
+  "ownedProcessLines": [],
+  "ownedMountedRoots": [],
+  "reportRetained": true,
+  "pass": true
+}

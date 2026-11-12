@@ -1,0 +1,21 @@
+[fake] [fake-openai] listening on 59524
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 12ae09e59390)
+[wb] UI: http://127.0.0.1:59525/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-openai-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :59525
+PASS version === package.json (got 3.0.1)
+PASS GET /api/models engine=openai (got openai)
+PASS models include fake-model
+PASS live /models fetched (proxyCount=2)
+PASS GET /api/models 跳过 providers[].hiddenModels（live 仍返回它，但删过的那行不该被刷新还回来）
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-openai-e2e/generated/workbench.mcp.json
+PASS assistant text streamed ("Hello, world! This is a fake streamed re")
+PASS reasoning streamed ("Let me think about this. ")
+PASS usage.contextTokens=57 (got 57)
+PASS result ok=true
+PASS meta.engine=openai
+PASS process events present
+PASS second turn streams ("Hello, world! This is a fake s")
+
+OPENAI-ENGINE E2E: ALL PASS

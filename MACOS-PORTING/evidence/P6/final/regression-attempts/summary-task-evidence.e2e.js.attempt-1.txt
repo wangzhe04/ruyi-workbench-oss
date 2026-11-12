@@ -1,0 +1,50 @@
+PASS zh-CN real kernel performs >=3 maps and >=2 reduction levels
+PASS zh-CN final goal recovers from intentionally incomplete intermediate summaries
+PASS zh-CN final result strips machine markers and rejects false source quotes
+PASS zh-CN adoption metadata reports verified references and invalid reference count
+PASS zh-CN complete real requests, including identity/prompt/source/evidence, fit budget
+PASS zh-CN every chosen source quote survives all reductions unchanged
+PASS zh-CN source order and assistant reporting role survive out-of-order map completions
+PASS zh-CN maps actually finished out of source order
+PASS zh-CN second real compression preserves active task across recent status-only questions
+PASS zh-CN notes preserve procedure without machine blocks or expanded injection budget
+PASS zh-CN real kernel performs >=3 maps and >=2 reduction levels
+PASS zh-CN final goal recovers from intentionally incomplete intermediate summaries
+PASS zh-CN final result strips machine markers and rejects false source quotes
+PASS zh-CN adoption metadata reports verified references and invalid reference count
+PASS zh-CN complete real requests, including identity/prompt/source/evidence, fit budget
+PASS zh-CN every chosen source quote survives all reductions unchanged
+PASS zh-CN source order and assistant reporting role survive out-of-order map completions
+PASS zh-CN maps actually finished out of source order
+PASS zh-CN second real compression preserves active task across recent status-only questions
+PASS zh-CN notes preserve procedure without machine blocks or expanded injection budget
+PASS en-US real kernel performs >=3 maps and >=2 reduction levels
+PASS en-US final goal recovers from intentionally incomplete intermediate summaries
+PASS en-US final result strips machine markers and rejects false source quotes
+PASS en-US adoption metadata reports verified references and invalid reference count
+PASS en-US complete real requests, including identity/prompt/source/evidence, fit budget
+PASS en-US every chosen source quote survives all reductions unchanged
+PASS en-US source order and assistant reporting role survive out-of-order map completions
+PASS en-US maps actually finished out of source order
+PASS en-US second real compression preserves active task across recent status-only questions
+PASS en-US notes preserve procedure without machine blocks or expanded injection budget
+PASS en-US real kernel performs >=3 maps and >=2 reduction levels
+PASS en-US final goal recovers from intentionally incomplete intermediate summaries
+PASS en-US final result strips machine markers and rejects false source quotes
+PASS en-US adoption metadata reports verified references and invalid reference count
+PASS en-US complete real requests, including identity/prompt/source/evidence, fit budget
+PASS en-US every chosen source quote survives all reductions unchanged
+PASS en-US source order and assistant reporting role survive out-of-order map completions
+PASS en-US maps actually finished out of source order
+PASS entity repair receives scoped original evidence without emitting machine JSON or output markers
+PASS en-US second real compression preserves active task across recent status-only questions
+PASS en-US notes preserve procedure without machine blocks or expanded injection budget
+PASS refine retains earlier verified quotes while its intermediate summary drops the unfinished task
+PASS refine source/evidence/prompt stays in budget and final output has no machine blocks
+PASS multi-chunk promptOverride retains its own format and gains no task source markers
+PASS huge single block with hundreds of source messages respects fragment budgets
+PASS fragment start source/role is bounded, never a whole-block source list
+PASS oversized quotes are rejected, never clipped into a potentially reversed instruction
+PASS quotes emitted in reverse by map are reordered by original offset within one source
+
+SUMMARY TASK EVIDENCE E2E: ALL PASS

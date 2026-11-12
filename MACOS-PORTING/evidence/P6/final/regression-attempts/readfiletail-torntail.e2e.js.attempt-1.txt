@@ -1,0 +1,33 @@
+PASS (a1) 空文件:size=0 bytesRead=0 buf.length=0
+PASS (a2) 文件比 maxBytes 小:size/bytesRead 等于文件长度
+PASS (a2b) 返回内容与文件内容逐字节一致
+PASS (a3) 文件比 maxBytes 大:size 等于真实文件字节数
+PASS (a3b) bytesRead 等于请求的 maxBytes(只读到尾窗,不是整文件)
+PASS (a3c) 尾窗内容与文件真实尾部逐字节一致
+PASS (a4) 文件不存在:不抛
+PASS (a4b) 文件不存在:size === -1
+PASS (a4c) 文件不存在:bytesRead === 0
+PASS (a5 准备) stat 打桩生效:readFileTail 看到的是谎报的 size
+PASS (a5b 准备) buf.length 是按谎报 size 分配的请求量(未定界会踩这一截)
+PASS (a5c) 短读场景:返回的 bytesRead 等于【真实】可读字节数,不等于谎报 size/buf.length
+PASS (a5d) buf[0..bytesRead) 与真实文件内容逐字节一致(按 bytesRead 定界才拿到干净数据)
+PASS (b1 准备) 撕裂尾文件已写入(含半行)
+PASS (b1) 撕裂尾修复后字节长度等于「只保留完整行」的预期长度
+PASS (b1b) 撕裂尾修复后内容与预期逐字节相等
+PASS (b2) 已以 \n 结尾:修复前后字节完全相同(一个字节都不许动)
+PASS (b2b) 文件大小未变
+PASS (b3) 整个文件只有半行:修复后截成空(0 字节)
+PASS (b4 准备) 文件确实大于 65536 字节尾窗(80123 字节)
+PASS (b4 准备) 撕裂点确实落在尾窗(65536 字节)以内(撕裂尾长 37 字节)
+PASS (b4) 大文件+尾窗内撕裂点:修复后字节长度等于预期
+PASS (b4b) 大文件+尾窗内撕裂点:内容逐字节相等
+PASS (b5) 短读+本来干净的文件:按 bytesRead 定界后未被误截,字节完全不变
+PASS (c 准备) 从 server 源码定位到 appendIntervention 写入块函数体(两级正则只锚定该函数,不误配其它写链)
+PASS (c1) 真实故障注入下,repairMissionChangeTornTail 对真撕裂尾文件确实抛错(不是模拟的假抛)
+PASS (c2) appendIntervention 写入块本身不因 repair 抛错而中断
+PASS (c2b) repair 抛错时,这一条 intervention 记录仍然被 append 进文件(语义已还回,不再静默丢行)
+PASS (d) 全仓 readFileTail 只有一份定义(防止长出第五份)
+PASS (d2) repairInterventionTornTail 已删除,全仓零残留定义
+PASS (d2b) 剥注释后,repairInterventionTornTail 零调用点残留(只在改名说明注释里提过旧名字)
+PASS (d3) repairMissionChangeTornTail(撕裂尾修复真身)全仓只有一份定义
+ALL PASS

@@ -1,0 +1,1394 @@
+# Ruyi e2e runner
+# 件数: 594 ran / 14 skipped(live)
+# 超时: 120s/件,并行(4路)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2669 / ℹ pass 2651 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+# 并行模式: 4 路,每桶 ~137 件；47 件性能门独占
+
+[B0] ([fast]) acc-offline-installer.static.e2e.js ... [B1] ([fast]) action-feedback.static.e2e.js ... [B2] ([fast]) agent-mode-v2.static.e2e.js ... [B3] ([fast]) agent-team-budget.static.e2e.js ... [B0] PASS (34ms)
+[B0] ([fast]) agent-workflows-polling-visibility.static.e2e.js ... [B1] PASS (35ms)
+[B1] ([fast]) architecture-contract-snapshots.static.e2e.js ... [B0] PASS (31ms)
+[B0] ([fast]) c2-evidence-spawn-budget.static.e2e.js ... [B0] PASS (31ms)
+[B0] ([fast]) css-typography-debt.static.e2e.js ... [B2] PASS (119ms)
+[B2] ([fast]) asr-config-ui.static.e2e.js ... [B0] PASS (34ms)
+[B0] ([fast]) ec-d-closure.static.e2e.js ... [B1] PASS (134ms)
+[B1] ([fast]) copy-path-guard.static.e2e.js ... [B0] PASS (55ms)
+[B0] ([fast]) finalize-segments.static.e2e.js ... [B3] PASS (189ms)
+[B3] ([fast]) browser-mcp.static.e2e.js ... [B0] PASS (34ms)
+[B0] ([fast]) i18n-en-terms.static.e2e.js ... [B2] PASS (125ms)
+[B2] ([fast]) copy-terms.static.e2e.js ... [B0] PASS (38ms)
+[B0] ([fast]) live-full-text.static.e2e.js ... [B1] PASS (101ms)
+[B1] ([fast]) desktop-dpi.static.e2e.js ... [B0] PASS (42ms)
+[B0] ([fast]) mermaid-render.static.e2e.js ... [B1] PASS (32ms)
+[B1] ([fast]) engine-env-brief.static.e2e.js ... [B2] PASS (69ms)
+[B2] ([fast]) desktop-shell.static.e2e.js ... [B2] PASS (33ms)
+[B2] ([fast]) eol-policy.static.e2e.js ... [B3] PASS (161ms)
+[B3] ([fast]) cost-zero.static.e2e.js ... [B3] PASS (31ms)
+[B3] ([fast]) durable-state-inventory.static.e2e.js ... [B3] PASS (109ms)
+[B3] ([fast]) facts.static.e2e.js ... [B3] PASS (112ms)
+[B3] ([fast]) health-i18n.static.e2e.js ... [B3] PASS (43ms)
+[B3] ([fast]) kimi-plan-ui.static.e2e.js ... [B0] PASS (361ms)
+[B0] ([fast]) net-token-replay.static.e2e.js ... [B3] PASS (41ms)
+[B3] ([fast]) memory-toolbox.static.e2e.js ... [B0] PASS (36ms)
+[B0] ([fast]) overlay-update-gui.static.e2e.js ... [B3] PASS (36ms)
+[B3] ([fast]) ndjson-line-feeder.static.e2e.js ... [B0] PASS (49ms)
+[B0] ([fast]) provider-reasoning-effort-ui.static.e2e.js ... [B0] PASS (35ms)
+[B0] ([fast]) runtime-optimization.static.e2e.js ... [B3] PASS (76ms)
+[B3] ([fast]) overlay-payload-lock.static.e2e.js ... [B3] PASS (85ms)
+[B3] ([fast]) prompt-snapshot.static.e2e.js ... [B3] PASS (130ms)
+[B3] ([fast]) route-inventory.static.e2e.js ... [B0] PASS (293ms)
+[B0] ([fast]) start-experience.static.e2e.js ... [B0] PASS (44ms)
+[B0] ([fast]) steward-conversation.static.e2e.js ... [B0] PASS (70ms)
+[B0] ([fast]) steward-settings.static.e2e.js ... [B0] PASS (80ms)
+[B0] ([fast]) streaming-responsiveness.static.e2e.js ... [B0] PASS (44ms)
+[B0] ([fast]) tool-image-inline.static.e2e.js ... [B0] PASS (44ms)
+[B0] ([fast]) ui-v3-p1.static.e2e.js ... [B0] PASS (56ms)
+[B0] ([fast]) ui-v3-wave1.static.e2e.js ... [B0] PASS (64ms)
+[B0] ([main]) a11y-lint.browser.e2e.js ... [B3] PASS (849ms)
+[B3] ([fast]) software-engineering-prompt.static.e2e.js ... [B3] PASS (115ms)
+[B3] ([fast]) steward-config.static.e2e.js ... [B1] PASS (1765ms)
+[B1] ([fast]) fixture-home.static.e2e.js ... [B3] PASS (181ms)
+[B3] ([fast]) steward-runner.static.e2e.js ... [B3] PASS (257ms)
+[B3] ([fast]) steward-walkthrough.static.e2e.js ... [B3] PASS (88ms)
+[B3] ([fast]) thread-commission.static.e2e.js ... [B3] PASS (68ms)
+[B3] ([fast]) ui-bugfix.static.e2e.js ... [B3] PASS (44ms)
+[B3] ([fast]) ui-v3-p3b.static.e2e.js ... [B3] PASS (67ms)
+[B3] ([fast]) workflow-editor-v2.static.e2e.js ... [B3] PASS (48ms)
+[B3] ([main]) action-feedback.browser.e2e.js ... [B1] PASS (969ms)
+[B1] ([fast]) i18n.static.e2e.js ... [B1] PASS (227ms)
+[B1] ([fast]) manifest-ranges.static.e2e.js ... [B1] PASS (67ms)
+[B1] ([fast]) model-menu-classes.static.e2e.js ... [B1] PASS (34ms)
+[B1] ([fast]) new-thread-engine-default.static.e2e.js ... [B1] PASS (48ms)
+[B1] ([fast]) process-safety.static.e2e.js ... [B1] PASS (299ms)
+[B1] ([fast]) rail-pocket.static.e2e.js ... [B1] PASS (74ms)
+[B1] ([fast]) scheduler-ui.static.e2e.js ... [B2] PASS (3471ms)
+[B2] ([fast]) frontend-domains.static.e2e.js ... [B2] PASS (108ms)
+[B2] ([fast]) inline-script-csp-hash.static.e2e.js ... [B1] PASS (218ms)
+[B1] ([fast]) steward-avatar.static.e2e.js ... [B2] PASS (103ms)
+[B2] ([fast]) mcp-ops-gui.static.e2e.js ... [B1] PASS (83ms)
+[B1] ([fast]) steward-drawer.static.e2e.js ... [B2] PASS (142ms)
+[B2] ([fast]) module-dependency-graph.static.e2e.js ... [B1] PASS (125ms)
+[B1] ([fast]) steward-shell.static.e2e.js ... [B1] PASS (67ms)
+[B1] ([fast]) thinking-boundary.static.e2e.js ... [B1] PASS (38ms)
+[B1] ([fast]) tool-verb-coverage.static.e2e.js ... [B1] PASS (127ms)
+[B1] ([fast]) ui-v3-p2.static.e2e.js ... [B1] PASS (118ms)
+[B1] ([fast]) ui-v4-glass.static.e2e.js ... [B1] PASS (133ms)
+[B1] ([main]) acc-capability-gates.e2e.js ... [B2] PASS (1503ms)
+[B2] ([fast]) onboarding.static.e2e.js ... [B2] PASS (63ms)
+[B2] ([fast]) progress-events.static.e2e.js ... [B2] PASS (207ms)
+[B2] ([fast]) resume-banner-dismiss.static.e2e.js ... [B2] PASS (33ms)
+[B2] ([fast]) session-save-census.static.e2e.js ... [B2] PASS (83ms)
+[B2] ([fast]) steward-board.static.e2e.js ... [B2] PASS (111ms)
+[B2] ([fast]) steward-events.static.e2e.js ... [B2] PASS (177ms)
+[B2] ([fast]) steward-tools.static.e2e.js ... [B2] PASS (1943ms)
+[B2] ([fast]) thread-brief.static.e2e.js ... [B2] PASS (85ms)
+[B2] ([fast]) turn-narrative.static.e2e.js ... [B2] PASS (151ms)
+[B2] ([fast]) ui-v3-p3a.static.e2e.js ... [B2] PASS (86ms)
+[B2] ([fast]) v17-review-fixes.static.e2e.js ... [B2] PASS (180ms)
+[B2] ([main]) acceptance-provenance.e2e.js ... [B2] PASS (992ms)
+[B2] ([main]) adversarial-w21.e2e.js ... [B2] PASS (155ms)
+[B2] ([main]) agent-loop.e2e.js ... [B3] PASS (8670ms)
+[B3] ([main]) agent-coordination.e2e.js ... [B0] PASS (10853ms)
+[B0] ([main]) action-model-view.e2e.js ... [B1] PASS (9217ms)
+[B1] ([main]) adaptive-budget.e2e.js ... [B2] PASS (4027ms)
+[B2] ([main]) agent-parent-mailbox.e2e.js ... [B1] PASS (1268ms)
+[B1] ([main]) agent-final-mailbox.e2e.js ... [B0] PASS (2945ms)
+[B0] ([main]) agent-deadlock-watchdog.e2e.js ... [B3] PASS (4219ms)
+[B3] ([main]) agent-mode-v2.e2e.js ... [B2] PASS (6422ms)
+[B2] ([main]) agent-role-openai.e2e.js ... [B2] PASS (1811ms)
+[B2] ([main]) agent-subturn-loop-guard.e2e.js ... [B1] PASS (8212ms)
+[B1] ([main]) agent-parent-heartbeat.e2e.js ... [B2] PASS (2069ms)
+[B2] ([main]) agent-workflow-budget-finalizer.e2e.js ... [B2] PASS (1791ms)
+[B2] ([main]) agent-workflow-monitor-ui.e2e.js ... [B2] PASS (56ms)
+[B2] ([main]) agent-workflow-replan.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 11249ms)
+[B3] ([main]) agent-quality-gates.e2e.js ... [B3] PASS (103ms)
+[B3] ([main]) agent-roles.e2e.js ... [B2] PASS (1799ms)
+[B2] ([main]) agent-worktree.e2e.js ... [B3] PASS (1595ms)
+[B3] ([main]) agent-team-mode.e2e.js ... [B2] PASS (749ms)
+[B2] ([main]) artifacts.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 201ms)
+[B2] ([main]) audit-desktop-records.e2e.js ... [B2] PASS (332ms)
+[B2] ([main]) autocompact.e2e.js ... [B2] PASS (2226ms)
+[B2] ([main]) autonomy-resume.e2e.js ... [B3] PASS (4120ms)
+[B3] ([main]) agent-workflow-claude-engine.e2e.js ... [B0] PASS (17699ms)
+[B0] ([main]) agent-node-wrapup.e2e.js ... [B1] PASS (13328ms)
+[B1] ([main]) agent-resource-wait-stop.e2e.js ... [B2] PASS (6285ms)
+[B2] ([main]) boot-failure-kind.browser.e2e.js ... [B2] PASS (4767ms)
+[B2] ([main]) bridged-read-noprompt.e2e.js ... [B0] PASS (10195ms)
+[B0] ([main]) agent-quality-workflow.e2e.js ... [B3] PASS (15665ms)
+[B3] ([main]) agent-workflow-node-context.e2e.js ... [B0] PASS (5944ms)
+[B0] ([main]) agent-run-lifecycle.e2e.js ... [B3] PASS (1713ms)
+[B3] ([main]) agent-workflow-templates.e2e.js ... [B3] PASS (104ms)
+[B3] ([main]) anthropic-fake.e2e.js ... [B2] PASS (8638ms)
+[B2] ([main]) changes-diff.e2e.js ... [B2] PASS (521ms)
+[B2] ([main]) checkpoint-gc-cache.e2e.js ... [B3] PASS (2133ms)
+[B3] ([main]) asr-transcribe.e2e.js ... [B2] PASS (1334ms)
+[B2] ([main]) checkpoint.e2e.js ... [B1] PASS (16768ms)
+[B1] ([main]) agent-steer-node.e2e.js ... [B2] PASS (2061ms)
+[B2] ([main]) claude-exe-resolve.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 1845ms)
+[B2] ([main]) cli-probe-stall.e2e.js ... [B3] PASS (9390ms)
+[B3] ([main]) audit-w23.e2e.js ... [B0] PASS (13316ms)
+[B0] ([main]) agent-wake.e2e.js ... [B1] PASS (10162ms)
+[B1] ([main]) agent-workflow-audit-fixes.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 2136ms)
+[B3] ([main]) autonomy-benchmark.e2e.js ... [B1] PASS (3567ms)
+[B1] ([main]) agent-workflow-editor-ui.e2e.js ... [B1] PASS (75ms)
+[B1] ([main]) agent-workflow-replan-review.e2e.js ... [B1] PASS (1988ms)
+[B1] ([main]) agent-workflow-ui-progress.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 13990ms)
+[B2] ([main]) composer-voice-stream.browser.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 7088ms)
+[B3] ([main]) autonomy-shell-sandbox.e2e.js ... [B3] PASS (644ms)
+[B3] ([main]) boot-resume-parallel.e2e.js ... [B1] PASS (2766ms)
+[B1] ([main]) anthropic-provider-setup.browser.e2e.js ... [B3] PASS (1357ms)
+[B3] ([main]) budget-guard.e2e.js ... [B1] PASS (7998ms)
+[B1] ([main]) atomic-write-cancellation.e2e.js ... [B1] PASS (206ms)
+[B1] ([main]) auth-deny-default.e2e.js ... [B1] PASS (1914ms)
+[B1] ([main]) autonomy-pause.e2e.js ... [B1] PASS (82ms)
+[B1] ([main]) batch-output-discipline.e2e.js ... [B1] PASS (2903ms)
+[B1] ([main]) bridged-prefix-tolerance.e2e.js ... [B1] PASS (1305ms)
+[B1] ([main]) capabilities.e2e.js ... [B1] PASS (8169ms)
+[B1] ([main]) checkpoint-coverage.e2e.js ... [B1] PASS (2080ms)
+[B1] ([main]) checkpoint-visibility.e2e.js ... [B1] PASS (3311ms)
+[B1] ([main]) claude-context-continuity.e2e.js ... [B2] PASS (29799ms)
+[B2] ([main]) config-providers-guard.e2e.js ... [B2] PASS (1351ms)
+[B2] ([main]) context-window.e2e.js ... [B2] PASS (904ms)
+[B2] ([main]) data-profile.e2e.js ... [B2] PASS (126ms)
+[B2] ([main]) desktop-execution-root.e2e.js ... [B2] PASS (1227ms)
+[B2] ([main]) dns-rebind.e2e.js ... [B1] PASS (4266ms)
+[B1] ([main]) claude-resume-recovery.e2e.js ... [B2] PASS (782ms)
+[B2] ([main]) e2-append-system-prompt.e2e.js ... [B1] PASS (939ms)
+[B1] ([main]) composer-session-races.browser.e2e.js ... [B2] PASS (3193ms)
+[B2] ([main]) economics-shadow.e2e.js ... [B1] PASS (3544ms)
+[B1] ([main]) config-mutate-mcp-parity.e2e.js ... [B1] PASS (385ms)
+[B1] ([main]) context-governance.e2e.js ... [B1] PASS (149ms)
+[B1] ([main]) cross-thread-history.e2e.js ... [B2] PASS (1412ms)
+[B2] ([main]) evidence-claims-m4-benchmark.e2e.js ... [B2] PASS (104ms)
+[B2] ([main]) external-bot-gateway.e2e.js ... [B1] PASS (1512ms)
+[B1] ([main]) deepseek-search-fetch.e2e.js ... [B1] PASS (293ms)
+[B1] ([main]) desktop-probe-status.e2e.js ... [B2] PASS (2056ms)
+[B2] ([main]) external-bots.browser.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 41021ms)
+[B3] ([main]) chat-stream-remount.browser.e2e.js ... [B3] PASS (7783ms)
+[B3] ([main]) checkpoint-mcpchild.e2e.js ... [B3] PASS (1145ms)
+[B3] ([main]) claude-cli-bridged-read-guard.e2e.js ... [B3] PASS (669ms)
+[B3] ([main]) claude-models-cache.e2e.js ... [B1] PASS (13049ms)
+[B1] ([main]) e1-parallel-noindex.e2e.js ... [B3] PASS (1502ms)
+[B3] ([main]) codebase-symbol-search.e2e.js ... [B3] PASS (736ms)
+[B3] ([main]) composer-voice-warmup.browser.e2e.js ... [B1] PASS (2136ms)
+[B1] ([main]) e5-multiline-sse.e2e.js ... [B2] PASS (14754ms)
+[B2] ([main]) failover.e2e.js ... [B1] PASS (2179ms)
+[B1] ([main]) event-stream-pageshow.browser.e2e.js ... [B1] PASS (2058ms)
+[B1] ([main]) external-bot-discovery.e2e.js ... [B1] PASS (2003ms)
+[B1] ([main]) external-bots-control.e2e.js ... [B2] PASS (6435ms)
+[B2] ([main]) file-text-encoding.e2e.js ... [B2] PASS (634ms)
+[B2] ([main]) git.e2e.js ... [B2] PASS (2094ms)
+[B2] ([main]) help-viewer.e2e.js ... [B2] PASS (225ms)
+[B2] ([main]) interactive-question.e2e.js ... [B1] PASS (3974ms)
+[B1] ([main]) external-code-diff.e2e.js ... [B1] PASS (1085ms)
+[B1] ([main]) file-mutation-recovery.e2e.js ... [B1] PASS (166ms)
+[B1] ([main]) frontend-wave3.browser.e2e.js ... [B2] PASS (2037ms)
+[B2] ([main]) interventions-changeseq.e2e.js ... [B2] PASS (3069ms)
+[B2] ([main]) judge-json-repair.e2e.js ... [B2] PASS (2529ms)
+[B2] ([main]) launcher-spaced-path.e2e.js ... [B2] PASS (31ms)
+[B2] ([main]) loop-guard-read-exempt.e2e.js ... [B2] PASS (3708ms)
+[B2] ([main]) macos-audit-cancellation.e2e.js ... [B0] PASS (85228ms)
+[B0] ([main]) agent-workflow-claude-transient-repro.e2e.js ... [B0] PASS (2050ms)
+[B0] ([main]) agent-workflow-replan-approve.e2e.js ... [B3] PASS (24191ms)
+[B3] ([main]) config-read-safety.e2e.js ... [B2] PASS (4580ms)
+[B2] ([main]) macos-capability-popover.browser.e2e.js ... [B3] PASS (3623ms)
+[B3] ([main]) credential-vault.e2e.js ... [B3] PASS (33ms)
+[B3] ([main]) data-root-migration.e2e.js ... [B0] PASS (4666ms)
+[B0] ([main]) agent-workflow-transient-repro.e2e.js ... [B2] PASS (4301ms)
+[B2] ([main]) macos-executable-probe.e2e.js ... [B0] PASS (2176ms)
+[B0] ([main]) anthropic-gateway-setup.e2e.js ... [B3] PASS (4021ms)
+[B3] ([main]) desktop-mcp-smoke.e2e.js ... [B0] PASS (1659ms)
+[B0] ([main]) asr-warmup.e2e.js ... [B2] PASS (2130ms)
+[B2] ([main]) macos-mcp-capabilities.e2e.js ... [B2] PASS (792ms)
+[B2] ([main]) macos-native-readiness.e2e.js ... [B2] PASS (34ms)
+[B2] ([main]) macos-opener.e2e.js ... [B2] PASS (6648ms)
+[B2] ([main]) macos-process-runtime.e2e.js ... [B0] PASS (10223ms)
+[B0] ([main]) audit.e2e.js ... [B0] PASS (1490ms)
+[B0] ([main]) autonomy-grant.e2e.js ... [B0] PASS (1392ms)
+[B0] ([main]) background-completion.e2e.js ... [B0] FAIL exit=1 (重跑仍失败, 1608ms)
+[B0] ([main]) bridge-cancel-timeout.e2e.js ... [B2] PASS (8050ms)
+[B2] ([main]) macos-shell-runtime.e2e.js ... [B2] PASS (4076ms)
+[B2] ([main]) macos-upgrade-rollback.e2e.js ... [B2] PASS (34ms)
+[B2] ([main]) mcp-import-config.e2e.js ... [B2] PASS (636ms)
+[B2] ([main]) mcp-resource-config-mask.e2e.js ... [B0] FAIL exit=1 (重跑仍失败, 6224ms)
+[B0] ([main]) c2-deterministic-evidence.e2e.js ... [B2] PASS (610ms)
+[B2] ([main]) memory-auto-proposal.e2e.js ... [B0] PASS (110ms)
+[B0] ([main]) chat-ux-wave1.browser.e2e.js ... [B2] PASS (138ms)
+[B2] ([main]) memory-graph-maintenance.e2e.js ... [B2] PASS (146ms)
+[B2] ([main]) memory-recall-quality.e2e.js ... [B2] PASS (286ms)
+[B2] ([main]) memory-veto-precedence.e2e.js ... [B2] PASS (1025ms)
+[B2] ([main]) metrics-panel.e2e.js ... [B2] PASS (711ms)
+[B2] ([main]) mission-index-boot-race.e2e.js ... [B2] PASS (4303ms)
+[B2] ([main]) mission-start-race.e2e.js ... [B2] PASS (25095ms)
+[B2] ([main]) monitor-incremental.e2e.js ... [B0] PASS (35116ms)
+[B0] ([main]) checkpoint-proxy-session.e2e.js ... [B0] PASS (2173ms)
+[B0] ([main]) claude-cmdline-guard.e2e.js ... [B2] PASS (6192ms)
+[B2] ([main]) observation-recall-realhistory.e2e.js ... [B2] PASS (110ms)
+[B2] ([main]) offline-upgrade-drill.e2e.js ... [B2] PASS (561ms)
+[B2] ([main]) openai-engine.e2e.js ... [B2] PASS (2309ms)
+[B2] ([main]) overlay-update-core.e2e.js ... [B2] FAIL exit=2 (重跑仍失败, 132ms)
+[B2] ([main]) perm-v2.e2e.js ... [B0] FAIL exit=1 (重跑仍失败, 12098ms)
+[B0] ([main]) claude-permission-bridge-mode.e2e.js ... [B0] PASS (690ms)
+[B0] ([main]) compaction-refetch-guard.e2e.js ... [B0] PASS (1828ms)
+[B0] ([main]) compound-effect-audit.e2e.js ... [B2] PASS (13564ms)
+[B2] ([main]) playbook-reuse.browser.e2e.js ... [B0] PASS (2986ms)
+[B0] ([main]) context-compact-v2.e2e.js ... [B0] PASS (7129ms)
+[B0] ([main]) crew-experience.browser.e2e.js ... [B2] PASS (9417ms)
+[B2] ([main]) port-fallback.e2e.js ... [B2] PASS (1251ms)
+[B2] ([main]) privacy-gateway.e2e.js ... [B0] PASS (9473ms)
+[B0] ([main]) debug-hypothesis.e2e.js ... [B0] PASS (226ms)
+[B0] ([main]) desktop-probe-follow.browser.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 97549ms)
+[B3] ([main]) dom-contract.e2e.js ... [B3] PASS (181ms)
+[B3] ([main]) e3-engine-switch-continuity.e2e.js ... [B0] PASS (7274ms)
+[B0] ([main]) durable-json-store.e2e.js ... [B0] PASS (118ms)
+[B0] ([main]) e4-no-usage.e2e.js ... [B3] PASS (3511ms)
+[B3] ([main]) engine-env-runtime.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 14914ms)
+[B2] ([main]) provider-compact.e2e.js ... [B1] PASS (122757ms)
+[B1] ([main]) help-menu.e2e.js ... [B0] PASS (2189ms)
+[B0] ([main]) estimate-buckets.e2e.js ... [B0] PASS (180ms)
+[B0] ([main]) external-bot-credentials.e2e.js ... [B0] PASS (34ms)
+[B0] ([main]) external-bot-setup.e2e.js ... [B1] PASS (491ms)
+[B1] ([main]) index-dedup.e2e.js ... [B2] PASS (2611ms)
+[B2] ([main]) provider-tool-history.e2e.js ... [B2] PASS (1781ms)
+[B2] ([main]) rail-session-search.browser.e2e.js ... [B0] PASS (5238ms)
+[B0] ([main]) external-channel-delivery.e2e.js ... [B1] PASS (7467ms)
+[B1] ([main]) interventions-cas.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 10274ms)
+[B3] ([main]) exec-result-cache.e2e.js ... [B0] PASS (5063ms)
+[B0] ([main]) file-guard.e2e.js ... [B0] PASS (772ms)
+[B0] ([main]) frontend-wave2.browser.e2e.js ... [B1] PASS (4401ms)
+[B1] ([main]) interventions-snapshot.e2e.js ... [B3] PASS (5968ms)
+[B3] ([main]) external-bot-setup.browser.e2e.js ... [B3] PASS (33ms)
+[B3] ([main]) external-bots.e2e.js ... [B1] PASS (2866ms)
+[B1] ([main]) kimi-search-policy.e2e.js ... [B1] PASS (108ms)
+[B1] ([main]) long-tool-liveness-steer.e2e.js ... [B3] PASS (5694ms)
+[B3] ([main]) fake-mcp-contract.e2e.js ... [B3] PASS (1695ms)
+[B3] ([main]) foreign-turn-busy-guard.e2e.js ... [B2] PASS (20559ms)
+[B2] ([main]) reading-continuation.e2e.js ... [B1] PASS (8764ms)
+[B1] ([main]) macos-agent-cli-discovery.e2e.js ... [B1] PASS (1360ms)
+[B1] ([main]) macos-capabilities.e2e.js ... [B2] PASS (5694ms)
+[B2] ([main]) responses-fake.e2e.js ... [B2] PASS (1881ms)
+[B2] ([main]) rewind.e2e.js ... [B1] PASS (8447ms)
+[B1] ([main]) macos-document-reader.e2e.js ... [B2] PASS (4386ms)
+[B2] ([main]) scheduler-reducer.e2e.js ... [B2] PASS (106ms)
+[B2] ([main]) search-robust.e2e.js ... [B2] PASS (714ms)
+[B2] ([main]) server-ownership.e2e.js ... [B2] PASS (3218ms)
+[B2] ([main]) session-delete-agent-runs.e2e.js ... [B3] PASS (20862ms)
+[B3] ([main]) goal-evolution.e2e.js ... [B3] PASS (270ms)
+[B3] ([main]) i18n.e2e.js ... [B3] PASS (720ms)
+[B3] ([main]) intervention-mission-gate.e2e.js ... [B2] PASS (8358ms)
+[B2] ([main]) session-notes-inject.e2e.js ... [B3] PASS (4542ms)
+[B3] ([main]) interventions-persist.e2e.js ... [B3] PASS (3992ms)
+[B3] ([main]) kimi-agent-cli.e2e.js ... [B0] PASS (42628ms)
+[B0] ([main]) harness-friction.e2e.js ... [B2] PASS (7490ms)
+[B2] ([main]) session-rewind-execution.e2e.js ... [B2] PASS (1808ms)
+[B2] ([main]) session-stop-identity.browser.e2e.js ... [B2] PASS (2932ms)
+[B2] ([main]) settings-ia.browser.e2e.js ... [B1] PASS (35465ms)
+[B1] ([main]) macos-keychain.e2e.js ... [B0] FAIL exit=1 (重跑仍失败, 16042ms)
+[B0] ([main]) ia.e2e.js ... [B0] PASS (830ms)
+[B0] ([main]) interventions-c4.e2e.js ... [B0] PASS (2762ms)
+[B0] ([main]) interventions-pool.e2e.js ... [B2] PASS (14386ms)
+[B2] ([main]) shell-session.e2e.js ... [B3] PASS (26372ms)
+[B3] ([main]) live-full-text.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 4616ms)
+[B2] ([main]) spawn-background-dag.e2e.js ... [B0] PASS (7947ms)
+[B0] ([main]) kimi-prompt-parts.e2e.js ... [B0] PASS (47ms)
+[B0] ([main]) locale-en-us.browser.e2e.js ... [B3] PASS (4612ms)
+[B3] ([main]) loop-guard.e2e.js ... [B2] PASS (4152ms)
+[B2] ([main]) steer-interrupt.e2e.js ... [B0] PASS (4193ms)
+[B0] ([main]) macos-acc-shared.e2e.js ... [B3] PASS (3198ms)
+[B3] ([main]) macos-ax-finder.e2e.js ... [B3] PASS (31ms)
+[B3] ([main]) macos-capture-transition.e2e.js ... [B3] PASS (33ms)
+[B3] ([main]) macos-file-policy.e2e.js ... [B0] PASS (1040ms)
+[B0] ([main]) macos-browser-runtime.e2e.js ... [B0] PASS (107ms)
+[B0] ([main]) macos-cli-models.e2e.js ... [B1] PASS (18409ms)
+[B1] ([main]) macos-native-entry.e2e.js ... [B1] PASS (31ms)
+[B1] ([main]) macos-offline-package.e2e.js ... [B1] PASS (33ms)
+[B1] ([main]) macos-process-cleanup.e2e.js ... [B2] PASS (4472ms)
+[B2] ([main]) steward-attachments-search.e2e.js ... [B3] PASS (1657ms)
+[B3] ([main]) macos-media-runtime.e2e.js ... [B1] PASS (2204ms)
+[B1] ([main]) macos-runtime-start.e2e.js ... [B2] PASS (2585ms)
+[B2] ([main]) steward-config-tools.e2e.js ... [B2] PASS (884ms)
+[B2] ([main]) steward-decisions.browser.e2e.js ... [B1] PASS (3257ms)
+[B1] ([main]) macos-trial-install.e2e.js ... [B1] PASS (34ms)
+[B1] ([main]) mcp-config.e2e.js ... [B1] PASS (2885ms)
+[B1] ([main]) mcp-remote-transport.e2e.js ... [B1] PASS (2651ms)
+[B1] ([main]) memory-auto-proposal-api.e2e.js ... [B1] PASS (2082ms)
+[B1] ([main]) memory-graph-auto-proposal.e2e.js ... [B1] PASS (110ms)
+[B1] ([main]) memory-recall-injection.e2e.js ... [B1] PASS (5043ms)
+[B1] ([main]) memory-subagent.e2e.js ... [B1] PASS (1658ms)
+[B1] ([main]) meta-tools.e2e.js ... [B1] PASS (2908ms)
+[B1] ([main]) mission-driver.e2e.js ... [B0] PASS (24165ms)
+[B0] ([main]) macos-git-runtime.e2e.js ... [B0] PASS (7073ms)
+[B0] ([main]) macos-migration-trash.e2e.js ... [B0] PASS (965ms)
+[B0] ([main]) macos-office-artifacts.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 28431ms)
+[B2] ([main]) steward-deliverable.e2e.js ... [B1] FAIL exit=1 (重跑仍失败, 9759ms)
+[B1] ([main]) mission-result.e2e.js ... [B1] PASS (3110ms)
+[B1] ([main]) model-menu-no-shift.browser.e2e.js ... [B2] PASS (5162ms)
+[B2] ([main]) steward-drawer-keep-frame.browser.e2e.js ... [B1] PASS (4090ms)
+[B1] ([main]) new-thread-engine-default.e2e.js ... [B2] PASS (3467ms)
+[B2] ([main]) steward-exempt-shell-send.e2e.js ... [B1] PASS (7385ms)
+[B1] ([main]) observation-recall.e2e.js ... [B1] PASS (3040ms)
+[B1] ([main]) onboarding.e2e.js ... [B0] PASS (19491ms)
+[B0] ([main]) macos-platform-templates.e2e.js ... [B0] PASS (156ms)
+[B0] ([main]) macos-rg-runtime.e2e.js ... [B1] PASS (1408ms)
+[B1] ([main]) orchestration-blindspots.e2e.js ... [B1] PASS (3248ms)
+[B1] ([main]) perf-config-cache.e2e.js ... [B1] PASS (1060ms)
+[B1] ([main]) plan-mode.e2e.js ... [B0] PASS (6036ms)
+[B0] ([main]) macos-sync-supervisor.e2e.js ... [B0] PASS (2999ms)
+[B0] ([main]) mcp-bridge.e2e.js ... [B1] PASS (4743ms)
+[B1] ([main]) playbooks.e2e.js ... [B0] PASS (1299ms)
+[B0] ([main]) mcp-ops-closure.e2e.js ... [B1] PASS (6412ms)
+[B1] ([main]) privacy-channels.e2e.js ... [B1] PASS (108ms)
+[B1] ([main]) provider-compact-recall.e2e.js ... [B0] PASS (6970ms)
+[B0] ([main]) memory-active-scope.e2e.js ... [B1] PASS (2252ms)
+[B1] ([main]) provider-pairing-repair.e2e.js ... [B0] PASS (1983ms)
+[B0] ([main]) memory-batch-proposal.e2e.js ... [B1] PASS (4141ms)
+[B1] ([main]) rail-reconcile.browser.e2e.js ... [B0] PASS (6276ms)
+[B0] ([main]) memory-maintenance-tools.e2e.js ... [B0] PASS (181ms)
+[B0] ([main]) memory-scope.e2e.js ... [B2] FAIL exit=1 (重跑仍失败, 36694ms)
+[B2] ([main]) steward-handoff-recovery.browser.e2e.js ... [B1] PASS (8723ms)
+[B1] ([main]) readfiletail-torntail.e2e.js ... [B1] PASS (500ms)
+[B1] ([main]) resource-awareness.e2e.js ... [B1] PASS (192ms)
+[B1] ([main]) resume-dangling.e2e.js ... [B1] PASS (791ms)
+[B1] ([main]) scheduler-crash.e2e.js ... [B0] PASS (8957ms)
+[B0] ([main]) meta-guard.e2e.js ... [B0] PASS (535ms)
+[B0] ([main]) migration-center.e2e.js ... [B2] PASS (8879ms)
+[B2] ([main]) steward-multistep.browser.e2e.js ... [B0] PASS (3817ms)
+[B0] ([main]) mission-index-late-materialize.e2e.js ... [B0] PASS (563ms)
+[B0] ([main]) missions-readmodel.e2e.js ... [B0] PASS (2745ms)
+[B0] ([main]) native-media-boundaries.e2e.js ... [B2] PASS (7608ms)
+[B2] ([main]) steward-no-model.browser.e2e.js ... [B0] PASS (3077ms)
+[B0] ([main]) observation-recall-snapshot-cap.e2e.js ... [B2] PASS (2633ms)
+[B2] ([main]) steward-quick-ask.e2e.js ... [B0] PASS (2571ms)
+[B0] ([main]) onboarding-workspace.browser.e2e.js ... [B1] PASS (15618ms)
+[B1] ([main]) search-cancellation.e2e.js ... [B0] PASS (3028ms)
+[B0] ([main]) orchestrate-model-select.e2e.js ... [B1] PASS (2711ms)
+[B1] ([main]) semantic-loop-guard.e2e.js ... [B0] PASS (402ms)
+[B0] ([main]) path-matcher-cancellation.e2e.js ... [B1] PASS (1875ms)
+[B1] ([main]) session-bulk-cleanup.e2e.js ... [B1] PASS (876ms)
+[B1] ([main]) session-index.e2e.js ... [B2] PASS (8761ms)
+[B2] ([main]) steward-runner.e2e.js ... [B0] PASS (2979ms)
+[B0] ([main]) permission-survives-reload.browser.e2e.js ... [B0] PASS (4076ms)
+[B0] ([main]) playbook-skill-tools.e2e.js ... [B1] PASS (5585ms)
+[B1] ([main]) session-permission-mode.e2e.js ... [B2] PASS (7741ms)
+[B2] ([main]) steward-shell-redesign.browser.e2e.js ... [B0] PASS (7811ms)
+[B0] ([main]) preflight-relative-write.e2e.js ... [B2] PASS (5284ms)
+[B2] ([main]) steward-signals.e2e.js ... [B1] PASS (35812ms)
+[B1] ([main]) session-stop-execution.e2e.js ... [B1] PASS (1565ms)
+[B1] ([main]) settings-catalog.browser.e2e.js ... [B3] PASS [flaky: 重跑通过] (150959ms)
+[B3] ([main]) macos-neutral-abort.e2e.js ... [B3] PASS (31ms)
+[B3] ([main]) macos-overlay-boundary.e2e.js ... [B3] PASS (320ms)
+[B3] ([main]) macos-python-probe.e2e.js ... [B1] PASS (5508ms)
+[B1] ([main]) shell-mcp-guard.e2e.js ... [B1] FAIL exit=1 (重跑仍失败, 1272ms)
+[B1] ([main]) source-fields.e2e.js ... [B1] PASS (2719ms)
+[B1] ([main]) start-error-surface.e2e.js ... [B1] PASS (1533ms)
+[B1] ([main]) steward-answer.e2e.js ... [B3] PASS (10364ms)
+[B3] ([main]) macos-sync-probe.e2e.js ... [B2] PASS (45806ms)
+[B2] ([main]) steward-thread-order.e2e.js ... [B1] PASS (6442ms)
+[B1] ([main]) steward-catalogs.e2e.js ... [B2] PASS (2004ms)
+[B2] ([main]) steward-viewing-gate.e2e.js ... [B1] PASS (2823ms)
+[B1] ([main]) steward-contract-guard.e2e.js ... [B1] PASS (2615ms)
+[B1] ([main]) steward-deferred-permission.e2e.js ... [B3] PASS (9509ms)
+[B3] ([main]) manuals.e2e.js ... [B3] PASS (31ms)
+[B3] ([main]) mcp-import-origin.e2e.js ... [B2] PASS (20063ms)
+[B2] ([main]) subagent-compaction-parity.e2e.js ... [B2] PASS (6716ms)
+[B2] ([main]) subagent-thinking-continuity.e2e.js ... [B2] PASS (18263ms)
+[B2] ([main]) summary-fact-table.e2e.js ... [B2] PASS (2109ms)
+[B2] ([main]) summary-task-evidence.e2e.js ... [B2] PASS (1449ms)
+[B2] ([main]) theme-default.browser.e2e.js ... [B2] PASS (2521ms)
+[B2] ([main]) thread-commission.browser.e2e.js ... [B2] PASS (4066ms)
+[B2] ([main]) todo-summary.e2e.js ... [B2] PASS (1925ms)
+[B2] ([main]) tool-audit-r2-files.e2e.js ... [B2] PASS (1058ms)
+[B2] ([main]) tool-dispatch-hardening.e2e.js ... [B2] PASS (2397ms)
+[B2] ([main]) tool-result-bounds.e2e.js ... [B2] PASS (1786ms)
+[B2] ([main]) tools-v3.e2e.js ... [B2] PASS (6353ms)
+[B2] ([main]) ui-polish.browser.e2e.js ... [B2] PASS (1592ms)
+[B2] ([main]) usage-dashboard.e2e.js ... [B2] PASS (81ms)
+[B2] ([main]) voice-learn.browser.e2e.js ... [B2] PASS (3307ms)
+[B2] ([main]) wait-primitive.e2e.js ... [B2] PASS (4048ms)
+[B2] ([main]) workbench-self-status.e2e.js ... [B2] PASS (2602ms)
+[B2] ([main]) worktree-cleanup-retry.e2e.js ... [B2] PASS (270ms)
+[B1] FAIL exit=1 (重跑仍失败, 81816ms)
+[B1] ([main]) steward-delivery.e2e.js ... [B1] PASS (1941ms)
+[B1] ([main]) steward-exempt-no-swap.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 98603ms)
+[B3] ([main]) mcp-stdio-eof.e2e.js ... [B3] PASS (16670ms)
+[B3] ([main]) memory-batch-card.browser.e2e.js ... [B3] PASS (3615ms)
+[B3] ([main]) memory-graph-relations.e2e.js ... [B3] PASS (110ms)
+[B3] ([main]) memory-scope-card.browser.e2e.js ... [B3] PASS (12350ms)
+[B3] ([main]) mermaid-viewer.browser.e2e.js ... [B3] PASS (3881ms)
+[B3] ([main]) migration-center.browser.e2e.js ... [B3] PASS (7623ms)
+[B3] ([main]) mission-index-gate.e2e.js ... [B3] PASS (2084ms)
+[B3] ([main]) mission-threads.e2e.js ... [B3] PASS (1366ms)
+[B3] ([main]) multi-session-parallel.e2e.js ... [B3] PASS (2806ms)
+[B3] ([main]) observation-recall-replay.e2e.js ... [B3] PASS (57ms)
+[B3] ([main]) onboard.e2e.js ... [B3] PASS (1562ms)
+[B3] ([main]) openai-tools.e2e.js ... [B3] PASS (1770ms)
+[B3] ([main]) parallel-read-island.e2e.js ... [B3] PASS (7473ms)
+[B3] ([main]) permission-plain.browser.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 26335ms)
+[B3] ([main]) playbook-reuse.e2e.js ... [B3] PASS (1792ms)
+[B3] ([main]) prefix-layout.e2e.js ... [B3] PASS (10833ms)
+[B3] ([main]) privacy-protocols.e2e.js ... [B3] PASS (110ms)
+[B3] ([main]) provider-custom-headers.e2e.js ... [B3] PASS (186ms)
+[B3] ([main]) provider-tool-stop.e2e.js ... [B3] PASS (8457ms)
+[B3] ([main]) rail-tool-height.browser.e2e.js ... [B3] PASS (6451ms)
+[B3] ([main]) reject-attribution.e2e.js ... [B3] PASS (4068ms)
+[B3] ([main]) responses-websearch-fake.e2e.js ... [B3] PASS (4136ms)
+[B3] ([main]) run-health.browser.e2e.js ... [B3] PASS (3800ms)
+[B3] ([main]) scheduler-steward.e2e.js ... [B3] PASS (13236ms)
+[B3] ([main]) security-gates-w2.e2e.js ... [B3] PASS (4472ms)
+[B3] ([main]) service-match.browser.e2e.js ... [B3] PASS (6890ms)
+[B3] ([main]) session-get-etag.e2e.js ... [B3] PASS (3354ms)
+[B3] ([main]) session-notes-merge.e2e.js ... [B3] PASS (255ms)
+[B3] ([main]) session-scratchpad.e2e.js ... [B3] PASS (4054ms)
+[B3] ([main]) session-storage-v2.e2e.js ... [B3] PASS (803ms)
+[B3] ([main]) settings-skills.browser.e2e.js ... [B3] PASS (5277ms)
+[B3] ([main]) simple-mode.browser.e2e.js ... [B3] PASS (6327ms)
+[B3] ([main]) ssrf-hardening.e2e.js ... [B3] PASS (92ms)
+[B3] ([main]) steering-claude.e2e.js ... [B1] FAIL TIMEOUT(>120s) (重跑仍失败, 240020ms)
+[B1] ([main]) steward-guardrails.e2e.js ... [B3] PASS (54032ms)
+[B3] ([main]) steward-attachments.browser.e2e.js ... [B3] PASS (2397ms)
+[B3] ([main]) steward-content-tools.e2e.js ... [B3] PASS (3112ms)
+[B3] ([main]) steward-decisions.e2e.js ... [B3] PASS (1330ms)
+[B3] ([main]) steward-delivery-history.browser.e2e.js ... [B3] PASS (2246ms)
+[B3] ([main]) steward-drawer.e2e.js ... [B3] PASS (6063ms)
+[B3] ([main]) steward-eyes.e2e.js ... [B3] PASS (379ms)
+[B3] ([main]) steward-inbox-integrity.e2e.js ... [B1] FAIL exit=1 (重跑仍失败, 26719ms)
+[B1] ([main]) steward-memory.e2e.js ... [B1] PASS (3424ms)
+[B1] ([main]) steward-new-conversation.e2e.js ... [B1] PASS (8408ms)
+[B1] ([main]) steward-presence-gate.e2e.js ... [B3] PASS (42664ms)
+[B3] ([main]) steward-multistep.e2e.js ... [B3] PASS (15436ms)
+[B3] ([main]) steward-notify.e2e.js ... [B3] PASS (273ms)
+[B3] ([main]) steward-quickask-board.e2e.js ... [B3] PASS (1228ms)
+[B3] ([main]) steward-settings-scope.browser.e2e.js ... [B3] PASS (6416ms)
+[B3] ([main]) steward-shell-wave1.browser.e2e.js ... [B1] PASS (54399ms)
+[B1] ([main]) steward-relay-channels.e2e.js ... [B3] PASS (13357ms)
+[B3] ([main]) steward-stop-receipts.browser.e2e.js ... [B3] PASS (6530ms)
+[B3] ([main]) steward-thread-title.e2e.js ... [B3] PASS (2480ms)
+[B3] ([main]) steward-workspace-affinity.e2e.js ... [B1] PASS (22272ms)
+[B1] ([main]) steward-settings.e2e.js ... [B3] PASS (15124ms)
+[B3] ([main]) subagent-net-tools.e2e.js ... [B3] PASS (130ms)
+[B3] ([main]) subagent.e2e.js ... [B1] PASS (6282ms)
+[B1] ([main]) steward-side-collapse.browser.e2e.js ... [B1] PASS (10019ms)
+[B1] ([main]) steward-task-decisions.e2e.js ... [B1] PASS (471ms)
+[B1] ([main]) steward-tools.e2e.js ... [B3] PASS (15156ms)
+[B3] ([main]) summary-parallel-cap.e2e.js ... [B3] PASS (3524ms)
+[B3] ([main]) surface-hardening-w2.browser.e2e.js ... [B1] FAIL exit=1 (重跑仍失败, 10376ms)
+[B1] ([main]) store-walkthrough-w1.e2e.js ... [B3] PASS (3089ms)
+[B3] ([main]) theme.e2e.js ... [B3] PASS (46ms)
+[B3] ([main]) thread-index-visibility.e2e.js ... [B1] PASS (3390ms)
+[B1] ([main]) subagent-thinking-continuity.browser.e2e.js ... [B3] PASS (20718ms)
+[B3] ([main]) token-bootstrap-csp.e2e.js ... [B3] PASS (546ms)
+[B3] ([main]) tool-audit-r2-meta.e2e.js ... [B3] FAIL exit=1 (重跑仍失败, 3275ms)
+[B3] ([main]) tool-dispatch.e2e.js ... [B3] PASS (857ms)
+[B3] ([main]) tool-result-render.browser.e2e.js ... [B3] PASS (2246ms)
+[B3] ([main]) turn-stop-supersede.e2e.js ... [B1] PASS (26051ms)
+[B1] ([main]) summary-entity-check.e2e.js ... [B1] PASS (6602ms)
+[B1] ([main]) summary-single-shot.e2e.js ... [B1] PASS (2103ms)
+[B1] ([main]) team-pool-mailbox.e2e.js ... [B3] PASS (12025ms)
+[B3] ([main]) uimode-style.e2e.js ... [B3] PASS (3250ms)
+[B3] ([main]) usage-ledger.e2e.js ... [B3] PASS (3322ms)
+[B3] ([main]) voice-learn.e2e.js ... [B3] PASS (770ms)
+[B3] ([main]) websearch.e2e.js ... [B1] PASS (15290ms)
+[B1] ([main]) thread-brief.e2e.js ... [B3] PASS (13854ms)
+[B3] ([main]) workflow-editor-inspector.browser.e2e.js ... [B3] PASS (3014ms)
+[B1] PASS (21452ms)
+[B1] ([main]) todo-loopback.e2e.js ... [B1] PASS (1019ms)
+[B1] ([main]) tool-audit-r2-dev.e2e.js ... [B1] PASS (2321ms)
+[B1] ([main]) tool-audit-r2-steward.e2e.js ... [B1] PASS (14697ms)
+[B1] ([main]) tool-loading.e2e.js ... [B1] PASS (2145ms)
+[B1] ([main]) tools-v2.e2e.js ... [B1] PASS (13248ms)
+[B1] ([main]) ui-misc-wave1.browser.e2e.js ... [B1] PASS (10567ms)
+[B1] ([main]) usage-claude-cached.e2e.js ... [B1] PASS (4041ms)
+[B1] ([main]) vision-loop.e2e.js ... [B1] FAIL exit=1 (重跑仍失败, 8568ms)
+[B1] ([main]) voice-setup.browser.e2e.js ... [B1] PASS (4869ms)
+[B1] ([main]) workbench-memory.e2e.js ... [B1] PASS (8735ms)
+[B1] ([main]) workspace-resolve.e2e.js ... [B1] PASS (6201ms)
+[exclusive] ([performance]) a11y-walkthrough.browser.e2e.js ... PASS (9761ms)
+[exclusive] ([performance]) agent-node-limits.e2e.js ... PASS (32397ms)
+[exclusive] ([performance]) autonomy-durability.e2e.js ... PASS (21078ms)
+[exclusive] ([performance]) boot-listen-budget.e2e.js ... PASS (733ms)
+[exclusive] ([performance]) classic-window-live-steer.e2e.js ... PASS (28570ms)
+[exclusive] ([performance]) composer-voice.browser.e2e.js ... PASS (46586ms)
+[exclusive] ([performance]) dom-screenshot.e2e.js ... PASS (3742ms)
+[exclusive] ([performance]) dom-smoke.e2e.js ... PASS (2157ms)
+[exclusive] ([performance]) ec-d-performance.e2e.js ... PASS (4237ms)
+[exclusive] ([performance]) event-stream-client.browser.e2e.js ... PASS (105142ms)
+[exclusive] ([performance]) event-stream-replay.browser.e2e.js ... PASS (10639ms)
+[exclusive] ([performance]) event-stream.e2e.js ... PASS (9701ms)
+[exclusive] ([performance]) focus-rail.browser.e2e.js ... PASS (38967ms)
+[exclusive] ([performance]) keyboard-walkthrough.browser.e2e.js ... PASS (11374ms)
+[exclusive] ([performance]) live-full-text.browser.e2e.js ... PASS (47611ms)
+[exclusive] ([performance]) macos-ax.e2e.js ... PASS (17225ms)
+[exclusive] ([performance]) macos-capture-contract.e2e.js ... PASS (9424ms)
+[exclusive] ([performance]) macos-capture-host.e2e.js ... FAIL exit=1 (重跑仍失败, 90299ms)
+[exclusive] ([performance]) macos-capture.e2e.js ... PASS (10338ms)
+[exclusive] ([performance]) macos-desktop-bridge.e2e.js ... PASS (40788ms)
+[exclusive] ([performance]) macos-desktop-host.e2e.js ... PASS (47720ms)
+[exclusive] ([performance]) macos-desktop-lifecycle.e2e.js ... PASS (48894ms)
+[exclusive] ([performance]) macos-desktop-media.e2e.js ... PASS (43249ms)
+[exclusive] ([performance]) macos-input-apps.e2e.js ... PASS (10037ms)
+[exclusive] ([performance]) macos-input-events.e2e.js ... PASS (30520ms)
+[exclusive] ([performance]) macos-input-host.e2e.js ... FAIL exit=1 (重跑仍失败, 98795ms)
+[exclusive] ([performance]) macos-manual-record.e2e.js ... PASS (38133ms)
+[exclusive] ([performance]) macos-observe.e2e.js ... PASS (47528ms)
+[exclusive] ([performance]) macos-ocr.e2e.js ... PASS (12645ms)
+[exclusive] ([performance]) macos-record.e2e.js ... PASS (9833ms)
+[exclusive] ([performance]) macos-window-clipboard.e2e.js ... PASS [flaky: 重跑通过] (18647ms)
+[exclusive] ([performance]) mission-index-scale.e2e.js ... PASS (2080ms)
+[exclusive] ([performance]) one-workbench-frame.browser.e2e.js ... PASS (11584ms)
+[exclusive] ([performance]) perf.e2e.js ... PASS (557ms)
+[exclusive] ([performance]) quiet-card-snooze.browser.e2e.js ... PASS (3216ms)
+[exclusive] ([performance]) quiet-card-typing.browser.e2e.js ... PASS (10563ms)
+[exclusive] ([performance]) quiet-card.browser.e2e.js ... PASS (25647ms)
+[exclusive] ([performance]) rail-pocket.browser.e2e.js ... PASS (23651ms)
+[exclusive] ([performance]) scheduler-ready-queue.e2e.js ... PASS (8819ms)
+[exclusive] ([performance]) scheduler-ui.browser.e2e.js ... PASS (5092ms)
+[exclusive] ([performance]) shell-mode-late-config.browser.e2e.js ... PASS (11156ms)
+[exclusive] ([performance]) steward-board.e2e.js ... PASS (19778ms)
+[exclusive] ([performance]) steward-conversation.e2e.js ... PASS (22189ms)
+[exclusive] ([performance]) steward-shell-pixels.browser.e2e.js ... PASS (5822ms)
+[exclusive] ([performance]) walkthrough-round1.browser.e2e.js ... PASS (13134ms)
+[exclusive] ([performance]) walkthrough-round2.browser.e2e.js ... PASS (9948ms)
+[exclusive] ([performance]) workbench-thread-head.browser.e2e.js ... PASS (8185ms)
+
+# 汇总: 431 pass / 27 fail / 0 known-fail / 0 unexpected-pass / 2 flaky / 594 ran / 14 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+# [flaky] 名单(首跑失败重跑通过,时序可疑,建议后续波治理):
+#   macos-media-runtime.e2e.js
+#     [首跑] FAIL timeout in write-time syntax validation preserves original bytes and stops descendants
+#   macos-window-clipboard.e2e.js
+#     [首跑] FAIL foreign-reference MCP fixture cleanup is confirmed
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== (bucket-runner) (exit=-1) ===
+[bucket rejected] Error: ENOSPC: no space left on device, mkdir '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2mGkR2/AppData/Local'
+    at Object.mkdirSync (node:fs:1350:26)
+    at ensureHomeAppData (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fixture-home.js:63:6)
+    at fixtureHomeDirPerTest (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fixture-home.js:68:10)
+    at fixtureChildEnv (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fixture-home.js:108:34)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/run-all.js:330:48
+    at new Promise (<anonymous>)
+    at runOne (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/run-all.js:324:10)
+    at runWithRetry (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/run-all.js:400:23)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/run-all.js:576:36
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+=== mission-driver.e2e.js (exit=1) ===
+--- FAIL 行 1 条 ---
+FAIL A 三个里程碑文件都已写出
+--- 末 25 行 ---
+PASS A autoMode=until-done(实 until-done)
+PASS A 收到 mission_complete 事件(无人值守跑完)
+PASS A 全部里程碑 done
+FAIL A 三个里程碑文件都已写出
+PASS A spent.autoTurns==2(首回合用户 + 2 自动)实 2
+PASS A 完成后 autoMode=off
+PASS B 自动续跑消息标 source:mission-driver(实 2)
+PASS B 每个里程碑有 evidence(机器验收/模型标记留痕)
+PASS C 停滞 → 收到 state:stuck 事件
+PASS C 停滞后 autoMode=supervised
+PASS D 预算耗尽 → 收到 state:budget_exhausted
+PASS D 预算后 supervised 且 autoTurns==2(非报错,进度保留)
+PASS D 预算内已推进部分里程碑(≥2 done,实 3/5:b1:done,b2:done,b3:done,b4:pending,b5:pending)
+PASS E 无账本会话不产生 mission 事件(单回合,零行为变化)
+PASS E 无账本会话 session.mission 仍为 null
+PASS F 模型注入的 command check 被降级为 none(实 none)
+PASS F 恶意命令未被执行(无 PWNED.txt)—— 驱动器未无提示 shell 执行模型注入的命令
+PASS G 用户(header token)可定义 command check
+PASS G body-token(模型侧)改不动已定义的 command check(仍为 echo ok)
+PASS H 不可信来源不能把 done 回退 pending(仍 done)
+PASS I 前提:盘上账本是 until-done
+PASS I 重启后 workbench up
+PASS I 重启清扫:until-done 账本降成 supervised(实 supervised)
+MISSION-DRIVER E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-D53v3m
+
+=== shell-mcp-guard.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL powershell_run still works in MCP child (guard is shell-specific)
+FAIL powershell_run still works in MCP child (guard is shell-specific)
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS guiding error text mentions 仅在原生 provider 引擎可用 (got: {
+  "ok": false,
+  "error": "shell 会话仅在原生 provider 引擎可用(工具运行于一次性 MCP 子进程,无法跨回合存活)",
+  "hint": "需要非阻塞长任务时请使用当前 CLI 引擎自己的后)
+PASS shell_send in MCP child → isError:true
+FAIL powershell_run still works in MCP child (guard is shell-specific)
+SHELL-MCP-GUARD E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-RVYlFS
+[retry] 重跑 tail:
+PASS initialize handshake ok
+PASS tools/list exposes all 5 shell_* tools (so CLI-side model sees them + guidance)
+PASS shell_start in MCP child → isError:true
+PASS guiding error text mentions 仅在原生 provider 引擎可用 (got: {
+  "ok": false,
+  "error": "shell 会话仅在原生 provider 引擎可用(工具运行于一次性 MCP 子进程,无法跨回合存活)",
+  "hint": "需要非阻塞长任务时请使用当前 CLI 引擎自己的后)
+PASS shell_send in MCP child → isError:true
+FAIL powershell_run still works in MCP child (guard is shell-specific)
+SHELL-MCP-GUARD E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-4FOn7u
+
+=== steward-deferred-permission.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL P0d 两条线程都停在一条 exec 权限请求上
+FAIL 未捕获异常: Error: no pending permission
+FAIL P0d 两条线程都停在一条 exec 权限请求上
+FAIL 未捕获异常: Error: no pending permission
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS P0c 两条线程已建,W 交给管家盯(sess_83b1829d2fb2c96e / sess_407e0d6b19500505)
+FAIL P0d 两条线程都停在一条 exec 权限请求上
+DEFER-DIAG sess_83b1829d2fb2c96e ["session","meta","process","context_estimate","raw_line","assistant_delta:好的。","raw_line","raw_line","usage","turn_summary","process","result"]
+DEFER-DIAG sess_407e0d6b19500505 ["session","meta","process","context_estimate","raw_line","assistant_delta:好的。","raw_line","raw_line","usage","turn_summary","process","result"]
+FAIL 未捕获异常: Error: no pending permission
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-deferred-permission.e2e.js:163:11
+STEWARD DEFERRED PERMISSION E2E: 2 FAILED
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-kMhxdU
+[retry] 重跑 tail:
+PASS P0 服务起来了
+PASS P0b token 可读
+PASS P0c 两条线程已建,W 交给管家盯(sess_0fb12a76567e62b2 / sess_9188cb4f982c7779)
+FAIL P0d 两条线程都停在一条 exec 权限请求上
+DEFER-DIAG sess_0fb12a76567e62b2 ["session","meta","process","context_estimate","raw_line","assistant_delta:好的。","raw_line","raw_line","usage","turn_summary","process","result"]
+DEFER-DIAG sess_9188cb4f982c7779 ["session","meta","process","context_estimate","raw_line","assistant_delta:好的。","raw_line","raw_line","usage","turn_summary","process","result"]
+FAIL 未捕获异常: Error: no pending permission
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-deferred-permission.e2e.js:163:11
+STEWARD DEFERRED PERMISSION E2E: 2 FAILED
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-w5ZFqa
+
+=== steward-exempt-no-swap.e2e.js (TIMEOUT) ===
+--- FAIL 行 18 条 ---
+FAIL H-act ① 实际执行的仍是待决里的原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-act ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+FAIL tool 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+FAIL H-tool ① 管家回合里的 steward_decide 工具结果:放行落定且 ignoredPayloadKeys=[updatedInput,scope](实得 )
+FAIL H-tool ① 实际执行的仍是原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-tool ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+FAIL ctl 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+FAIL H-ctl 用户放行被受理(实得 null)
+FAIL H-ctl 对照组:用户自己的放行保留 updatedInput —— 替换命令真的执行了(swapped=false, orig=false);没有这一条,下面三条「swapped 不在」可能只是消费者不认 updatedInput
+FAIL H-ctl 对照组:带 updatedInput 的决定落盘指纹 ≠ 纯 {action:allow} 的指纹(指纹这把尺子认得出载荷里多了东西)
+FAIL act 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+FAIL H-act ① 管家放行落定,回执如实列出被剥掉的 updatedInput 与 scope(实得 null)
+FAIL H-act ① 实际执行的仍是待决里的原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-act ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+FAIL tool 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+FAIL H-tool ① 管家回合里的 steward_decide 工具结果:放行落定且 ignoredPayloadKeys=[updatedInput,scope](实得 )
+FAIL H-tool ① 实际执行的仍是原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-tool ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+--- 末 25 行 ---
+FAIL H-tool ① 管家回合里的 steward_decide 工具结果:放行落定且 ignoredPayloadKeys=[updatedInput,scope](实得 )
+FAIL H-tool ① 实际执行的仍是原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-tool ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-vF524k
+[retry] 重跑 tail:
+── (H) 真服务 + 真原生回合:管家从三条入口各批一次,带 updatedInput ──
+PASS H00 workbench 起来了
+PASS H00b runtime token 可读
+PASS H01 会话头档位 = default;回合按它起跑、对 powershell_run 停下来问,问的时候用户再把线程切到 auto
+FAIL ctl 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+PASS ctl 前提:问题挂着时用户把线程切到 auto(活回合当场接管)
+FAIL H-ctl 用户放行被受理(实得 null)
+FAIL H-ctl 对照组:用户自己的放行保留 updatedInput —— 替换命令真的执行了(swapped=false, orig=false);没有这一条,下面三条「swapped 不在」可能只是消费者不认 updatedInput
+FAIL H-ctl 对照组:带 updatedInput 的决定落盘指纹 ≠ 纯 {action:allow} 的指纹(指纹这把尺子认得出载荷里多了东西)
+FAIL act 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+PASS act 前提:问题挂着时用户把线程切到 auto(活回合当场接管)
+FAIL H-act ① 管家放行落定,回执如实列出被剥掉的 updatedInput 与 scope(实得 null)
+FAIL H-act ① 实际执行的仍是待决里的原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-act ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+FAIL tool 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=null)
+PASS tool 前提:问题挂着时用户把线程切到 auto(活回合当场接管)
+FAIL H-tool ① 管家回合里的 steward_decide 工具结果:放行落定且 ignoredPayloadKeys=[updatedInput,scope](实得 )
+FAIL H-tool ① 实际执行的仍是原命令(orig=false, swapped=false;若 swapped=true 则管家批 A 跑了 B:{"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"})
+FAIL H-tool ① 决定层:落盘的决定指纹 = 纯 {action:allow} 的指纹 —— 交给运行时的载荷里没有 updatedInput 也没有 scope(实得  vs )
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-yE8mhl
+
+=== steward-guardrails.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got [])
+FAIL R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)
+--- 末 25 行 ---
+PASS P5 锁 7:档位放宽仍然当场拒(用户按了按钮也不给 —— 那把闸从来不读 userPressed;got steward.widen_forbidden)
+PASS P5b 交叉用例:同一次调用里档位放宽 + 能力收紧 -> 整份拒(档位闸在写之前;got steward.widen_forbidden)
+PASS P5c 被拒的那次零写入,档位还是 default(got default)
+PASS P6 零回归:只给 permissionMode 时 undoRef.kind 仍是 'permission'、信封里不多出 desktopTools 键(got {"kind":"permission","sessionId":"sess_guard_stewardmade","previous":"auto"})
+PASS P6b 两条轴一条都不给 -> invalid_request(那是一次没有内容的写;got invalid_request)
+PASS P7 锁 4:steward_config_set 改 allowDesktopTools 仍是 steward.forbidden(用户按了按钮也一样;got steward.forbidden)
+PASS P7b 零写入:config.json 逐字节不变(整份拒绝,不是「能写的写」)
+── (R) 117z-E2b 桥接桌面工具 vs allowDesktopTools(核) ──
+PASS R0 前置:全局闸关、full 模式(got allowDesktopTools=false / toolLoadingMode=full)
+PASS R1 桥接工具的档只有 read/edit/exec,没有 'desktop'(派单里「按 desktop 档滤」是空操作;got {"mouse_click":"exec","type_text":"exec","screenshot":"read","hotkey":"exec"})
+PASS R1b 同一批工具在目录里的【包】是 'desktop'(07:375 按名字归包)—— 「桌面」在工作台里是包名/账本 kind,不是档(got ["desktop","desktop","desktop","desktop"])
+PASS R2 allowDesktopTools:false + 会话覆盖 null -> 两个原生桌面工具被滤掉(got [])
+FAIL R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)
+PASS R3 full 模式一次性注入目录里【全部】schema,被闸掉的 ACC 桌面工具不在目录里(got live 54 / fullCount 54 / own 54)
+PASS R4 allowDesktopTools:false 的 full 模式工具面:原生桌面工具 0 个、桥接 ACC 桌面工具 0/4 个(got [])
+PASS R4b 会话覆盖 true -> 桥接 ACC 桌面工具与原生的一起回来(全局值不变)
+PASS R5a auto 模式默认不注入桥接 schema(O1 hb360 的既有行为,不是闸的功劳)
+PASS R5 auto 模式 tool_load 显式拉入被闸掉的桥接 ACC 工具:拉不进来,如实报 unknown(got {"loaded":[],"unknown":["ai-computer-control__mouse_click"]})
+PASS R5b tool_invoke_exec 对它的档校验(12:100)是同档放行:mouse_click 的目录档 = 'exec'(got exec)
+STEWARD GUARDRAILS E2E: 2 FAILURE(S)
+(node:80940) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/thread-facts.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zd1Oe0
+
+=== steward-tools.e2e.js (exit=1) ===
+--- FAIL 行 8 条 ---
+FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了
+FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-FWphzy/cap-1,没拿那个没登记成的目录(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-FWphzy/Ruyi-cap/写不下去")
+FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸
+FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)
+FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了
+FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1,没拿那个没登记成的目录(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/写不下去")
+FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸
+FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)
+--- 末 25 行 ---
+PASS P2b 派生目录真的建出来了
+PASS P2c 常用工作区仍是 63 行,派生目录登记在如意那张表里(常用 63 行;如意 [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子 63","at":"2026-11-12T11:06:28.161Z"}])
+PASS P3 常用工作区满员 + 省略 cwd -> 照常派生(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子 64")
+PASS P3b 反向:退役的 workspace_table_full 不再出现
+PASS P3c 常用工作区仍是 64 行,一行没多(got 64)
+PASS P3d 派生目录落在如意那张表里
+PASS P4 quick_ask 省略 cwd + 常用工作区满员 -> 同样照常派生(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/帽子满了的速查")
+PASS P4b 速查回执说清目录是新开的(got "new")
+PASS P4c 常用工作区满员 + 表内 cwd -> 照常开线程(got undefined)
+PASS P5 25 行的表【经得过 normalizeConfig】(got 25;修前 20)
+PASS P5b 管家上下文里真的出现折叠句(got "…另有 5 个工作区未列出(到访层有字数预算)。")
+PASS P5c 到访层仍然只印 20 行 —— 抬的是存储帽子,不是投影预算(got 20)
+PASS P6 64 行时 defaultWorkspace 仍等于 workspaces[0].path(/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1 / /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1)
+PASS P6b 同步的是【第一行】,不是最后追加的那一行
+PASS P7a 两条线程都开成了(got [null,null])
+PASS P7b 常用工作区仍是 63 行 —— 并发派生没往里写(got 63)
+PASS P7c 两条各拿到自己的派生目录(甲 "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态甲" / 乙 "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态乙")
+PASS P7d 两行都落在如意那张表里,一行没丢(got ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态甲","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/竞态乙"])
+FAIL P8(前提)只读窗口里 config.json 一个字节没被改写 —— 这一落盘真的失败了
+PASS P8a 落盘失败不挡开线程(got undefined)
+FAIL P8b 线程回落默认工作区 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/cap-1,没拿那个没登记成的目录(got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-steward-tools-bJhBLo/Ruyi-cap/写不下去")
+FAIL P8c 落盘失败 -> 刚建的目录被删掉,不留残骸
+FAIL P8d 两张表都没多出一行(行没落盘;常用 3 行)
+STEWARD TOOLS E2E: 4 FAILURE(S)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-sJQUfo
+
+=== vision-loop.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL (a) system prompt has 桌面操控(视觉路径) regimen
+FAIL (d) system prompt has 桌面操控(文本路径) regimen
+--- 末 25 行 ---
+PASS (f5) ASR unconfigured → kind only, zero transcription fields (未配置零行为)
+PASS (f6) upload NOT blocked by upstream 5xx (原文件保留)
+PASS (f6) transcribeError:"asr.upstream" recorded, no transcript — got: "asr.upstream"
+[fake] [fake-openai] listening on 65114
+PASS (g) session created
+PASS (g) responses: reply carries SEEN_IMAGE: (input_image reached the model) — got: "SEEN_IMAGE:118-data:ima"
+PASS (g) responses: input items carry an input_image part — got 1
+PASS (g) responses: input_image.image_url is a data URI string
+PASS (g) responses: the image is NOT degraded to placeholder text
+[fake] [fake-openai] listening on 65114
+PASS (h) png upload → kind:"image"
+PASS (h) OCR text recorded at upload (vision off) — got: "FAKE_OCR_TEXT 图内文字 42"
+PASS (h2) record.ocrText carries RAW fake payload (neutralization is prompt-side)
+PASS (h) prompt has <attachment kind="image-ocr" untrusted> fence
+PASS (h) OCR text angle brackets neutralized in prompt
+PASS (h) raw breakout sequence NOT in prompt
+PASS (h) exactly TWO literal </attachment> (two legit fence closes) — got 2
+PASS (h3) vision on → pixels ride along, NO OCR field (零开销)
+[fake] [fake-openai] listening on 65114
+PASS (i) oversize image compressed → record.sendPath (send.jpg) — got: "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-vision-e2e/uploads/file_2119d36015ceaba5/send.jpg"
+PASS (i) sendSize within the 5MB send budget — got 4456228
+PASS (i) request carries the COMPRESSED image part (image/jpeg data URI)
+PASS (i2) vision off → no compression derived file (no pixels are sent)
+VISION-LOOP E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-hidTPq
+
+=== artifacts.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL (unit) pathWithinRoot: nested → true
+FAIL (unit) pathWithinAnyRoot: any root matches
+FAIL (T3 unit) write_docx {path} → {write, abs}
+FAIL (T3 unit) write_document 识别
+--- 末 25 行 ---
+PASS (unit) pathWithinRoot: root itself → true
+PASS (unit) pathWithinRoot: prefix-sibling (C:\ws-evil) → false (no substring bug)
+PASS (unit) pathWithinRoot: elsewhere → false
+FAIL (unit) pathWithinAnyRoot: any root matches
+PASS (S4 unit) modify xlsx → 入产物
+PASS (S4 unit) modify md/png → 入产物
+PASS (S4 unit) modify txt/log(非已知产物类型)→ 不入
+PASS (S4 unit) create csv → 入产物(原行为保留)
+PASS (S4 unit) create+modify 同 path → 去重(1 条, got 1)
+PASS (T1 unit) bridged write_docx {success,path} → 入产物
+PASS (T1 unit) bridged read_document 回 path → NOT 入产物(名字非写族)
+PASS (T1 unit) 新版 ACC(path+output_path)→ 去重只一条
+PASS (T1 unit) 无 success 字段 → 不收(写失败无产物)
+PASS (T1 unit) 前缀写族 export_report → 入产物
+FAIL (T3 unit) write_docx {path} → {write, abs}
+FAIL (T3 unit) write_document 识别
+/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/artifacts.e2e.js:168
+    ok(srv.collectBridgedWriteTarget('srv__delete_file', { path: abs }).mode === 'delete', '(T3 unit) delete_file → mode delete');
+                                                                       ^
+TypeError: Cannot read properties of null (reading 'mode')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/artifacts.e2e.js:168:72
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/artifacts.e2e.js:422:3
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Node.js v24.15.0
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-4NVwfQ
+
+=== claude-exe-resolve.e2e.js (exit=1) ===
+--- FAIL 行 5 条 ---
+FAIL (A6) normalizeConfig 替换 claudePath → exe
+FAIL (A7) memoize 一致
+FAIL (A1) 绝对路径 shim 解析出真身 exe — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-a/claude.cmd
+FAIL (A6) normalizeConfig 替换 claudePath → exe
+FAIL (A7) memoize 一致
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS (A4b) 无扩展名输入不动
+PASS (A4c) 空输入不动
+PASS (A5) 非 Windows 不设防(0)
+FAIL (A6) normalizeConfig 替换 claudePath → exe
+FAIL (A7) memoize 一致
+SKIP (B) 集成层 — 仅 Windows 有 cmd shim 问题
+CLAUDE-EXE-RESOLVE E2E: FAIL (3)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zaObcd
+[retry] 重跑 tail:
+FAIL (A1) 绝对路径 shim 解析出真身 exe — /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-exe-resolve-e2e/npm-a/claude.cmd
+PASS (A2) 裸名沿 PATH 解析(命中本夹具=false) — claude.cmd
+PASS (A3) 无 node_modules 布局 → 原样返回
+PASS (A3b) shim 不存在 → 原样返回
+PASS (A4a) .exe 输入不动
+PASS (A4b) 无扩展名输入不动
+PASS (A4c) 空输入不动
+PASS (A5) 非 Windows 不设防(0)
+FAIL (A6) normalizeConfig 替换 claudePath → exe
+FAIL (A7) memoize 一致
+SKIP (B) 集成层 — 仅 Windows 有 cmd shim 问题
+CLAUDE-EXE-RESOLVE E2E: FAIL (3)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-WZ7o9J
+
+=== cli-probe-stall.e2e.js (exit=1) ===
+--- FAIL 行 6 条 ---
+FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )
+FAIL C3 过期期间答旧值,不是空串(claude  / kimi )
+FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)
+FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )
+FAIL C3 过期期间答旧值,不是空串(claude  / kimi )
+FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS C0 服务起来了
+FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )
+PASS C2 过期之后那一发 /api/status 秒回(142 ms;修前 ≥ 3000 ms)
+PASS C2b 同一时段 /health 也没被钉住(77 发,最慢 2 ms)
+FAIL C3 过期期间答旧值,不是空串(claude  / kimi )
+FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)
+CLI PROBE STALL E2E: FAILURES 3
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-wbMoOH
+[retry] 重跑 tail:
+PASS C0 服务起来了
+FAIL C1 首探照旧:/api/status 报出两支合成 CLI(claude  / kimi )
+PASS C2 过期之后那一发 /api/status 秒回(126 ms;修前 ≥ 3000 ms)
+PASS C2b 同一时段 /health 也没被钉住(77 发,最慢 1 ms)
+FAIL C3 过期期间答旧值,不是空串(claude  / kimi )
+FAIL C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)
+CLI PROBE STALL E2E: FAILURES 3
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-m50AXb
+
+=== overlay-update-core.e2e.js (exit=2) ===
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/overlay-update-core.e2e.js:560:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'spawnSync powershell',
+  path: 'powershell',
+  spawnargs: [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    "Compress-Archive -Path '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-overlay-ec/pkg-valid/*' -DestinationPath '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-overlay-ec/pkg-valid.zip' -Force"
+  ],
+  error: [Circular *1],
+  status: null,
+  signal: null,
+  output: null,
+  pid: 0,
+  stdout: undefined,
+  stderr: undefined
+}
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-bv8Ym6
+
+=== privacy-gateway.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+FAIL fixture failure: typed_recovery_regression_failed_chat
+FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+FAIL fixture failure: typed_recovery_regression_failed_chat
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS H0 chat: refused references recover in the actual main/child engines while execution stays strict and canonical audit survives
+FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+FAIL fixture failure: typed_recovery_regression_failed_chat
+PRIVACY GATEWAY E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-xfwhdj
+[retry] 重跑 tail:
+PASS H0 chat: refused references recover in the actual main/child engines while execution stays strict and canonical audit survives
+FAIL H1 chat: typed content recovery preserves completed writes, command count, canonical audit and the next actual turn without sending originals
+FAIL fixture failure: typed_recovery_regression_failed_chat
+PRIVACY GATEWAY E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-qfGRMv
+
+=== shell-session.e2e.js (exit=1) ===
+--- FAIL 行 11 条 ---
+FAIL (f4) script_run without cwd runs in the session cwd (got: "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (f5) powershell_run with explicit cwd runs there (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+FAIL (f6) powershell_run without cwd in that session → denied
+FAIL (a) shell_send ok
+FAIL (a) 107-S0 (Get-Location).Path prints the turn working folder, not home (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'", home "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK")
+FAIL (f1) (Get-Location).Path prints the session cwd (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'", home "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK")
+FAIL (f2) shell_start with explicit cwd prints that cwd (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'")
+FAIL (f3) powershell_run without cwd runs in the session cwd (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+FAIL (f4) script_run without cwd runs in the session cwd (got: "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (f5) powershell_run with explicit cwd runs there (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+FAIL (f6) powershell_run without cwd in that session → denied
+--- 末 25 行 ---
+FAIL (a) 107-S0 (Get-Location).Path prints the turn working folder, not home (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'", home "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK")
+PASS (a) session still running after send
+PASS (b) shell_poll after turn: running:true (cross-turn survival)
+PASS (b) shell_send echoes NEW marker (session alive across turn + UI-token通路)
+PASS (c) start s2 ok
+PASS (c) start s3 ok
+PASS (c) start s4 rejected: error contains 上限 (got: 本会话的 shell 已达上限 3(运行中 3 个))
+PASS (c) duplicate/at-cap start rejected
+PASS (d) shell_kill s1 ok
+PASS (d) shell_list no longer contains s1 (got: ["s2","s3"])
+PASS (d) shell_list still contains s2, s3
+PASS (e) start s5 after kill succeeds (cap counts live sessions only)
+PASS (f) session created with cwd SESS_CWD (got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+PASS (f1) shell_start without cwd → cwd is the session cwd (got "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (f1) (Get-Location).Path prints the session cwd (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'", home "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK")
+FAIL (f2) shell_start with explicit cwd prints that cwd (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'")
+FAIL (f3) powershell_run without cwd runs in the session cwd (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+FAIL (f4) script_run without cwd runs in the session cwd (got: "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (f5) powershell_run with explicit cwd runs there (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+PASS (f6) shell_start in a session whose cwd is an execute:false workspace → denied (got {"ok":false,"error":"该工作区未授权执行命令(execute=false),已拒绝;如需执行请在工作区权限中开启","code":"not-allowed"})
+FAIL (f6) powershell_run without cwd in that session → denied
+PASS (f6) the denied shell s8 was never started
+PASS (f7) explicit cwd inside the execute:false workspace → denied
+SHELL-SESSION E2E: FAIL (8)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK
+
+=== steward-decisions.browser.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL Error: pending fixtures not ready [{"id":"question_bef426ab7544eb33","type":"question","sessionId":"sess_e79b49f4c46358d3","missionId":"mission_5ee5242ec80fa6bd","requestedAt":"2026-11-12T10:55:57.400Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627957400,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false},{"id":"plan_e49fe8431579fc38","type":"plan","sessionId":"sess_6ac52712a311db34","missionId":"mission_7ab64612635ca1ef","requestedAt":"2026-11-12T10:55:57.402Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"","questions":[],"context":"","planSummary":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":0,"title":"同名任务","missionTitle":"季度事项","detailsText":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n完整计划结尾","detailsComplete":true},{"id":"question_71c89c41d82c22e9","type":"question","sessionId":"sess_d9c7b85ea461d820","missionId":"mission_5ee5242ec80fa6bd","requestedAt":"2026-11-12T10:55:57.403Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627957403,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false}]
+FAIL Error: pending fixtures not ready [{"id":"plan_c1eaa49b4647bc69","type":"plan","sessionId":"sess_5396f9d10600ca62","missionId":"mission_3a46787cf31eed5a","requestedAt":"2026-11-12T10:56:11.547Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"","questions":[],"context":"","planSummary":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":0,"title":"同名任务","missionTitle":"季度事项","detailsText":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n完整计划结尾","detailsComplete":true},{"id":"question_9b7c3a6ddfa3a496","type":"question","sessionId":"sess_5cb2e13bc26a8cd2","missionId":"mission_c341d651aef70105","requestedAt":"2026-11-12T10:56:11.549Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627971549,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false},{"id":"question_eafd08968a186dca","type":"question","sessionId":"sess_9cfc4ae635aa18c8","missionId":"mission_c341d651aef70105","requestedAt":"2026-11-12T10:56:11.551Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627971551,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false}]
+--- 末 25 行 ---
+[retry] 首跑 tail:
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+FAIL Error: pending fixtures not ready [{"id":"question_bef426ab7544eb33","type":"question","sessionId":"sess_e79b49f4c46358d3","missionId":"mission_5ee5242ec80fa6bd","requestedAt":"2026-11-12T10:55:57.400Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627957400,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false},{"id":"plan_e49fe8431579fc38","type":"plan","sessionId":"sess_6ac52712a311db34","missionId":"mission_7ab64612635ca1ef","requestedAt":"2026-11-12T10:55:57.402Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"","questions":[],"context":"","planSummary":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":0,"title":"同名任务","missionTitle":"季度事项","detailsText":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n完整计划结尾","detailsComplete":true},{"id":"question_71c89c41d82c22e9","type":"question","sessionId":"sess_d9c7b85ea461d820","missionId":"mission_5ee5242ec80fa6bd","requestedAt":"2026-11-12T10:55:57.403Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627957403,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false}]
+    at Object.prepare (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-decisions.browser.e2e.js:39:42)
+    at async startBrowserFixture (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/browser-fixture.js:304:43)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-decisions.browser.e2e.js:11:10
+STEWARD DECISIONS BROWSER E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PCY9h7
+[retry] 重跑 tail:
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+FAIL Error: pending fixtures not ready [{"id":"plan_c1eaa49b4647bc69","type":"plan","sessionId":"sess_5396f9d10600ca62","missionId":"mission_3a46787cf31eed5a","requestedAt":"2026-11-12T10:56:11.547Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"","questions":[],"context":"","planSummary":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":0,"title":"同名任务","missionTitle":"季度事项","detailsText":"PLAN:\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n计划说明。\n完整计划结尾","detailsComplete":true},{"id":"question_9b7c3a6ddfa3a496","type":"question","sessionId":"sess_5cb2e13bc26a8cd2","missionId":"mission_c341d651aef70105","requestedAt":"2026-11-12T10:56:11.549Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627971549,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false},{"id":"question_eafd08968a186dca","type":"question","sessionId":"sess_9cfc4ae635aa18c8","missionId":"mission_c341d651aef70105","requestedAt":"2026-11-12T10:56:11.551Z","interventionVersion":0,"toolName":"","tier":"","revertible":false,"runId":"","proposedBy":"","task":"","questionSummary":"同样的问题？","questions":[{"id":"question_1","header":"取舍","question":"同样的问题？","answerMode":"single","multiSelect":false,"allowOther":true,"otherLabel":"","otherPlaceholder":"","options":[{"id":"option_1","label":"方案甲","description":""},{"id":"option_2","label":"方案乙","description":""}]}],"context":"","planSummary":"","replanSummary":"","replanTriggerType":"","replanNodeId":"","deliverable":true,"live":true,"deadlineAt":1796627971551,"title":"同名任务","missionTitle":"季度事项","detailsText":"","detailsComplete":false}]
+    at Object.prepare (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-decisions.browser.e2e.js:39:42)
+    at async startBrowserFixture (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/browser-fixture.js:304:43)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/steward-decisions.browser.e2e.js:11:10
+STEWARD DECISIONS BROWSER E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-3SvNzW
+
+=== steward-exempt-shell-send.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL H1 ① 而且命令真的在那个 PowerShell 会话里跑了(标记文件=false,输出含 HARMLESS_DONE=false)
+FAIL H3 冲刷回合不弹权限且拿到 FLUSH_DONE(asks=0)
+--- 末 25 行 ---
+── (H) 原生引擎回合路径(真服务) ──
+PASS H00 workbench 起来了
+PASS H01 线程切到全自动(与用户真机那条同档)
+PASS H0 shell_start 真起了会话(asks=0, result={"ok":true,"shellId":"bis2probe","name":"bis2probe","cwd":"/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-exempt-shell-send-ssw6kQ","mode":"inter)
+PASS H1 ① 全自动 + shell_send 无害输入 → 不弹权限(实得 0 次)
+FAIL H1 ① 而且命令真的在那个 PowerShell 会话里跑了(标记文件=false,输出含 HARMLESS_DONE=false)
+PASS H2 ② 全自动 + shell_send 带 rm -rf → 仍然弹权限,事件里的 input 就是那行命令(实得 1 次,input="Set-Content -LiteralPath '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-exempt-shell-send-ssw6kQ/risky-ran.txt' -Value ran # rm -rf C:\\somewhere")
+PASS H2 ② 权限待决落盘形状 = 用户真机那几条(toolName=shell_send, tier=exec, input={shellId,input,timeoutMs};实得 {"toolName":"shell_send","tier":"exec","keys":["shellId","input","timeoutMs"]})
+FAIL H3 冲刷回合不弹权限且拿到 FLUSH_DONE(asks=0)
+PASS H3 ② 被拦下的那行确实没执行(标记文件 risky-ran.txt 存在=false)
+PASS H4 真回合留下一条 pending 的 shell_send 权限待决(id=perm_c180bf5d18341317)
+PASS H4 停服前后那行命令都没执行(标记文件不存在)
+── (P) 管家代答路径(进程内直调 steward_decide) ──
+PASS P1 前提:待决仍是 pending、tier=exec、input 里就是那行命令(实得 status=pending, tier=exec)
+PASS P1 ② steward_decide → propose_required 且 exemptBy:'command_text'(内容判据真的收到了 shell_send 的 input;实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","message":"工具 shell_send 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P1 ④ message 带类别人话「删数据」,details 带 exemptCategory:'delete_data'(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","message":"工具 shell_send 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P2 ① 全自动线程 + shell_send 无害输入 → 管家不再以永久豁免拒(实得 {"error":"delivery_unavailable","message":"permission consumer is not live"})
+PASS P3 ① keyboard_send_keys{keys:"Hello{ENTER}"} → 不再以永久豁免拒(实得 {"error":"delivery_unavailable","message":"permission consumer is not live"})
+PASS P3 ② keyboard_send_keys{keys:"git push origin main{ENTER}"} → 仍拦,exemptBy:'command_text'、类别 push_remote(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","message":"工具 keyboard_send_keys 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P3 ② keyboard_send_keys{keys:"git push{ENTER}"} → 仍拦,exemptBy:'command_text'、类别 push_remote(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"push_remote","message":"工具 keyboard_send_keys 这次要执行的命令命中了永久豁免清单的「推送远端」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P3 ② keyboard_send_keys{keys:"rm -rf C:\\x{ENTER}"} → 仍拦,exemptBy:'command_text'、类别 delete_data(实得 {"error":"propose_required","reason":"permanently_exempt","exemptBy":"command_text","exemptCategory":"delete_data","message":"工具 keyboard_send_keys 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定"})
+PASS P4 ③ 15 个工具名 × 5 档 × 3 tier = 225 条全部 propose_required(tool_name)
+PASS P5 ④ 6 条内容/结构化命中:exemptBy、exemptCategory 与 message 里的「类别」逐条对得上
+STEWARD EXEMPT SHELL_SEND E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zYynKJ
+
+=== agent-mode-v2.e2e.js (exit=1) ===
+--- FAIL 行 6 条 ---
+FAIL B a new turn completes normally while the agent is still running
+FAIL F2 precondition: the parent powershell_run pause really ran — {"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"}
+FAIL F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got {"kind":"agent_envelope"}
+FAIL F2 exactly one delivery in that turn: notice=0 + envelope-in-wait=1
+FAIL F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)
+FAIL F3 parent context carries exactly two distinct notices in total (first run + notice-first run)
+--- 末 25 行 ---
+PASS F1 no completion notice for that run in the same turn (the wait took it first)
+PASS F2 notice-first turn completes
+FAIL F2 precondition: the parent powershell_run pause really ran — {"ok":false,"code":"tool-disabled","error":"tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)","hint":"请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。"}
+  F2 timing: run createdAt=2026-11-12T10:50:28.057Z completedAt=2026-11-12T10:50:28.194Z status=succeeded | tool_use at index 18, wait tool_result at index 34
+FAIL F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got {"kind":"agent_envelope"}
+FAIL F2 exactly one delivery in that turn: notice=0 + envelope-in-wait=1
+PASS F3 follow-up turn ok
+PASS F3 the wait-first run is never injected later
+FAIL F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)
+FAIL F3 parent context carries exactly two distinct notices in total (first run + notice-first run)
+PASS F3 the ledger holds exactly one envelope per run
+PASS G long background run launched
+PASS G long run is live before stop
+PASS G background tray stop accepted
+PASS G explicit stop ends the run as stopped — status=stopped live=undefined after 202ms
+PASS G stop interrupts the in-flight long command promptly (sub-agent tool calls carry the abort signal) — 202ms
+PASS G the stopped run still delivers exactly one (stopped) envelope
+PASS H sub-agent tool events (if streamed) are tagged background + subagentId
+PASS H every streamed sub-agent tool event carries background:true (parent activity bar ignores it)
+PASS I MCP tools/list: no spawn_agent; orchestrate/wait/result present
+PASS I MCP agent_result loops back and returns a bounded slice — { "ok": true, "runId": "run_9e2b92aa9a20cedf", "nodeId": "slow", "runStatus": "succeeded", "status": "succeeded", "live": false, "text": "结论:ZQZQZ
+PASS I MCP spawn_agent is translated into a single-node orchestrate run and returns an envelope with the merge note
+PASS I MCP wait_agents loops back; an already-delivered run comes back as a short receipt
+AGENT MODE V2 E2E: FAIL (6)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-Guy9Tp
+
+=== audit-w23.e2e.js (exit=1) ===
+--- FAIL 行 3 条 ---
+FAIL P2#5 超时用 killChildTree(taskkill /T /F 整树杀),不再只 SIGTERM 直接子进程
+FAIL P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)
+FAIL P2#9 DAG 节点透传 sub.degraded → node.degraded(激活前端「降级完成」渲染)
+--- 末 25 行 ---
+PASS 新角色存在: synthesizer
+PASS 新角色存在: analyst
+PASS 内置模板 8 个(含新 data-insights),实 8
+PASS 每个模板节点引用的 role 都在角色库内(否则运行时「引用了不存在的角色」)
+PASS data-insights 模板用到 analyst + critic 等新角色
+PASS workbench listening on :57764
+PASS runtime.json token 读到
+PASS P1#1 GET /api/sessions + 浏览器指纹 + 无 token → 403(挡住 DNS-rebinding 页读走 transcript)
+PASS P1#1 GET /api/sessions 无浏览器头(e2e/CLI 回环)→ 200(本地工具照常,不破坏)
+PASS P1#1 GET /api/sessions + 浏览器指纹 + 合法 token → 200(真 UI 照常)
+PASS P1#1 GET /api/skills + 浏览器指纹 + 无 token → 403(技能注册表含项目路径)
+PASS P1#1 GET /api/sessions/<id>(完整 transcript)+ 浏览器指纹 + 无 token → 403
+PASS P1#1 对照: /api/status(非敏感)+ 浏览器指纹无 token → 200(不误伤非敏感 GET)
+PASS P1#2 file_read 读 <dataRoot>/config.json(明文密钥)被拒
+PASS P1#2 密钥内容确未随响应外泄
+PASS P1#2 对照: file_read 读工作区内普通文件 → 成功(不误伤合法读)
+PASS P1#2 file_read 读 runtime.json(明文 WCW_TOKEN)被拒 ← 补漏
+PASS P1#2 file_search 遍历 dataRoot 不漏 config.json 密钥内容 ← 补漏(blocker)
+PASS P1#2 对照: file_search 仍能命中工作区内普通文件(遍历未被过度阻断)
+PASS P1#2 file_list dataRoot 不列出 config/runtime/sessions ← 补漏
+PASS P1#2 /api/file/preview 拒 config.json(切断 runtime.json→token→preview 读密钥链)← 补漏
+PASS P2#6b provider/test 遇 401 → errorClass=provider_misconfigured
+PASS P2#6b provider/test 401 返回结构化的人话错误
+AUDIT W23 E2E: 3 FAILURE(S)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-kIYJgb
+
+=== autonomy-benchmark.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL 任务1 四个重构文件都已写出
+FAIL 任务2 三份汇编片段都已写出
+--- 末 25 行 ---
+AUTONOMY-BENCHMARK E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-pVBrtu
+[retry] 重跑 tail:
+PASS workbench up on :57803
+PASS 任务1 REFACTOR 无人值守跑完(mission_complete)
+PASS 任务1 全部 4 里程碑 done
+FAIL 任务1 四个重构文件都已写出
+PASS 任务1 预算内 autoTurns=3
+PASS 任务1 token 不破预算
+PASS 任务2 DIGEST 无人值守跑完(mission_complete)
+FAIL 任务2 三份汇编片段都已写出
+PASS 任务2 预算内 autoTurns=2
+PASS 任务2 token 不破预算
+PASS 任务3 无进展 -> 收到 state:stuck(自动暂停触发)
+PASS 任务3 停滞后 autoMode=supervised(降级待人)
+PASS 任务3 m1 已推进(停滞发生在 m2,非起步即卡)
+PASS 任务3 未误报 complete(确实卡住)
+── §5 产品侧验收 ──
+PASS ① 无人值守完成率 ≥2/3(实 2/3=67%)
+PASS ② 人工干预 ≤1 次/任务(实最大 0)
+PASS ③ 无进展自动暂停触发率 100%(实 1/1)
+PASS ④ token/回合不破预算(各任务 autoTurns ≤ 12)
+  任务明细: REFACTOR[完成,干预0,turns3] | DIGEST[完成,干预0,turns2] | BUILDFAIL[暂停,干预0,turns3]
+AUTONOMY-BENCHMARK E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-sj3VBd
+
+=== budget-guard.e2e.js (exit=1) ===
+--- FAIL 行 15 条 ---
+FAIL E20 硬终态 tool_progress(budget_hard)已发
+FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)
+FAIL E22 tool_result 带预算中断标记(不冒称正常结束)
+FAIL E23 硬终态落脱敏审计账(deadline/工具名,不含命令正文)
+FAIL E24 shadow 不动作:命令自然跑完(墙钟 531ms ≥ 8s 命令时长)
+FAIL E27 shadow 落「本应软警告/本应硬杀」各一条(校准阈值用)
+FAIL E28 字节轴只计数:超阈值完成调用落一条计数事件(不改写结果)
+FAIL E19 软警告 tool_progress(budget_soft)已发
+FAIL E20 硬终态 tool_progress(budget_hard)已发
+FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)
+FAIL E22 tool_result 带预算中断标记(不冒称正常结束)
+FAIL E23 硬终态落脱敏审计账(deadline/工具名,不含命令正文)
+FAIL E24 shadow 不动作:命令自然跑完(墙钟 458ms ≥ 8s 命令时长)
+FAIL E27 shadow 落「本应软警告/本应硬杀」各一条(校准阈值用)
+FAIL E28 字节轴只计数:超阈值完成调用落一条计数事件(不改写结果)
+--- 末 25 行 ---
+PASS E14 触顶后 autoMode 降 supervised(暂停,进度保留,非报错)
+PASS E15 驱动器未再续跑撞墙(零新增模型调用)
+PASS E16 恢复路径:用户重设 until-done 生效(恢复状态正确)
+── [E] #13a-t dead-long-runner 硬终态 / shadow / 字节计数 / 零触发等价 ──
+PASS E0e workbench T0 listening on :58248
+PASS E17 基线:快命令 2 次调用完成
+PASS E0f workbench T1 listening on :58259
+PASS E18 硬终态在 ~5s 杀树(墙钟 584ms,远小于命令自身 30s)
+PASS E0g workbench T2 listening on :58302
+PASS E25 shadow 零用户面事件(零行为变化)
+PASS E26 shadow 的配对 tool_result 与正常完成无异
+PASS E0h workbench T3 listening on :58461
+PASS E29 主动档零触发:快命令正常完成
+PASS E30 零触发路径请求体与全关基线逐字节一致(elapsedMs 墙钟已归一化)
+PASS E31 零触发路径零预算日志(无误报)
+BUDGET-GUARD E2E: 8 FAILURES
+FAIL E19 软警告 tool_progress(budget_soft)已发
+FAIL E20 硬终态 tool_progress(budget_hard)已发
+FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)
+FAIL E22 tool_result 带预算中断标记(不冒称正常结束)
+FAIL E23 硬终态落脱敏审计账(deadline/工具名,不含命令正文)
+FAIL E24 shadow 不动作:命令自然跑完(墙钟 458ms ≥ 8s 命令时长)
+FAIL E27 shadow 落「本应软警告/本应硬杀」各一条(校准阈值用)
+FAIL E28 字节轴只计数:超阈值完成调用落一条计数事件(不改写结果)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-itt7Gx
+
+=== desktop-mcp-smoke.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL hotkey accepts the MCP `keys` keyword and validates its value
+FAIL repo detection includes the verified offline python_embed runtime
+FAIL portable Full package Python is ordered before machine-local installed runtimes
+FAIL hotkey accepts the MCP `keys` keyword and validates its value
+--- 末 25 行 ---
+[retry] 重跑 tail:
+PASS pickPython skips a broken embedded runtime and keeps the usable fallback launcher
+PASS pickPython reports no candidate when every runtime fails the ACC import probe
+PASS pickPython prefers a later Full WinSDK runtime over an earlier core-only Python
+FAIL repo detection includes the verified offline python_embed runtime
+FAIL portable Full package Python is ordered before machine-local installed runtimes
+PASS portable Full package Python wins when bundled, installed, and system runtimes are all usable
+PASS installed ACC detection prefers the new Full runtime/python layout
+PASS detectDesktopMcp() returns a verified usable runtime
+  detected: {"command":"/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python3","args":["-X","utf8","-m","ai_computer_control.server"],"via":"python-module","cwd":"/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control"}
+PASS detected.command is a non-empty string
+PASS detected.args is an array
+PASS detected.via is a known strategy (python-module)
+PASS detected python source is surfaced for diagnosis (repo-venv)
+PASS detected Python capability is surfaced (core)
+PASS resolveExternalMcpServers surfaces ai-computer-control when autodetected
+PASS McpStdioClient handshake + tools/list round-trip succeeded (no crash), tools=93
+PASS real desktop MCP exposes >=80 tools (got 93)
+PASS real desktop MCP includes the `diagnostics` tool
+PASS ACC run_command executes a safe shell command through the real MCP transport
+FAIL hotkey accepts the MCP `keys` keyword and validates its value
+PASS ocr_find_text executes without a nested asyncio event-loop failure
+  NOTE: source-only core runtime has no Full WinSDK contract; target-package OCR verification remains required.
+DESKTOP-MCP-SMOKE E2E: FAIL (3)  [#5 real-tool-count NEEDS TARGET-MACHINE VERIFICATION]
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-J47ZDH
+
+=== engine-env-runtime.e2e.js (exit=1) ===
+--- FAIL 行 8 条 ---
+FAIL C2 Claude 变体:引擎名 + 如意 MCP 前缀 + 随包 rg + mermaid
+FAIL A0 随包 app/vendor-bin/rg 在仓里
+FAIL A2 /api/status 首次调用:binaries.rg=true 且来源 bundled ({"rg":false,"rgSource":null})
+FAIL A3 体检 search-ripgrep 报随包来源且终端可用 ({"id":"search-ripgrep","ok":false,"detail":"absent: file_search falls back to the built-in scanner; no rg in shell"})
+FAIL B1 powershell_run `rg --version` 成功 ({"ok":false,"stdout":"","stderr":""})
+FAIL B2 shell_start 起的交互 shell 里 `rg --version` 成功 ("/bin/bash: line 8: rg: command not found\n")
+FAIL B4 provider 易变层:能力行写明终端可直接用 rg + 当前权限档含义
+FAIL C2 Claude 变体:引擎名 + 如意 MCP 前缀 + 随包 rg + mermaid
+--- 末 25 行 ---
+PASS C5 连续两个回合环境说明逐字节相同(系统提示前缀稳定)
+PASS C6 meta 事件带同一个环境说明指纹 (6b0bc20a4363)
+ENGINE-ENV-RUNTIME E2E: FAIL (7)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-3H9QgT
+[retry] 重跑 tail:
+FAIL A0 随包 app/vendor-bin/rg 在仓里
+[fake] [fake-openai] listening on 59982
+PASS A1 provider workbench up (PATH 里没有任何系统 rg)
+FAIL A2 /api/status 首次调用:binaries.rg=true 且来源 bundled ({"rg":false,"rgSource":null})
+FAIL A3 体检 search-ripgrep 报随包来源且终端可用 ({"id":"search-ripgrep","ok":false,"detail":"absent: file_search falls back to the built-in scanner; no rg in shell"})
+PASS A4 体检 diagram-renderer 报 mermaid 随包 ({"id":"diagram-renderer","ok":true,"detail":"present: vendor/mermaid.min.js"})
+PASS A5 启动 + 首个 /api/status 期间没有一次同步 spawn rg(修前 hasRg() 冷缓存 spawnSync)
+FAIL B1 powershell_run `rg --version` 成功 ({"ok":false,"stdout":"","stderr":""})
+FAIL B2 shell_start 起的交互 shell 里 `rg --version` 成功 ("/bin/bash: line 8: rg: command not found\n")
+PASS B3 provider 稳定层带 mermaid 成图一句(且不拿 CLI 的整段围栏)
+FAIL B4 provider 易变层:能力行写明终端可直接用 rg + 当前权限档含义
+PASS C0 fake-Claude workbench up
+PASS C1 --append-system-prompt 以用户 append 开头,紧跟 <ruyi-environment>
+FAIL C2 Claude 变体:引擎名 + 如意 MCP 前缀 + 随包 rg + mermaid
+PASS C3 环境说明排在四层工具协议之前(无条件前缀)
+PASS C4 Claude CLI 子进程 PATH 第一项是随包 vendor-bin (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/vendor-bin)
+PASS C5 连续两个回合环境说明逐字节相同(系统提示前缀稳定)
+PASS C6 meta 事件带同一个环境说明指纹 (6b0bc20a4363)
+ENGINE-ENV-RUNTIME E2E: FAIL (7)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-xi647b
+
+=== mcp-import-origin.e2e.js (exit=1) ===
+--- FAIL 行 3 条 ---
+FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：""）
+FAIL 第二次启动:Y 照常 mcp add-json（跳过是按来源跳，不是把整条同步弄坏）
+FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：""）
+--- 末 25 行 ---
+PASS 第一次启动:X 被 autoImportClaudeCodeMcp 拉进 config
+PASS 第一次启动:X.origin === 'claude-code'（实得 "claude-code"）
+PASS Y（用户自己写在 config 里的）不带 origin —— 缺省即 Ruyi 所有
+PASS 第二次启动:workbench up
+PASS 第二次启动:日志里【没有】mcp add-json origin-x（日志：""）
+FAIL 第二次启动:Y 照常 mcp add-json（跳过是按来源跳，不是把整条同步弄坏）
+PASS 第三次启动（显式再导入前）:workbench up
+PASS 显式再导入 origin-x 成功（200 {
+  "ok": true,
+  "added": [],
+  "updated": [
+    "origin-x"
+  ],
+  "skipped": []
+}）
+PASS 显式再导入之后 X 的 origin 被清掉（实得 undefined）
+PASS 第四次启动（显式再导入后）:workbench up
+FAIL 第四次启动:X 恢复同步，日志里有 mcp add-json origin-x（日志：""）
+PASS s sanitizeExternalMcpServer 只放行白名单 origin 值(claude-code/ruyi/codex/kimi)，其它丢弃（缺省不补字段＝存量视为 ruyi）
+PASS s autoImportClaudeCodeMcp 给新导入条目按来源打 origin(~/.claude.json 来的是 claude-code)
+PASS s syncMcpServersToClaude 跳过 claude-code 来源
+PASS s /api/mcp upsert 落盘时清掉 origin（用户接管）
+PASS s Kimi 同步只跳过 kimi 来源(从 Kimi 导进来的不写回),claude-code 来源照常同步(1 处 origin)
+MCP IMPORT ORIGIN E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0UEUiK
+
+=== permission-plain.browser.e2e.js (exit=1) ===
+--- FAIL 行 3 条 ---
+FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')
+FAIL P10 执行档的弹窗不给「本次线程自动允许」也不给「永久允许」（实测 null）
+FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')
+--- 末 25 行 ---
+PASS P8 普通模式的上下文计量说人话「对话余量充足」，读数留在悬停提示里（实测 {"meter":"对话余量充足"}）
+PASS P9 线程头下那一行只说文件夹名，整条路径在悬停提示里（实测 {"meta":"在「work」里干活","title":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-Rw7tNX/ruyi-perm-plain-ftnyYs/work"}）
+PASS P1 发出一句话、回合来要权限 → 弹窗出来了（发出后约 340 ms；打字闸的判据见 prompt-queue ⑩）
+PASS P2 第一句是人话（实测 "写入文件「report.md」（3 行）"）
+PASS P3 要写的内容给了预览
+PASS P4 原始工具名与 JSON 收在默认收起的「技术详情」里（实测 open=false）
+PASS P5 技术详情之外看不到 file_write
+PASS P10a 改文件档的弹窗给「本次线程自动允许此工具」
+PASS V1 权限弹窗摆在面前时，在场信号带上 viewing=当前线程（实测 "http://127.0.0.1:63095/api/events/stream?lens=classic&sessionId=sess_5ec2b9980ee7afd0&viewing=sess_5ec2b9980ee7afd0"）
+PASS V2 收进小窗之后在场信号不再带 viewing（管家可以接手；实测 "http://127.0.0.1:63095/api/events/stream?lens=classic&sessionId=sess_5ec2b9980ee7afd0"）
+PASS P5b 弹窗收起后，对话里的待决卡就地给「允许／拒绝」、卡头说人话（实测 {"head":"权限确认 · 写入文件","buttons":["允许","拒绝"]}）
+PASS P6 在对话卡上点「允许」→ report.md 真的写出来了
+PASS P6b 决定之后卡上的按钮收起、改成结果（实测 已允许）
+PASS U8 本轮变更只印文件名、整条路径在悬停提示里（实测 {"text":"report.md","title":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-Rw7tNX/ruyi-perm-plain-ftnyYs/work/report.md"}）
+PASS U5 写工作文件夹外面：不弹权限窗、文件没写出来（实测 弹窗 0 次）
+PASS U7 越界报错说人话、说清去哪儿改，不印配置键名 allowOutsideWorkspace
+FAIL P10 执行档的弹窗不给「本次线程自动允许」也不给「永久允许」（实测 null）
+FAIL fatal: Error: TypeError: Cannot read properties of null (reading 'querySelectorAll')
+    at <anonymous>:6:69
+    at <anonymous>:8:7
+    at CdpClient.evaluate (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/browser-fixture.js:142:13)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/permission-plain.browser.e2e.js:182:5
+PERMISSION PLAIN BROWSER E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-L8mcwq
+[browser scope 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-Rw7tNX
+
+=== tool-audit-r2-meta.e2e.js (exit=1) ===
+--- FAIL 行 4 条 ---
+FAIL G1 清单里每个入参都有描述(缺:powershell_run(工具不在), script_run(工具不在), desktop_screenshot(工具不在), keyboard_send_keys(工具不在))
+FAIL fatal: TypeError: Cannot read properties of undefined (reading 'parameters')
+FAIL G1 清单里每个入参都有描述(缺:powershell_run(工具不在), script_run(工具不在), desktop_screenshot(工具不在), keyboard_send_keys(工具不在))
+FAIL fatal: TypeError: Cannot read properties of undefined (reading 'parameters')
+--- 末 25 行 ---
+PASS C5 缺 browser 对象 → 拒,不重置现有配置(got {"ok":false,"operation":"set-browser","error":"set-browser 需要 browser 对象:{mode: system|managed|custom|cdp|bundled, executable?, cdpUrl?}"})
+PASS C6 custom 没有 executable → 拒(got {"ok":false,"operation":"set-browser","error":"browser.mode 为 custom 时必须同时给出 executable(浏览器可执行文件的完整路径)"})
+PASS C7 args 给成字符串 → 按 shell 口径切开(修前静默存成 [];got ["a","b c","d"])
+PASS C8 args 数组里混非字符串 → 拒(got {"ok":false,"operation":"upsert","id":"bar2","error":"server.args 必须是字符串数组(或一个按空格切分的字符串)。"})
+PASS C9 id 含空格/斜杠 → 拒(got {"ok":false,"operation":"upsert","id":"bar baz/../x","error":"MCP id 只能含字母、数字、下划线、点和连字符(1-64 个字符),不能含空格或斜杠。"})
+PASS C10 remove 不受 id 形状校验影响(got {"ok":true,"operation":"remove","id":"bar","removed":true,"server":null,"note":"配置已原子保存并刷新工具目录；若工具仍不)
+PASS D1 runId 全不存在 → 顶层 ok:false + notFound(修前 ok:true settled:false,读起来像还在跑;got {"ok":false,"notFound":["run_doesnotexist"],"timedOut":false})
+PASS E1 permission_prompt 不出现在 list_tools / tool_search(它不能被调用)
+PASS E1b tool_invoke 调 permission_prompt → 控制面拒绝(got {"ok":false,"error":"control-plane tools cannot be invoked through a proxy"})
+PASS E2 skill_read(null) 回 invalid-arguments 信封,不抛 TypeError(got {"ok":false,"code":"invalid-arguments","tool":"skill_read","error":"skill_read: arguments must be a JSON object (got null)","hint":"pass arguments as an object )
+PASS E3 list_tools limit 0 与 -5 都回默认(修前 -5 → 1 条;got 160 / 160)
+PASS E3b tool_search limit 0 与 -5 都回默认(got 8 / 8)
+PASS E3c workbench_memory_list limit 0 / -5 都回默认(got [{"ok":true,"query":"","scope":"all","count":3,"core":{"total":3,"coreRequested":0,"active":0,"standby":0,"expired":0,"reviewDue":0,"charsUsed":0,"charLimit":16000,"itemLimit":200},"memories":[{"id":"glob-one","scope":"global","name":"Glob One","description":"global only memory","type":"preference","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T11:06:52.758Z","useCount":1},{"id":"glob-three","scope":"global","name":"Glob Three","description":"third convention entry","type":"convention","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T11:06:52.769Z","useCount":1},{"id":"glob-two","scope":"global","name":"Glob Two","description":"another global memory","type":"lesson","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"","useCount":0}]},{"ok":true,"query":"","scope":"all","count":3,"core":{"total":3,"coreRequested":0,"active":0,"standby":0,"expired":0,"reviewDue":0,"charsUsed":0,"charLimit":16000,"itemLimit":200},"memories":[{"id":"glob-one","scope":"global","name":"Glob One","description":"global only memory","type":"preference","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T11:06:52.758Z","useCount":1},{"id":"glob-three","scope":"global","name":"Glob Three","description":"third convention entry","type":"convention","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"2026-11-12T11:06:52.769Z","useCount":1},{"id":"glob-two","scope":"global","name":"Glob Two","description":"another global memory","type":"lesson","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","core":false,"coreStatus":"library","importance":"normal","reviewAfter":"","expiresAt":"","lastUsedAt":"","useCount":0}]}])
+PASS E4 tool_invoke 的 name 去首尾空白(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2meta-ws-j2EBwM/a.txt","content":"hello a\n",")
+PASS E4b tool_invoke 的 arguments 给成 JSON 字符串时解析(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2meta-ws-j2EBwM/a.txt","content":"hello a\n",")
+PASS F1 无会话时 todo_write 兜底 ok:false(修前 ok:true 却没落盘;got {"ok":false,"error":"todo_write 需要工作台会话上下文(没有会话可保存任务清单)","hint":"在对话回合中直接调用 todo_write"})
+PASS F1b 无会话时 mission_update 兜底 ok:false(got {"ok":false,"error":"mission_update 需要工作台会话上下文(没有会话可更新任务账本)","hint":"在对话回合中直接调用 mission_update"})
+PASS F1c 有会话上下文但不在回合内:仍校验通过,但明说 persisted:false(got {"ok":true,"count":1,"persisted":false,"note":"仅校验通过,未写入会话(当前不在对话回合内)"})
+PASS F2 计划阶段:代理到 todo_write / orchestrate_agents 的调用按目标判(被拦),代理到只读工具照放行
+FAIL G1 清单里每个入参都有描述(缺:powershell_run(工具不在), script_run(工具不在), desktop_screenshot(工具不在), keyboard_send_keys(工具不在))
+PASS G2 http_request.body 不带多类型 type、描述说明两种形态(got {"description":"string as-is; object as JSON"})
+FAIL fatal: TypeError: Cannot read properties of undefined (reading 'parameters')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/tool-audit-r2-meta.e2e.js:188:111
+TOOL AUDIT R2 META E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-lLLOMw
+
+=== macos-capture-host.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL Error: App acceptance timed out
+FAIL Error: App acceptance timed out
+--- 末 25 行 ---
+[retry] 首跑 tail:
+FAIL Error: App acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:20:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:51:18
+MACOS CAPTURE HOST E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-CMGukN
+[retry] 重跑 tail:
+FAIL Error: App acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:20:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:51:18
+MACOS CAPTURE HOST E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-EeXqWY
+
+=== macos-input-host.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL Error: Controlled App input acceptance timed out
+FAIL Error: Controlled App input acceptance timed out
+--- 末 25 行 ---
+[retry] 首跑 tail:
+FAIL Error: Controlled App input acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:44:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:296:20
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+MACOS INPUT HOST E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-wzfvVA
+[retry] 重跑 tail:
+FAIL Error: Controlled App input acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:44:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:296:20
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+MACOS INPUT HOST E2E: FAIL (1)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-rowRUp

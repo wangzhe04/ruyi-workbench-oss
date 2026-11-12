@@ -1,0 +1,139 @@
+PASS 0 工作台起来了
+PASS 0b 拿到 token
+PASS A1 没带 token → 403
+PASS A2 不是 JSON → 400 voice.observe_bad_request(实得 400 {
+  "ok": false,
+  "error": {
+    "code": "voice.observe_bad_request",
+    "params": {},
+    "message": "请求体不是合法 JSON"
+ )
+PASS A2 缺 final → 400 voice.observe_bad_request(实得 400 {
+  "ok": false,
+  "error": {
+    "code": "voice.observe_bad_request",
+    "params": {},
+    "message": "final 是字符串,sent)
+PASS A2 sentences 不是数组 → 400 voice.observe_bad_request(实得 400 {
+  "ok": false,
+  "error": {
+    "code": "voice.observe_bad_request",
+    "params": {},
+    "message": "final 是字符串,sent)
+PASS A2 句子没有 text → 400 voice.observe_bad_request(实得 400 {
+  "ok": false,
+  "error": {
+    "code": "voice.observe_bad_request",
+    "params": {},
+    "message": "final 是字符串,sent)
+PASS A2 first 不是字符串 → 400 voice.observe_bad_request(实得 400 {
+  "ok": false,
+  "error": {
+    "code": "voice.observe_bad_request",
+    "params": {},
+    "message": "final 是字符串,sent)
+PASS A3 发出去的字超长 → 413(实得 413)
+PASS A4 超过 60 句 → 413
+PASS A5 单句超过 1000 字 → 413
+PASS A6 缺省视图:learn 开、学来/打字/候选都是 0(实得 {"learn":true,"learned":0,"typed":0,"pending":0})
+PASS A7 校验失败的请求不出站、不落盘
+PASS B1 大模型收到一发加固过的判定提示词(实得 1 发)
+PASS B2 <edits> 里是这一处改动(实得 "<edits>\n#1 识别:我明天和张伟去吃饭\n#1 改后:我明天和张玮去吃饭\n#1 改动:伟 → 玮\n</edits>")
+PASS B3 判「是」→ 一次就学会,回给前端「记住了」那一条(实得 200 {
+  "ok": true,
+  "learn": true,
+  "learned": [
+    {
+      "term": "张玮",
+      "heard": "张伟"
+    }
+  ],
+  "reversed": 0
+})
+PASS B4 落盘:学来的词带错听样子、窗口不进 pending(实得 {"schema":1,"base":true,"learn":true,"terms":{"张玮":{"term":"张玮","heard":["张伟"],"src":"learned","n":1,"at":"2026-11-12T11:07:16.196Z","off":false}},"pending":{}})
+PASS B5 记账 aux/voice-learn,用的是回体里的真 usage(实得 [{"ts":"2026-11-12T11:07:16.196Z","sessionId":"","engine":"openai","provider":"llm","model":"fix-1","inTok":120,"outTok":20,"cachedInTok":0,"cost":null,"currency":null,"costTrusted":false,"estimated":false,"turnSeq":0,"kind":"aux","note":"voice-learn"}])
+PASS B6 判「不是」→ 什么都不记(实得 {
+  "ok": true,
+  "learn": true,
+  "learned": [],
+  "reversed": 0
+};pending={})
+PASS B7 回胡话 → 退回读音规则:名字窗口进 pending 攒次数(实得 ["给柳","柳洋","给柳洋","柳洋发"])
+PASS B8 已经是个人词的不再问大模型、只记一次(实得 calls=3 n=2)
+PASS C0 句尾改错只开重听(大模型不判)
+PASS C1 原厂表里的词一次就学会(实得 {
+  "ok": true,
+  "learn": true,
+  "learned": [
+    {
+      "term": "Redis",
+      "heard": "瑞迪斯"
+    }
+  ],
+  "reversed": 0
+})
+PASS C2 不认识的词同一个改法第二次才学会(实得 {
+  "ok": true,
+  "learn": true,
+  "learned": [],
+  "reversed": 0
+} / {
+  "ok": true,
+  "learn": true,
+  "learned": [
+    {
+      "term": "OpenClaw",
+      "heard": "欧喷克劳"
+    }
+  ],
+  "reve)
+PASS C3 名字第二次被改对 → 学会最短的那个窗口(实得 {
+  "ok": true,
+  "learn": true,
+  "learned": [
+    {
+      "term": "柳洋",
+      "heard": "刘洋"
+    }
+  ],
+  "reversed": 0
+})
+PASS C4 全程不出站(实得多了 0 发)
+PASS D1 三条消息里打过 → 收进来(src:typed)(实得 {
+  "ok": true,
+  "learn": true,
+  "learned": [],
+  "reverse | {
+  "ok": true,
+  "learn": true,
+  "learned": [],
+  "reverse | {
+  "ok": true,
+  "learn": true,
+  "learned": [
+    {
+      )
+PASS D2 设置页计数看得见(实得 {"count":5,"learned":4,"typed":1,"pending":0})
+PASS E1 学来的词被改回去两次 → 停用(实得 {
+  "ok": true,
+  "learn": true,
+  "learned": [],
+  "reversed": 1
+} / {"term":"张玮","heard":[],"src":"learned","n":0,"at":"2026-11-12T11:07:16.202Z","off":true})
+PASS E2 停用的词不出现在设置页;「改回去」不被反过来学成新词
+PASS F1 关掉「从我的修改里学」落盘(实得 200 learn=false)
+PASS F2a 大模型复核重新开着
+PASS F2 关着时什么都不动:盘上逐字节不变、不出站(实得 {
+  "ok": true,
+  "learn": false,
+  "learned": [],
+  "reversed": 0
+})
+PASS F3 再打开
+PASS F4 learn 不是布尔 → 400(且没有别的字段可存)
+PASS G1 voice_learn 审计只记条数(实得 13 条,例 {"ts":"2026-11-12T11:07:16.197Z","kind":"voice_learn","sentences":1,"fitted":1,"edits":1,"typed":0,"judge":"ok","asked":1,"judged":1,"learned":1,"reversed":0,"pending":0,"durationMs":18})
+PASS G2 审计分得清问了大模型 / 没配 / 没东西可问
+PASS G3 voice_lexicon_save 记了开关
+PASS G4 日志里一个词、一句原文都不落(实得 0 行:null)
+
+VOICE LEARN E2E: ALL PASS

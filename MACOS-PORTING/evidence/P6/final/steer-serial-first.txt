@@ -1,0 +1,15 @@
+[fake] [fake-openai] listening on 55452
+PASS workbench up on :55453
+PASS token acquired
+PASS session created
+PASS steer accepted (got {"ok":true,"queued":1,"mode":"interrupt"})
+PASS 3 tool_use (f1/f2/f3, got 3)
+FAIL 2 refusal tool_result (f2/f3 between-tools 中断) (got 0)
+FAIL 1 actual result before serial interruption (got 3)
+PASS steered event streamed
+PASS turn_summary (回合正常结束, between-tools 中断不 abort)
+PASS result event
+PASS 配对块连续 (3 tool_call -> 3 role:tool 不劈)
+PASS 插话在配对块后 (assistant(3 tc)+3 tool replies+插话, batch@1 steer@5)
+
+STEER-INTERRUPT E2E: FAIL (2)

@@ -1,0 +1,37 @@
+PASS (a) USER-GUIDE_CN.md exists
+PASS (a) ADMIN-GUIDE_CN.md exists
+PASS (a) USER-GUIDE_CN.md >= 4000 bytes (got 64060)
+PASS (a) ADMIN-GUIDE_CN.md >= 4000 bytes (got 84901)
+PASS (b) USER-GUIDE contains keyword: 如意
+PASS (b) USER-GUIDE contains keyword: 工作文件夹
+PASS (b) USER-GUIDE contains keyword: 每步都问
+PASS (b) USER-GUIDE contains keyword: 撤销
+PASS (b) USER-GUIDE contains keyword: 任务卡
+PASS (b) USER-GUIDE_EN contains one-workbench-two-views contract: One workbench, two views
+PASS (b) USER-GUIDE_EN contains one-workbench-two-views contract: Steward | Workbench
+PASS (b) USER-GUIDE_EN contains one-workbench-two-views contract: Default view on launch
+PASS (b) USER-GUIDE_EN contains one-workbench-two-views contract: Both views read the
+PASS (b) USER-GUIDE_CN contains one-workbench-two-views contract: 一台两视
+PASS (b) USER-GUIDE_CN contains one-workbench-two-views contract: 管家｜工作台
+PASS (b) USER-GUIDE_CN contains one-workbench-two-views contract: 启动默认视角
+PASS (b) USER-GUIDE_CN contains one-workbench-two-views contract: 不迁移、不删除任何东西
+PASS (b) USER-GUIDE_CN no longer describes the retired task desk: 任务台布局
+PASS (b) USER-GUIDE_CN no longer describes the retired task desk: 新任务台预览
+PASS (b) USER-GUIDE_CN no longer describes the retired task desk: 交办台
+PASS (b) USER-GUIDE_EN no longer describes the retired task desk: Task desk layout
+PASS (b) USER-GUIDE_EN no longer describes the retired task desk: New task desk preview
+PASS (b) USER-GUIDE_EN no longer describes the retired task desk: Dispatch desk
+PASS (b) ADMIN-GUIDE contains keyword: overlay
+PASS (b) ADMIN-GUIDE contains keyword: SSRF
+PASS (b) ADMIN-GUIDE contains keyword: 掩码
+PASS (b) ADMIN-GUIDE contains keyword: 审计
+PASS (b) ADMIN-GUIDE contains keyword: e2e
+PASS (c) USER-GUIDE has no forbidden content
+PASS (c) USER-GUIDE_EN has no forbidden content
+PASS (c) ADMIN-GUIDE has no forbidden content
+PASS (d) README.md links USER-GUIDE (docs/manuals/USER-GUIDE_CN.md)
+PASS (d) README.md links ADMIN-GUIDE (docs/manuals/ADMIN-GUIDE_CN.md)
+PASS (d) linked USER-GUIDE target file exists
+PASS (d) linked ADMIN-GUIDE target file exists
+
+MANUALS E2E: ALL PASS

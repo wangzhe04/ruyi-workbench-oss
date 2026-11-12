@@ -1,0 +1,8 @@
+PASS workbench starts
+PASS live loop extends 3 → 53 after three distinct successful tool calls
+PASS turn is not stopped at the original budget
+PASS turn completes normally after extension
+PASS Agent team turn completes
+PASS OpenAI request keeps Agent team policy in the volatile user prefix
+
+ADAPTIVE-BUDGET E2E: ALL PASS

@@ -1,0 +1,16 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 任务抽屉提供已有交付入口
+PASS 无到访历史也能重开准确回合交付卡
+PASS 重复打开定位现有交付而不重复插卡
+PASS 重开的历史交付可展开全文
+PASS 历史交付继续修改挂接同一真实修订输入区
+PASS 历史交付修订可独立取消并保留草稿
+PASS 查看与取消不新增任务回合或改变原执行记录
+PASS 操作不调用模型、不修改已有产物
+PASS 无未捕获浏览器异常
+
+STEWARD DELIVERY HISTORY BROWSER E2E: ALL PASS

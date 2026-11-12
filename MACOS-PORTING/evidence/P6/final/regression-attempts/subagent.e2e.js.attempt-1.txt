@@ -1,0 +1,90 @@
+[fake] [fake-openai] listening on 64346
+PASS workbench up on :64347
+PASS version 3.0.1 (got 3.0.1)
+PASS UI token scraped
+PASS (a) session created
+PASS (a) `subagent` start event streamed
+PASS (a) start event carries id + task
+PASS (a) start event carries toolTier=edit
+PASS (a) `subagent` end event streamed
+PASS (a) start/end share the same subagentId
+PASS (a) end event ok:true + resultChars>0
+PASS (a) sub-turn file_write tool_use tagged with subagentId
+PASS (a) sub tool_use subagentId matches start id
+PASS (a) sub-turn tool_result tagged + not an error
+PASS (a) parent orchestrate_agents tool_use is NOT tagged with subagentId
+PASS (a) sub-turn file_write EXECUTED (x.txt exists)
+PASS (a) journal has an x.txt entry (parent turnSeq)
+PASS (a) parent got the orchestrate_agents envelope with the sub conclusion summary
+PASS (a) envelope node has no raw result/toolEvidence/progressLog; points at agent_result
+PASS (a) turn result ok
+[fake] [fake-openai] listening on 64346
+PASS (a2) orchestration fake respawned
+PASS (a2) dependent summary starts only after the prior agent ends
+PASS (a2) summary event exposes dependsOn=[pro]
+PASS (a2) completed dependency conclusion is injected into the summary agent context
+PASS (a2) parent prompt explains single-entry orchestration and dependsOn
+[fake] [fake-openai] listening on 64346
+PASS (a3) DAG fake respawned
+PASS (a3) workflow start event exposes three nodes
+PASS (a3) workflow completes all DAG nodes
+PASS (a3) independent pro/con nodes really overlap (persisted startedAt within one node-duration)
+PASS (a3) summary auto-starts only after both dependencies finish
+PASS (a3) completed DAG is persisted and inspectable through API
+PASS (a3) agent-run records are token protected
+PASS (a4) single-node retry accepted
+PASS (a4) only summary node reran (attempts=2)
+[fake] [fake-openai] listening on 64346
+PASS (a4) cascade retry + pause accepted
+PASS (a4) workflow pauses safely at a node boundary
+PASS (a4) paused workflow resumes
+PASS (a4) resumed workflow finishes queued downstream nodes
+PASS (a4) stop request accepted for an active workflow
+PASS (a4) stop aborts the workflow and persists stopped state
+[fake] [fake-openai] listening on 64346
+PASS (a5) resource-aware DAG fake respawned
+PASS (a5) same desktop resource serializes otherwise-independent nodes
+PASS (a5) waiting resource event is observable
+PASS (a5) normalized resources persist in schema v4 run record
+[fake] [fake-openai] listening on 64346
+PASS (b) fake respawned
+PASS (b) sub-turn spawn_agent refused with «不可再派生»
+PASS (b) sub-turn continued and wrote x2.txt after the refusal
+PASS (b) sub-turn still concluded ok
+[fake] [fake-openai] listening on 64346
+PASS (c) fake respawned
+PASS (c) 5 nodes over the per-turn cap of 4 → orchestrate_agents refused with «上限»
+PASS (c) no sub-turn started when the whole call is refused — got 0
+PASS (c2) configurable sub-agent concurrency/turn limits persist through /api/config
+PASS (c2) per-turn cap 6 launches all five nodes (got 5)
+PASS (c2) run.concurrency follows subagentMaxConcurrent=3
+[fake] [fake-openai] listening on 64346
+PASS (d) fake respawned
+PASS (d) read-tier sub-turn did NOT write r.txt (file_write not in its tool set)
+PASS (d) sub-turn file_write attempt errored (tool absent)
+[fake] [fake-openai] listening on 64346
+PASS (f) plan-mode fake respawned
+PASS (f) a `plan` event was streamed (plan-mode pause)
+PASS (f) approve decision {ok:true}
+PASS (f) sub-agent started after plan approval
+PASS (f) sub-agent attempted file_write
+PASS (f) F4: sub-agent file_write ALLOWED (approved plan → sub gate lifted), not a permission refusal
+PASS (f) F4: exec-tier sub-agent file_write EXECUTED under approved plan (f-approved.txt exists)
+PASS (f) turn ok after approved sub-agent execution
+[fake] [fake-openai] listening on 64346
+PASS (g) plan-mode fake respawned
+PASS (g) a `plan` event was streamed
+PASS (g) reject decision {ok:true}
+PASS (g) F4: un-approved plan → exec sub-agent file NOT written (g-unapproved.txt absent)
+PASS (g) no sub-agent launched under a rejected plan
+PASS (g) turn ended plan_rejected
+[fake] [fake-openai] listening on 64346
+PASS (e) workbench restarted with subagentMaxPerTurn:0
+PASS (e) meta event present
+PASS (e) agent delegation tools NOT in buildOpenAiTools when subagentMaxPerTurn:0
+PASS (e) direct /api/tools/spawn_agent → «已并入 orchestrate_agents» refusal
+PASS (e) direct /api/tools/orchestrate_agents → context-free refusal
+PASS (h) restart marks running workflow interrupted
+PASS (h) running node→interrupted and queued node→blocked
+
+SUBAGENT E2E: ALL PASS

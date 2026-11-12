@@ -1,0 +1,64 @@
+── [U] #13a/13a-t 开关与决策白盒契约 ──
+PASS U1 默认配置预算保护关闭(106 逐项取证纪律)
+PASS U2 开关开但预算 0 → 不把门(空转安全)
+PASS U3 开关开+预算 >0 → 生效
+PASS U4 字符串 "true" 洗回 false(严格布尔)
+PASS U5 预算钳位 [0,10000000],坏值落 0(关门不放宽)
+PASS U6 预警比例钳位 [0.1,0.99],缺省 0.8
+PASS U7a 决策:远未触线 → ok
+PASS U7b 决策:spent 过 80% 且还装得下下一调用 → warn
+PASS U7c 决策:spent+reserve 超预算 → trip(预留在途)
+PASS U7d 决策:单次调用估算即超预算 → trip(首发即停)
+PASS U7e 决策:trip 优先于 warn(触顶即最强预警)
+PASS U7f 决策:预算 0 → 恒 ok(不开门)
+PASS U8 13a-t 双开关默认关闭
+PASS U9 13a-t 显式 true 各自生效
+PASS U10 13a-t 字符串 "true" 洗回 false(严格布尔)
+PASS U11 warn 钳位 [1000,3600000],0/坏值关闭该级
+PASS U12 hard 钳位 [5000,7200000]
+PASS U13 字节计数阈值 0=不计数,坏值落 0
+── [E] #13a 触顶停新增 / 零触发等价 / 任务暂停恢复 ──
+PASS E0a workbench A listening on :58208
+PASS E1 开关关基线:3 次模型调用跑完整个工具序列
+PASS E2 基线三次请求体均已捕获
+PASS E0b workbench B listening on :58219
+PASS E3 开关开+大预算:3 次调用跑完(零触发)
+PASS E4 零触发路径请求体与开关关逐字节一致
+PASS E5 零触发路径无 budget_guard 事件
+PASS E0c workbench C listening on :58226
+PASS E6 触顶:0 次模型调用发出(停止新增调用)
+PASS E7 budget_guard tripped 事件口径正确(spent/reserve/budget)
+PASS E8 触顶对模型/用户可见(预算说明 note,不静默吞掉)
+PASS E9 回合正常结束(历史完整,可发消息续跑)
+PASS E10 触顶落脱敏审计账(恰好一条)
+PASS E0d workbench D listening on :58239
+PASS E11 拿到 session id
+PASS E12 until-done 任务账本已建立
+PASS E13 触顶后任务事件 budget_guard_paused(说明原因)
+PASS E14 触顶后 autoMode 降 supervised(暂停,进度保留,非报错)
+PASS E15 驱动器未再续跑撞墙(零新增模型调用)
+PASS E16 恢复路径:用户重设 until-done 生效(恢复状态正确)
+── [E] #13a-t dead-long-runner 硬终态 / shadow / 字节计数 / 零触发等价 ──
+PASS E0e workbench T0 listening on :58248
+PASS E17 基线:快命令 2 次调用完成
+PASS E0f workbench T1 listening on :58259
+PASS E18 硬终态在 ~5s 杀树(墙钟 584ms,远小于命令自身 30s)
+PASS E0g workbench T2 listening on :58302
+PASS E25 shadow 零用户面事件(零行为变化)
+PASS E26 shadow 的配对 tool_result 与正常完成无异
+PASS E0h workbench T3 listening on :58461
+PASS E29 主动档零触发:快命令正常完成
+PASS E30 零触发路径请求体与全关基线逐字节一致(elapsedMs 墙钟已归一化)
+PASS E31 零触发路径零预算日志(无误报)
+
+BUDGET-GUARD E2E: 8 FAILURES
+FAIL E19 软警告 tool_progress(budget_soft)已发
+FAIL E20 硬终态 tool_progress(budget_hard)已发
+FAIL E21 配对 tool_result 含预算中断原因(回合继续,模型可见)
+FAIL E22 tool_result 带预算中断标记(不冒称正常结束)
+FAIL E23 硬终态落脱敏审计账(deadline/工具名,不含命令正文)
+FAIL E24 shadow 不动作:命令自然跑完(墙钟 458ms ≥ 8s 命令时长)
+FAIL E27 shadow 落「本应软警告/本应硬杀」各一条(校准阈值用)
+FAIL E28 字节轴只计数:超阈值完成调用落一条计数事件(不改写结果)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-itt7Gx

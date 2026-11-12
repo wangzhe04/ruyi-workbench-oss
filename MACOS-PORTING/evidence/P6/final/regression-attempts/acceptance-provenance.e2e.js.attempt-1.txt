@@ -1,0 +1,65 @@
+PASS workbench up on :57225
+PASS UI token scraped
+PASS session created
+PASS mission start ok
+PASS (前置) 有账本 → ledger=true(实 true)
+PASS (前置) 用户设的 file_exists 检查在(实 file_exists)
+PASS (前置) 还没完成的两条都是 open,没有来源牌子
+PASS (前置) 有检查但一次没跑过 → checkState=never(实 never)
+PASS (a) 不可信来源的 mission_update 照旧收下(它有权自报进度)
+PASS (a) trusted 门反向:不可信来源带 check.cmd 来,仍然是 none(实 none)
+PASS (a) 模型标的 done → 自报完成(实 self)
+PASS (b) 有机器检查却一次没跑过、被模型标 done → 仍是「自报完成」,不冒充机器检查(实 self/never)
+PASS (b) 没跑过就没有时间戳(实 "")
+PASS (c) action:check 跑完
+PASS (c) 机器真跑过且通过 → 机器检查(实 machine/pass)
+PASS (c) 机器检查带最近一次时间(实 "2026-11-12T10:50:12.605Z")
+PASS (c) 没有机器检查的那条不受影响,仍是自报完成
+PASS (c) byProvenance 计数 machine=1/self=1(实 {"machine":1,"self":1,"human":0,"open":0})
+PASS (c) 产物消失后再跑一次 check
+PASS (c) 既有语义不变:机器没通过【不】自动把 done 退回去(实 done)
+PASS (c) 但界面不再被这个 done 骗:最近一次没通过 → 落回自报完成并标 fail(实 self/fail)
+PASS (c) 带出机器给的实情(实 "文件不存在: deliverable.md")
+PASS (d) 事项容器建起来了
+PASS (d) 线程挂进事项
+PASS (d) 列表投影已把线程归到事项下
+PASS (d) 详情带 ETag(实 "W/\"mission-5954a93f8e4bca40cefaa988-25bf6dedf870d7ce3eb5681b-2026-11-12T10:50:12.616Z:0:\"")
+PASS (d) 容器还没有验收项时如实是 0 条
+PASS (d) 用户经唯一写入口勾了一条容器验收项
+PASS (d) 容器改了,带 If-None-Match 来【不】拿到 304(ETag 含容器指纹;实 200)
+PASS (d) 容器里用户勾的那条 → 人工复核(实 human)
+PASS (d) 有账本时 a/b 数的是账本那两条 —— 事项级验收项属于整个事项,挂到每条线程上会把同一份账印几遍(实 {"total":2,"done":2})
+PASS (d) byProvenance 认得人工复核那一档(实 {"machine":0,"self":2,"human":1,"open":0})
+PASS (d2) 用户又勾了两条与账本逐字同文的验收项
+PASS (d2) 逐字同文且用户勾过 → 那条里程碑自此是「人工复核」,不再是模型的自报(实 human)
+PASS (d2) 同文那两条标了 duplicate,界面不会把同一句话印两遍
+PASS (d2) machine > human > self:同一条上三样证据都在时,牌子印最硬的那一份(实 machine/pass)
+PASS (e) 没有账本 → ledger=false(界面据此说「未记录验收」;实 false)
+PASS (e) 三样都如实为空,不拿别的东西冒充(实 total=0 container=null)
+PASS (e2) 仍然没有账本,但事项级那三条如实带出来了(实 ledger=false container=3)
+PASS (e2) 没有账本时 a/b 数的就是事项那一套(实 {"total":3,"done":3})
+PASS (g) 两条线程都在列表里（实 mission=true plain=true）
+PASS (g) 有账本的线程：ledger=true（实 true）
+PASS (g) 挂在事项容器下 → tracked=true（实 true）
+PASS (g) 同组另一条（自己没账本）拿到的是【同一份组级事实】（实 ledger=true tracked=true）
+PASS (g2) 那条普通会话进了列表（实 true）
+PASS (g2) 没账本 → ledger=false（实 false）
+PASS (g2) **不是一件活 → tracked=false** —— 看板据此闭嘴，不对普通聊天会话说「未记录验收」（实 false）
+PASS (g2) 验收项如实为空（实 0）
+PASS f1 机器验收的章只有一处写入口(实 ["02-session-store.js"])
+PASS f1 那一处就是 recordMissionCheckResult(不许有第二条赋值)
+PASS f2 落章的调用点恰两处:驱动器每轮 + action:check(实 ["06e-mission-domain.js","13-http-router.js"])
+PASS f2 06e-mission-domain.js 的章来自真跑过的那次 evaluateMissionCheck(不是凭空落章)
+PASS f2 13-http-router.js 的章来自真跑过的那次 evaluateMissionCheck(不是凭空落章)
+PASS f3 容器验收项的规范器只在 02(实 ["02-session-store.js"])
+PASS f3 createMissionContainer 的 HTTP 入口就在它前面那道 tokenOk(UI header token)门后
+PASS f3 patchMissionContainer 的 HTTP 入口就在它前面那道 tokenOk(UI header token)门后
+PASS f3 missionMergeInto 的 HTTP 入口就在它前面那道 tokenOk(UI header token)门后
+PASS f3 模型工具面零处写容器验收项(实 [])
+PASS f4 四态判据的正身在服务端 02
+PASS f4 前端零处按 checkType 自己推来源(推导只许在服务端那一份)
+PASS f4 「未记录验收」两处都在(干到哪那一行 + 空清单),判据取 acceptanceRecorded
+PASS f5 七条新键四份 locale 齐备
+PASS f5 app 与 docs 两份逐字一致
+
+ACCEPTANCE PROVENANCE E2E: ALL PASS

@@ -1,0 +1,26 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A0 造好 24 条会话与一件两线程的任务（mission_a6e4a8ad7c9d8b0c）
+PASS A0b 工作台视角
+PASS A0c 左栏画出了全部行与那一件任务行（26 行）
+PASS A1 输入没变的重画（搜索清空 ×3）不摘任何一行，27 个行元素全是原来那一个（实测 {"removed":0,"same":27,"total":27,"now":27,"changed":[]}）
+PASS A2 重画 ＋ 复核取行（行没变）之后仍然零摘除、元素身份不变（实测 {"removed":0,"same":27,"total":27,"now":27,"changed":[]}）
+PASS B1 改名之后那一行的标题跟着变了
+PASS B1b 只有变了的那一行换了元素，其余照旧（实测 {"same":26,"total":27,"now":27,"changed":["s:sess_f9e0ef517cc8c7c0"]}）
+PASS B2 跑完一轮之后那一行的状态与所在组跟着变了（{"state":"blank","group":"fresh"} → {"state":"running","group":"running"}）
+PASS B3 选中跟着当前会话走（先 y 后 w，各只有一行高亮；["sess_156c4ea2ffa0c85b"] → ["sess_7f631b7e831df87a"]）
+PASS B4 搜索只留命中的那一行，清空后 26 行全部回来
+PASS B5a 切到管家视角
+PASS B5b 管家视角里高亮的是焦点那一条（v；实测 ["sess_d4abfbeafc6a582b"]）
+PASS B5c 切回工作台视角
+PASS B5d 回到工作台，高亮回到当前会话（w；实测 ["sess_7f631b7e831df87a"]）
+PASS B6 组头点一下收起、再点一下展开（fresh：true → false）
+PASS B7 任务展开／收起跟着点击翻转（[false,"false"] → [true,"true"]）
+PASS B8 切到英文：组头与五态药丸都换成英文（{"group":"New","pill":"Not started","state":"blank"}）
+PASS B8b 切回中文：组头与药丸换回中文（{"group":"新开的","pill":"还没开始","state":"blank"}）
+PASS C1 页面无未捕获异常（[]）
+
+RAIL RECONCILE BROWSER E2E: ALL PASS

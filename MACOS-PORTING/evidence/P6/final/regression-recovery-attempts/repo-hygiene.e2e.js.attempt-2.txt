@@ -1,0 +1,74 @@
+PASS (a) root LICENSE exists
+PASS (a) root THIRD-PARTY-NOTICES.md exists
+PASS (a) LICENSE non-empty
+PASS (a) LICENSE contains "Apache License"
+PASS (a) THIRD-PARTY-NOTICES non-empty
+FAIL (b) no real secret-pattern hits — HITS: MACOS-PORTING/evidence/P6/final/baseline-unit-final.txt:3152, MACOS-PORTING/evidence/P6/final/unit-before-locale-sync.txt:3157, MACOS-PORTING/evidence/P6/final/unit-final.txt:3158, MACOS-PORTING/evidence/P0/unit-full.txt:13030, MACOS-PORTING/evidence/P1/capabilities/unit-final.txt:2999, MACOS-PORTING/evidence/P1/capabilities/unit-first.txt:3000, MACOS-PORTING/evidence/P1/capabilities/unit.txt:2999, MACOS-PORTING/evidence/P1/cli-model-probe/unit.txt:2999, MACOS-PORTING/evidence/P1/discovery-ui/unit-final.txt:2999, MACOS-PORTING/evidence/P1/document-reader/unit.txt:2999, MACOS-PORTING/evidence/P1/executable-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/files/unit-final.txt:2999, MACOS-PORTING/evidence/P1/files/unit-first.txt:2999, MACOS-PORTING/evidence/P1/files/unit-fixture-regression.txt:234, MACOS-PORTING/evidence/P1/git-runtime/unit-final.txt:2999, MACOS-PORTING/evidence/P1/helper-gate/unit.txt:2999, MACOS-PORTING/evidence/P1/helper-loss/unit-final.txt:2999, MACOS-PORTING/evidence/P1/helper-loss/unit-first.txt:2999, MACOS-PORTING/evidence/P1/media-runtime/unit.txt:2999, MACOS-PORTING/evidence/P1/opener-completion/unit.txt:2999, MACOS-PORTING/evidence/P1/overlay-boundary/unit.txt:2999, MACOS-PORTING/evidence/P1/ownership/review-unit-full.txt:2998, MACOS-PORTING/evidence/P1/ownership/unit-final.txt:2993, MACOS-PORTING/evidence/P1/ownership/unit-full.txt:2992, MACOS-PORTING/evidence/P1/path-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P1/process-handles/unit.txt:2999, MACOS-PORTING/evidence/P1/process-integration/unit-final.txt:2999, MACOS-PORTING/evidence/P1/processes/exit-confirmation-unit-final.txt:2998, MACOS-PORTING/evidence/P1/processes/unit-final.txt:2998, MACOS-PORTING/evidence/P1/processes/unit-full.txt:2998, MACOS-PORTING/evidence/P1/python-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/rg-runtime/unit.txt:2999, MACOS-PORTING/evidence/P1/search-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P1/shell/unit-final.txt:2999, MACOS-PORTING/evidence/P1/supervisor/unit-final.txt:2998, MACOS-PORTING/evidence/P1/synchronous-probe-audit/unit.txt:2999, MACOS-PORTING/evidence/P1/synchronous-probes/unit.txt:2999, MACOS-PORTING/evidence/P1/unit-final-source.txt:2988, MACOS-PORTING/evidence/P1/worktree-runtime/unit-final.txt:2999, MACOS-PORTING/evidence/P1/write-queue-cancellation/unit.txt:2999, MACOS-PORTING/evidence/P2/bots/unit.txt:2998, MACOS-PORTING/evidence/P2/cli-live/unit.txt:2998, MACOS-PORTING/evidence/P2/cli/unit-first.txt:2999, MACOS-PORTING/evidence/P2/cli/unit.txt:2999, MACOS-PORTING/evidence/P2/core/unit.txt:2997, MACOS-PORTING/evidence/P2/final-acceptance/unit.txt:2998, MACOS-PORTING/evidence/P2/keychain/unit-first.txt:2997, MACOS-PORTING/evidence/P2/keychain/unit.txt:2997, MACOS-PORTING/evidence/P3/acc-shared/unit.txt:2998, MACOS-PORTING/evidence/P3/browser/unit.txt:2998, MACOS-PORTING/evidence/P3/final-mac-acceptance/checks/unit.txt:2999, MACOS-PORTING/evidence/P3/office/unit.txt:2998, MACOS-PORTING/evidence/P3/templates/unit-first.txt:2998, MACOS-PORTING/evidence/P3/templates/unit.txt:2999, MACOS-PORTING/evidence/P4/bridge/workspace-alias/unit-final.txt:2999, MACOS-PORTING/evidence/P4/frozen-local-regression/closeout-unit.txt:2999, MACOS-PORTING/evidence/P4/frozen-local-regression/unit.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit-final.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit-fixed.txt:2999, MACOS-PORTING/evidence/P4/full-mac-acceptance/unit.txt:2999, MACOS-PORTING/evidence/P4/media/physical/new-unit-final.txt:2999, MACOS-PORTING/evidence/P4/media/unit-final.txt:2999, MACOS-PORTING/evidence/P5/audit/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/ax/apps/engineering-final-unit.txt:3007, MACOS-PORTING/evidence/P5/ax/apps/engineering-unit.txt:3007, MACOS-PORTING/evidence/P5/ax/unit-final.txt:2999, MACOS-PORTING/evidence/P5/ax/unit.txt:2999, MACOS-PORTING/evidence/P5/capture/unit.txt:2999, MACOS-PORTING/evidence/P5/composed/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/durable-history/development/engineering-v1/unit.txt:3016, MACOS-PORTING/evidence/P5/entry/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/input/events/unit-accepted.txt:2999, MACOS-PORTING/evidence/P5/input/events/unit-current.txt:2999, MACOS-PORTING/evidence/P5/input/events/unit-final.txt:2999, MACOS-PORTING/evidence/P5/input/unit.txt:2999, MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-unit-first.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v2/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v3/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v4/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v5/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fullunit.txt:3007, MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fullunit.txt:3007, MACOS-PORTING/evidence/P5/ocr/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P5/record/acceptance/engineering/unit.txt:3007, MACOS-PORTING/evidence/P5/transition/development/engineering-v1/unit.txt:3007, MACOS-PORTING/evidence/P6/internal-trial/unit-all.txt:3152, MACOS-PORTING/evidence/P6/offline/unit-all.txt:3144, MACOS-PORTING/evidence/P6/offline/unit-release.txt:3147
+PASS (b) active docs have no real personal username
+PASS (c1) workbench up with RUYI_HOME
+PASS (c1) RUYI_HOME → dataRoot === ruyiHome (got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-hygiene-ruyi)
+PASS (d) /api/status.app === 如意 Ruyi (got 如意 Ruyi)
+PASS (c2) workbench up with old env only
+PASS (c2) old WIN_CLAUDE_WORKBENCH_HOME still honored (got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-hygiene-old)
+PASS (c3) workbench up with both envs
+PASS (c3) RUYI_HOME takes precedence over old env (got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-hygiene-ruyi)
+PASS (d) index.html has favicon <link rel="icon">
+PASS (d) index.html contains 如意
+PASS (d) index.html <title> carries 如意
+PASS (e) F2 workbench up on :52919
+PASS (e) F2 UI token scraped
+PASS (e①) GET /api/status apiKey masked to ••••abcd (got ••••abcd)
+PASS (e①) masked provider carries hasKey:true
+PASS (e①) full /api/status response contains NO plaintext key
+PASS (e②) POST /api/config (masked echo) ok
+PASS (e②) physical Windows configuration uses encrypted references and contains no plaintext provider key
+PASS (e②) disk config.json real key intact after masked round-trip (got sk-test-1234abcd)
+PASS (e②) POST /api/config response contains NO plaintext key
+PASS (e③) POST /api/config (new plaintext key) ok
+PASS (e③) disk config.json updated to the new key (got sk-live-9999zzzz)
+PASS (e④) GET /api/status config.modelsApiKey masked to ••••wxyz (got "••••wx…")
+PASS (e④) full /api/status response contains NO plaintext modelsApiKey
+PASS (e⑤) POST /api/config (masked modelsApiKey echo) ok
+PASS (e⑤) disk modelsApiKey byte-identical after masked round-trip (got "mk-tes…")
+PASS (e⑤) provider key intact in the same save
+PASS (e⑤) POST /api/config response contains NO plaintext modelsApiKey
+PASS (e⑥) POST a new plaintext modelsApiKey → disk updated (got "mk-liv…")
+PASS (e⑥) the save response echoes the NEW key masked, not plaintext (got "••••ab…")
+PASS (e⑥) POST modelsApiKey:"" clears it (got "")
+PASS (f) MCP-secrets workbench up on :52948
+PASS (f) UI token scraped
+PASS (f) physical Windows MCP configuration contains encrypted references and zero fixture secrets
+PASS (f) fixture on disk carries the real env/header values
+PASS (f①) GET /api/status body has 0 plaintext MCP secrets
+PASS (f①) env key names visible (got ["GITHUB_TOKEN","FAKE_MCP_ENV_CAPTURE","FAKE_MCP_ENV_CAPTURE_KEYS","DROP_ME"])
+PASS (f①) every env value masked ••••<last4> (got "••••WX…")
+PASS (f①) remote headers.Authorization masked (got "••••xy…")
+PASS (f①) args redacted for display (--token value, URL userinfo) (got ["--token","«redacted»","postgres://svc:«redacted»@127.0.0.1/db"])
+PASS (f①) structural fields (id/command/enabled) unmasked
+PASS (f①) remote url credential masked, scheme/host/path still visible (got http://127.0.0.1:52949/mcp?api_key=••••TuVw)
+PASS (f②) POST /api/config with masked MCP echo ok (status 200)
+PASS (f②) disk externalMcpServers byte-identical after masked round-trip (GITHUB_TOKEN "ghp_S0…")
+PASS (f①) POST /api/config response has 0 plaintext MCP secrets
+PASS (f①) GET /api/mcp/connectors has 0 plaintext MCP secrets
+PASS (f①) workbench_self_status has 0 plaintext MCP secrets
+PASS (f①) mcp_list has 0 plaintext MCP secrets (args redacted: true)
+PASS (f③) config.json contains no mask / redaction marker
+PASS (f③) generated workbench.mcp.json carries real values, no masks
+PASS (f③) Kimi sync (mcp.json written by this save) carries real values, no masks (exists=true)
+FAIL (f③) claude mcp add-json from this save got the real env/args (0 call(s))
+PASS (f③) toggle hyg-stdio off→on to drop the live client
+PASS (f③) toggle hyg-remote off→on to drop the live client
+PASS (f③) MCP child spawned via connectors/health received the real env (GITHUB_TOKEN "ghp_S0…", health ok)
+PASS (f③) remote MCP requests carried the real Authorization header (3 request(s), first "Bearer…")
+PASS (f③) the upstream request path carried the REAL ?api_key= (6 request(s), first "/mcp?a…")
+PASS (f②) a new plaintext env value is stored (got "ghp_S0…")
+PASS (f②) a deleted env key is removed; the untouched masked env/args are restored (keys ["GITHUB_TOKEN","FAKE_MCP_ENV_CAPTURE","FAKE_MCP_ENV_CAPTURE_KEYS"])
+PASS (f②) the save response does not echo the new plaintext value
+PASS (f②) new/renamed server with masked values and no match → cleared (env "", header "")
+PASS (f②) the original servers keep their real values in the same save
+PASS (f③) still no mask / redaction marker anywhere in config.json
+PASS (f②) same id but changed command/url → masked values are NOT re-attached (env "", header "")
+
+REPO-HYGIENE E2E: FAIL (2)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-A35d3M

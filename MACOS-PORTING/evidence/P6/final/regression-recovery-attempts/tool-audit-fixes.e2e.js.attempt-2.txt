@@ -1,0 +1,43 @@
+PASS G1 git_commit paths:['a.txt'] 只提交 a.txt(got ["a.txt"])
+PASS G1b 早已暂存的 data.csv 仍在暂存区,没被顺带提交
+PASS G2 读类 git 不读工作区外的仓库(got {"ok":false,"error":"这个位置在工作文件夹外面,当前用的不是本机模型,已拒绝读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」","code":"not-allowed","cwd":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000)
+PASS G4 分支名带点(got release-1.0)
+PASS G5 改动全在暂存区时给提示(got empty=false hint=未暂存的改动是空的,但暂存区里有改动;传 staged:true 查看。)
+PASS G6 有已跟踪改动时照样列出未跟踪文件(got ["new.txt"])
+PASS G3 相对 cwd 接在工作目录下(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0aT/sub)
+PASS G3b 还没有提交的仓库:branch=main、unborn:true(got main/true)
+PASS F1 `hello$` 在 CRLF 文件里配得上(engine=rg,got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0aT/crlf.txt","relativePath":"crlf.txt","line":1,"text":"a hello"}])
+PASS F2 **/test_two.py 只配完整段(got [{"relativePath":"src/test_two.py","mtime":1794483403078}])
+PASS F3 花括号展开(got ["data.csv","src/app.js"])
+PASS F3b 字符类(got [{"relativePath":"src/app.js","mtime":1794483403078}])
+PASS F4 file_list root 不存在 → not_found(got {"ok":false,"code":"not_found","error":"目录不存在: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0a)
+PASS F4 glob root 不存在 → not_found(got {"ok":false,"code":"not_found","error":"目录不存在: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0a)
+PASS F4 file_search root 不存在 → not_found(got {"ok":false,"code":"not_found","error":"目录不存在: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0a)
+PASS F4 project_snapshot root 不存在 → not_found(got {"ok":false,"code":"not_found","error":"目录不存在: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0a)
+PASS F4b root 是文件 → not_a_directory(got not_a_directory)
+PASS F5 强制 utf8 读过之后,自动识别读照样解出 GBK(got auto="你好\r\nabc")
+PASS F6 带 BOM 的 package.json 照样解析(got {"scripts":{},"dependencies":["lodash"],"devDependencies":[],"engines":{}})
+PASS F6b package.json 是 null:如实报 parseError,不抛(got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-tool-audit-ws-qku0aT/pkg","files":[{"relativePath":"package.json","path":"/var/folders/)
+PASS W1 超过 2MB 的页面截断交回(got true )
+PASS W2 ssrfCheck 认 FQDN 末尾的点
+PASS M1 todo_write 认 content / completed / in-progress / 纯字符串条目(got {"ok":true,"count":3,"persisted":false,"note":"仅校验通过,未写入会话(当前不在对话回合内)"})
+PASS M1c items 不是数组 → 校验失败,不清空计划(got invalid-arguments)
+PASS M2 正文带 ``` 代码块的记忆候选照常提交(got {"ok":true,"proposalId":"proposal_c34af0eb41f1421e","pendingUserConfirmation":true,"proposal":{"name":"测试命令","description":"跑测试的方式","type":"reference","body":"R)
+PASS M3 tool_search「读文件」找得到 file_read(got ["file_read","http_download","file_copy","file_move","file_delete","file_edit","file_search","file_write"])
+PASS M4 抄错的 ref 不扣配额;带 rawRef= 前缀的照常解析(got not_found)
+PASS M5 allowCommandTools:false 在不带 config 的调用面同样生效(got {"ok":false,"code":"tool-disabled","error":"tool 'script_run' is disabled by settings (allowCommandTools=false)","hint":)
+FAIL M6 browser_open 不把 .bat 交给系统关联(got {"ok":false,"code":"ENOENT","error":"无法解析要打开的本地浏览器路径","target":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-to)
+PASS M6b 以 - 开头的值不当网址
+PASS S1 `..` 越界拒(got outside_workspace)
+PASS S1b 指向区外的符号链接拒(got outside_workspace)
+PASS S1c 遍历类工具不跟着链接读区外文件
+PASS S1d 区内文件照常读(got )
+PASS S2 不存在的目录不能设成工作目录(got invalid_request)
+PASS S2b 文件不能设成工作目录(got invalid_request)
+PASS S3 200 条生效 + 1 条否决的库里,第 201 条(生效)读得回来(修前读库把总数截在 200,它被挤掉;got {"ok":true,"query":"gamma delta","kind":"","total":201,"entries":[{"id":"smem_9999999999999999","kind":"preference","text":"第 200 条偏好 gamma delta","confidence":)
+PASS S5 开关键收到字符串 → 拒(got invalid_request)
+PASS S5b 不存在的 stewardProviderId → 拒(got invalid_request)
+
+TOOL AUDIT FIXES E2E: FAIL (1)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-XCjviL

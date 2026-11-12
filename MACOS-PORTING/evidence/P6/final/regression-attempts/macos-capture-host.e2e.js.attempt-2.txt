@@ -1,0 +1,7 @@
+FAIL Error: App acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:20:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-host.e2e.js:51:18
+
+MACOS CAPTURE HOST E2E: FAIL (1)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-EeXqWY

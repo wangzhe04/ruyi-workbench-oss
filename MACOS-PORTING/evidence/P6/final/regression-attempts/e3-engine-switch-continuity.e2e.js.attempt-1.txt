@@ -1,0 +1,28 @@
+[fake] [fake-openai] listening on 59837
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay ee7b51e9cccb)
+[wb] UI: http://127.0.0.1:59838/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-e3-engine-switch-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :59838
+PASS workbench token read from runtime.json (for config PATCH)
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-e3-engine-switch-e2e/generated/workbench.mcp.json
+PASS session created on the Claude turn
+PASS a new workbench chat never uses global Claude --continue (no unrelated transcript splice)
+PASS config switched to provider engine
+PASS session engineRoute pinned to provider
+PASS Turn B ran on the provider engine
+PASS Turn B Provider request includes the preceding Claude turn
+PASS config switched back to Claude engine
+PASS session engineRoute pinned back to claude
+PASS Turn C (Claude, already-seen sid) STILL injects recovery history — the E3 cross-engine override fired
+PASS Turn C recovery re-injects the intermediate Provider turn (marker present)
+PASS recovery block wraps the injected provider turn
+PASS current user message stays separately delimited
+PASS Turn A content is NOT re-injected (only the provider tail since the last Claude turn)
+PASS config switched to provider a second time
+PASS session engineRoute re-pinned to provider
+PASS Turn D ran on the provider engine
+PASS Turn D Provider request absorbs the intervening Claude turn even with non-empty providerHistory
+PASS Provider/display history cursor is persisted at the shared tail
+
+E3-ENGINE-SWITCH-CONTINUITY E2E: ALL PASS

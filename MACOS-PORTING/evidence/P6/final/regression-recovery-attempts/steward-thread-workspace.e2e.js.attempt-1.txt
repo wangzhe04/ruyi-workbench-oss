@@ -1,0 +1,30 @@
+── (A) 围栏 ──
+PASS A1 工作区表外的路径一律拒(got outside_workspace)
+PASS A1b 拒是零写入(会话头上的 cwd 一个字没动)
+PASS A2 前缀陷阱也拒:`<工作区>-secrets` 不是 `<工作区>` 的子目录
+PASS A3 recentWorkspaces 里的目录【不算】已登记(打开过 ≠ 授权过,31 号文红线 2)
+PASS A4 管家会话自己没有工作目录可改(got invalid_target)
+PASS A5 不存在的线程 -> not_found
+── (B) 档位 ──
+PASS B1-default 非 auto 档回 propose_required(变成一枚按钮交给用户;got propose_required)
+PASS B1b-default 回包说清是哪一档挡的(模型能照直说给用户听)
+PASS B1c-default 提议是零写入
+PASS B1-acceptEdits 非 auto 档回 propose_required(变成一枚按钮交给用户;got propose_required)
+PASS B1b-acceptEdits 回包说清是哪一档挡的(模型能照直说给用户听)
+PASS B1c-acceptEdits 提议是零写入
+PASS B1-plan 非 auto 档回 propose_required(变成一枚按钮交给用户;got propose_required)
+PASS B1b-plan 回包说清是哪一档挡的(模型能照直说给用户听)
+PASS B1c-plan 提议是零写入
+── (C) 活回合 ──
+PASS C1 活回合期间一律拒 —— 不在回合中途换脚下的地(got steward.busy)
+PASS C1b 零写入
+── (D) 落定 ══
+PASS D1 auto 档直接改到位(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-ws-b-KpmxQc)
+PASS D2 回显旧目录(用户看得出挪之前在哪)
+PASS D3 undoRef 指得回旧目录
+PASS D4 返回里明说旧目录上的检查点没搬也没删(悄悄搬走比不搬更难解释)
+PASS D5 真的落到会话头上了(下一回合就按新目录算)
+PASS D6 决策日志记下了这次搬家(用户在行动流水里看得见)
+── (E) 幂等 ──
+PASS E1 已经在那个目录里 -> not_changed(既不说假的「改好了」,也不报一个像出错的错;got not_changed)
+STEWARD THREAD WORKSPACE E2E: ALL PASS

@@ -1,0 +1,9 @@
+PASS fake provider and workbench start
+PASS M1: workflow with per-node context launches
+PASS M1: both node requests captured (guard against empty-string false positives)
+PASS M1: node A receives its node-level context
+PASS M1: node A also receives the global context
+PASS M1: node B does NOT receive node A context (per-node isolation)
+PASS M1: node B still receives the global context (legacy compat)
+
+AGENT WORKFLOW NODE CONTEXT E2E: ALL PASS
