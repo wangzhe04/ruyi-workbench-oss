@@ -184,7 +184,13 @@ console.log(JSON.stringify(result));})().catch(e=>{console.error(e);process.exit
     for (const child of children.reverse()) await killOwnTree(child);
     if (web) await new Promise(resolve => web.close(resolve));
     for (const [file, mode] of modes.reverse()) { try { fs.chmodSync(file, mode); } catch {} }
-    if (!t.failures) fs.rmSync(fixture.home, { recursive: true, force: true });
+    if (!t.failures) {
+      fs.rmSync(fixture.home, { recursive: true, force: true });
+      // Keep reports and copied manifests; the byte-verified App clone is reproducible
+      // from the frozen input and otherwise consumes >1GB per successful Full run.
+      fs.rmSync(path.join(moved, 'Ruyi.app'), { recursive: true, force: true });
+      console.log('INFO successful moved App clone removed; reports, metadata and frozen input retained');
+    }
   }
   t.done();
 })();

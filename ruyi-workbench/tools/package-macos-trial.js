@@ -212,7 +212,7 @@ function buildTrial({ package: source, output }) {
     verifyPackage(source);
     if (sha256(path.join(source, 'package-manifest.json')) !== inputManifestHash) throw new Error('Input manifest changed');
     for (const [file, hash] of Object.entries(fingerprints)) if (sha256(path.resolve(__dirname, '../..', file)) !== hash) throw new Error('Trial build source changed');
-    fs.copyFileSync(image, path.join(output, name), fs.constants.COPYFILE_EXCL);
+    fs.copyFileSync(image, path.join(output, name), fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE);
     const imageHash = sha256(path.join(output, name));
     fs.writeFileSync(path.join(output, name + '.sha256'), imageHash + '  ' + name + '\n', { flag: 'wx' });
     writeJson(path.join(output, 'trial-manifest.json'), trial);
