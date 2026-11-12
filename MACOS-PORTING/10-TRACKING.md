@@ -1,5 +1,7 @@
 # 执行与交接看板
 
+**当前状态（2026-11-12）：P5 已按用户选择的已验 Mac 范围完成交付验收，未验项保留后续。** 详见 [收尾记录](evidence/P5/closeout/README.md)。下文旧日期状态保留为历史快照。
+
 更新时间：2026-11-11。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows后续待验、正式身份暂缓、macOS14实际运行交接O2/P6；P5进行中，P6待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
@@ -11,7 +13,7 @@
 | P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
 | P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
 | P4 | P2、P3 | done（用户批准的当前Mac范围，后续待验项独立保留） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
-| P5 | P4 | in_progress | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) / [键鼠与App启动](evidence/P5/input/events/README.md) / [AX应用](evidence/P5/ax/apps/README.md) / [OCR](evidence/P5/ocr/README.md) / [组合](evidence/P5/composed/README.md) / [受控录制](evidence/P5/record/README.md) / [协作取消审计](evidence/P5/audit/README.md) / [正常会话入口](evidence/P5/entry/README.md) / [当前应用复验](evidence/P5/selected-current/README.md) / [能力状态与嵌套策略](evidence/P5/readiness/README.md) / [窗口移动捕获](evidence/P5/transition/README.md) / [当前剩余范围](evidence/P5/remaining-resolution-2026-11-11-current.json) |
+| P5 | P4 | done（用户选择的已验Mac范围；原未验项保留） | Codex；独立复核 p5_review_resumed | 未核算 | [截图](evidence/P5/capture/README.md) / [窗口与剪贴板](evidence/P5/input/README.md) / [键鼠与App启动](evidence/P5/input/events/README.md) / [AX应用](evidence/P5/ax/apps/README.md) / [OCR](evidence/P5/ocr/README.md) / [组合](evidence/P5/composed/README.md) / [受控录制](evidence/P5/record/README.md) / [协作取消审计](evidence/P5/audit/README.md) / [正常会话入口](evidence/P5/entry/README.md) / [当前应用复验](evidence/P5/selected-current/README.md) / [能力状态与嵌套策略](evidence/P5/readiness/README.md) / [窗口移动捕获](evidence/P5/transition/README.md) / [当前剩余范围](evidence/P5/remaining-resolution-2026-11-11-current.json) |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
 
 P5 已验收切片分别绑定其实施提交。手动严格模式 `0d054b04` 与标准鼠标投影 `1500b82b` 已提交并完成各自当前主机范围独立验收。标准投影 GUI 88 项、App exact 17 项、standard 19 项通过；真人主执行与来源独立核验通过，压力手势按用户选择排除。正常会话审批与两图片 writer 检查点/回滚切片 `5e246343` 独立离线 13、真实桌面 31、静态 80 通过；仅 Node 服务入口，未新验 App。Node两总闸与真实registry隐藏路径已由后续40项切片补验；实际拒权/撤权readiness、动作中锁屏、硬杀及原环境门继续开放；真实自有窗口水平平移期间的捕获拒绝已有后续18项切片，CLI仅生成配置的验收不代表其运行。[入口记录](evidence/P5/entry/README.md)历史应用场景与当前候选复验分别登记。[手动录制](evidence/P5/manual/README.md)
@@ -197,3 +199,5 @@ P5-03 AX核心切片实现提交 `66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee`，56
 7f95d654修复普通Provider主回合工具意图/逐结果持久化及严格保存屏障，未知与确未派发收尾分开，恢复并行展示有界并支持原生图片数组附件。独立新unit9/offline11/零输入12/入口31通过，最终工程语法1158、单元2508/18既有skip、fast80/80；初次保存普查79/80失败及修正保留。请求记录不等于实际ACC派发/入口/终局或held门通过，Node范围未新验App。[记录](evidence/P5/durable-history/README.md)。
 
 75c593e3修复已执行宏内部动作漏入不可逆摘要的问题：在展示压缩前提取有界返回步骤，保留reported/unknown、call/step及incomplete，经跨回合折叠和API不丢失；等待/只读/本地拒绝不虚报已执行。独立unit13/Python5/离线16/真实入口34通过，工程语法1161、单元2521/18既有跳过、fast80/80。首次独立Python因runner缺加载环境未进测试，修正后执行一次；开发初败、审查修正及旧静态锁失败均保留。208来源/2实际产物绑定，不代表native派发/终局、held释放或整体验收。按用户要求继续无人值守，P5整体验收后恢复自动锁屏。[分类记录](evidence/P5/tool-effect-audit/README.md) [最新剩余映射](evidence/P5/remaining-resolution-2026-11-11-effects.json)。
+
+2026-11-12，用户明确选择“按已验范围交付，保留未验项并提交 macos PR”。P5 及五个工作包按此前独立验收通过的当前 Mac 功能切片登记 `done`；原完整 P5 门槛与默认关闭执行回执的后续开发继续保留，未验项不计通过。历史证据继续仅对各自冻结源码、产物、应用版本和入口范围有效。合入上游 `macos` 的 PR #61 后续修复并重建生成物；本轮工程验证与分支收尾见 [范围交付记录](evidence/P5/closeout/README.md)。未提交的 workflow-receipts 工作树不纳入此次交付。

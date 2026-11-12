@@ -1383,7 +1383,7 @@
       "dependsOn": [
         "P4"
       ],
-      "status": "in_progress",
+      "status": "done",
       "effortDays": {
         "low": 16,
         "high": 26
@@ -1397,14 +1397,15 @@
             "high": 5
           },
           "deliverable": "使用适合最低系统版本的截图后端；建立逻辑点/像素/缩放/原点契约；处理 Retina、多屏、负坐标和权限拒绝。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex（实施）；/root/p5_acceptance（独立验收）",
           "evidence": [
             "evidence/P5/capture/README.md",
             "evidence/P5/transition/README.md",
             "evidence/P5/transition/independent-v1/report.json",
             "evidence/P5/transition/commit-binding.json",
-            "evidence/P5/transition/independent-commit-binding.json"
+            "evidence/P5/transition/independent-commit-binding.json",
+            "evidence/P5/closeout/acceptance.json"
           ],
           "startedDate": "2026-11-08",
           "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
@@ -1431,7 +1432,9 @@
               "Moving-success branch not executed; no instant origin tracking claim",
               "Raw production capture helper only, no new provider/App/TCC/lock/input/clipboard or Windows runtime acceptance"
             ]
-          }
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
         },
         {
           "id": "P5-02",
@@ -1441,10 +1444,11 @@
             "high": 4
           },
           "deliverable": "Mac 键位、Cmd 粘贴、中文输入、鼠标/滚轮、文本与图片剪贴板、应用启动和窗口动作；保护焦点和目标身份。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
           "evidence": [
-            "evidence/P5/input/README.md"
+            "evidence/P5/input/README.md",
+            "evidence/P5/closeout/acceptance.json"
           ],
           "startedDate": "2026-11-10",
           "baselineCommit": "0de6d03e",
@@ -1494,7 +1498,9 @@
             "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
             "commitBinding": "evidence/P5/input/events/commit-binding.json",
             "finderFollowup": "evidence/P5/ax/apps/independent-completion/review.json"
-          }
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
         },
         {
           "id": "P5-03",
@@ -1504,7 +1510,7 @@
             "high": 8
           },
           "deliverable": "实现元素查询、定位、支持的动作；处理失效元素、超时/深度/数量上限与应用不支持；替代 UIA 特定属性映射。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
           "evidence": [
             "evidence/P5/ax/README.md",
@@ -1512,7 +1518,8 @@
             "evidence/P5/selected-current/README.md",
             "evidence/P5/selected-current/independent-v1/aggregate-v2.json",
             "evidence/P5/selected-current/current-source-binding.json",
-            "evidence/P5/selected-current/independent-source-binding.json"
+            "evidence/P5/selected-current/independent-source-binding.json",
+            "evidence/P5/closeout/acceptance.json"
           ],
           "startedDate": "2026-11-10",
           "baselineCommit": "c1b90ad2",
@@ -1610,7 +1617,9 @@
               "Renderer AXValue/AXPress remain refused as element_stale",
               "App LaunchServices, TCC revoke, lock and original environment gates not covered"
             ]
-          }
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
         },
         {
           "id": "P5-04",
@@ -1620,13 +1629,14 @@
             "high": 5
           },
           "deliverable": "Vision 或验证通过的离线引擎；中英识别、文字定位、坐标回映射与点击；保留图像算法，改接 Mac 截图。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P5/ocr/README.md",
             "evidence/P5/ocr/code-review.json",
             "evidence/P5/ocr/independent/report.json",
-            "evidence/P5/ocr/acceptance/engineering/results.json"
+            "evidence/P5/ocr/acceptance/engineering/results.json",
+            "evidence/P5/closeout/acceptance.json"
           ],
           "currentHostAcceptance": {
             "date": "2026-11-10",
@@ -1648,7 +1658,9 @@
             "engineeringSyntaxFiles": 1147,
             "independent": "evidence/P5/ocr/independent/report.json",
             "deliveryFingerprint": "evidence/P5/ocr/source-fingerprint-final-delivery.json"
-          }
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
         },
         {
           "id": "P5-05",
@@ -1658,7 +1670,7 @@
             "high": 4
           },
           "deliverable": "受控输入录制/停止/重放与组合动作；串联 observe/act_and_verify；测试焦点变化、锁屏/权限撤销；同步工具目录和能力状态。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P5/composed/README.md",
@@ -1691,7 +1703,8 @@
             "evidence/P5/readiness/code-review-v3.json",
             "evidence/P5/readiness/independent-v1/report.json",
             "evidence/P5/readiness/commit-binding.json",
-            "evidence/P5/readiness/independent-commit-binding.json"
+            "evidence/P5/readiness/independent-commit-binding.json",
+            "evidence/P5/closeout/acceptance.json"
           ],
           "composedSliceAcceptance": {
             "date": "2026-11-10",
@@ -2068,18 +2081,24 @@
             ],
             "evidence": "evidence/P5/execution-receipts-wip/current-state.json",
             "fullP5Accepted": false
-          }
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
         }
       ],
       "startedDate": "2026-11-08",
       "owner": "Codex",
       "unattendedExecution": {
         "instruction": "后续开发无人值守，你完成后整体验收P5，然后恢复自动锁屏",
-        "status": "active",
+        "status": "scoped_delivery_completed_followup_retained",
         "restoreAutomaticLockAfter": "full_P5_acceptance",
         "restorationStatus": "pending",
         "evidence": "evidence/P5/unattended-instruction-2026-11-11.json"
-      }
+      },
+      "completedDate": "2026-11-12",
+      "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。",
+      "acceptanceEvidence": "evidence/P5/closeout/acceptance.json",
+      "fullOriginalScopeAccepted": false
     },
     {
       "id": "P6",
