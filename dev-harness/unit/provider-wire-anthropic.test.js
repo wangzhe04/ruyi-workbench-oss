@@ -48,6 +48,59 @@ test('[A1] 端点与鉴权头', () => {
 });
 
 const SCREEN = 'data:image/png;base64,iVBORw0KGgo=';
+
+test('[cache] Claude 显式断点覆盖稳定系统与历史，临时提示前保留用户正文', () => {
+  assert.equal(wire.preferVolatileTail('claude-sonnet-5-5'), true);
+  assert.equal(wire.preferVolatileTail('deepseek-flash'), false, '非 Claude 兼容模型不改变原布局');
+  const messages = [{ role: 'system', content: 'SYSTEM' }, { role: 'user', content: 'old' },
+    { role: 'assistant', content: 'reply' }, { role: 'user', content: 'new\n\nRUNTIME' }];
+  const original = JSON.stringify(messages);
+  const b = wire.encodeMessages({ model: 'claude-sonnet-5-5', messages, stream: true, provider: GATEWAY, cacheUserPrefix: 'new' });
+  const marked = [...b.system, ...b.messages.flatMap(m => m.content)].filter(block => block.cache_control);
+  assert.equal(marked.length, 4);
+  assert.ok(marked.every(block => block.cache_control.type === 'ephemeral'));
+  assert.equal(b.system[0].text, 'SYSTEM');
+  assert.deepEqual(b.messages.at(-1).content.map(block => block.text), ['new', '\n\nRUNTIME']);
+  assert.equal(b.messages[0].content[0].cache_control.type, 'ephemeral');
+  assert.equal(JSON.stringify(messages), original, '不修改或持久化请求历史');
+  const next = wire.encodeMessages({ model: b.model, messages: [...messages.slice(0, -1), { role: 'user', content: 'new' },
+    { role: 'assistant', content: 'done' }, { role: 'user', content: 'next' }], stream: true, provider: GATEWAY });
+  assert.deepEqual(next.messages[2].content[0], b.messages[2].content[0], '移走临时提示后仍有相同的用户正文缓存边界');
+  for (const content of ['hi', [{ type: 'image_url', image_url: SCREEN }]]) {
+    const single = wire.encodeMessages({ model: b.model, messages: [{ role: 'user', content }], stream: true, provider: GATEWAY });
+    assert.equal(single.messages[0].content.filter(block => block.cache_control).length, 1, '相同首尾块只标一次');
+  }
+  const mismatch = wire.encodeMessages({ model: b.model, messages, cacheUserPrefix: 'different' });
+  assert.equal(mismatch.messages.at(-1).content[0].text, 'new\n\nRUNTIME', '前缀不匹配时不拆正文');
+});
+
+test('[cache] 网关明确拒收 cache_control 才移除断点；保持思考、工具及正文', () => {
+  const body = wire.encodeMessages({ model: 'claude-sonnet-5-5', messages: [{ role: 'system', content: 'S' }, { role: 'user', content: 'U' }], stream: true, provider: GATEWAY });
+  const original = JSON.stringify(body);
+  const retry = wire.retryOn400(body, 'messages.0.content.0.cache_control: extra inputs are not permitted');
+  assert.ok(retry);
+  assert.equal(JSON.stringify(retry).includes('cache_control'), false);
+  assert.deepEqual(retry.thinking, body.thinking);
+  assert.equal(retry.system[0].text, 'S');
+  assert.equal(retry.messages[0].content[0].text, 'U');
+  assert.equal(JSON.stringify(body), original);
+  assert.equal(wire.retryOn400(retry, 'cache_control: unsupported'), null, '不反复原样重打');
+  assert.equal(wire.retryOn400(body, 'invalid image source'), null, '无关错误不关闭缓存');
+  assert.equal(wire.retryOn400(body, 'cache_control requires a longer prompt'), null, '不将阈值问题误当兼容拒收');
+});
+
+test('[usage] observed standard warm/cold buckets are counted once and normalization is idempotent', () => {
+  const warm = { input_tokens: 2, cache_read_input_tokens: 5424, cache_creation_input_tokens: 0, output_tokens: 4,
+    cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 0 } };
+  const normalized = wire.normalizeUsage(warm);
+  assert.equal(normalized.prompt_tokens, 5426);
+  assert.equal(normalized.total_tokens, 5430);
+  assert.equal(normalized.prompt_tokens_details.cached_tokens, 5424);
+  assert.equal(wire.normalizeUsage(normalized), normalized);
+  assert.equal(wire.normalizeUsage({ input_tokens: 5426, cache_read_input_tokens: 0, output_tokens: 4 }).prompt_tokens, 5426, 'same prompt without breakpoints has the same total');
+  assert.equal(warm.prompt_tokens, undefined, 'raw upstream counters remain unchanged');
+});
+
 function sampleHistory() {
   return [
     { role: 'system', content: 'STABLE SYSTEM' },
@@ -89,7 +142,8 @@ test('[A2] 请求编码', () => {
   ]);
   const nb = wire.encodeMessages({ model: 'claude-opus-5-5', messages: [{ role: 'system', content: 'S' }, { role: 'assistant', content: '上次说到' }], stream: false, instructions: 'EXPLICIT', provider: OFFICIAL });
   assert.equal(nb.max_tokens, 8192);
-  assert.equal(nb.system, 'EXPLICIT', '显式 instructions 优先');
+  assert.equal(nb.system, 'EXPLICIT', '显式 instructions 优先，非流式保留原system形状');
+  assert.ok(!JSON.stringify(nb).includes('cache_control'), '无协议降级路径的非流式不默认开启缓存');
   assert.equal(nb.stream, false);
   assert.deepEqual(nb.thinking, { type: 'adaptive', display: 'summarized', block_binding: { prefix_mismatch_behavior: 'drop_block' } }, '官方主机带 drop_block');
   assert.deepEqual(nb.messages.map(m => m.role), ['user', 'assistant', 'user'], '首条补 user、末条不留 assistant(不预填)');

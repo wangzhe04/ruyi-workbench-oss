@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "command": "node dev-harness/run-all.js --fast",
+  "exitCode": 2,
+  "unit": {
+    "tests": 5333,
+    "pass": 5295,
+    "fail": 5,
+    "skipped": 33
+  },
+  "failure": "external-bots-forge-observation source-slice fixture omitted the new useVolatileTail closure",
+  "resolution": "Bind the actual const declaration using constBlock and supply the existing Chat protocol default; preserve all five original assertions.",
+  "logSha256": "5d407831e48ad6e64b3911b77590679ada03cf74ac3faef3be99e60b68341ce1"
+}

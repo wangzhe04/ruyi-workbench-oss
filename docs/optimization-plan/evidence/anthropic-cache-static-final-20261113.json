@@ -1,0 +1,710 @@
+{
+  "schema": 1,
+  "command": "All 100 .static.e2e.js, sequential, original 120000ms budgets, fixture home guard preloaded",
+  "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+  "rows": [
+    {
+      "file": "acc-offline-installer.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 79
+    },
+    {
+      "file": "action-feedback.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 85
+    },
+    {
+      "file": "agent-mode-v2.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 289
+    },
+    {
+      "file": "agent-team-budget.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1526
+    },
+    {
+      "file": "agent-workflows-polling-visibility.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 67
+    },
+    {
+      "file": "architecture-contract-snapshots.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 302
+    },
+    {
+      "file": "asr-config-ui.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 111
+    },
+    {
+      "file": "browser-mcp.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1453
+    },
+    {
+      "file": "c2-evidence-spawn-budget.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 77
+    },
+    {
+      "file": "copy-path-guard.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 275
+    },
+    {
+      "file": "copy-terms.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 142
+    },
+    {
+      "file": "cost-zero.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 74
+    },
+    {
+      "file": "css-typography-debt.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 79
+    },
+    {
+      "file": "desktop-dpi.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 73
+    },
+    {
+      "file": "desktop-shell.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 76
+    },
+    {
+      "file": "durable-state-inventory.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 315
+    },
+    {
+      "file": "ec-d-closure.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 141
+    },
+    {
+      "file": "encrypted-storage-freeze.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 82
+    },
+    {
+      "file": "engine-env-brief.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 451
+    },
+    {
+      "file": "eol-policy.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 5370
+    },
+    {
+      "file": "external-bots-progress.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 213
+    },
+    {
+      "file": "facts.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 2349
+    },
+    {
+      "file": "finalize-segments.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 73
+    },
+    {
+      "file": "fixture-home.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 3664
+    },
+    {
+      "file": "frontend-domains.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 128
+    },
+    {
+      "file": "health-i18n.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 106
+    },
+    {
+      "file": "i18n-en-terms.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 80
+    },
+    {
+      "file": "i18n.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1598
+    },
+    {
+      "file": "inline-script-csp-hash.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 143
+    },
+    {
+      "file": "kimi-plan-ui.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 93
+    },
+    {
+      "file": "live-full-text.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 107
+    },
+    {
+      "file": "manifest-ranges.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 200
+    },
+    {
+      "file": "mcp-ops-gui.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 132
+    },
+    {
+      "file": "media-artifact-package.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 75
+    },
+    {
+      "file": "media-runtime-inventory.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 98
+    },
+    {
+      "file": "media-runtime-notices.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 156
+    },
+    {
+      "file": "media-runtime-source-evidence.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 173
+    },
+    {
+      "file": "memory-toolbox.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 84
+    },
+    {
+      "file": "mermaid-render.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 570
+    },
+    {
+      "file": "model-menu-classes.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 92
+    },
+    {
+      "file": "module-dependency-graph.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1384
+    },
+    {
+      "file": "ndjson-line-feeder.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 203
+    },
+    {
+      "file": "net-token-replay.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 79
+    },
+    {
+      "file": "new-thread-engine-default.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 143
+    },
+    {
+      "file": "onboarding.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 170
+    },
+    {
+      "file": "overlay-payload-lock.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 263
+    },
+    {
+      "file": "overlay-update-gui.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 106
+    },
+    {
+      "file": "process-safety.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1974
+    },
+    {
+      "file": "progress-events.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 391
+    },
+    {
+      "file": "prompt-snapshot.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 278
+    },
+    {
+      "file": "provider-reasoning-effort-ui.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 70
+    },
+    {
+      "file": "rail-pocket.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 83
+    },
+    {
+      "file": "resume-banner-dismiss.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 79
+    },
+    {
+      "file": "route-inventory.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1556
+    },
+    {
+      "file": "runtime-optimization.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 599
+    },
+    {
+      "file": "scheduled-playbooks-calendar-editor.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 132
+    },
+    {
+      "file": "scheduled-playbooks-cold-effects.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1656
+    },
+    {
+      "file": "scheduled-playbooks-contract.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 377
+    },
+    {
+      "file": "scheduled-playbooks-lifecycle.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 236
+    },
+    {
+      "file": "scheduled-playbooks-permissions.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 196
+    },
+    {
+      "file": "scheduled-playbooks-r5.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 2973
+    },
+    {
+      "file": "scheduled-playbooks-r6.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 19180
+    },
+    {
+      "file": "scheduled-playbooks-r7.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1027
+    },
+    {
+      "file": "scheduler-ui.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 273
+    },
+    {
+      "file": "session-save-census.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 256
+    },
+    {
+      "file": "software-engineering-prompt.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 244
+    },
+    {
+      "file": "start-experience.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 107
+    },
+    {
+      "file": "steward-avatar.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 90
+    },
+    {
+      "file": "steward-board.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 174
+    },
+    {
+      "file": "steward-config.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 1567
+    },
+    {
+      "file": "steward-conversation.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 190
+    },
+    {
+      "file": "steward-drawer.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 171
+    },
+    {
+      "file": "steward-events.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 467
+    },
+    {
+      "file": "steward-runner.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 441
+    },
+    {
+      "file": "steward-settings.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 242
+    },
+    {
+      "file": "steward-shell.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 179
+    },
+    {
+      "file": "steward-tools.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 9608
+    },
+    {
+      "file": "steward-walkthrough.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 235
+    },
+    {
+      "file": "streaming-responsiveness.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 130
+    },
+    {
+      "file": "thinking-boundary.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 94
+    },
+    {
+      "file": "thread-brief.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 342
+    },
+    {
+      "file": "thread-commission.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 193
+    },
+    {
+      "file": "thread-relay-admission.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 300
+    },
+    {
+      "file": "thread-relay-contract.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 166
+    },
+    {
+      "file": "thread-relay-dispatch.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 307
+    },
+    {
+      "file": "thread-relay-nested.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 141
+    },
+    {
+      "file": "thread-relay-retirement.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 460
+    },
+    {
+      "file": "tool-image-inline.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 101
+    },
+    {
+      "file": "tool-verb-coverage.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 293
+    },
+    {
+      "file": "turn-narrative.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 281
+    },
+    {
+      "file": "ui-bugfix.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 128
+    },
+    {
+      "file": "ui-v3-p1.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 156
+    },
+    {
+      "file": "ui-v3-p2.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 157
+    },
+    {
+      "file": "ui-v3-p3a.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 180
+    },
+    {
+      "file": "ui-v3-p3b.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 174
+    },
+    {
+      "file": "ui-v3-wave1.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 186
+    },
+    {
+      "file": "ui-v4-glass.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 107
+    },
+    {
+      "file": "v17-review-fixes.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 387
+    },
+    {
+      "file": "workflow-combination.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 394
+    },
+    {
+      "file": "workflow-editor-v2.static.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 151
+    }
+  ],
+  "status": "passed",
+  "pass": 100,
+  "fail": 0
+}

@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "node": "v24.14.0",
+  "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+  "unit": {
+    "tests": 5335,
+    "suites": 194,
+    "pass": 5302,
+    "fail": 0,
+    "skipped": 33,
+    "command": "node --test --test-concurrency=4 dev-harness/unit/*.test.js (run-all internal gate)",
+    "logSha256": "6f62230876872b8612df5469c63fd0666dad3b8041f0b8f73cfb8e76c58d4694"
+  },
+  "combinedFastBeforeStaticFix": {
+    "exit": 1,
+    "unitPassed": true,
+    "staticPass": 97,
+    "staticFail": 3,
+    "failedFiles": [
+      "eol-policy.static.e2e.js",
+      "fixture-home.static.e2e.js",
+      "process-safety.static.e2e.js"
+    ],
+    "logSha256": "3fd7e084a1d5474352b07352e70e2761a8b8cf8a3f3329cec982688b454d760b",
+    "resolutions": [
+      "One PS1 worktree file restored to declared CRLF; normalized content equals HEAD",
+      "New helper uses canonical complete fixtureChildEnv spread; spawn count 218 to 219",
+      "One new owned helper counted: killOwnTree owners 367 to 368"
+    ]
+  },
+  "finalStatic": {
+    "pass": 100,
+    "fail": 0,
+    "report": "anthropic-cache-static-final-20261113.json",
+    "note": "Separately reran all static cases after static/helper-only fixes; do not label the earlier combined fast run green."
+  },
+  "relatedE2E": [
+    {
+      "file": "anthropic-fake.e2e.js",
+      "passed": true,
+      "logSha256": "4ed6c614643dc44cbc4fbcaa8fb7f88dc3b880b3f216604d1595b9f1df882cd2"
+    },
+    {
+      "file": "anthropic-gateway-setup.e2e.js",
+      "passed": true,
+      "logSha256": "1610309c45b3e1472954010afff514eb300441806a6e2db9cd7d4765931d150a"
+    },
+    {
+      "file": "subagent-thinking-continuity.e2e.js",
+      "passed": true,
+      "logSha256": "f5959a8b31556e27531d2eec054bda13e6505f8d16d0037678549d0e9ddf0c45"
+    },
+    {
+      "file": "prefix-layout.e2e.js",
+      "passed": true,
+      "logSha256": "20ea79d49db83431cf197ec4557d2a60fb29878592ed402cda52b8106b3f0e88"
+    }
+  ],
+  "independentReview": "anthropic-cache-review-20261113.json",
+  "full635DefaultOrReleaseAcceptance": false,
+  "additionalLiveQualification": {
+    "productServerUnchanged": true,
+    "sonnetChat": "sonnet-agent-cost-chat-20261113.json",
+    "sonnetResponses": "sonnet-agent-cost-responses-20261113.json",
+    "deepseekChat": "deepseek-native-cache-chat-20261113.json",
+    "deepseekResponses": "deepseek-native-cache-responses-20261113.json",
+    "note": "Helper-only endpoint/model parameterization after product checks; actual three-turn probes, syntax and fixture-home gate passed; reviewer rechecked read-only."
+  }
+}

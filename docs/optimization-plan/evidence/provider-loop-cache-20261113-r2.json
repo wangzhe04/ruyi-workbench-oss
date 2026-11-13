@@ -1,0 +1,185 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:42:11.927Z",
+  "model": "claude-sonnet-5-5",
+  "syntheticOnly": true,
+  "comparisons": [
+    {
+      "style": "chat",
+      "providerId": "openai-compatible-3",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1857,
+          "inputTotal": 3408,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3408,
+          "uncachedInput": 3408,
+          "output": 54,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1261,
+          "inputTotal": 3475,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3475,
+          "uncachedInput": 147,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 2184,
+          "inputTotal": 3475,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3475,
+          "uncachedInput": 147,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1090,
+          "inputTotal": 3483,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3483,
+          "uncachedInput": 155,
+          "output": 33,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "style": "responses",
+      "providerId": "openai-compatible-3",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1278,
+          "inputTotal": 3408,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 3408,
+          "rawPromptTokens": null,
+          "uncachedInput": 3408,
+          "output": 47,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 867,
+          "inputTotal": 3468,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3468,
+          "rawPromptTokens": null,
+          "uncachedInput": 140,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1025,
+          "inputTotal": 3468,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3468,
+          "rawPromptTokens": null,
+          "uncachedInput": 140,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1570,
+          "inputTotal": 3476,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3476,
+          "rawPromptTokens": null,
+          "uncachedInput": 148,
+          "output": 31,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "style": "anthropic",
+      "providerId": "openai-compatible-7",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1727,
+          "inputTotal": 3409,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 3409,
+          "rawPromptTokens": null,
+          "uncachedInput": 3409,
+          "output": 49,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1695,
+          "inputTotal": 6799,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3471,
+          "rawPromptTokens": null,
+          "uncachedInput": 3471,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 2959,
+          "inputTotal": 6799,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3471,
+          "rawPromptTokens": null,
+          "uncachedInput": 3471,
+          "output": 7,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1125,
+          "inputTotal": 6655,
+          "cacheRead": 3200,
+          "cacheWrite": 0,
+          "rawInputTokens": 3455,
+          "rawPromptTokens": null,
+          "uncachedInput": 3455,
+          "output": 16,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

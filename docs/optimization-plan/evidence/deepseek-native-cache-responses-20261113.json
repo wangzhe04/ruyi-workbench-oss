@@ -1,0 +1,244 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T07:37:13.460Z",
+  "model": "deepseek-flash",
+  "style": "responses",
+  "providerId": "deepseek",
+  "baselineHead": false,
+  "gitHead": "138e8d8e0674ab11808c203adbc0a881f3c8b592",
+  "baselineScope": "Built working-tree server.js",
+  "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+  "syntheticOnly": true,
+  "realWorkbench": true,
+  "turns": [
+    {
+      "turn": 1,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 16128
+    },
+    {
+      "turn": 2,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 32256
+    },
+    {
+      "turn": 3,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 32896
+    }
+  ],
+  "requests": [
+    {
+      "index": 0,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 1,
+      "systemHash": "ceca6f965f55af0130e44771cff63f8db2e733750d8f34fcaab825957615fc0e",
+      "toolsHash": "141d7c90cfe588cdcaff0936a987a7e876a7a65d4218997ecc2a4318b7cf8cb6",
+      "rawUsage": {
+        "input_tokens": 16096,
+        "output_tokens": 147,
+        "total_tokens": 16243,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "normalizedUsage": {
+        "input_tokens": 16096,
+        "output_tokens": 147,
+        "total_tokens": 16243,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 1,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 4,
+      "systemHash": "ceca6f965f55af0130e44771cff63f8db2e733750d8f34fcaab825957615fc0e",
+      "toolsHash": "141d7c90cfe588cdcaff0936a987a7e876a7a65d4218997ecc2a4318b7cf8cb6",
+      "rawUsage": {
+        "input_tokens": 16356,
+        "output_tokens": 18,
+        "total_tokens": 16374,
+        "input_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "normalizedUsage": {
+        "input_tokens": 16356,
+        "output_tokens": 18,
+        "total_tokens": 16374,
+        "input_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 2,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 6,
+      "systemHash": "ceca6f965f55af0130e44771cff63f8db2e733750d8f34fcaab825957615fc0e",
+      "toolsHash": "141d7c90cfe588cdcaff0936a987a7e876a7a65d4218997ecc2a4318b7cf8cb6",
+      "rawUsage": {
+        "input_tokens": 16471,
+        "output_tokens": 71,
+        "total_tokens": 16542,
+        "input_tokens_details": {
+          "cached_tokens": 15744
+        }
+      },
+      "normalizedUsage": {
+        "input_tokens": 16471,
+        "output_tokens": 71,
+        "total_tokens": 16542,
+        "input_tokens_details": {
+          "cached_tokens": 15744
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 3,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 8,
+      "systemHash": "ceca6f965f55af0130e44771cff63f8db2e733750d8f34fcaab825957615fc0e",
+      "toolsHash": "141d7c90cfe588cdcaff0936a987a7e876a7a65d4218997ecc2a4318b7cf8cb6",
+      "rawUsage": {
+        "input_tokens": 16655,
+        "output_tokens": 18,
+        "total_tokens": 16673,
+        "input_tokens_details": {
+          "cached_tokens": 16512
+        }
+      },
+      "normalizedUsage": {
+        "input_tokens": 16655,
+        "output_tokens": 18,
+        "total_tokens": 16673,
+        "input_tokens_details": {
+          "cached_tokens": 16512
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 4,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 10,
+      "systemHash": "ceca6f965f55af0130e44771cff63f8db2e733750d8f34fcaab825957615fc0e",
+      "toolsHash": "141d7c90cfe588cdcaff0936a987a7e876a7a65d4218997ecc2a4318b7cf8cb6",
+      "rawUsage": {
+        "input_tokens": 16770,
+        "output_tokens": 71,
+        "total_tokens": 16841,
+        "input_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "normalizedUsage": {
+        "input_tokens": 16770,
+        "output_tokens": 71,
+        "total_tokens": 16841,
+        "input_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 5,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 12,
+      "systemHash": "ceca6f965f55af0130e44771cff63f8db2e733750d8f34fcaab825957615fc0e",
+      "toolsHash": "141d7c90cfe588cdcaff0936a987a7e876a7a65d4218997ecc2a4318b7cf8cb6",
+      "rawUsage": {
+        "input_tokens": 16954,
+        "output_tokens": 18,
+        "total_tokens": 16972,
+        "input_tokens_details": {
+          "cached_tokens": 16768
+        }
+      },
+      "normalizedUsage": {
+        "input_tokens": 16954,
+        "output_tokens": 18,
+        "total_tokens": 16972,
+        "input_tokens_details": {
+          "cached_tokens": 16768
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    }
+  ],
+  "status": "passed",
+  "ledger": {
+    "rows": 3,
+    "input": 99302,
+    "cached": 81280,
+    "expectedInput": 99302,
+    "expectedCached": 81280
+  },
+  "costCheck": [
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    }
+  ],
+  "reportedCostUsd": null
+}

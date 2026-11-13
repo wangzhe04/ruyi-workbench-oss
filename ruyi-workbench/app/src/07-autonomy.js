@@ -1951,6 +1951,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     if (definiteOverflow) {
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
     }
+    // 协议字段的明确拒收可能带tool_result等路径，不能据此判成「工具不支持」。最多再发一次，
+    // 保留媒体的禁止重放开关、同一出站断言、取消及用量回调；后续400不再进入兼容重打。
+    const earlyRetryBody = allowCompatibilityRetry ? wire.retryBeforeToolsOn400(body, t, { url: chatUrl }) : null;
+    if (earlyRetryBody) return openAiStreamOnce({ chatUrl, headers, body: earlyRetryBody, ctrl, onEvent, markUsage, rawSeqRef, touch,
+      protocol: wire, allowCompatibilityRetry: false, assertRequest });
     // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
     // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {

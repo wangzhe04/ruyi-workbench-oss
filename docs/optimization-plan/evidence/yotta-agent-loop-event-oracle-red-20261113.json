@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:57:20.520Z",
+  "model": "claude-sonnet-5-5",
+  "syntheticOnly": true,
+  "realWorkbench": true,
+  "turns": [
+    {
+      "turn": 1,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": false,
+      "modelRequests": 2,
+      "cachedInput": 24802
+    }
+  ],
+  "requests": [
+    {
+      "index": 0,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 1,
+      "systemHash": "be7d901d2758b6f4155db196c85d213486b0ff43116598b2f5430b7a68bee364",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 24802,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 24802,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 94,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "cost_usd": 0.062953
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 24802,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 24802,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 94,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "cost_usd": 0.062953,
+        "prompt_tokens": 24806,
+        "completion_tokens": 94,
+        "total_tokens": 24900,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 1,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 3,
+      "systemHash": "be7d901d2758b6f4155db196c85d213486b0ff43116598b2f5430b7a68bee364",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 258,
+        "cache_read_input_tokens": 24802,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 258,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 24,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "cost_usd": 0.0033692
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 258,
+        "cache_read_input_tokens": 24802,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 258,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 24,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "cost_usd": 0.0033692,
+        "prompt_tokens": 25062,
+        "completion_tokens": 24,
+        "total_tokens": 25086,
+        "prompt_tokens_details": {
+          "cached_tokens": 24802
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    }
+  ],
+  "status": "failed",
+  "error": "real_file_read_turn_failed"
+}

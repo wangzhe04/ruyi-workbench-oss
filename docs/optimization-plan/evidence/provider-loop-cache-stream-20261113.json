@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:44:50.798Z",
+  "model": "claude-sonnet-5-5",
+  "streaming": true,
+  "syntheticOnly": true,
+  "comparisons": [
+    {
+      "style": "anthropic",
+      "providerId": "openai-compatible-7",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1719,
+          "inputTotal": 3408,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 3408,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3408,
+          "output": 66,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1105,
+          "inputTotal": 6815,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3487,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3487,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1051,
+          "inputTotal": 6815,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3487,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3487,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1189,
+          "inputTotal": 6654,
+          "cacheRead": 3200,
+          "cacheWrite": 0,
+          "rawInputTokens": 3454,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3454,
+          "output": 37,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

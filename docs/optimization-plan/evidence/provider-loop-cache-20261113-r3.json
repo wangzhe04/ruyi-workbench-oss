@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:42:49.358Z",
+  "model": "claude-sonnet-5-5",
+  "syntheticOnly": true,
+  "comparisons": [
+    {
+      "style": "chat",
+      "providerId": "openai-compatible-3",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 2445,
+          "inputTotal": 3406,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3406,
+          "rawTotalTokens": 3456,
+          "rawCachedDetails": 0,
+          "uncachedInput": 3406,
+          "output": 50,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 2740,
+          "inputTotal": 3469,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3469,
+          "rawTotalTokens": 3471,
+          "rawCachedDetails": 3328,
+          "uncachedInput": 141,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1478,
+          "inputTotal": 3469,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3469,
+          "rawTotalTokens": 3471,
+          "rawCachedDetails": 3328,
+          "uncachedInput": 141,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1096,
+          "inputTotal": 3477,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": null,
+          "rawPromptTokens": 3477,
+          "rawTotalTokens": 3487,
+          "rawCachedDetails": 3328,
+          "uncachedInput": 149,
+          "output": 10,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "style": "responses",
+      "providerId": "openai-compatible-3",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1560,
+          "inputTotal": 3406,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 3406,
+          "rawPromptTokens": null,
+          "rawTotalTokens": 3469,
+          "rawCachedDetails": 0,
+          "uncachedInput": 3406,
+          "output": 63,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1521,
+          "inputTotal": 3482,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3482,
+          "rawPromptTokens": null,
+          "rawTotalTokens": 3484,
+          "rawCachedDetails": 3328,
+          "uncachedInput": 154,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1898,
+          "inputTotal": 3482,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3482,
+          "rawPromptTokens": null,
+          "rawTotalTokens": 3484,
+          "rawCachedDetails": 3328,
+          "uncachedInput": 154,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1386,
+          "inputTotal": 3490,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3490,
+          "rawPromptTokens": null,
+          "rawTotalTokens": 3516,
+          "rawCachedDetails": 3328,
+          "uncachedInput": 162,
+          "output": 26,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "style": "anthropic",
+      "providerId": "openai-compatible-7",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1571,
+          "inputTotal": 3407,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 3407,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3407,
+          "output": 60,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1214,
+          "inputTotal": 6808,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3480,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3480,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 951,
+          "inputTotal": 6808,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3480,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3480,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1707,
+          "inputTotal": 6796,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 3468,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 3468,
+          "output": 42,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

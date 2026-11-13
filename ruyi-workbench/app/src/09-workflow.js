@@ -2023,14 +2023,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (skipped) return;
     appendPromptToLastUserMessage(msgs, notesPrompt);
   };
+  const useVolatileTail = volatileTailLayoutEnabled(config) || wire.preferVolatileTail(model);
   const buildBody = withTools => buildBodyWithLayout(withTools, undefined);
   // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
-  // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
+  // 正常调用恒传 undefined(走开关或协议缓存布局)。Claude 的 Anthropic 请求默认使用尾部；开关开时其它模型也从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
   const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
     if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
       || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
-    const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
+    const volatileTail = layoutOverride ? layoutOverride === 'tail' : useVolatileTail;
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
     const actionAuditMap = (config.actionArgumentModelViewV1 === true && Array.isArray(session.actionAudit))
@@ -2070,7 +2071,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
-    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
+    const cacheUserPrefix = viewHistory.findLast(m => m && m.role === 'user')?.content;
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools, cacheUserPrefix });
     wire.applyTemperature(b, temp);
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
@@ -2873,7 +2875,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         })) econTotals.modelCallsLogged += 1;
         // 106 #1 G1 shadow(E4 §7.3): 同请求双布局 stablePrefixChars,candidate 只计量不发送。
         try {
-          const sentLayout = volatileTailLayoutEnabled(config) ? 'tail' : 'first';
+          const sentLayout = useVolatileTail ? 'tail' : 'first';
           const altLayout = sentLayout === 'tail' ? 'first' : 'tail';
           const altJson = JSON.stringify(buildBodyWithLayout(useTools, altLayout));
           let prev = layoutShadowPrevBySessionMap.get(session.id);

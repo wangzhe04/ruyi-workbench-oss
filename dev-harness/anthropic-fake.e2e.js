@@ -41,13 +41,18 @@ const MODEL = 'claude-opus-5-5';
 
 const blocksOf = req => (req.messages || []).flatMap(m => (Array.isArray(m.content) ? m.content : []));
 const hasThinking = req => blocksOf(req).some(b => b && (b.type === 'thinking' || b.type === 'redacted_thinking'));
-const isSub = req => String(req.body && req.body.system || '').includes('子任务执行体');
+const systemText = body => Array.isArray(body && body.system) ? body.system.map(b => b.text || '').join('') : String(body && body.system || '');
+const isSub = req => systemText(req.body).includes('子任务执行体');
 const allText = req => JSON.stringify(req.messages || []);
 let signatureRejects = 0;
 function handler(req) {
   if (!req.stream) return messageEvents({ text: 'draft ok: ' + (allText(req).includes('<system-reminder>') ? 'reminder-seen' : 'no-reminder') });
   if (isSub(req)) return messageEvents({ text: 'sub done', usage: { input_tokens: 9, output_tokens: 2 } });
   const all = allText(req);
+  if (all.includes('CACHE_REJECT')) {
+    if (JSON.stringify(req.body).includes('cache_control')) return { status: 400, json: { type: 'error', error: { type: 'invalid_request_error', message: 'messages.2.content.0.tool_result.cache_control: extra inputs are not permitted' } } };
+    return messageEvents({ text: 'cache compatibility done' });
+  }
   const results = blocksOf(req).filter(b => b && b.type === 'tool_result');
   if (all.includes('TURN_TWO')) {
     // 第二回合:先开一个工具循环(带思考);下一发若还带着思考块就回签名失配 400(只回一次),去掉之后正常收尾
@@ -124,7 +129,10 @@ async function waitFor(fn, tries = 150, gap = 100) {
     ok(first.headers['x-api-key'] === 'sk-ant-fake-key' && first.headers['anthropic-version'] === '2023-06-01' && first.headers.authorization === 'Bearer sk-ant-fake-key',
       'M1 头:x-api-key + anthropic-version,非官方主机 auto 模式也带 Bearer');
     const b1 = first.body;
-    ok(typeof b1.system === 'string' && b1.system.length > 100 && b1.max_tokens === 32000 && b1.stream === true, 'M1 顶层 system、max_tokens、stream');
+    ok(systemText(b1).length > 100 && b1.max_tokens === 32000 && b1.stream === true, 'M1 顶层 system、max_tokens、stream');
+    const cacheBlocks = body => [...(Array.isArray(body.system) ? body.system : []), ...blocksOf(body)].filter(b => b.cache_control);
+    ok(cacheBlocks(b1).length >= 2 && cacheBlocks(b1).length <= 4 && b1.system[0].cache_control.type === 'ephemeral', 'M1 系统与对话启用缓存，最多四个断点');
+    ok(first.body.messages[0].content[0].text.startsWith('并行读 a.txt 和 b.txt,告诉我两个标记。') && first.body.messages[0].content[0].cache_control?.type === 'ephemeral', 'M1 原始用户正文在临时提示前独立缓存');
     ok(b1.thinking && b1.thinking.type === 'adaptive', 'M1 claude-opus-5-5 发 adaptive thinking');
     ok(!('stream_options' in b1) && !(b1.messages || []).some(m => m.role === 'system'), 'M1 没有 OpenAI 的 stream_options / system 角色消息');
     ok(Array.isArray(b1.tools) && b1.tools.length > 3 && b1.tools.every(x => x.name && x.input_schema && !x.function) && b1.tool_choice && b1.tool_choice.type === 'auto',
@@ -167,11 +175,23 @@ async function waitFor(fn, tries = 150, gap = 100) {
     const turn2 = fake.requests.slice(before);
     ok(turn2.length === 3, `M6 第二回合三发:开循环、签名失配、去块重打(${turn2.length})`);
     const t2first = turn2[0];
+    const sameSystem = systemText(t2first.body) === systemText(b1);
+    const sameUser = t2first.messages[0].content[0].text === b1.messages[0].content[0].text;
+    ok(sameSystem && sameUser, `M6 新回合保留系统与第一条用户正文缓存前缀，不再前插动态提示(system=${sameSystem}, user=${sameUser})`);
     const oldAssistant = (t2first.messages || []).find(m => m.role === 'assistant' && JSON.stringify(m.content).includes('toolu_a'));
     ok(!hasThinking(t2first) && oldAssistant && oldAssistant.content.some(b => b.type === 'text') && oldAssistant.content.some(b => b.type === 'tool_use'),
       'M6 上一回合的思考块不回放,文本与 tool_use 照发');
     ok(hasThinking(turn2[1]) && !hasThinking(turn2[2]) && signatureRejects === 1, 'M7 签名失配 400 → 去掉思考块重打一次');
     ok((ev2.find(e => e.type === 'result') || {}).ok === true && ev2.filter(e => e.type === 'assistant_delta').map(e => e.text).join('').includes('turn two done'), 'M7 重打之后回合成功');
+
+    const beforeCache = fake.requests.length;
+    const evCache = await chatStream(port, { sessionId, cwd: WORK, message: 'CACHE_REJECT 检查兼容网关' }, headers);
+    const cacheRequests = fake.requests.slice(beforeCache);
+    ok(cacheRequests.length === 2 && cacheBlocks(cacheRequests[0].body).length > 0 && cacheBlocks(cacheRequests[1].body).length === 0,
+      'M7b 网关拒收 cache_control 后仅移除断点重打');
+    ok(JSON.stringify(cacheRequests[1].body.tools) === JSON.stringify(cacheRequests[0].body.tools), 'M7b tool_result路径拒收缓存字段不会去掉工具');
+    ok((evCache.find(e => e.type === 'result') || {}).ok === true && evCache.filter(e => e.type === 'assistant_delta').map(e => e.text).join('').includes('cache compatibility done'),
+      'M7b 缓存不兼容时回合仍成功');
 
     // ── 子代理 ───────────────────────────────────────────────────────────────────────────
     const launch = await request(port, 'POST', '/api/agent-workflow/launch', { token, sessionId, async: true, nodes: [{ id: 'reader', task: '子任务:说一句完成', toolTier: 'read' }] }, headers);
@@ -204,6 +224,7 @@ async function waitFor(fn, tries = 150, gap = 100) {
       { role: 'system', content: 'STRICT JSON RULE' },
     ]);
     const draftReq = fake.requests.filter(r => !r.stream).pop();
+    ok(draftReq && !JSON.stringify(draftReq.body).includes('cache_control'), 'M9 非流式摘要/起草不新增需要兼容重打的缓存字段');
     ok(draft.ok && draft.content === 'draft ok: reminder-seen', `M9 非流式取字正确(${JSON.stringify(draft)})`);
     ok(draftReq && draftReq.body.stream === false && draftReq.body.max_tokens === 8192 && JSON.stringify(draftReq.body.messages).includes('<system-reminder>\\nSTRICT JSON RULE\\n</system-reminder>'),
       'M9 后插的 system 规则以 <system-reminder> 留在对话里');

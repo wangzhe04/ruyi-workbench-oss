@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "source": "Configured DeepSeek official provider, synthetic three-turn real file_read Agent Loop, no cache directives added",
+  "rows": [
+    {
+      "style": "chat",
+      "providerId": "deepseek",
+      "model": "deepseek-flash",
+      "input": 99245,
+      "cached": 81152,
+      "overallCacheRatio": 0.817693586578669,
+      "warmCacheRatio": 0.9760180886633152,
+      "calls": [
+        {
+          "call": 1,
+          "input": 16099,
+          "cached": 0
+        },
+        {
+          "call": 2,
+          "input": 16340,
+          "cached": 16128
+        },
+        {
+          "call": 3,
+          "input": 16457,
+          "cached": 15744
+        },
+        {
+          "call": 4,
+          "input": 16643,
+          "cached": 16384
+        },
+        {
+          "call": 5,
+          "input": 16760,
+          "cached": 16128
+        },
+        {
+          "call": 6,
+          "input": 16946,
+          "cached": 16768
+        }
+      ],
+      "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c"
+    },
+    {
+      "style": "responses",
+      "providerId": "deepseek",
+      "model": "deepseek-flash",
+      "input": 99302,
+      "cached": 81280,
+      "overallCacheRatio": 0.8185132222915953,
+      "warmCacheRatio": 0.9768526308198928,
+      "calls": [
+        {
+          "call": 1,
+          "input": 16096,
+          "cached": 0
+        },
+        {
+          "call": 2,
+          "input": 16356,
+          "cached": 16128
+        },
+        {
+          "call": 3,
+          "input": 16471,
+          "cached": 15744
+        },
+        {
+          "call": 4,
+          "input": 16655,
+          "cached": 16512
+        },
+        {
+          "call": 5,
+          "input": 16770,
+          "cached": 16128
+        },
+        {
+          "call": 6,
+          "input": 16954,
+          "cached": 16768
+        }
+      ],
+      "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c"
+    }
+  ]
+}

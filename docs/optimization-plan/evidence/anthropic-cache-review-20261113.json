@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "reviewer": "/root/cache_review",
+  "readOnly": true,
+  "sourceFiles": [
+    "04i-provider-anthropic.js",
+    "04i-provider-wire.js",
+    "07-autonomy.js",
+    "09-workflow.js"
+  ],
+  "findings": [
+    {
+      "priority": 2,
+      "issue": "tool_result.cache_control rejection was classified as toolsRejected",
+      "resolution": "Protocol early field-retry hook, definite overflow first, inherited assertion/cancellation/replay gate, at most one retry",
+      "status": "closed_after_independent_recheck"
+    },
+    {
+      "priority": 2,
+      "issue": "New cache fields broke non-streaming calls without compatibility replay",
+      "resolution": "Enable default cache only for stream===true; preserve non-streaming request shape",
+      "status": "closed_after_independent_recheck"
+    }
+  ],
+  "limitations": [
+    "No live API calls or E2E run by reviewer",
+    "No full 3.1 release acceptance",
+    "Cost estimator does not model separate cache-write rates"
+  ],
+  "recommendationsAddressed": [
+    "Benchmark records Git HEAD and server SHA",
+    "Benchmark discloses shared support directories",
+    "Benchmark gates costCheck.every(matches)"
+  ],
+  "additionalProbeReview": {
+    "providerIdAndModelSelection": "explicit and configuration-bound",
+    "credentialIsolation": "preserved",
+    "deepseekBilling": "usage-only; no Sonnet pricing assumption",
+    "sonnetBillingGate": "costCheck.every(matches) still required",
+    "status": "no_blocking_findings_after_readonly_recheck"
+  }
+}

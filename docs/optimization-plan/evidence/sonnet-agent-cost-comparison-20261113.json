@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T07:28:06.142Z",
+  "model": "claude-sonnet-5-5",
+  "gitBase": "138e8d8e0674ab11808c203adbc0a881f3c8b592",
+  "sameThreeSyntheticFileReadTurns": true,
+  "before": {
+    "ordinaryInput": 152133,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "output": 348,
+    "inputTotal": 152133,
+    "costUsd": 0.307746,
+    "cacheRatio": 0,
+    "requests": 6,
+    "serverSha256": "6bf65669ace6a688efb1ad9a6530b53e475c48457e2d3f525c9f626a7487a099"
+  },
+  "after": {
+    "ordinaryInput": 18,
+    "cacheRead": 114942,
+    "cacheWrite": 37278,
+    "output": 363,
+    "inputTotal": 152238,
+    "costUsd": 0.10835519999999998,
+    "cacheRatio": 0.7550151736097427,
+    "requests": 6,
+    "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c"
+  },
+  "savingsPercent": 64.79070402214815,
+  "limitedTo": "One matched three-user-turn, six-model-request pair; gateway-reported USD amounts, not an account bill; baseline freezes server.js and shares support resources as recorded.",
+  "openaiCompatible": [
+    {
+      "style": "chat",
+      "model": "claude-sonnet-5-5",
+      "input": 152199,
+      "cached": 0,
+      "reportedCostUsd": 0.307998,
+      "requests": 6,
+      "output": 360,
+      "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c"
+    },
+    {
+      "style": "responses",
+      "model": "claude-sonnet-5-5",
+      "input": 151857,
+      "cached": 0,
+      "reportedCostUsd": 0.307314,
+      "requests": 6,
+      "output": 360,
+      "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c"
+    }
+  ],
+  "endpointScope": "Configured Yotta OpenAI-compatible Chat/Responses endpoints, same requested Sonnet model and three synthetic file-read turns; not a claim about all providers or native OpenAI GPT models."
+}

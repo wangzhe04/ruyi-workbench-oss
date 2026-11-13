@@ -1,0 +1,256 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T07:37:02.378Z",
+  "model": "deepseek-flash",
+  "style": "chat",
+  "providerId": "deepseek",
+  "baselineHead": false,
+  "gitHead": "138e8d8e0674ab11808c203adbc0a881f3c8b592",
+  "baselineScope": "Built working-tree server.js",
+  "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+  "syntheticOnly": true,
+  "realWorkbench": true,
+  "turns": [
+    {
+      "turn": 1,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 16128
+    },
+    {
+      "turn": 2,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 32128
+    },
+    {
+      "turn": 3,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 32896
+    }
+  ],
+  "requests": [
+    {
+      "index": 0,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 2,
+      "systemHash": "a97291ae87708438a466ee119cc7231c9efba7b89233bc830123fbb57897c104",
+      "toolsHash": "56046182af12b074c7d520eb312e8fea66690db1b51435d7bed962fd1d07467a",
+      "rawUsage": {
+        "prompt_tokens": 16099,
+        "completion_tokens": 126,
+        "total_tokens": 16225,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "normalizedUsage": {
+        "prompt_tokens": 16099,
+        "completion_tokens": 126,
+        "total_tokens": 16225,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 1,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 4,
+      "systemHash": "a97291ae87708438a466ee119cc7231c9efba7b89233bc830123fbb57897c104",
+      "toolsHash": "56046182af12b074c7d520eb312e8fea66690db1b51435d7bed962fd1d07467a",
+      "rawUsage": {
+        "prompt_tokens": 16340,
+        "completion_tokens": 20,
+        "total_tokens": 16360,
+        "prompt_cache_hit_tokens": 16128,
+        "prompt_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "normalizedUsage": {
+        "prompt_tokens": 16340,
+        "completion_tokens": 20,
+        "total_tokens": 16360,
+        "prompt_cache_hit_tokens": 16128,
+        "prompt_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 2,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 6,
+      "systemHash": "a97291ae87708438a466ee119cc7231c9efba7b89233bc830123fbb57897c104",
+      "toolsHash": "56046182af12b074c7d520eb312e8fea66690db1b51435d7bed962fd1d07467a",
+      "rawUsage": {
+        "prompt_tokens": 16457,
+        "completion_tokens": 71,
+        "total_tokens": 16528,
+        "prompt_cache_hit_tokens": 15744,
+        "prompt_tokens_details": {
+          "cached_tokens": 15744
+        }
+      },
+      "normalizedUsage": {
+        "prompt_tokens": 16457,
+        "completion_tokens": 71,
+        "total_tokens": 16528,
+        "prompt_cache_hit_tokens": 15744,
+        "prompt_tokens_details": {
+          "cached_tokens": 15744
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 3,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 8,
+      "systemHash": "a97291ae87708438a466ee119cc7231c9efba7b89233bc830123fbb57897c104",
+      "toolsHash": "56046182af12b074c7d520eb312e8fea66690db1b51435d7bed962fd1d07467a",
+      "rawUsage": {
+        "prompt_tokens": 16643,
+        "completion_tokens": 20,
+        "total_tokens": 16663,
+        "prompt_cache_hit_tokens": 16384,
+        "prompt_tokens_details": {
+          "cached_tokens": 16384
+        }
+      },
+      "normalizedUsage": {
+        "prompt_tokens": 16643,
+        "completion_tokens": 20,
+        "total_tokens": 16663,
+        "prompt_cache_hit_tokens": 16384,
+        "prompt_tokens_details": {
+          "cached_tokens": 16384
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 4,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 10,
+      "systemHash": "a97291ae87708438a466ee119cc7231c9efba7b89233bc830123fbb57897c104",
+      "toolsHash": "56046182af12b074c7d520eb312e8fea66690db1b51435d7bed962fd1d07467a",
+      "rawUsage": {
+        "prompt_tokens": 16760,
+        "completion_tokens": 71,
+        "total_tokens": 16831,
+        "prompt_cache_hit_tokens": 16128,
+        "prompt_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "normalizedUsage": {
+        "prompt_tokens": 16760,
+        "completion_tokens": 71,
+        "total_tokens": 16831,
+        "prompt_cache_hit_tokens": 16128,
+        "prompt_tokens_details": {
+          "cached_tokens": 16128
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    },
+    {
+      "index": 5,
+      "model": "deepseek-flash",
+      "tools": 38,
+      "messageCount": 12,
+      "systemHash": "a97291ae87708438a466ee119cc7231c9efba7b89233bc830123fbb57897c104",
+      "toolsHash": "56046182af12b074c7d520eb312e8fea66690db1b51435d7bed962fd1d07467a",
+      "rawUsage": {
+        "prompt_tokens": 16946,
+        "completion_tokens": 20,
+        "total_tokens": 16966,
+        "prompt_cache_hit_tokens": 16768,
+        "prompt_tokens_details": {
+          "cached_tokens": 16768
+        }
+      },
+      "normalizedUsage": {
+        "prompt_tokens": 16946,
+        "completion_tokens": 20,
+        "total_tokens": 16966,
+        "prompt_cache_hit_tokens": 16768,
+        "prompt_tokens_details": {
+          "cached_tokens": 16768
+        }
+      },
+      "httpStatus": 200,
+      "responseModel": "deepseek-flash"
+    }
+  ],
+  "status": "passed",
+  "ledger": {
+    "rows": 3,
+    "input": 99245,
+    "cached": 81152,
+    "expectedInput": 99245,
+    "expectedCached": 81152
+  },
+  "costCheck": [
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    },
+    {
+      "reportedUsd": null,
+      "calculatedUsd": null,
+      "matches": null,
+      "note": "No pricing assumed for this model; usage-only qualification."
+    }
+  ],
+  "reportedCostUsd": null
+}

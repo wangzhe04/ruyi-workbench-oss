@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:52:56.432Z",
+  "model": "claude-sonnet-5-5",
+  "streaming": true,
+  "syntheticOnly": true,
+  "comparisons": [
+    {
+      "style": "anthropic",
+      "providerId": "openai-compatible-7",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "inference_geo",
+            "input_tokens",
+            "output_tokens",
+            "output_tokens_details",
+            "service_tier",
+            "speed"
+          ],
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 2231,
+          "inputTotal": 5388,
+          "cacheRead": 0,
+          "cacheWrite": 5384,
+          "rawInputTokens": 4,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 4,
+          "output": 31,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "inference_geo",
+            "input_tokens",
+            "output_tokens",
+            "output_tokens_details",
+            "service_tier",
+            "speed"
+          ],
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1447,
+          "inputTotal": 5426,
+          "cacheRead": 5384,
+          "cacheWrite": 40,
+          "rawInputTokens": 2,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 2,
+          "output": 4,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "inference_geo",
+            "input_tokens",
+            "output_tokens",
+            "output_tokens_details",
+            "service_tier",
+            "speed"
+          ],
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1406,
+          "inputTotal": 5426,
+          "cacheRead": 5424,
+          "cacheWrite": 0,
+          "rawInputTokens": 2,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 2,
+          "output": 4,
+          "toolCalls": 0
+        },
+        {
+          "stage": "same-followup-without-breakpoints",
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "inference_geo",
+            "input_tokens",
+            "output_tokens",
+            "output_tokens_details",
+            "service_tier",
+            "speed"
+          ],
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1619,
+          "inputTotal": 5426,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 5426,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 5426,
+          "output": 4,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "inference_geo",
+            "input_tokens",
+            "output_tokens",
+            "output_tokens_details",
+            "service_tier",
+            "speed"
+          ],
+          "responseModel": "claude-sonnet-5-5",
+          "elapsedMs": 1799,
+          "inputTotal": 5438,
+          "cacheRead": 5372,
+          "cacheWrite": 62,
+          "rawInputTokens": 4,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "uncachedInput": 4,
+          "output": 4,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

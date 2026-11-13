@@ -361,6 +361,7 @@ async function runCase(spec) {
       chatUrl: 'http://127.0.0.1:1/v1/chat/completions', headers: { 'content-type': 'application/json' }, body: spec.body, ctrl: null,
       onEvent: e => events.push(e), markUsage: u => usages.push(u), rawSeqRef: { n: 0 }, touch: () => { touches += 1; },
       allowCompatibilityRetry: spec.allowCompatibilityRetry,
+      protocol: spec.protocol,
     });
   } catch (e) {
     thrown = { name: e && e.name, message: e && e.message };
@@ -494,6 +495,38 @@ test('an attempt carrying protected media can prohibit internal HTTP 400 compati
     assert.equal(r.fetches.length, 1);
     assert.equal(r.unusedSteps, 1);
     assert.match(r.result.httpError, /^HTTP 400.*stream_options/);
+  } finally { global.fetch = realFetch; }
+});
+
+test('Anthropic cache field errors with tool_result paths preserve tools, stay bounded, and honor the replay gate', async () => {
+  const realFetch = global.fetch;
+  const wire = srv.PROVIDER_WIRE_PROTOCOLS.anthropic;
+  const body = wire.encodeMessages({ model: 'claude-sonnet-5-5', stream: true, hasTools: true, messages: [
+    { role: 'system', content: 'S' }, { role: 'user', content: 'U' },
+    { role: 'assistant', content: '', tool_calls: [{ id: 'toolu_probe', type: 'function', function: { name: 'file_read', arguments: '{}' } }] },
+    { role: 'tool', tool_call_id: 'toolu_probe', content: 'OK' },
+  ] });
+  wire.applyTools(body, [{ type: 'function', function: { name: 'file_read', parameters: { type: 'object', properties: {} } } }]);
+  const rejected = { status: 400, text: 'messages.2.content.0.tool_result.cache_control: extra inputs are not permitted' };
+  const { messageEvents } = require('../lib/fake-anthropic-provider');
+  const success = { sse: messageEvents({ text: 'OK', usage: { input_tokens: 2, cache_read_input_tokens: 5424, output_tokens: 4 } }).map(event => 'data: ' + JSON.stringify(event) + '\n\n').join('') };
+  try {
+    const result = await runCase({ body, protocol: wire, steps: [rejected, success] });
+    assert.equal(result.result.text, 'OK');
+    assert.equal(result.fetches.length, 2);
+    const retry = JSON.parse(result.fetches[1].body);
+    assert.deepEqual(retry.tools, body.tools);
+    assert.ok(!JSON.stringify(retry).includes('cache_control'));
+    assert.equal(result.usages.length, 1);
+    assert.equal(result.usages[0].prompt_tokens, 5426);
+    const gated = await runCase({ body, protocol: wire, allowCompatibilityRetry: false, steps: [rejected, success] });
+    assert.equal(gated.fetches.length, 1);
+    const repeated = await runCase({ body, protocol: wire, steps: [rejected, rejected] });
+    assert.equal(repeated.fetches.length, 2, 'repeated rejection cannot cause a third request');
+    assert.match(repeated.result.httpError, /HTTP 400/);
+    const overflow = await runCase({ body, protocol: wire, steps: [{ status: 400, text: 'context_length_exceeded: maximum context length in tool_result.cache_control' }] });
+    assert.equal(overflow.fetches.length, 1);
+    assert.equal(overflow.result.contextOverflow, true);
   } finally { global.fetch = realFetch; }
 });
 

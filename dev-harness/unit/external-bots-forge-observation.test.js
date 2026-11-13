@@ -2,12 +2,13 @@
 require('../lib/media-artifact-test-guard');
 const { test } = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), vm = require('node:vm');
-const { bracedBlock, functionBlock } = require('../lib/source-slice');
+const { bracedBlock, functionBlock, constBlock } = require('../lib/source-slice');
 const { createExpectation, locateCurrentUser, observeReceived } = require('../lib/external-bots-c2/forge-observation.cjs');
 const { scriptModel } = require('../lib/external-bots-c2/actual-http-fixture.cjs');
 const { modelAuthorityProbe } = require('../lib/external-bots-c2/run-journeys.cjs');
 const src = file => fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src', file), 'utf8');
 const build = bracedBlock(src('09-workflow.js'), 'const buildBodyWithLayout =');
+const layout = constBlock(src('09-workflow.js'), 'useVolatileTail');
 const flags = functionBlock(src('01c-runtime-flags.js'), 'volatileTailLayoutEnabled');
 const append = functionBlock(src('10-context-governance.js'), 'appendPromptToLastUserMessage');
 a.ok(build.length > 2000 && flags.length > 50 && append.length > 200);
@@ -18,11 +19,11 @@ function bodyFor(expected, tail = false) {
     session: { providerHistory: [{ role: 'user', content: expected.message + '\n\n[Message sent 2026-11-01 12:00:00 Sun (local time, +08:00)]' }] },
     sys: 'synthetic system', turnVolatile: 'Current capabilities: synthetic; 0 desktop-control tools; synthetic git; synthetic rg.\nFor every new message, start with <workbench-memory-core>, <workbench-memory-check> and the related index.',
     memoryTurnTail: '<workbench-memory-check mode="disabled">synthetic memory check</workbench-memory-check>',
-    scratchpadPrompt: '', toolLoading: { current: () => [] }, wire: { encodeMessages: body => body, applyTemperature() {} },
+    scratchpadPrompt: '', toolLoading: { current: () => [] }, wire: { encodeMessages: body => body, applyTemperature() {}, preferVolatileTail: () => false },
     model: 'fake-model', serverToolItems: [], provider: {}, temp: undefined, applyProviderReasoningEffort() {},
     appendRecallPrompt() {}, appendSessionNotesPrompt() {} };
   vm.createContext(context);
-  return vm.runInContext(flags + '\n' + append + '\n' + build + '\nbuildBodyWithLayout(false)', context);
+  return vm.runInContext(flags + '\n' + append + '\n' + layout + '\n' + build + '\nbuildBodyWithLayout(false)', context);
 }
 const expectation = () => createExpectation({ sessionId: 'probe_one', cwd: 'E:/synthetic/forge-one', forged, firstRequest: 1, nonce: 'a'.repeat(32) });
 test('real default front assembly and explicit tail assembly preserve exact current forge boundary with time and memory layers', () => {

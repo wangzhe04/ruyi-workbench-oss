@@ -150,7 +150,7 @@ async function chatScenario(name, background) {
 // ── Anthropic 协议:thinking 块 + 签名在工具循环的下一发里逐字节回放,子代理事件不影响 ──
 async function anthropicScenario() {
   const name = 'B2 anthropic';
-  const isSub = req => String(req.body && req.body.system || '').includes('你是子任务执行体');
+  const isSub = req => (Array.isArray(req.body && req.body.system) ? req.body.system.map(b => b.text || '').join('') : String(req.body && req.body.system || '')).includes('你是子任务执行体');
   const blocksOf = req => (req.messages || []).flatMap(m => (Array.isArray(m.content) ? m.content : []));
   const fake = await startFakeAnthropic({
     handler(req) {

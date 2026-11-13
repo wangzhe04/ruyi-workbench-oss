@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:32:27.226Z",
+  "providerId": "openai-compatible-7",
+  "model": "claude-sonnet-5-5",
+  "syntheticOnly": true,
+  "rows": [
+    {
+      "label": "before-cold",
+      "elapsedMs": 1795,
+      "input": 4973,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "output": 4,
+      "stopReason": "end_turn"
+    },
+    {
+      "label": "before-repeat",
+      "elapsedMs": 1264,
+      "input": 4973,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "output": 4,
+      "stopReason": "end_turn"
+    },
+    {
+      "label": "after-cold",
+      "elapsedMs": 1265,
+      "input": 4,
+      "cacheRead": 0,
+      "cacheWrite": 4981,
+      "output": 4,
+      "stopReason": "end_turn"
+    },
+    {
+      "label": "after-repeat",
+      "elapsedMs": 1317,
+      "input": 4,
+      "cacheRead": 4981,
+      "cacheWrite": 0,
+      "output": 5,
+      "stopReason": "end_turn"
+    },
+    {
+      "label": "after-next-turn",
+      "elapsedMs": 1359,
+      "input": 4,
+      "cacheRead": 4969,
+      "cacheWrite": 21,
+      "output": 4,
+      "stopReason": "end_turn"
+    }
+  ]
+}

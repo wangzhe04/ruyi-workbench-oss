@@ -30501,7 +30501,7 @@ function anthropicToolResultAsText(m) {
 //   - 连续的 role:'tool' 合成一条 user 消息里的 tool_result 块;相邻同角色消息合并(Messages 要求 user / assistant 交替);
 //     合并后的 user 消息里 tool_result 块排在最前(API 要求),工具截图等后插的图片 / 文字排在它们之后;
 //   - 首条不是 user 时补一条占位 user;末条是 assistant 时补一条占位 user(新模型不收 assistant 预填)。
-function anthropicMessagesFromHistory(history, model, hasTools) {
+function anthropicMessagesFromHistory(history, model, hasTools, cacheUserPrefix) {
   const list = Array.isArray(history) ? history : [];
   let lastUser = -1;
   for (let i = list.length - 1; i >= 0; i--) { if (list[i] && list[i].role === 'user') { lastUser = i; break; } }
@@ -30529,7 +30529,12 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
       push('user', hasTools ? [{ type: 'tool_result', tool_use_id: anthropicToolId(m.tool_call_id), content: anthropicToolResultContent(m.content) }] : anthropicToolResultAsText(m));
       return;
     }
-    push('user', anthropicUserBlocks(m.content)); // user 与未知角色都当 user
+    // 临时提示不落历史：给原用户正文保留独立块，下一回合移走提示后仍能命中该边界。
+    const splitPrefix = i === lastUser && typeof cacheUserPrefix === 'string' && cacheUserPrefix.trim()
+      && typeof m.content === 'string' && m.content.startsWith(cacheUserPrefix + '\n\n');
+    push('user', splitPrefix
+      ? [...anthropicUserBlocks(cacheUserPrefix), ...anthropicUserBlocks(m.content.slice(cacheUserPrefix.length))]
+      : anthropicUserBlocks(m.content)); // user 与未知角色都当 user
   });
   for (const msg of out) {
     if (msg.role !== 'user') continue;
@@ -30560,7 +30565,7 @@ function anthropicMaxTokensCapFromError(errText) {
   const n = m ? Number(m[1]) : 0;
   return n >= 256 ? n : 0;
 }
-function encodeAnthropicMessages({ model, messages, stream, instructions, provider, hasTools }) {
+function encodeAnthropicMessages({ model, messages, stream, instructions, provider, hasTools, cacheUserPrefix }) {
   const list = Array.isArray(messages) ? messages : [];
   const hasLead = Boolean(list[0] && (list[0].role === 'system' || list[0].role === 'developer'));
   const lead = hasLead ? String(list[0].content || '') : '';
@@ -30569,8 +30574,19 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
   const wantedMax = stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS;
   const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, wantedMax) };
-  if (system.trim()) body.system = system;
-  body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
+  // 只有主流式回合具备协议400降级；一次性非流式摘要/起草保持原请求形状。
+  const cache = stream === true && anthropicModelTraits(model).claude;
+  if (system.trim()) body.system = cache ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] : system;
+  body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true, cache ? cacheUserPrefix : undefined);
+  if (cache) {
+    // 最多四处显式断点：稳定 system（含其前面的 tools）、最近 user 的首块与尾块、前一 user 的首块。
+    // 首块保护临时提示前的正文；尾块复用工具循环；前一 user 应对超过20块的增长。只标支持的块，绝不改思考签名。
+    const users = body.messages.filter(m => m.role === 'user');
+    const last = users[users.length - 1], previous = users[users.length - 2];
+    const eligible = block => block && ['text', 'image', 'tool_result'].includes(block.type);
+    const candidates = [last && last.content.find(eligible), last && last.content.findLast(eligible), previous && previous.content.find(eligible)];
+    for (const block of new Set(candidates.filter(Boolean))) block.cache_control = { type: 'ephemeral' };
+  }
   const thinking = anthropicThinkingFor(provider, model, body.max_tokens);
   if (thinking) body.thinking = thinking;
   // 官方 API 上的新模型:安全分类器误拒时由服务端按类别改派推荐模型(fallbacks:'default',beta 头见 anthropicRequestHeaders)。
@@ -30811,9 +30827,32 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
 //   1) 思考块签名校验失败(前缀被改过):去掉全部 thinking / redacted_thinking 块;
 //   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k / fallbacks):去掉报文里点名的那几个。
 // ctx.url:本次请求的端点(openAiStreamOnce 的 chatUrl)—— 学到的上限记在这个端点名下;老调用形态不带 ctx 就记在「无端点」名下。
+function anthropicCacheRetryBodyOn400(body, errText) {
+  const msg = String(errText || '');
+  if (!body || typeof body !== 'object' || !msg) return null;
+  // 少数兼容网关不收缓存字段。只在明确拒收它时去掉断点，保留正文与所有思考/工具块重打一次。
+  if (/cache_control/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|unrecognized|invalid|not allowed/i.test(msg)) {
+    let changed = false;
+    const strip = block => {
+      if (!block || typeof block !== 'object' || !Object.hasOwn(block, 'cache_control')) return block;
+      changed = true;
+      const { cache_control, ...rest } = block;
+      return rest;
+    };
+    const copy = { ...body };
+    if (Array.isArray(body.system)) copy.system = body.system.map(strip);
+    if (Array.isArray(body.tools)) copy.tools = body.tools.map(strip);
+    if (Array.isArray(body.messages)) copy.messages = body.messages.map(m => ({ ...m, content: Array.isArray(m.content) ? m.content.map(strip) : m.content }));
+    if (Object.hasOwn(copy, 'cache_control')) { delete copy.cache_control; changed = true; }
+    if (changed) return copy;
+  }
+  return null;
+}
 function anthropicRetryBodyOn400(body, errText, ctx) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
+  const cacheRetry = anthropicCacheRetryBodyOn400(body, msg);
+  if (cacheRetry) return cacheRetry;
   // 网关的输出上限比我们发的小:按报文给的上限重打,并记住(同一模型之后直接按它发);经典思考的预算跟着收。
   if (body.max_tokens != null && /max_tokens/i.test(msg)) {
     const cap = anthropicMaxTokensCapFromError(msg);
@@ -30896,10 +30935,13 @@ function anthropicRetryBodyOn400(body, errText, ctx) {
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
 //   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
 //   retryOn400(body, errText, { url })  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//   retryBeforeToolsOn400(body, errText, { url }) 明确的协议字段拒收，在工具归因前处理；确凿超窗与禁止重放仍优先。
 //                              (url = 本次请求的端点:anthropic 把从 400 学到的 max_tokens 上限记在「端点 + 模型」名下)
 //
 // encodeMessages 还收 provider(可选,anthropic 据它决定思考方式)与 hasTools(这一发随后会不会 applyTools;anthropic 不带 tools
 // 的请求里不许有 tool_use / tool_result 块,要改写成文字);另两种协议两个都不看。
+// cacheUserPrefix 可选：临时提示追加前的最新 user 正文，Anthropic 将它与临时尾部拆块以保留跨回合缓存边界；另两种协议忽略。
+// preferVolatileTail(model)：协议启用前缀缓存时，将非持久提示放到最新 user，避免重写第一条历史。
 
 // 延迟绑定:{ makeId, redact, repairProviderHistoryPairing, repairProviderHistoryToolArgs },07-autonomy 顶层填充。
 const ProviderWireHooks = {};
@@ -31449,6 +31491,8 @@ const setTemperature = (body, temperature) => { if (temperature !== undefined) b
 const PROVIDER_WIRE_DEFAULT = 'chat';
 const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   chat: Object.freeze({
+    retryBeforeToolsOn400: noRetryOn400,
+    preferVolatileTail: () => false,
     id: 'chat', displayLabel: 'Chat Completions',
     serverWebSearch: false,
     endpointBase: baseUrl => providerApiBase(baseUrl, false),
@@ -31482,6 +31526,8 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     retryOn400: noRetryOn400,
   }),
   responses: Object.freeze({
+    retryBeforeToolsOn400: noRetryOn400,
+    preferVolatileTail: () => false,
     id: 'responses', displayLabel: 'Responses API',
     serverWebSearch: true,
     // 对抗轮(open-risk):responses 走原样 baseUrl + /responses(不加 /v1,与官方 SDK 示例一致),见 04h providerResponsesBase。
@@ -31517,14 +31563,16 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   }),
   // 批 2:Anthropic Messages(官方与兼容网关)。编解码见 04i-provider-anthropic.js;这里只接线:配对自愈、makeId / redact 钩子。
   anthropic: Object.freeze({
+    retryBeforeToolsOn400: anthropicCacheRetryBodyOn400,
     id: 'anthropic', displayLabel: 'Anthropic Messages',
+    preferVolatileTail: model => anthropicModelTraits(model).claude,
     serverWebSearch: false, // 批 3 映射 web_search_20260209
     endpointBase: anthropicApiBase,
     completionUrl: anthropicMessagesUrl,
     modelsUrl: anthropicModelsUrl,
     requestHeaders: anthropicRequestHeaders,
-    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools }) => encodeAnthropicMessages({
-      model, stream, instructions, provider, hasTools,
+    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools, cacheUserPrefix }) => encodeAnthropicMessages({
+      model, stream, instructions, provider, hasTools, cacheUserPrefix,
       // 与 Responses 同一个配对自愈:tool_use 必须紧跟 tool_result,缺了补合成结果(只改副本)。
       messages: responsesHistoryWithCompleteToolPairs(messages).history,
     }),
@@ -51930,6 +51978,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     if (definiteOverflow) {
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
     }
+    // 协议字段的明确拒收可能带tool_result等路径，不能据此判成「工具不支持」。最多再发一次，
+    // 保留媒体的禁止重放开关、同一出站断言、取消及用量回调；后续400不再进入兼容重打。
+    const earlyRetryBody = allowCompatibilityRetry ? wire.retryBeforeToolsOn400(body, t, { url: chatUrl }) : null;
+    if (earlyRetryBody) return openAiStreamOnce({ chatUrl, headers, body: earlyRetryBody, ctrl, onEvent, markUsage, rawSeqRef, touch,
+      protocol: wire, allowCompatibilityRetry: false, assertRequest });
     // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
     // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
@@ -58364,14 +58417,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (skipped) return;
     appendPromptToLastUserMessage(msgs, notesPrompt);
   };
+  const useVolatileTail = volatileTailLayoutEnabled(config) || wire.preferVolatileTail(model);
   const buildBody = withTools => buildBodyWithLayout(withTools, undefined);
   // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
-  // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
+  // 正常调用恒传 undefined(走开关或协议缓存布局)。Claude 的 Anthropic 请求默认使用尾部；开关开时其它模型也从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
   const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
     if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
       || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
-    const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
+    const volatileTail = layoutOverride ? layoutOverride === 'tail' : useVolatileTail;
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
     const actionAuditMap = (config.actionArgumentModelViewV1 === true && Array.isArray(session.actionAudit))
@@ -58411,7 +58465,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
-    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
+    const cacheUserPrefix = viewHistory.findLast(m => m && m.role === 'user')?.content;
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools, cacheUserPrefix });
     wire.applyTemperature(b, temp);
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
@@ -59214,7 +59269,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         })) econTotals.modelCallsLogged += 1;
         // 106 #1 G1 shadow(E4 §7.3): 同请求双布局 stablePrefixChars,candidate 只计量不发送。
         try {
-          const sentLayout = volatileTailLayoutEnabled(config) ? 'tail' : 'first';
+          const sentLayout = useVolatileTail ? 'tail' : 'first';
           const altLayout = sentLayout === 'tail' ? 'first' : 'tail';
           const altJson = JSON.stringify(buildBodyWithLayout(useTools, altLayout));
           let prev = layoutShadowPrevBySessionMap.get(session.id);

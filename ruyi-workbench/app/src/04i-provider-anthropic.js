@@ -238,7 +238,7 @@ function anthropicToolResultAsText(m) {
 //   - 连续的 role:'tool' 合成一条 user 消息里的 tool_result 块;相邻同角色消息合并(Messages 要求 user / assistant 交替);
 //     合并后的 user 消息里 tool_result 块排在最前(API 要求),工具截图等后插的图片 / 文字排在它们之后;
 //   - 首条不是 user 时补一条占位 user;末条是 assistant 时补一条占位 user(新模型不收 assistant 预填)。
-function anthropicMessagesFromHistory(history, model, hasTools) {
+function anthropicMessagesFromHistory(history, model, hasTools, cacheUserPrefix) {
   const list = Array.isArray(history) ? history : [];
   let lastUser = -1;
   for (let i = list.length - 1; i >= 0; i--) { if (list[i] && list[i].role === 'user') { lastUser = i; break; } }
@@ -266,7 +266,12 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
       push('user', hasTools ? [{ type: 'tool_result', tool_use_id: anthropicToolId(m.tool_call_id), content: anthropicToolResultContent(m.content) }] : anthropicToolResultAsText(m));
       return;
     }
-    push('user', anthropicUserBlocks(m.content)); // user 与未知角色都当 user
+    // 临时提示不落历史：给原用户正文保留独立块，下一回合移走提示后仍能命中该边界。
+    const splitPrefix = i === lastUser && typeof cacheUserPrefix === 'string' && cacheUserPrefix.trim()
+      && typeof m.content === 'string' && m.content.startsWith(cacheUserPrefix + '\n\n');
+    push('user', splitPrefix
+      ? [...anthropicUserBlocks(cacheUserPrefix), ...anthropicUserBlocks(m.content.slice(cacheUserPrefix.length))]
+      : anthropicUserBlocks(m.content)); // user 与未知角色都当 user
   });
   for (const msg of out) {
     if (msg.role !== 'user') continue;
@@ -297,7 +302,7 @@ function anthropicMaxTokensCapFromError(errText) {
   const n = m ? Number(m[1]) : 0;
   return n >= 256 ? n : 0;
 }
-function encodeAnthropicMessages({ model, messages, stream, instructions, provider, hasTools }) {
+function encodeAnthropicMessages({ model, messages, stream, instructions, provider, hasTools, cacheUserPrefix }) {
   const list = Array.isArray(messages) ? messages : [];
   const hasLead = Boolean(list[0] && (list[0].role === 'system' || list[0].role === 'developer'));
   const lead = hasLead ? String(list[0].content || '') : '';
@@ -306,8 +311,19 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
   const wantedMax = stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS;
   const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, wantedMax) };
-  if (system.trim()) body.system = system;
-  body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
+  // 只有主流式回合具备协议400降级；一次性非流式摘要/起草保持原请求形状。
+  const cache = stream === true && anthropicModelTraits(model).claude;
+  if (system.trim()) body.system = cache ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] : system;
+  body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true, cache ? cacheUserPrefix : undefined);
+  if (cache) {
+    // 最多四处显式断点：稳定 system（含其前面的 tools）、最近 user 的首块与尾块、前一 user 的首块。
+    // 首块保护临时提示前的正文；尾块复用工具循环；前一 user 应对超过20块的增长。只标支持的块，绝不改思考签名。
+    const users = body.messages.filter(m => m.role === 'user');
+    const last = users[users.length - 1], previous = users[users.length - 2];
+    const eligible = block => block && ['text', 'image', 'tool_result'].includes(block.type);
+    const candidates = [last && last.content.find(eligible), last && last.content.findLast(eligible), previous && previous.content.find(eligible)];
+    for (const block of new Set(candidates.filter(Boolean))) block.cache_control = { type: 'ephemeral' };
+  }
   const thinking = anthropicThinkingFor(provider, model, body.max_tokens);
   if (thinking) body.thinking = thinking;
   // 官方 API 上的新模型:安全分类器误拒时由服务端按类别改派推荐模型(fallbacks:'default',beta 头见 anthropicRequestHeaders)。
@@ -548,9 +564,32 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
 //   1) 思考块签名校验失败(前缀被改过):去掉全部 thinking / redacted_thinking 块;
 //   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k / fallbacks):去掉报文里点名的那几个。
 // ctx.url:本次请求的端点(openAiStreamOnce 的 chatUrl)—— 学到的上限记在这个端点名下;老调用形态不带 ctx 就记在「无端点」名下。
+function anthropicCacheRetryBodyOn400(body, errText) {
+  const msg = String(errText || '');
+  if (!body || typeof body !== 'object' || !msg) return null;
+  // 少数兼容网关不收缓存字段。只在明确拒收它时去掉断点，保留正文与所有思考/工具块重打一次。
+  if (/cache_control/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|unrecognized|invalid|not allowed/i.test(msg)) {
+    let changed = false;
+    const strip = block => {
+      if (!block || typeof block !== 'object' || !Object.hasOwn(block, 'cache_control')) return block;
+      changed = true;
+      const { cache_control, ...rest } = block;
+      return rest;
+    };
+    const copy = { ...body };
+    if (Array.isArray(body.system)) copy.system = body.system.map(strip);
+    if (Array.isArray(body.tools)) copy.tools = body.tools.map(strip);
+    if (Array.isArray(body.messages)) copy.messages = body.messages.map(m => ({ ...m, content: Array.isArray(m.content) ? m.content.map(strip) : m.content }));
+    if (Object.hasOwn(copy, 'cache_control')) { delete copy.cache_control; changed = true; }
+    if (changed) return copy;
+  }
+  return null;
+}
 function anthropicRetryBodyOn400(body, errText, ctx) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
+  const cacheRetry = anthropicCacheRetryBodyOn400(body, msg);
+  if (cacheRetry) return cacheRetry;
   // 网关的输出上限比我们发的小:按报文给的上限重打,并记住(同一模型之后直接按它发);经典思考的预算跟着收。
   if (body.max_tokens != null && /max_tokens/i.test(msg)) {
     const cap = anthropicMaxTokensCapFromError(msg);

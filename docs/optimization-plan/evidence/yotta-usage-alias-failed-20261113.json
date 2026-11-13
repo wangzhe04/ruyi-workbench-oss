@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:53:32.655Z",
+  "model": "claude-sonnet-5.5",
+  "streaming": true,
+  "syntheticOnly": true,
+  "comparisons": [
+    {
+      "style": "anthropic",
+      "providerId": "openai-compatible-7",
+      "rows": [],
+      "status": "failed",
+      "code": "stream_failed"
+    }
+  ]
+}

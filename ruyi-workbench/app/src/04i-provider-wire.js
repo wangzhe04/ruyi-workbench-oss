@@ -40,10 +40,13 @@
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
 //   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
 //   retryOn400(body, errText, { url })  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//   retryBeforeToolsOn400(body, errText, { url }) 明确的协议字段拒收，在工具归因前处理；确凿超窗与禁止重放仍优先。
 //                              (url = 本次请求的端点:anthropic 把从 400 学到的 max_tokens 上限记在「端点 + 模型」名下)
 //
 // encodeMessages 还收 provider(可选,anthropic 据它决定思考方式)与 hasTools(这一发随后会不会 applyTools;anthropic 不带 tools
 // 的请求里不许有 tool_use / tool_result 块,要改写成文字);另两种协议两个都不看。
+// cacheUserPrefix 可选：临时提示追加前的最新 user 正文，Anthropic 将它与临时尾部拆块以保留跨回合缓存边界；另两种协议忽略。
+// preferVolatileTail(model)：协议启用前缀缓存时，将非持久提示放到最新 user，避免重写第一条历史。
 
 // 延迟绑定:{ makeId, redact, repairProviderHistoryPairing, repairProviderHistoryToolArgs },07-autonomy 顶层填充。
 const ProviderWireHooks = {};
@@ -593,6 +596,8 @@ const setTemperature = (body, temperature) => { if (temperature !== undefined) b
 const PROVIDER_WIRE_DEFAULT = 'chat';
 const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   chat: Object.freeze({
+    retryBeforeToolsOn400: noRetryOn400,
+    preferVolatileTail: () => false,
     id: 'chat', displayLabel: 'Chat Completions',
     serverWebSearch: false,
     endpointBase: baseUrl => providerApiBase(baseUrl, false),
@@ -626,6 +631,8 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     retryOn400: noRetryOn400,
   }),
   responses: Object.freeze({
+    retryBeforeToolsOn400: noRetryOn400,
+    preferVolatileTail: () => false,
     id: 'responses', displayLabel: 'Responses API',
     serverWebSearch: true,
     // 对抗轮(open-risk):responses 走原样 baseUrl + /responses(不加 /v1,与官方 SDK 示例一致),见 04h providerResponsesBase。
@@ -661,14 +668,16 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   }),
   // 批 2:Anthropic Messages(官方与兼容网关)。编解码见 04i-provider-anthropic.js;这里只接线:配对自愈、makeId / redact 钩子。
   anthropic: Object.freeze({
+    retryBeforeToolsOn400: anthropicCacheRetryBodyOn400,
     id: 'anthropic', displayLabel: 'Anthropic Messages',
+    preferVolatileTail: model => anthropicModelTraits(model).claude,
     serverWebSearch: false, // 批 3 映射 web_search_20260209
     endpointBase: anthropicApiBase,
     completionUrl: anthropicMessagesUrl,
     modelsUrl: anthropicModelsUrl,
     requestHeaders: anthropicRequestHeaders,
-    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools }) => encodeAnthropicMessages({
-      model, stream, instructions, provider, hasTools,
+    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools, cacheUserPrefix }) => encodeAnthropicMessages({
+      model, stream, instructions, provider, hasTools, cacheUserPrefix,
       // 与 Responses 同一个配对自愈:tool_use 必须紧跟 tool_result,缺了补合成结果(只改副本)。
       messages: responsesHistoryWithCompleteToolPairs(messages).history,
     }),

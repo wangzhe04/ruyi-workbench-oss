@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "createdAt": "2026-11-13T06:53:45.807Z",
+  "model": "deepseek-flash",
+  "streaming": true,
+  "syntheticOnly": true,
+  "comparisons": [
+    {
+      "style": "anthropic",
+      "providerId": "openai-compatible-7",
+      "rows": [
+        {
+          "stage": "cold-tool-call",
+          "usageKeys": [
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "input_tokens",
+            "output_tokens",
+            "service_tier"
+          ],
+          "responseModel": "deepseek-flash",
+          "elapsedMs": 1280,
+          "inputTotal": 3409,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "rawInputTokens": 3409,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "reportedCostUsd": 0.0010803,
+          "uncachedInput": 3409,
+          "output": 48,
+          "toolCalls": 1
+        },
+        {
+          "stage": "tool-result-followup",
+          "usageKeys": [
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "input_tokens",
+            "output_tokens",
+            "service_tier"
+          ],
+          "responseModel": "deepseek-flash",
+          "elapsedMs": 1245,
+          "inputTotal": 3470,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 142,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "reportedCostUsd": 0.00006497,
+          "uncachedInput": 142,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "repeat-followup",
+          "usageKeys": [
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "input_tokens",
+            "output_tokens",
+            "service_tier"
+          ],
+          "responseModel": "deepseek-flash",
+          "elapsedMs": 1082,
+          "inputTotal": 3470,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 142,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "reportedCostUsd": 0.00006497,
+          "uncachedInput": 142,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "same-followup-without-breakpoints",
+          "usageKeys": [
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "input_tokens",
+            "output_tokens",
+            "service_tier"
+          ],
+          "responseModel": "deepseek-flash",
+          "elapsedMs": 890,
+          "inputTotal": 3470,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "rawInputTokens": 142,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "reportedCostUsd": 0.00006497,
+          "uncachedInput": 142,
+          "output": 2,
+          "toolCalls": 0
+        },
+        {
+          "stage": "next-user-turn",
+          "usageKeys": [
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "cost_usd",
+            "input_tokens",
+            "output_tokens",
+            "service_tier"
+          ],
+          "responseModel": "deepseek-flash",
+          "elapsedMs": 1189,
+          "inputTotal": 3455,
+          "cacheRead": 3200,
+          "cacheWrite": 0,
+          "rawInputTokens": 255,
+          "rawPromptTokens": null,
+          "rawTotalTokens": null,
+          "rawCachedDetails": null,
+          "reportedCostUsd": 0.0001209,
+          "uncachedInput": 255,
+          "output": 21,
+          "toolCalls": 0
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

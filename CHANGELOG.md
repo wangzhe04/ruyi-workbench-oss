@@ -7,6 +7,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 修复 Claude 的 Anthropic Messages 回合未启用提示缓存及动态提示破坏历史前缀的问题。流式工具循环使用缓存断点与稳定用户正文边界；兼容网关拒收缓存字段时保留工具继续完成回合，非流式起草/摘要保持原请求形状。
+- Fix missing prompt-cache activation and unstable history prefixes in Claude Anthropic Messages turns. Streamed tool loops now use cache breakpoints and stable user-content boundaries; gateways rejecting cache fields retain tools during fallback, while non-streaming drafts and summaries keep their existing request shape.
+
 - 开启发送前隐私保护时，原生视觉模型可通过文件读取工具查看受支持的本地图片及已保存截图。需要已核验的 Windows Full 媒体组件，发送的是本地遮盖后的 PNG；原件、文件名和元数据不会随图片交付，派生图片不留在后续请求或会话历史中。无可用组件或视觉模型时明确拒绝。
 - With pre-send privacy protection enabled, native vision models can read supported local images and saved screenshots through the file tool. Verified Windows Full media components are required. The model receives a locally redacted PNG without the original file, name or metadata; derived images stay out of later requests and session history. Missing components or vision support produce an explicit refusal.
 
