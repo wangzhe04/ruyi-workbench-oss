@@ -1866,6 +1866,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
+  let catalogReferences = '', parallelRules = '';
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     // 角色的 description 来自项目目录(.claude/agents/*.md、.ruyi/agents.json 随仓库走)—— 外来文本,与 08 buildOrchestrateHint 对工作流模板
@@ -1884,8 +1885,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     volatileExtras += await buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
     // 代理模式 v2:后台规则 + 信封契约(只改这段子代理/后台文字)。
-    volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。send_to_agent({action:"list",runId?}) 查询本会话活组或指定组的节点实时资格；queued 表示可排队，名单不保证随后送达。消息是参考通信，不会重启终态节点；明确续派用 orchestrate_agents({followup:{previousRunId,previousNodeId,task}}) 新建独立 run。任务池默认 off；显式 poolPolicy:"manual" 仅开放待审批提案，审批物化仍受原发起回合预算约束，不会自动扩展。';
+    parallelRules = '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。send_to_agent({action:"list",runId?}) 查询本会话活组或指定组的节点实时资格；queued 表示可排队，名单不保证随后送达。消息是参考通信，不会重启终态节点；明确续派用 orchestrate_agents({followup:{previousRunId,previousNodeId,task}}) 新建独立 run。任务池默认 off；显式 poolPolicy:"manual" 仅开放待审批提案，审批物化仍受原发起回合预算约束，不会自动扩展。';
+    volatileExtras += parallelRules;
   }
+  catalogReferences = parallelRules ? volatileExtras.slice(0, -parallelRules.length) : volatileExtras;
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
   // calls or the Claude engine). The model must first emit a PLAN: message and stop; approval unlocks tools
@@ -1897,6 +1900,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // Keep this final: dynamic role/workflow/model/plan layers may be in Chinese, but must not decide
   // the language of an English (or otherwise non-Chinese) user conversation.
   volatileExtras = appendTurnPolicies(volatileExtras, config, agentTeam, 0, false, promptTaskContext);
+  const turnPolicyExtras = appendTurnPolicies(planMode ? '\n\n' + getPromptPack(config && config.locale).planMode : '', config, agentTeam, 0, false, promptTaskContext);
   // 51d C1b: 易变层前缀(每回合动态,buildBody 注入第一条 user 消息[经 findIndex 动态定位],不持久化避 854 参数未初始化)
   // 108b: Playbook 精简索引只在主回合注入(子代理不与用户对话,08 走 buildProviderSystemPrompt 不传该参数)。
   // 直接调 06 的 loadAllPlaybooks(后向边)而不是再跑一次 loadSkillRegistry: 后者为了拿 pb: 条目会连技能四源
@@ -1916,16 +1920,57 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 起整段作废(实测两回合 matches="1"→"2"、related 列表一变,其后全部历史按未缓存计)。它改投末条 user 尾部(buildBody 里,与 recall/notes 同位);
   // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
   const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
+  const useCachePromptLayers = !stewardVolatile && wire.preferVolatileTail(model);
+  let cachePrompt = null;
+  let cacheSkillConfig = config, cacheSkillSelection = JSON.stringify(effectiveSkillSelection(session, config));
+  let currentProjectMemory = projectMemory, currentSkillEntries = enabledSkillEntries, currentPlaybookEntries = playbookEntries;
+  let promptMemoryEntries = enabledMemoryEntries, promptMemoryConflicts = enabledMemoryConflicts, promptMemoryStatus = memoryPreflight.status;
   let memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
-  let turnVolatile = stewardVolatile
-    ? stewardPrompt.volatile
-    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
-  // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
-  // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
-  // indexes, so omitting it here can delay compaction until the provider rejects the request.
-  let budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  let turnVolatile, budgetPrompt, budgetPromptFull;
+  const renderPromptLayers = () => {
+    const parts = stewardVolatile ? null : buildVolatileParts(provider, initialTools, caps, config, currentProjectMemory,
+      currentSkillEntries, promptMemoryEntries, session.mission, promptMemoryConflicts, promptMemoryStatus,
+      currentPlaybookEntries, { session }, { memoryTurnTail: true, cacheLayers: useCachePromptLayers });
+    if (useCachePromptLayers) {
+      const references = [parts.references, catalogReferences].filter(Boolean).join('\n\n');
+      const rules = [parts.rules, parallelRules].filter(Boolean).join('\n\n');
+      const unchanged = !cachePrompt || cachePrompt.references === references && cachePrompt.rules === rules;
+      cachePrompt = { rules, references, replayThinking: unchanged && (!cachePrompt || cachePrompt.replayThinking) };
+    }
+    turnVolatile = (stewardVolatile ? stewardPrompt.volatile : useCachePromptLayers ? parts.turn : parts)
+      + ((useCachePromptLayers ? turnPolicyExtras : volatileExtras) ? '\n\n' + (useCachePromptLayers ? turnPolicyExtras : volatileExtras) : '');
+    budgetPrompt = [sys, cachePrompt && cachePrompt.rules, cachePrompt && cachePrompt.references, turnVolatile].filter(Boolean).join('\n\n');
+    budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  };
+  renderPromptLayers();
+  // Capture one current reference generation per iteration, before compaction and budget gates.
+  // Budget, media preview, send and transport retries share it; never refresh to a larger body after budgeting.
+  const refreshCachePromptScope = async () => {
+    if (!useCachePromptLayers) return;
+    const currentConfig = await readConfig();
+    cacheSkillConfig = currentConfig;
+    cacheSkillSelection = JSON.stringify(effectiveSkillSelection(session, currentConfig));
+    currentProjectMemory = await readProjectMemory(workingDir).catch(() => null);
+    currentSkillEntries = await resolveEnabledSkillEntries(session, currentConfig, workingDir, caps)
+      .catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+    currentPlaybookEntries = (await loadAllPlaybooks().catch(() => []))
+      .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '', ...evalPlaybookAvailability(pb, caps) }));
+    catalogReferences = '';
+    if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
+      const roles = await getAgentRoleLibrary(workingDir, currentConfig).catch(() => []);
+      const roleText = v => neutralizeAuthoredText(String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()).slice(0, 80);
+      if (roles.length) catalogReferences += '\n\n可用 Agent 角色：' + roles.map(r => `${r.id}(${roleText(r.description || r.label)})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+      catalogReferences += buildOrchestrateHint(await getAgentWorkflows(workingDir).catch(() => []));
+      const currentProvider = (currentConfig.providers || []).find(p => p.id === provider.id);
+      if (currentProvider) catalogReferences += await buildModelHint(currentConfig, currentProvider);
+    }
+    if (JSON.stringify(effectiveSkillSelection(session, currentConfig)) !== cacheSkillSelection) currentSkillEntries = [];
+    renderPromptLayers();
+  };
+  // Context governance budgets every layer regardless of wire placement (legacy user prefix or Claude layers).
+  // References can contain a 16KB project memory plus skill/catalogue indexes; omitting them delays
+  // compaction until the provider rejects the request. renderPromptLayers maintains the complete snapshot.
   // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
-  let budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
   // Only invalidate the entry snapshot; no new topic lookup or automatic recall is added here.
   const memorySnapshotSelection = memorySelectionSignature(session, workingDir);
   const memorySnapshotRelations = enabledMemoryEntries.length ? JSON.stringify(await readConfirmedSupersedeEdges(workingDir).catch(() => [])) : '';
@@ -1953,10 +1998,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       candidateCount: 0, matchCount: 0, ruleFillCount: 0, projectMatches: 0, globalMatches: 0,
       excludedCount: memoryExclusionSet(session, workingDir).size, coreActiveCount: 0 };
     memoryTurnTail = buildMemoryTurnSection([], 'openai', config, null, status);
-    turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, [], session.mission,
-      null, status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
-    budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
-    budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+    promptMemoryEntries = []; promptMemoryConflicts = null; promptMemoryStatus = status;
+    if (cachePrompt) cachePrompt.replayThinking = false;
+    renderPromptLayers();
   };
   // Session notes are read at turn start and refreshed after compaction writes finish.
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
@@ -2029,6 +2073,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 正常调用恒传 undefined(走开关或协议缓存布局)。Claude 的 Anthropic 请求默认使用尾部；开关开时其它模型也从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
   const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
+    if (useCachePromptLayers && JSON.stringify(effectiveSkillSelection(session, cacheSkillConfig)) !== cacheSkillSelection) {
+      currentSkillEntries = []; // Revocation after the async capture may only shrink the budgeted body.
+      renderPromptLayers();
+    }
     if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
       || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : useVolatileTail;
@@ -2072,7 +2120,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
     const cacheUserPrefix = viewHistory.findLast(m => m && m.role === 'user')?.content;
-    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools, cacheUserPrefix });
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools, cacheUserPrefix, cachePrompt });
     wire.applyTemperature(b, temp);
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
@@ -2799,6 +2847,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (await drainSteerQueue(reg, session, onEvent)) await preparedToolMedia.clear();
       if (EventStreamHooks.drainBackgroundJobs) await EventStreamHooks.drainBackgroundJobs(session);
       await refreshMemoryPromptScope();
+      await refreshCachePromptScope();
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.

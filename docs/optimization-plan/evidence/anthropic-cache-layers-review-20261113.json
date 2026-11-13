@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "reviewer": "/root/cache_review",
+  "mode": "independent read-only; no API calls or E2E",
+  "findingsResolved": [
+    {
+      "priority": "P2",
+      "finding": "New reference fence could be closed by authored tags",
+      "resolution": "Case-insensitive same-tag neutralization at encoder and forged-tag unit test"
+    },
+    {
+      "priority": "P2",
+      "finding": "Model catalogue reused entry provider instead of current configured models",
+      "resolution": "Current provider lookup by original id; remove catalogue when absent; HTTP A/B/revocation plus closure tests"
+    },
+    {
+      "priority": "P2",
+      "finding": "Session skill revoked during final catalogue await could remain in reference",
+      "resolution": "Selection checks after async capture and synchronously before body; revoke only shrinks budgeted generation"
+    },
+    {
+      "priority": "P2",
+      "finding": "Second refresh after budget gates could send a larger reference body",
+      "resolution": "One capture before compaction/budgeting; same snapshot for preview/send/transport retries; closure test"
+    }
+  ],
+  "additionalRegression": "Protected URL image annotations broke exact privacy capability shape; URL images now unmarked and actual three-wire media delivery test passes",
+  "remainingBlockers": [],
+  "limitation": "Adaptive live request setting alone does not prove signed thinking replay; only actual upstream thinking blocks and replay fingerprints can establish that."
+}

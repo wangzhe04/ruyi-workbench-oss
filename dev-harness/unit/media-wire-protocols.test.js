@@ -78,13 +78,13 @@ function fixture() {
 const PROVIDERS = {
   chat: { apiStyle: 'chat', baseUrl: 'https://api.example.invalid', model: 'm' },
   responses: { apiStyle: 'responses', baseUrl: 'https://api.example.invalid', model: 'm' },
-  anthropic: { apiStyle: 'anthropic', baseUrl: 'https://api.example.invalid', model: 'm' },
+  anthropic: { apiStyle: 'anthropic', baseUrl: 'https://api.example.invalid', model: 'claude-sonnet-5-5' },
 };
 // 三种协议编码器吐出来的图片块形状(见 04i 与 04i-provider-anthropic.js 的 anthropicImageBlock)。
 const SHAPE = {
   chat: body => body.messages[0].content[1],
   responses: body => body.input[0].content[1],
-  anthropic: body => body.messages[0].content[1],
+  anthropic: body => body.messages[0].content.find(part => part.type === 'image'),
 };
 function base64In(part) {
   if (!part) return '';
@@ -103,7 +103,8 @@ test('同一受保护图片经三个线协议编码后仍被交付层认出,且�
   const hashes = {};
   for (const [apiStyle, provider] of Object.entries(PROVIDERS)) {
     const wire = wireApi.providerWireProtocol(provider);
-    const encoded = wire.encodeMessages({ model: 'm', stream: false, foldSystem: true, provider,
+    const encoded = wire.encodeMessages({ model: provider.model, stream: apiStyle === 'anthropic', foldSystem: true, provider,
+      cachePrompt: { rules: 'Host guidance', references: 'Current user-data reference', replayThinking: false },
       messages: [{ role: 'user', content: [{ type: 'text', text: '看图' }, { type: 'image_url', image_url: { url: prepared.reference } }] }] });
     // 编码后引用还在 —— 否则交付层根本没机会替换(图片会被静默丢掉)。
     assert.ok(JSON.stringify(encoded).includes(prepared.reference), apiStyle + ' 编码后丢了受保护图片引用');
@@ -111,7 +112,7 @@ test('同一受保护图片经三个线协议编码后仍被交付层认出,且�
     assert.equal(base64In(encodedShape), '', apiStyle + ' 编码阶段不许已经出现图片字节');
     // 隐私层的入口是 projectPart(03a 的 projectMediaPart):编码后的形状必须仍被它认出来,
     // 否则网关会以 media_not_supported fail-closed —— 三种协议一个都不能例外。
-    const pointer = apiStyle === 'responses' ? '/input/0/content/1' : '/messages/0/content/1';
+    const pointer = apiStyle === 'responses' ? '/input/0/content/1' : '/messages/0/content/' + encoded.messages[0].content.indexOf(encodedShape);
     assert.ok(f.service.projectPart(encodedShape, { scopeId: 'sess_wire', pointer }),
       apiStyle + ' 编码后的引用形状必须能过 projectPart(否则网关只会拒绝,图永远发不出去)');
 

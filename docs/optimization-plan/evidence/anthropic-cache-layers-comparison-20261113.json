@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "formula": "Weighted sum(cache_read)/sum(total normalized input); warm excludes the first cold request only.",
+  "rows": {
+    "before": {
+      "file": "sonnet-cache-layers-before-20261113.json",
+      "status": "passed",
+      "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+      "turns": 3,
+      "requests": 6,
+      "input": 152175,
+      "cached": 114903,
+      "allHitPercent": 75.50714637752587,
+      "warmHitPercent": 90.21339739966082,
+      "reportedCostUsd": 0.10820129999999999,
+      "upstreamThinkingBlocks": null,
+      "replayedThinkingBlocks": 0
+    },
+    "final": {
+      "file": "sonnet-cache-layers-final-20261113.json",
+      "status": "passed",
+      "serverSha256": "428428f390124cacd363884f0a8d86cd527738488d674007ee7d9b318ba0ca0d",
+      "turns": 3,
+      "requests": 6,
+      "input": 152490,
+      "cached": 124502,
+      "allHitPercent": 81.64600957439832,
+      "warmHitPercent": 97.54610840371687,
+      "reportedCostUsd": 0.08601120000000001,
+      "upstreamThinkingBlocks": 0,
+      "replayedThinkingBlocks": 0
+    },
+    "adaptiveHigh": {
+      "file": "sonnet-cache-layers-high-final-20261113.json",
+      "status": "passed",
+      "serverSha256": "428428f390124cacd363884f0a8d86cd527738488d674007ee7d9b318ba0ca0d",
+      "turns": 6,
+      "requests": 12,
+      "input": 312912,
+      "cached": 280574,
+      "allHitPercent": 89.66546505087692,
+      "warmHitPercent": 97.40326466565297,
+      "reportedCostUsd": 0.1162044,
+      "upstreamThinkingBlocks": 0,
+      "replayedThinkingBlocks": 0
+    },
+    "deepseek": {
+      "file": "deepseek-native-cache-chat-20261113.json",
+      "status": "passed",
+      "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+      "turns": 3,
+      "requests": 6,
+      "input": 99245,
+      "cached": 81152,
+      "allHitPercent": 81.76935865786689,
+      "warmHitPercent": 97.60180886633151,
+      "reportedCostUsd": null,
+      "upstreamThinkingBlocks": null,
+      "replayedThinkingBlocks": null
+    }
+  },
+  "costReductionPercent": 20.508163949971003,
+  "warmHitGainPercentagePoints": 7.332711004056051,
+  "thinkingLimitation": "adaptive/high reached the wire, but this simple task produced no upstream thinking blocks. Signed replay validated offline only."
+}

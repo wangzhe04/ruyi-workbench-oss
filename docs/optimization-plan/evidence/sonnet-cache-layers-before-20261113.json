@@ -1,0 +1,612 @@
+{
+  "schema": 2,
+  "createdAt": "2026-11-13T08:13:01.439Z",
+  "model": "claude-sonnet-5-5",
+  "style": "anthropic",
+  "thinking": "off",
+  "turnCount": 3,
+  "providerId": "openai-compatible-7",
+  "baselineHead": true,
+  "gitHead": "5322a14bd8696a650be3dff7c15ff119769449a6",
+  "baselineScope": "Frozen HEAD server.js; public/src/resources/config support paths shared with the working tree.",
+  "serverSha256": "1159097321b9b01cb525f4c49924945b2d7d183a7715a243fcfc8c6e3464213c",
+  "syntheticOnly": true,
+  "realWorkbench": true,
+  "turns": [
+    {
+      "turn": 1,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 24803
+    },
+    {
+      "turn": 2,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 44623
+    },
+    {
+      "turn": 3,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 45477
+    }
+  ],
+  "requests": [
+    {
+      "index": 0,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 1,
+      "systemHash": "224e045ea5b4c629bb5c87515d24e6119db58cb017909c59560235109bdd281e",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 24803,
+        "cache_read_input_tokens": 0,
+        "cost_usd": 0.0629655
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 24803,
+        "cache_read_input_tokens": 0,
+        "cost_usd": 0.0629655,
+        "prompt_tokens": 24807,
+        "completion_tokens": 95,
+        "total_tokens": 24902,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "60edb829780260f69c5520b9c969278fe5ddb2af23d0b9e25050d7ac3d7abfe7"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 7041,
+          "reference": false,
+          "cached": true,
+          "sha256": "361a93f4dbcad349e652afdde8fda631f698874039f2ea91c481a011305af6d3"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 1,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 3,
+      "systemHash": "224e045ea5b4c629bb5c87515d24e6119db58cb017909c59560235109bdd281e",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 23,
+        "cache_creation_input_tokens": 259,
+        "cache_read_input_tokens": 24803,
+        "cost_usd": 0.0033618
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 23,
+        "cache_creation_input_tokens": 259,
+        "cache_read_input_tokens": 24803,
+        "cost_usd": 0.0033618,
+        "prompt_tokens": 25064,
+        "completion_tokens": 23,
+        "total_tokens": 25087,
+        "prompt_tokens_details": {
+          "cached_tokens": 24803
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "60edb829780260f69c5520b9c969278fe5ddb2af23d0b9e25050d7ac3d7abfe7"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 7041,
+          "reference": false,
+          "cached": false,
+          "sha256": "361a93f4dbcad349e652afdde8fda631f698874039f2ea91c481a011305af6d3"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1e7f8b9309883809faaaad016badc68156b49706fe7be59d3e554f74ebb4d657"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "1d68c25244bc3bbae9e3ad1b55027bf19fc6c1c132055d1db25f7af799505b3b"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 2,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 5,
+      "systemHash": "224e045ea5b4c629bb5c87515d24e6119db58cb017909c59560235109bdd281e",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 5837,
+        "cache_read_input_tokens": 19393,
+        "cost_usd": 0.0174898
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 5837,
+        "cache_read_input_tokens": 19393,
+        "cost_usd": 0.0174898,
+        "prompt_tokens": 25234,
+        "completion_tokens": 95,
+        "total_tokens": 25329,
+        "prompt_tokens_details": {
+          "cached_tokens": 19393
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "60edb829780260f69c5520b9c969278fe5ddb2af23d0b9e25050d7ac3d7abfe7"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1e7f8b9309883809faaaad016badc68156b49706fe7be59d3e554f74ebb4d657"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "1d68c25244bc3bbae9e3ad1b55027bf19fc6c1c132055d1db25f7af799505b3b"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "3359a6096e249f7da73e398e34402d4c4ce4c34049ca0a5bd1230c8820140a33"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "9dc1533147b67017ecd3d00b30e5874d66fcf4fd8be95a84bc9b14ebb855ad08"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 7041,
+          "reference": false,
+          "cached": true,
+          "sha256": "361a93f4dbcad349e652afdde8fda631f698874039f2ea91c481a011305af6d3"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 3,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 7,
+      "systemHash": "224e045ea5b4c629bb5c87515d24e6119db58cb017909c59560235109bdd281e",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 23,
+        "cache_creation_input_tokens": 259,
+        "cache_read_input_tokens": 25230,
+        "cost_usd": 0.0034045
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 23,
+        "cache_creation_input_tokens": 259,
+        "cache_read_input_tokens": 25230,
+        "cost_usd": 0.0034045,
+        "prompt_tokens": 25491,
+        "completion_tokens": 23,
+        "total_tokens": 25514,
+        "prompt_tokens_details": {
+          "cached_tokens": 25230
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "60edb829780260f69c5520b9c969278fe5ddb2af23d0b9e25050d7ac3d7abfe7"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1e7f8b9309883809faaaad016badc68156b49706fe7be59d3e554f74ebb4d657"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d68c25244bc3bbae9e3ad1b55027bf19fc6c1c132055d1db25f7af799505b3b"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "3359a6096e249f7da73e398e34402d4c4ce4c34049ca0a5bd1230c8820140a33"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "9dc1533147b67017ecd3d00b30e5874d66fcf4fd8be95a84bc9b14ebb855ad08"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 7041,
+          "reference": false,
+          "cached": false,
+          "sha256": "361a93f4dbcad349e652afdde8fda631f698874039f2ea91c481a011305af6d3"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "f28dc9268b62504c1cf14887c02b3ed137364efe7e11196f39064dd57c3d9aa3"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "e77f6f52fe971a6fafd691c530e0e0a0e7dff0e9a66ed7ec127a8e00219c4481"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 4,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 9,
+      "systemHash": "224e045ea5b4c629bb5c87515d24e6119db58cb017909c59560235109bdd281e",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 5837,
+        "cache_read_input_tokens": 19820,
+        "cost_usd": 0.0175325
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 5837,
+        "cache_read_input_tokens": 19820,
+        "cost_usd": 0.0175325,
+        "prompt_tokens": 25661,
+        "completion_tokens": 95,
+        "total_tokens": 25756,
+        "prompt_tokens_details": {
+          "cached_tokens": 19820
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "60edb829780260f69c5520b9c969278fe5ddb2af23d0b9e25050d7ac3d7abfe7"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1e7f8b9309883809faaaad016badc68156b49706fe7be59d3e554f74ebb4d657"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d68c25244bc3bbae9e3ad1b55027bf19fc6c1c132055d1db25f7af799505b3b"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "3359a6096e249f7da73e398e34402d4c4ce4c34049ca0a5bd1230c8820140a33"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9dc1533147b67017ecd3d00b30e5874d66fcf4fd8be95a84bc9b14ebb855ad08"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "f28dc9268b62504c1cf14887c02b3ed137364efe7e11196f39064dd57c3d9aa3"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "e77f6f52fe971a6fafd691c530e0e0a0e7dff0e9a66ed7ec127a8e00219c4481"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "83d266afb9abb66bfaab03783d95d587d2c33c82d2b1a1f46c751bdd2b7f27e9"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "6b5cf50e5e322895e080b3435ab4cb49791afd192cf2181f25dd903e57ecdf68"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 7041,
+          "reference": false,
+          "cached": true,
+          "sha256": "361a93f4dbcad349e652afdde8fda631f698874039f2ea91c481a011305af6d3"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 5,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 11,
+      "systemHash": "224e045ea5b4c629bb5c87515d24e6119db58cb017909c59560235109bdd281e",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 23,
+        "cache_creation_input_tokens": 259,
+        "cache_read_input_tokens": 25657,
+        "cost_usd": 0.0034472
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 23,
+        "cache_creation_input_tokens": 259,
+        "cache_read_input_tokens": 25657,
+        "cost_usd": 0.0034472,
+        "prompt_tokens": 25918,
+        "completion_tokens": 23,
+        "total_tokens": 25941,
+        "prompt_tokens_details": {
+          "cached_tokens": 25657
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "60edb829780260f69c5520b9c969278fe5ddb2af23d0b9e25050d7ac3d7abfe7"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1e7f8b9309883809faaaad016badc68156b49706fe7be59d3e554f74ebb4d657"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d68c25244bc3bbae9e3ad1b55027bf19fc6c1c132055d1db25f7af799505b3b"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "3359a6096e249f7da73e398e34402d4c4ce4c34049ca0a5bd1230c8820140a33"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9dc1533147b67017ecd3d00b30e5874d66fcf4fd8be95a84bc9b14ebb855ad08"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "f28dc9268b62504c1cf14887c02b3ed137364efe7e11196f39064dd57c3d9aa3"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e77f6f52fe971a6fafd691c530e0e0a0e7dff0e9a66ed7ec127a8e00219c4481"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "83d266afb9abb66bfaab03783d95d587d2c33c82d2b1a1f46c751bdd2b7f27e9"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "6b5cf50e5e322895e080b3435ab4cb49791afd192cf2181f25dd903e57ecdf68"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 7041,
+          "reference": false,
+          "cached": false,
+          "sha256": "361a93f4dbcad349e652afdde8fda631f698874039f2ea91c481a011305af6d3"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "14954640353a7a079514030f69009a80b1e7e3953cb8952ba71deaf1653f3f71"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "a11ab9a3fe422bf74fd040ab4b4e9edb3b49e436c227ab21f00902ffbb1aaae3"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    }
+  ],
+  "status": "passed",
+  "ledger": {
+    "rows": 3,
+    "input": 152175,
+    "cached": 114903,
+    "expectedInput": 152175,
+    "expectedCached": 114903
+  },
+  "costCheck": [
+    {
+      "reportedUsd": 0.0629655,
+      "calculatedUsd": 0.0629655,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0033618,
+      "calculatedUsd": 0.0033618000000000003,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0174898,
+      "calculatedUsd": 0.0174898,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0034045,
+      "calculatedUsd": 0.0034045,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0175325,
+      "calculatedUsd": 0.0175325,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0034472,
+      "calculatedUsd": 0.0034472,
+      "matches": true
+    }
+  ],
+  "reportedCostUsd": 0.10820129999999999
+}

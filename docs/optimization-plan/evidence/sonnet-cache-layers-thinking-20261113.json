@@ -1,0 +1,1866 @@
+{
+  "schema": 2,
+  "createdAt": "2026-11-13T08:13:36.516Z",
+  "model": "claude-sonnet-5-5",
+  "style": "anthropic",
+  "thinking": "adaptive",
+  "turnCount": 6,
+  "providerId": "openai-compatible-7",
+  "baselineHead": false,
+  "gitHead": "5322a14bd8696a650be3dff7c15ff119769449a6",
+  "baselineScope": "Built working-tree server.js",
+  "serverSha256": "ccb1b100c31a7463c6978ac281ac5132e33a6514343ebdda0ffdc8cc4f73b0dc",
+  "syntheticOnly": true,
+  "realWorkbench": true,
+  "turns": [
+    {
+      "turn": 1,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 24852
+    },
+    {
+      "turn": 2,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 49396
+    },
+    {
+      "turn": 3,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 50258
+    },
+    {
+      "turn": 4,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 51120
+    },
+    {
+      "turn": 5,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 51982
+    },
+    {
+      "turn": 6,
+      "ok": true,
+      "markerCorrect": true,
+      "realFileRead": true,
+      "modelRequests": 2,
+      "cachedInput": 52844
+    }
+  ],
+  "requests": [
+    {
+      "index": 0,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 1,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 24852,
+        "cache_read_input_tokens": 0,
+        "cost_usd": 0.063088
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 24852,
+        "cache_read_input_tokens": 0,
+        "cost_usd": 0.063088,
+        "prompt_tokens": 24856,
+        "completion_tokens": 95,
+        "total_tokens": 24951,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": true,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 1,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 3,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 24852,
+        "cost_usd": 0.0033917
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 24852,
+        "cost_usd": 0.0033917,
+        "prompt_tokens": 25115,
+        "completion_tokens": 25,
+        "total_tokens": 25140,
+        "prompt_tokens_details": {
+          "cached_tokens": 24852
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": false,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 2,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 5,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 24113,
+        "cost_usd": 0.0062943
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 24113,
+        "cost_usd": 0.0062943,
+        "prompt_tokens": 25287,
+        "completion_tokens": 95,
+        "total_tokens": 25382,
+        "prompt_tokens_details": {
+          "cached_tokens": 24113
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": true,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 3,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 7,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 25283,
+        "cost_usd": 0.0034348
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 25283,
+        "cost_usd": 0.0034348,
+        "prompt_tokens": 25546,
+        "completion_tokens": 25,
+        "total_tokens": 25571,
+        "prompt_tokens_details": {
+          "cached_tokens": 25283
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": false,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 4,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 9,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 24544,
+        "cost_usd": 0.0063374
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 24544,
+        "cost_usd": 0.0063374,
+        "prompt_tokens": 25718,
+        "completion_tokens": 95,
+        "total_tokens": 25813,
+        "prompt_tokens_details": {
+          "cached_tokens": 24544
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": true,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 5,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 11,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 25714,
+        "cost_usd": 0.0034779
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 25714,
+        "cost_usd": 0.0034779,
+        "prompt_tokens": 25977,
+        "completion_tokens": 25,
+        "total_tokens": 26002,
+        "prompt_tokens_details": {
+          "cached_tokens": 25714
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": false,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 6,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 13,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 24975,
+        "cost_usd": 0.0063805
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 24975,
+        "cost_usd": 0.0063805,
+        "prompt_tokens": 26149,
+        "completion_tokens": 95,
+        "total_tokens": 26244,
+        "prompt_tokens_details": {
+          "cached_tokens": 24975
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "861a681c7b3342af8eea4592a328afdf168da81a6406d27e78f53bbf9fa8573c"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "5702100d7e601e2f508c3dc7906079769ddb579c1f4ef177f683bea99de96b42"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": true,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 7,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 15,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 26145,
+        "cost_usd": 0.003521
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 26145,
+        "cost_usd": 0.003521,
+        "prompt_tokens": 26408,
+        "completion_tokens": 25,
+        "total_tokens": 26433,
+        "prompt_tokens_details": {
+          "cached_tokens": 26145
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "861a681c7b3342af8eea4592a328afdf168da81a6406d27e78f53bbf9fa8573c"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "5702100d7e601e2f508c3dc7906079769ddb579c1f4ef177f683bea99de96b42"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": false,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1a902e18d3aedb1586e9b00eb46ab2351f3860e443049d201d1e5902970f0afc"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "36e2ca14ae7c2d38e8b313766047adaf689729528538c18f901f3e0ad033e2cc"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 8,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 17,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 25406,
+        "cost_usd": 0.0064236
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 25406,
+        "cost_usd": 0.0064236,
+        "prompt_tokens": 26580,
+        "completion_tokens": 95,
+        "total_tokens": 26675,
+        "prompt_tokens_details": {
+          "cached_tokens": 25406
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "861a681c7b3342af8eea4592a328afdf168da81a6406d27e78f53bbf9fa8573c"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "5702100d7e601e2f508c3dc7906079769ddb579c1f4ef177f683bea99de96b42"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1a902e18d3aedb1586e9b00eb46ab2351f3860e443049d201d1e5902970f0afc"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "36e2ca14ae7c2d38e8b313766047adaf689729528538c18f901f3e0ad033e2cc"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d17d5f5aa563d71d2fed6cf0423f1546f6e90335c51af9552f1ad7a50db709e"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "392f5060d21e0aae07ed5927d3cf1bc2f6ce4310d748891e5a337e28fa572aba"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": true,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 9,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 19,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 26576,
+        "cost_usd": 0.0035641
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 26576,
+        "cost_usd": 0.0035641,
+        "prompt_tokens": 26839,
+        "completion_tokens": 25,
+        "total_tokens": 26864,
+        "prompt_tokens_details": {
+          "cached_tokens": 26576
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "861a681c7b3342af8eea4592a328afdf168da81a6406d27e78f53bbf9fa8573c"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "5702100d7e601e2f508c3dc7906079769ddb579c1f4ef177f683bea99de96b42"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1a902e18d3aedb1586e9b00eb46ab2351f3860e443049d201d1e5902970f0afc"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "36e2ca14ae7c2d38e8b313766047adaf689729528538c18f901f3e0ad033e2cc"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d17d5f5aa563d71d2fed6cf0423f1546f6e90335c51af9552f1ad7a50db709e"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "392f5060d21e0aae07ed5927d3cf1bc2f6ce4310d748891e5a337e28fa572aba"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": false,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "129483f334148e383e86b8e917b41cf02edd82d3357c77ef61b1ae8a02253d70"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "ad787185808ef8d00802d759df436b3cf69cbfa7d812ce4d96c2af201cd423aa"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 10,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 21,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 25837,
+        "cost_usd": 0.0064667
+      },
+      "normalizedUsage": {
+        "input_tokens": 4,
+        "output_tokens": 95,
+        "cache_creation_input_tokens": 1170,
+        "cache_read_input_tokens": 25837,
+        "cost_usd": 0.0064667,
+        "prompt_tokens": 27011,
+        "completion_tokens": 95,
+        "total_tokens": 27106,
+        "prompt_tokens_details": {
+          "cached_tokens": 25837
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "861a681c7b3342af8eea4592a328afdf168da81a6406d27e78f53bbf9fa8573c"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "5702100d7e601e2f508c3dc7906079769ddb579c1f4ef177f683bea99de96b42"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1a902e18d3aedb1586e9b00eb46ab2351f3860e443049d201d1e5902970f0afc"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "36e2ca14ae7c2d38e8b313766047adaf689729528538c18f901f3e0ad033e2cc"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d17d5f5aa563d71d2fed6cf0423f1546f6e90335c51af9552f1ad7a50db709e"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "392f5060d21e0aae07ed5927d3cf1bc2f6ce4310d748891e5a337e28fa572aba"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "129483f334148e383e86b8e917b41cf02edd82d3357c77ef61b1ae8a02253d70"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "ad787185808ef8d00802d759df436b3cf69cbfa7d812ce4d96c2af201cd423aa"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "6bf5c49ce02d2b874f496ccecba3cfa7e0e1b7539a6b1f3585d36006fda7d912"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "51c40cfc4f280d9013043040dc586bca1edb336281c397068caa8064df29917f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": true,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    },
+    {
+      "index": 11,
+      "model": "claude-sonnet-5-5",
+      "tools": 38,
+      "messageCount": 23,
+      "systemHash": "0cde565e8db6ee83475a43de535b100db249b2bda0d630dae6ac5c0013ca9eb7",
+      "toolsHash": "a5d2e6760cfd6f2eb3ff678069d296faffbb3a9b6e57653e56bd955f31113249",
+      "rawUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 27007,
+        "cost_usd": 0.0036072
+      },
+      "normalizedUsage": {
+        "input_tokens": 2,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 261,
+        "cache_read_input_tokens": 27007,
+        "cost_usd": 0.0036072,
+        "prompt_tokens": 27270,
+        "completion_tokens": 25,
+        "total_tokens": 27295,
+        "prompt_tokens_details": {
+          "cached_tokens": 27007
+        }
+      },
+      "blocks": [
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 3337,
+          "reference": true,
+          "cached": true,
+          "sha256": "4dbc3231197f856509b428ff8ceb04cdb16fc749782007554fe5da800ebb3c8f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "9448c81cd6e7a48530a7439665550446ecfb3b1e90aecbb3b1a8f2256a4a64d6"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "9e6a59d879cde72ffdb379da38f2f6ef6bf8e81a167416ac9990660e9f054c53"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "c3ccd32cc11969fd44778b8bc6e29c762d66d9d967da14640d1a375dbfc42cdf"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "faadc4786ace0002d2c1f3061c4ba1775e8130da813e91d6ff1dbf6d0ca35fad"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "d025daca1c2509d7e817ad5ba91624964416d166e04ff4339bdd2c513bb03269"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "bdef28963b2a3225387a562017d4d546859660b647a1da567cd2d07a37b9100d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "e2c06f8adc0620b63a94f290234de0950e6b6697f8aee7bb66481d8fa36899a4"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "8c2e0e990a4340e038d1acd8f81c07f025fb6b80e131143c1ee66475757a71a4"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "f88b48c5fd9b52109ed9f562ebfe49f9f998f0e7d36045f4c43cb24e300be412"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "17cd28480450f3da01734e23594f834a3355919b7e19a26968235841f490f77d"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "b459c9a2775407309dad7555742625f31f5358356da26a0a3c70c2e3147b99bd"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "861a681c7b3342af8eea4592a328afdf168da81a6406d27e78f53bbf9fa8573c"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "5702100d7e601e2f508c3dc7906079769ddb579c1f4ef177f683bea99de96b42"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "1a902e18d3aedb1586e9b00eb46ab2351f3860e443049d201d1e5902970f0afc"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "36e2ca14ae7c2d38e8b313766047adaf689729528538c18f901f3e0ad033e2cc"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "1d17d5f5aa563d71d2fed6cf0423f1546f6e90335c51af9552f1ad7a50db709e"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": false,
+          "sha256": "392f5060d21e0aae07ed5927d3cf1bc2f6ce4310d748891e5a337e28fa572aba"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "129483f334148e383e86b8e917b41cf02edd82d3357c77ef61b1ae8a02253d70"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "ad787185808ef8d00802d759df436b3cf69cbfa7d812ce4d96c2af201cd423aa"
+        },
+        {
+          "role": "assistant",
+          "type": "text",
+          "chars": 32,
+          "reference": false,
+          "cached": false,
+          "sha256": "6bf5c49ce02d2b874f496ccecba3cfa7e0e1b7539a6b1f3585d36006fda7d912"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 185,
+          "reference": false,
+          "cached": true,
+          "sha256": "51c40cfc4f280d9013043040dc586bca1edb336281c397068caa8064df29917f"
+        },
+        {
+          "role": "user",
+          "type": "text",
+          "chars": 1362,
+          "reference": false,
+          "cached": false,
+          "sha256": "cb4ed9d624259e0657bdd058ed8b45303cffcf870ee71d01022978153206cfd1"
+        },
+        {
+          "role": "assistant",
+          "type": "tool_use",
+          "chars": 0,
+          "reference": false,
+          "cached": false,
+          "sha256": "2cd03c0ede40693812e8353b9bb6bd04f6b2155e9b1ba0be096db2e20f08386f"
+        },
+        {
+          "role": "user",
+          "type": "tool_result",
+          "chars": 0,
+          "reference": false,
+          "cached": true,
+          "sha256": "9a35501de7faf54c0203f1288e1c304d583d4f330d709f36f036cf4f6f4b770b"
+        }
+      ],
+      "httpStatus": 200,
+      "responseModel": "claude-sonnet-5-5"
+    }
+  ],
+  "status": "passed",
+  "ledger": {
+    "rows": 6,
+    "input": 312756,
+    "cached": 280452,
+    "expectedInput": 312756,
+    "expectedCached": 280452
+  },
+  "costCheck": [
+    {
+      "reportedUsd": 0.063088,
+      "calculatedUsd": 0.063088,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0033917,
+      "calculatedUsd": 0.0033917,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0062943,
+      "calculatedUsd": 0.0062943,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0034348,
+      "calculatedUsd": 0.0034348,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0063374,
+      "calculatedUsd": 0.0063374,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0034779,
+      "calculatedUsd": 0.0034779,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0063805,
+      "calculatedUsd": 0.0063805,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.003521,
+      "calculatedUsd": 0.003521,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0064236,
+      "calculatedUsd": 0.006423600000000001,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0035641,
+      "calculatedUsd": 0.0035641,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0064667,
+      "calculatedUsd": 0.006466700000000001,
+      "matches": true
+    },
+    {
+      "reportedUsd": 0.0036072,
+      "calculatedUsd": 0.0036072,
+      "matches": true
+    }
+  ],
+  "reportedCostUsd": 0.11598720000000003
+}

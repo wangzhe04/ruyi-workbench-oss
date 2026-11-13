@@ -1,6 +1,6 @@
 'use strict';
 // Explicit live qualification of the production HTTP Agent Loop, real file_read, and usage ledger.
-// node dev-harness/probe-anthropic-agent-loop.js --live [--provider ID] [--model MODEL] [--style anthropic|chat|responses] [--baseline-head] --report FILE
+// node dev-harness/probe-anthropic-agent-loop.js --live [--provider ID] [--model MODEL] [--style anthropic|chat|responses] [--turns 3..8] [--thinking off|adaptive] [--effort high] [--baseline-head] --report FILE
 // The forwarding proxy keeps the real API key in memory; the isolated child receives a fake key only.
 const fs = require('fs');
 const path = require('path');
@@ -14,7 +14,7 @@ const { getFreePort } = require('./free-port');
 const args = process.argv.slice(2);
 const option = name => args.includes(name) ? args[args.indexOf(name) + 1] : '';
 const reportFile = args.includes('--report') ? args[args.indexOf('--report') + 1] : '';
-if (!args.includes('--live')) console.log('SKIP: --live authorizes three isolated Sonnet turns with real file_read.');
+if (!args.includes('--live')) console.log('SKIP: --live authorizes bounded isolated provider turns with real file_read.');
 else main().catch(error => { console.error('Agent loop probe failed: ' + (error.code || error.name)); process.exitCode = 1; });
 
 async function main() {
@@ -29,12 +29,18 @@ async function main() {
   const wire = srv.PROVIDER_WIRE_PROTOCOLS[style];
   const model = option('--model') || selected?.model || 'claude-sonnet-5-5';
   const baseline = args.includes('--baseline-head');
+  const turnCount = Number(option('--turns') || 3);
+  if (!Number.isInteger(turnCount) || turnCount < 3 || turnCount > 8) throw Object.assign(new Error(), { code: 'invalid_turn_count' });
+  const thinking = option('--thinking') || 'off';
+  if (!['off', 'adaptive'].includes(thinking)) throw Object.assign(new Error(), { code: 'invalid_thinking' });
+  const effort = option('--effort') || '';
+  if (!['', 'low', 'medium', 'high'].includes(effort)) throw Object.assign(new Error(), { code: 'invalid_effort' });
   const gitHead = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: path.resolve(__dirname, '..'), encoding: 'utf8', windowsHide: true }).trim();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-agent-cache-live-'));
   const home = path.join(root, 'data'), work = path.join(root, 'work');
   fs.mkdirSync(home); fs.mkdirSync(work);
   const nonce = crypto.randomBytes(12).toString('hex');
-  const markers = [1, 2, 3].map(i => `CACHE-${i}-${nonce}`);
+  const markers = Array.from({ length: turnCount }, (_, i) => `CACHE-${i + 1}-${nonce}`);
   const files = markers.map((marker, i) => { const file = path.join(work, `marker-${i + 1}.txt`); fs.writeFileSync(file, marker + '\n'); return file; });
   let appDir = path.resolve(__dirname, '../ruyi-workbench/app');
   if (baseline) {
@@ -44,7 +50,7 @@ async function main() {
     for (const dir of ['public', 'src']) fs.symlinkSync(path.resolve(__dirname, '../ruyi-workbench/app', dir), path.join(appDir, dir), 'junction');
     for (const dir of ['resources', 'config']) fs.symlinkSync(path.resolve(__dirname, '../ruyi-workbench', dir), path.join(root, 'baseline', dir), 'junction');
   }
-  const report = { schema: 1, createdAt: new Date().toISOString(), model, style, providerId: real.id, baselineHead: baseline, gitHead,
+  const report = { schema: 2, createdAt: new Date().toISOString(), model, style, thinking, effort, turnCount, providerId: real.id, baselineHead: baseline, gitHead,
     baselineScope: baseline ? 'Frozen HEAD server.js; public/src/resources/config support paths shared with the working tree.' : 'Built working-tree server.js',
     serverSha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(appDir, 'server.js'))).digest('hex'),
     syntheticOnly: true, realWorkbench: true, turns: [], requests: [], status: 'pending' };
@@ -61,10 +67,17 @@ async function main() {
         const chunks = []; let bytes = 0;
         for await (const chunk of req) { bytes += chunk.length; if (bytes > 8 * 1024 * 1024) throw Object.assign(new Error(), { code: 'request_too_large' }); chunks.push(chunk); }
         const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        if (body.model !== model || body.stream !== true || report.requests.length >= 18) throw Object.assign(new Error(), { code: 'unexpected_model_request' });
+        if (body.model !== model || body.stream !== true || report.requests.length >= turnCount * 6) throw Object.assign(new Error(), { code: 'unexpected_model_request' });
         const row = { index: report.requests.length, model: body.model, tools: (body.tools || []).length, messageCount: (body.messages || body.input || []).length,
+          thinkingType: body.thinking?.type || null, effort: body.output_config?.effort || body.reasoning_effort || null, upstreamThinkingBlocks: 0,
           systemHash: crypto.createHash('sha256').update(JSON.stringify(body.system ?? body.instructions ?? (body.messages || []).filter(message => message.role === 'system'))).digest('hex'),
           toolsHash: crypto.createHash('sha256').update(JSON.stringify(body.tools)).digest('hex'), rawUsage: {}, normalizedUsage: null };
+        // Fingerprints/lengths only: useful for locating moving prefixes without retaining prompt data.
+        row.blocks = (body.messages || []).flatMap(message => (Array.isArray(message.content) ? message.content : [{ type: 'text', text: message.content }]).map(block => ({
+          role: message.role, type: block.type, chars: typeof block.text === 'string' ? block.text.length : 0,
+          reference: typeof block.text === 'string' && block.text.startsWith('<ruyi-reference-context>'),
+          cached: !!block.cache_control, sha256: crypto.createHash('sha256').update(JSON.stringify({ ...block, cache_control: undefined })).digest('hex'),
+        })));
         report.requests.push(row);
         const upstream = await fetch(wire.completionUrl(real.baseUrl), { method: 'POST', redirect: 'error',
           headers: wire.requestHeaders(real, { model }), body: JSON.stringify(body), signal: AbortSignal.timeout(120000) });
@@ -74,6 +87,7 @@ async function main() {
         const observe = line => {
           if (!line.startsWith('data:')) return;
           let event; try { event = JSON.parse(line.slice(5).trim()); } catch { return; }
+          if (event.type === 'content_block_start' && ['thinking', 'redacted_thinking'].includes(event.content_block?.type)) row.upstreamThinkingBlocks += 1;
           const responseModel = event.message?.model || event.response?.model || event.model;
           if (responseModel) row.responseModel = responseModel;
           const usage = event.message?.usage || event.response?.usage || event.usage;
@@ -97,7 +111,7 @@ async function main() {
     await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
     const provider = { id: 'cache-live', label: 'Synthetic cache qualification', type: 'openai-compat', apiStyle: style,
       baseUrl: `http://127.0.0.1:${proxy.address().port}` + (style === 'responses' ? '/v1' : ''), apiKey: 'synthetic-local-key', model, models: [{ id: model, label: model }],
-      anthropicThinking: 'off', reasoning: 'low', systemPrompt: `Synthetic qualification ${nonce}. Read only the files explicitly requested. Reply only with the marker. Never delegate.\n` + 'Stable reference data for cache qualification.\n'.repeat(180) };
+      anthropicThinking: thinking, reasoningEffort: effort, systemPrompt: `Synthetic qualification ${nonce}. Read only the files explicitly requested. Reply only with the marker. Never delegate.\n` + 'Stable reference data for cache qualification.\n'.repeat(180) };
     fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ configSchema: 12, permissionMode: 'bypass', defaultWorkspace: work,
       providers: [provider], activeProvider: provider.id, stewardThreadBriefV1: false, autoImportClaudeCodeMcp: false,
       importAgentInstructions: false, desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [],
@@ -118,7 +132,7 @@ async function main() {
     const headers = { 'content-type': 'application/json', 'x-wcw-token': token };
     const created = await fetch(base + '/api/sessions', { method: 'POST', headers, body: JSON.stringify({ title: 'Synthetic cache qualification', cwd: work }) }).then(r => r.json());
     if (!created.session?.id) throw Object.assign(new Error(), { code: 'session_create_failed' });
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < turnCount; i++) {
       const before = report.requests.length;
       const response = await fetch(base + '/api/chat/stream', { method: 'POST', headers, signal: AbortSignal.timeout(180000),
         body: JSON.stringify({ sessionId: created.session.id, cwd: work, message: `第${i + 1}轮：必须调用 file_read 读取 ${files[i]}，仅回复文件中的完整标记。禁止用脚本或其它工具代替，不要读任何其它文件。` }) });
@@ -157,7 +171,7 @@ async function main() {
     });
     report.reportedCostUsd = report.costCheck.every(check => check.reportedUsd != null) ? report.costCheck.reduce((sum, check) => sum + check.reportedUsd, 0) : null;
     if (sonnetPricing && (!report.costCheck.length || !report.costCheck.every(check => check.matches))) throw Object.assign(new Error(), { code: 'cost_arithmetic_mismatch' });
-    if (ledger.length !== 3 || report.ledger.input !== expectedInput || report.ledger.cached !== expectedCached || (style === 'anthropic' && !baseline && !report.turns.slice(1).every(turn => turn.cachedInput > 0))) throw Object.assign(new Error(), { code: 'ledger_or_cache_mismatch' });
+    if (ledger.length !== turnCount || report.ledger.input !== expectedInput || report.ledger.cached !== expectedCached || (style === 'anthropic' && !baseline && !report.turns.slice(1).every(turn => turn.cachedInput > 0))) throw Object.assign(new Error(), { code: 'ledger_or_cache_mismatch' });
     report.status = 'passed'; console.log(JSON.stringify({ status: report.status, ledger: report.ledger, reportedCostUsd: report.reportedCostUsd }));
   } catch (error) { report.status = 'failed'; report.error = error.code || error.name; throw error; }
   finally {

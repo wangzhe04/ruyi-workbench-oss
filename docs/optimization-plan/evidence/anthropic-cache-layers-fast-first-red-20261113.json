@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "node --require ./dev-harness/lib/self-isolate-home.js dev-harness/run-all.js --fast",
+  "status": "failed",
+  "unit": {
+    "tests": 5339,
+    "pass": 5306,
+    "fail": 0,
+    "skipped": 33
+  },
+  "static": {
+    "pass": 99,
+    "fail": 1
+  },
+  "failedSuite": "prompt-snapshot.static.e2e.js",
+  "failedAssertions": [
+    "D9 stable+volatile budget source initializer lock",
+    "D10b full budget source initializer lock"
+  ],
+  "resolution": "Replace obsolete literal initializer regexes with production renderPromptLayers execution for both legacy and typed paths; maintain exact stable+volatile and memory-tail budget assertions and add rule/reference coverage. Final static suite rerun separately.",
+  "logSha256": "92787ef0db193d25e2a1f166013fd894c8b9c91cb15ebd0fd76168dad0a9d0cd"
+}

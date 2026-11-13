@@ -109,11 +109,27 @@ ok(full.length >= stable.length + volatile.length - 5, 'D7 包装=stable+volatil
 // C1b 请求装配:易变层用真实换行注入,且上下文治理预算必须包含 stable+volatile。
 ok(src.includes("turnVolatile + '\\n\\n'") && !src.includes("turnVolatile + '\\\\n\\\\n'"), 'D8 volatile 前缀使用真实换行,不向模型发送字面量 \\\\n');
 ok(typeof srv.PROMPT_PACK_VERSION === 'string' && /^20\d\d-w\d+-\d+$/.test(srv.PROMPT_PACK_VERSION), 'D9 PROMPT_PACK_VERSION 语义化版本(52d, got ' + srv.PROMPT_PACK_VERSION + ')');
-ok(/let budgetPrompt = turnVolatile \? sys \+ '\\n\\n' \+ turnVolatile : sys;/.test(src), 'D9 可失效更新的上下文预算提示包含 stable+volatile');
+// Run the production renderer rather than locking a former one-line initializer.
+const renderBudget = require('./lib/source-slice').bracedBlock(src, 'const renderPromptLayers =');
+const budgetRows = [false, true].map(useCachePromptLayers => {
+  const context = { provider, initialTools: tools, caps, config, currentProjectMemory: { text: 'PROJECT BUDGET MARKER' },
+    currentSkillEntries: skillEntries, promptMemoryEntries: [], session: {}, promptMemoryConflicts: null,
+    promptMemoryStatus: null, currentPlaybookEntries: [], buildVolatileParts: srv.buildVolatileParts,
+    stewardVolatile: false, useCachePromptLayers, cachePrompt: null, catalogReferences: 'CATALOG BUDGET MARKER',
+    parallelRules: 'HOST BUDGET MARKER', sys: stable, turnPolicyExtras: 'TURN POLICY', volatileExtras: 'TURN POLICY', memoryTurnTail: 'MEMORY BUDGET MARKER' };
+  require('vm').runInNewContext(renderBudget + '\nrenderPromptLayers();', context);
+  return context;
+});
+const legacyBudget = srv.buildVolatileParts(provider, tools, caps, config, { text: 'PROJECT BUDGET MARKER' }, skillEntries, [], undefined, null, null, [], { session: {} }, { memoryTurnTail: true });
+ok(budgetRows[0].budgetPrompt === stable + '\n\n' + legacyBudget + '\n\nTURN POLICY'
+  && budgetRows[1].budgetPrompt.includes(stable) && budgetRows[1].budgetPrompt.includes('PROJECT BUDGET MARKER')
+  && budgetRows[1].budgetPrompt.includes('CATALOG BUDGET MARKER') && budgetRows[1].budgetPrompt.includes('HOST BUDGET MARKER')
+  && budgetRows[1].budgetPrompt.includes('TURN POLICY') && budgetRows[1].budgetPrompt.includes('desc'),
+  'D9 可失效更新的上下文预算提示包含 stable+volatile，分层路径也包含全部规则与引用');
 // 走查 #9:随每条消息变化的记忆回执 + 相关索引改投末条 user 尾部,不再在 turnVolatile 里;它们仍要计预算,所以上下文治理的几处调用
 // 改用 budgetPromptFull(= budgetPrompt + 记忆回合尾部)。D10 的意图(自动压缩与 fallback 估算都用「完整」预算提示)不变,只是完整的含义多了这一段。
 ok(/maybeAutoCompact\(session, provider, budgetPromptFull,/.test(src) && /estimateHistoryTokens\(session\.providerHistory, budgetPromptFull\)/.test(src), 'D10 自动压缩与 fallback 估算均使用完整预算提示(含记忆回合尾部)');
-ok(/let budgetPromptFull = memoryTurnTail \? budgetPrompt \+ '\\n\\n' \+ memoryTurnTail : budgetPrompt;/.test(src), 'D10b 可失效更新的完整预算提示 = stable + volatile + 记忆回合尾部');
+ok(budgetRows.every(row => row.budgetPromptFull === row.budgetPrompt + '\n\nMEMORY BUDGET MARKER'), 'D10b 可失效更新的完整预算提示 = stable + volatile + 记忆回合尾部');
 // 108a 运行时身份层:产品名/版本/启动模式进 stable(自我认知),且必须逐字节稳定、identityOnly 不注入。
 // 108a-fix2: stable 层渲染文字必须跨进程恒定:address(随机端口)与 instanceId(每进程随机 OVERLAY_ID)
 // 会让 budget-guard.e2e.js 两个独立栈的请求体逐字节比对失败(E4/E30),故两项与 installDir/dataDir

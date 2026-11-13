@@ -37,6 +37,8 @@ const FILE_A = path.join(WORK, 'a.txt');
 const FILE_B = path.join(WORK, 'b.txt');
 fs.writeFileSync(FILE_A, 'marker ALPHA-4410', 'utf8');
 fs.writeFileSync(FILE_B, 'marker BRAVO-9921', 'utf8');
+const PROJECT_FILE = path.join(WORK, 'CLAUDE.md');
+fs.writeFileSync(PROJECT_FILE, 'REFERENCE_A: untrusted project reference', 'utf8');
 const MODEL = 'claude-opus-5-5';
 
 const blocksOf = req => (req.messages || []).flatMap(m => (Array.isArray(m.content) ? m.content : []));
@@ -44,11 +46,30 @@ const hasThinking = req => blocksOf(req).some(b => b && (b.type === 'thinking' |
 const systemText = body => Array.isArray(body && body.system) ? body.system.map(b => b.text || '').join('') : String(body && body.system || '');
 const isSub = req => systemText(req.body).includes('子任务执行体');
 const allText = req => JSON.stringify(req.messages || []);
+const setCatalogModels = extra => {
+  const file = path.join(HOME, 'config.json'), config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.providers[0].models = [{ id: MODEL, label: MODEL }, ...(extra ? [{ id: extra, label: extra }] : [])];
+  fs.writeFileSync(file, JSON.stringify(config));
+};
 let signatureRejects = 0;
 function handler(req) {
   if (!req.stream) return messageEvents({ text: 'draft ok: ' + (allText(req).includes('<system-reminder>') ? 'reminder-seen' : 'no-reminder') });
   if (isSub(req)) return messageEvents({ text: 'sub done', usage: { input_tokens: 9, output_tokens: 2 } });
   const all = allText(req);
+  if (all.includes('REFERENCE_CHANGE')) {
+    const results = blocksOf(req).filter(b => b.type === 'tool_result');
+    if (!results.some(b => b.tool_use_id === 'toolu_ref1')) {
+      fs.writeFileSync(PROJECT_FILE, 'REFERENCE_B: replacement project reference');
+      setCatalogModels('REF_MODEL_B');
+      return messageEvents({ thinking: 'reference A thought', signature: 'SIG-REF', toolUses: [{ id: 'toolu_ref1', name: 'file_read', input: { path: FILE_A } }] });
+    }
+    if (!results.some(b => b.tool_use_id === 'toolu_ref2')) {
+      fs.unlinkSync(PROJECT_FILE);
+      setCatalogModels('');
+      return messageEvents({ thinking: 'reference B thought', signature: 'SIG-REF2', toolUses: [{ id: 'toolu_ref2', name: 'file_read', input: { path: FILE_B } }] });
+    }
+    return messageEvents({ text: 'reference refresh done' });
+  }
   if (all.includes('CACHE_REJECT')) {
     if (JSON.stringify(req.body).includes('cache_control')) return { status: 400, json: { type: 'error', error: { type: 'invalid_request_error', message: 'messages.2.content.0.tool_result.cache_control: extra inputs are not permitted' } } };
     return messageEvents({ text: 'cache compatibility done' });
@@ -105,10 +126,10 @@ async function waitFor(fn, tries = 150, gap = 100) {
   let fake = null, wb = null;
   try {
     fake = await startFakeAnthropic({ handler });
-    const provider = { id: 'claude', label: 'Claude(假)', type: 'openai-compat', apiStyle: 'anthropic', baseUrl: fake.url + '/anthropic', apiKey: 'sk-ant-fake-key', model: MODEL, models: [{ id: MODEL, label: MODEL }] };
+    const provider = { id: 'claude', label: 'Claude(假)', type: 'openai-compat', apiStyle: 'anthropic', baseUrl: fake.url + '/anthropic', apiKey: 'sk-ant-fake-key', model: MODEL, models: [{ id: MODEL, label: MODEL }, { id: 'REF_MODEL_A', label: 'REF_MODEL_A' }] };
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-      configSchema: 12, permissionMode: 'bypass', defaultWorkspace: WORK, stewardThreadBriefV1: false,
-      providers: [provider], activeProvider: 'claude',
+      configSchema: 12, permissionMode: 'bypass', defaultWorkspace: WORK, stewardThreadBriefV1: false, toolLoadingMode: 'full',
+      providers: [provider], activeProvider: 'claude', extraModels: ['catalog-seed'],
     }));
     const port = await getFreePort();
     wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, windowsHide: true, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME } });
@@ -132,7 +153,9 @@ async function waitFor(fn, tries = 150, gap = 100) {
     ok(systemText(b1).length > 100 && b1.max_tokens === 32000 && b1.stream === true, 'M1 顶层 system、max_tokens、stream');
     const cacheBlocks = body => [...(Array.isArray(body.system) ? body.system : []), ...blocksOf(body)].filter(b => b.cache_control);
     ok(cacheBlocks(b1).length >= 2 && cacheBlocks(b1).length <= 4 && b1.system[0].cache_control.type === 'ephemeral', 'M1 系统与对话启用缓存，最多四个断点');
-    ok(first.body.messages[0].content[0].text.startsWith('并行读 a.txt 和 b.txt,告诉我两个标记。') && first.body.messages[0].content[0].cache_control?.type === 'ephemeral', 'M1 原始用户正文在临时提示前独立缓存');
+    const originalUser = body => blocksOf(body).find(b => b.type === 'text' && b.text.startsWith('并行读 a.txt 和 b.txt,告诉我两个标记。'));
+    ok(originalUser(b1)?.cache_control?.type === 'ephemeral', 'M1 原始用户正文在引用与临时提示之间独立缓存');
+    ok(!systemText(b1).includes('REFERENCE_A') && blocksOf(b1).some(b => b.text?.startsWith('<ruyi-reference-context>') && b.text.includes('REFERENCE_A')), 'M1 项目引用保持 user 数据，不提升为 system');
     ok(b1.thinking && b1.thinking.type === 'adaptive', 'M1 claude-opus-5-5 发 adaptive thinking');
     ok(!('stream_options' in b1) && !(b1.messages || []).some(m => m.role === 'system'), 'M1 没有 OpenAI 的 stream_options / system 角色消息');
     ok(Array.isArray(b1.tools) && b1.tools.length > 3 && b1.tools.every(x => x.name && x.input_schema && !x.function) && b1.tool_choice && b1.tool_choice.type === 'auto',
@@ -176,7 +199,7 @@ async function waitFor(fn, tries = 150, gap = 100) {
     ok(turn2.length === 3, `M6 第二回合三发:开循环、签名失配、去块重打(${turn2.length})`);
     const t2first = turn2[0];
     const sameSystem = systemText(t2first.body) === systemText(b1);
-    const sameUser = t2first.messages[0].content[0].text === b1.messages[0].content[0].text;
+    const sameUser = originalUser(t2first.body)?.text === originalUser(b1)?.text;
     ok(sameSystem && sameUser, `M6 新回合保留系统与第一条用户正文缓存前缀，不再前插动态提示(system=${sameSystem}, user=${sameUser})`);
     const oldAssistant = (t2first.messages || []).find(m => m.role === 'assistant' && JSON.stringify(m.content).includes('toolu_a'));
     ok(!hasThinking(t2first) && oldAssistant && oldAssistant.content.some(b => b.type === 'text') && oldAssistant.content.some(b => b.type === 'tool_use'),
@@ -192,6 +215,19 @@ async function waitFor(fn, tries = 150, gap = 100) {
     ok(JSON.stringify(cacheRequests[1].body.tools) === JSON.stringify(cacheRequests[0].body.tools), 'M7b tool_result路径拒收缓存字段不会去掉工具');
     ok((evCache.find(e => e.type === 'result') || {}).ok === true && evCache.filter(e => e.type === 'assistant_delta').map(e => e.text).join('').includes('cache compatibility done'),
       'M7b 缓存不兼容时回合仍成功');
+
+    const beforeRef = fake.requests.length;
+    const evRef = await chatStream(port, { sessionId, cwd: WORK, message: 'REFERENCE_CHANGE 检查代理编排 orchestrate_agents 的角色与模型目录，验证引用实时失效，只用 file_read 读取文件' }, headers);
+    const refRequests = fake.requests.slice(beforeRef);
+    ok(refRequests.length === 3 && (evRef.find(e => e.type === 'result') || {}).ok === true, 'M11 引用变化的真实三发工具循环成功，无400重试');
+    ok(allText(refRequests[0]).includes('REFERENCE_A') && !allText(refRequests[1]).includes('REFERENCE_A') && allText(refRequests[1]).includes('REFERENCE_B')
+      && !allText(refRequests[2]).includes('REFERENCE_A') && !allText(refRequests[2]).includes('REFERENCE_B'), 'M11 改写与删除项目引用在下次请求立即生效');
+    ok(allText(refRequests[0]).includes('REF_MODEL_A') && !allText(refRequests[1]).includes('REF_MODEL_A') && allText(refRequests[1]).includes('REF_MODEL_B')
+      && !allText(refRequests[2]).includes('REF_MODEL_A') && !allText(refRequests[2]).includes('REF_MODEL_B'), 'M11 模型目录从当前配置重读，撤销不保留回合入口快照 ' + JSON.stringify(refRequests.map(r => ({a:allText(r).includes('REF_MODEL_A'),b:allText(r).includes('REF_MODEL_B'),orchestrate:r.body.tools.some(t=>t.name==='orchestrate_agents'),catalog:allText(r).includes('可选模型'),roles:allText(r).includes('可用 Agent 角色')}))));
+    ok(!hasThinking(refRequests[1]) && !hasThinking(refRequests[2]) && blocksOf(refRequests[2]).filter(b => b.type === 'tool_result').length >= 2,
+      'M11 前缀变化在发包前停用旧签名，保留工具调用与结果配对');
+    const persisted = fs.readFileSync(providerFile, 'utf8');
+    ok(!persisted.includes('REFERENCE_A') && !persisted.includes('REFERENCE_B') && !persisted.includes('<ruyi-reference-context>'), 'M11 临时引用不进入持久历史');
 
     // ── 子代理 ───────────────────────────────────────────────────────────────────────────
     const launch = await request(port, 'POST', '/api/agent-workflow/launch', { token, sessionId, async: true, nodes: [{ id: 'reader', task: '子任务:说一句完成', toolTier: 'read' }] }, headers);

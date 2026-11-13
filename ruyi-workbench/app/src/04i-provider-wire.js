@@ -676,8 +676,8 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     completionUrl: anthropicMessagesUrl,
     modelsUrl: anthropicModelsUrl,
     requestHeaders: anthropicRequestHeaders,
-    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools, cacheUserPrefix }) => encodeAnthropicMessages({
-      model, stream, instructions, provider, hasTools, cacheUserPrefix,
+    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools, cacheUserPrefix, cachePrompt }) => encodeAnthropicMessages({
+      model, stream, instructions, provider, hasTools, cacheUserPrefix, cachePrompt,
       // 与 Responses 同一个配对自愈:tool_use 必须紧跟 tool_result,缺了补合成结果(只改副本)。
       messages: responsesHistoryWithCompleteToolPairs(messages).history,
     }),

@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "command": "Seven relevant E2Es, sequential, original 120000ms budgets, fixture home guard preloaded",
+  "serverSha256": "428428f390124cacd363884f0a8d86cd527738488d674007ee7d9b318ba0ca0d",
+  "rows": [
+    {
+      "file": "anthropic-fake.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 10027
+    },
+    {
+      "file": "anthropic-gateway-setup.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 5927
+    },
+    {
+      "file": "subagent-thinking-continuity.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 31680
+    },
+    {
+      "file": "prefix-layout.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 34402
+    },
+    {
+      "file": "budget-guard.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 53840
+    },
+    {
+      "file": "memory-active-scope.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 5851
+    },
+    {
+      "file": "skills-registry.e2e.js",
+      "exitCode": 0,
+      "timedOut": false,
+      "failureLines": [],
+      "elapsedMs": 13894
+    }
+  ],
+  "status": "passed",
+  "pass": 7,
+  "fail": 0
+}

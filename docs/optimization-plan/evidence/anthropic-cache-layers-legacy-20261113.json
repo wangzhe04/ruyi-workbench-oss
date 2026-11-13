@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "cases": 32,
+  "assertions": 64,
+  "base": "5322a14bd8696a650be3dff7c15ff119769449a6",
+  "scope": "Default full builder output vs exact HEAD function in the same current module helper environment; locale/style/capabilities/project/skill/playbook/mission variants. No keys or user content."
+}

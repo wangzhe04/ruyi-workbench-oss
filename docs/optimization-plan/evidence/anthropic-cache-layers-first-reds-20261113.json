@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "scope": "Development red observations, not final validation. Full logs retained in local TEMP; no raw prompt bodies.",
+  "rows": [
+    {
+      "log": "ruyi-cache-layers-unit.log",
+      "sha256": "3fc8f843b371a0df219da07d84c2dc325ee6b17f10da8986124538158cb30b15",
+      "failures": [
+        "✖ real default front assembly and explicit tail assembly preserve exact current forge boundary with time and memory layers (2.2046ms)",
+        "✖ oracle rejects wrong role, old history/context, every exact payload identity mutation and noncurrent request (0.8143ms)",
+        "✖ real caller uses actual handler receipt and persisted exact user, retains wire and stream diagnostics before valid callback (4.2222ms)",
+        "✖ receive-time diagnostic EIO stays red and cannot manufacture successful reception (0.8483ms)",
+        "✖ original journey finally closes its owned provider after receive diagnostic EIO and preserves that first red (1.3501ms)",
+        "✖ failing tests:",
+        "✖ real default front assembly and explicit tail assembly preserve exact current forge boundary with time and memory layers (2.2046ms)",
+        "✖ oracle rejects wrong role, old history/context, every exact payload identity mutation and noncurrent request (0.8143ms)",
+        "✖ real caller uses actual handler receipt and persisted exact user, retains wire and stream diagnostics before valid callback (4.2222ms)",
+        "✖ receive-time diagnostic EIO stays red and cannot manufacture successful reception (0.8483ms)",
+        "✖ original journey finally closes its owned provider after receive diagnostic EIO and preserves that first red (1.3501ms)"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-unit3.log",
+      "sha256": "491aefff3a53e961a7f8908ac61047205c5b4b4c011362967458d9fa60879998",
+      "failures": [
+        "✖ real default front assembly and explicit tail assembly preserve exact current forge boundary with time and memory layers (2.1573ms)",
+        "✖ oracle rejects wrong role, old history/context, every exact payload identity mutation and noncurrent request (0.8835ms)",
+        "✖ real caller uses actual handler receipt and persisted exact user, retains wire and stream diagnostics before valid callback (5.4554ms)",
+        "✖ receive-time diagnostic EIO stays red and cannot manufacture successful reception (1.3597ms)",
+        "✖ original journey finally closes its owned provider after receive diagnostic EIO and preserves that first red (2.2805ms)",
+        "✖ 同一受保护图片经三个线协议编码后仍被交付层认出,且载荷字节一致 (20.218ms)",
+        "✖ failing tests:",
+        "✖ real default front assembly and explicit tail assembly preserve exact current forge boundary with time and memory layers (2.1573ms)",
+        "✖ oracle rejects wrong role, old history/context, every exact payload identity mutation and noncurrent request (0.8835ms)",
+        "✖ real caller uses actual handler receipt and persisted exact user, retains wire and stream diagnostics before valid callback (5.4554ms)",
+        "✖ receive-time diagnostic EIO stays red and cannot manufacture successful reception (1.3597ms)",
+        "✖ original journey finally closes its owned provider after receive diagnostic EIO and preserves that first red (2.2805ms)",
+        "✖ 同一受保护图片经三个线协议编码后仍被交付层认出,且载荷字节一致 (20.218ms)"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-unit5.log",
+      "sha256": "4da7b6b6299001759663a9827c6473ce8b128e531e19030c50d5a6b73b82298f",
+      "failures": [
+        "✖ [cache layers] typed split keeps exact legacy assembly and puts project/skill/mission data outside host rules (5.2259ms)",
+        "✖ failing tests:",
+        "✖ [cache layers] typed split keeps exact legacy assembly and puts project/skill/mission data outside host rules (5.2259ms)"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-fake.log",
+      "sha256": "37486f3f1ce2d1fbb281c83ccdfe6eb1de216e0de369956f37a70afeec8794ce",
+      "failures": [
+        "FAIL M1 原始用户正文在临时提示前独立缓存"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-fake3.log",
+      "sha256": "3d6f5acfba9cf651c71747aae3da218a6aefd747a89273105380b927861ff2dd",
+      "failures": [
+        "FAIL M11 模型目录从当前配置重读，撤销不保留回合入口快照"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-fake4.log",
+      "sha256": "31bf6919908393ebe06abfb873e7663779c137cdaaa7165de1862235b819fdc6",
+      "failures": [
+        "FAIL M11 模型目录从当前配置重读，撤销不保留回合入口快照"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-fake5.log",
+      "sha256": "a9fb7d2fe9ebeaedaa358b97dc6cdc625952541b16767950b5a33d484f1605ec",
+      "failures": [
+        "FAIL M11 模型目录从当前配置重读，撤销不保留回合入口快照 [{\"a\":false,\"b\":false,\"orchestrate\":true},{\"a\":false,\"b\":false,\"orchestrate\":true},{\"a\":false,\"b\":false,\"orchestrate\":true}]"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-fake6.log",
+      "sha256": "c30fb1111f7891e9a65155f5568934b21de49c00caee9a6ea0cd1cb1f0bb51a5",
+      "failures": [
+        "FAIL M11 模型目录从当前配置重读，撤销不保留回合入口快照 [{\"a\":false,\"b\":false,\"orchestrate\":true},{\"a\":false,\"b\":false,\"orchestrate\":true},{\"a\":false,\"b\":false,\"orchestrate\":true}]"
+      ]
+    },
+    {
+      "log": "ruyi-cache-layers-fake7.log",
+      "sha256": "59e4938855346ac8c63cdf577c3691d7a6c42bacb49af63d69a710e45ac14620",
+      "failures": [
+        "FAIL M11 模型目录从当前配置重读，撤销不保留回合入口快照 [{\"a\":false,\"b\":false,\"orchestrate\":true,\"catalog\":false,\"roles\":true},{\"a\":false,\"b\":false,\"orchestrate\":true,\"catalog\":false,\"roles\":true},{\"a\":false,\"b\":false,\"orchestrate\":true,\"catalog\":false,\"roles\":true}]"
+      ]
+    }
+  ],
+  "resolutions": [
+    "Source-slice VM given new real cache-layout declaration/closure variable",
+    "Mission fixture now includes required milestone",
+    "Model catalogue HTTP fixture provides offline model seed required by existing buildModelHint early gate",
+    "Protected URL images preserve exact privacy reference shape"
+  ]
+}

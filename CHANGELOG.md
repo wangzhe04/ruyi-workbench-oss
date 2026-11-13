@@ -7,6 +7,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 进一步优化 Claude Messages 跨用户回合的缓存：固定指南与当前引用分别布局，目录撤销及时生效，引用变化时预先停用旧思考签名回放。保留受保护图片引用的严格形状和发送预算快照。
+- Improve Claude Messages caching across user turns by separating fixed guidance from current reference data, refreshing revoked catalog entries and dropping bound thinking before changed-prefix requests. Preserve protected-image reference shapes and the budgeted send snapshot.
+
 - 修复 Claude 的 Anthropic Messages 回合未启用提示缓存及动态提示破坏历史前缀的问题。流式工具循环使用缓存断点与稳定用户正文边界；兼容网关拒收缓存字段时保留工具继续完成回合，非流式起草/摘要保持原请求形状。
 - Fix missing prompt-cache activation and unstable history prefixes in Claude Anthropic Messages turns. Streamed tool loops now use cache breakpoints and stable user-content boundaries; gateways rejecting cache fields retain tools during fallback, while non-streaming drafts and summaries keep their existing request shape.
 
