@@ -1,0 +1,13 @@
+{
+  "recordedAt": "2026-11-13T02:47:55.779916+00:00",
+  "screenAndAudioTop": {
+    "RuyiToggle": "on",
+    "revealFinderTarget": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01/Ruyi.app"
+  },
+  "audioOnlyBottom": {
+    "RuyiToggle": "on",
+    "revealFinderTarget": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app"
+  },
+  "conclusion": "User added the new App to system-audio-only rather than screen capture. Exact new App is now selected in the picker opened from the TOP screen-capture list; user confirmation/authentication pending.",
+  "agentGrantedPermission": false
+}

@@ -1,0 +1,9 @@
+PASS LaunchServices App owns the actual workbench Node service
+PASS capture App birth and its actual Node child were observed for this exact report invocation
+PASS App-launched helper has its own verified capture authorization
+PASS App status directory and capability snapshot agree on capture readiness
+PASS normal App HTTP tool entry captures a real PNG
+PASS LaunchServices waiter exits normally after App self-termination
+PASS all observed capture App and service birth identities are absent after shutdown
+
+MACOS CAPTURE HOST E2E: ALL PASS

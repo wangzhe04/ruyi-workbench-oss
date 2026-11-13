@@ -1,0 +1,10 @@
+PASS LaunchServices App owns the actual workbench Node service
+FAIL capture App birth and its actual Node child were observed for this exact report invocation
+FAIL App-launched helper has its own verified capture authorization
+PASS App status directory and capability snapshot agree on capture readiness
+FAIL normal App HTTP tool entry captures a real PNG
+PASS LaunchServices waiter exits normally after App self-termination
+FAIL all observed capture App and service birth identities are absent after shutdown
+INFO Failed App fixture retained at /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-host-tAaPDI
+
+MACOS CAPTURE HOST E2E: FAIL (4)

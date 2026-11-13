@@ -1,0 +1,274 @@
+{
+  "nativePID": 25315,
+  "servicePID": 25359,
+  "launch": "LaunchServices",
+  "serviceInvocation": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/node/bin/node --require /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/desktop-macos/service-lease.cjs /Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/app/server.js serve --host 127.0.0.1",
+  "bundle": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "bundled": true,
+  "workbenchRoot": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench",
+  "serverSha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a",
+  "nativeHelper": {
+    "path": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app/Contents/Resources/workbench/runtime/macos/ruyi-automation-helper",
+    "origin": "installed-app-bundle",
+    "sha256": "3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69"
+  },
+  "ax": null,
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "inputSequenceReady": true,
+    "inputSequenceSupported": true,
+    "installed": true,
+    "listenAuthorization": "granted",
+    "locked": false,
+    "manualPointerProfiles": [
+      "exact",
+      "standard_mouse"
+    ],
+    "manualRecordReady": true,
+    "manualRecordSupported": true,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "recordInputSource": {
+      "id": "com.apple.inputmethod.SCIM.ITABC",
+      "type": "TISTypeKeyboardInputMode"
+    },
+    "recordReady": true,
+    "recordSource": "controlled_native_requests",
+    "recordSources": [
+      "controlled_native_requests",
+      "native_window_events"
+    ],
+    "recordSupported": true,
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 10732,
+      "height": 528,
+      "pid": 25290,
+      "process_start": "1794539066:830340",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 10732,
+        "pid": 25290,
+        "process_start": "1794539066:830340",
+        "ref": "B470F71E-EF0F-4B39-AB34-29C1BB6673DA"
+      },
+      "title": "Ruyi P5 Input 25290",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "recording": null,
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 839,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "manualDemonstration": null,
+  "observedProcesses": [
+    {
+      "pid": 25315,
+      "ppid": 1,
+      "created": "1794539067644113"
+    },
+    {
+      "pid": 25359,
+      "ppid": 25315,
+      "created": "1794539067863192"
+    },
+    {
+      "pid": 25491,
+      "ppid": 25359,
+      "created": "1794539068354773"
+    },
+    {
+      "pid": 25516,
+      "ppid": 25359,
+      "created": "1794539068482466"
+    },
+    {
+      "pid": 25517,
+      "ppid": 25516,
+      "created": "1794539068485285"
+    },
+    {
+      "pid": 25540,
+      "ppid": 25359,
+      "created": "1794539068567967"
+    },
+    {
+      "pid": 25564,
+      "ppid": 25359,
+      "created": "1794539068616168"
+    },
+    {
+      "pid": 25566,
+      "ppid": 25564,
+      "created": "1794539068618362"
+    },
+    {
+      "pid": 25567,
+      "ppid": 25566,
+      "created": "1794539068618864"
+    },
+    {
+      "pid": 25608,
+      "ppid": 25359,
+      "created": "1794539068798536"
+    },
+    {
+      "pid": 25858,
+      "ppid": 25567,
+      "created": "1794539069517920"
+    },
+    {
+      "pid": 25913,
+      "ppid": 25567,
+      "created": "1794539069632085"
+    },
+    {
+      "pid": 25945,
+      "ppid": 25567,
+      "created": "1794539069748489"
+    },
+    {
+      "pid": 25999,
+      "ppid": 25567,
+      "created": "1794539069858028"
+    },
+    {
+      "pid": 26031,
+      "ppid": 25567,
+      "created": "1794539069967980"
+    },
+    {
+      "pid": 26061,
+      "ppid": 25567,
+      "created": "1794539070071502"
+    },
+    {
+      "pid": 26119,
+      "ppid": 25567,
+      "created": "1794539070183623"
+    },
+    {
+      "pid": 26152,
+      "ppid": 25359,
+      "created": "1794539070299556"
+    },
+    {
+      "pid": 26149,
+      "ppid": 25359,
+      "created": "1794539070297778"
+    },
+    {
+      "pid": 26151,
+      "ppid": 26149,
+      "created": "1794539070299319"
+    },
+    {
+      "pid": 26177,
+      "ppid": 25359,
+      "created": "1794539070348314"
+    },
+    {
+      "pid": 26211,
+      "ppid": 25567,
+      "created": "1794539070408700"
+    },
+    {
+      "pid": 26262,
+      "ppid": 25359,
+      "created": "1794539070576502"
+    },
+    {
+      "pid": 26324,
+      "ppid": 25359,
+      "created": "1794539070743675"
+    },
+    {
+      "pid": 26387,
+      "ppid": 25359,
+      "created": "1794539070906673"
+    },
+    {
+      "pid": 26445,
+      "ppid": 25359,
+      "created": "1794539071071757"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 14,
+      "key_up": 14,
+      "left_down": 1,
+      "left_up": 1,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

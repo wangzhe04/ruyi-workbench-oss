@@ -2142,7 +2142,7 @@
           ],
           "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
-          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json"
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json"
         },
         {
           "id": "P6-02",
@@ -2190,7 +2190,7 @@
           ],
           "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
-          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json"
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json"
         },
         {
           "id": "P6-03",
@@ -2206,7 +2206,9 @@
             "evidence/P6/final/README.md",
             "evidence/P6/final/validation.json",
             "evidence/P6/final/review-final.json",
-            "evidence/P6/final/REGRESSION.md"
+            "evidence/P6/final/REGRESSION.md",
+            "evidence/P6/authorization-resume/normal-full-upgrade/index.json",
+            "evidence/P6/authorization-resume/normal-full-upgrade-independent/review.json"
           ],
           "completedDate": "2026-11-12",
           "commit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
@@ -2220,8 +2222,8 @@
           ],
           "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
-          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json",
-          "currentCandidateQualification": "Full15 clone/checksummed-sync staging; Slim14 normal copy; Full normal-copy ENOSPC not counted as pass, old App/data protected."
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json",
+          "currentCandidateQualification": "Full and Slim ordinary-copy upgrade/rollback14 each, main and independent; earlier Full clone15 and ENOSPC histories retained."
         },
         {
           "id": "P6-04",
@@ -2242,18 +2244,21 @@
             "evidence/P6/mac-closeout/validation.json",
             "evidence/P6/mac-closeout/regression-composite.json",
             "evidence/P6/mac-closeout/independent-closeout/review.json",
-            "evidence/P6/mac-closeout/independent-packages/review.json"
+            "evidence/P6/mac-closeout/independent-packages/review.json",
+            "evidence/P6/authorization-resume/README.md",
+            "evidence/P6/authorization-resume/validation.json",
+            "evidence/P6/authorization-resume/regression-composite.json",
+            "evidence/P6/authorization-resume/independent/review.json",
+            "evidence/P6/authorization-resume/normal-full-upgrade-independent/review.json"
           ],
           "commit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "implementationCompleted": true,
           "currentLocalTrialAssessmentCompleted": true,
-          "completionScope": "可无人值守修复、新包验收与文档收尾；两项真实App授权正向资格仍未通过，未推断用户豁免。",
+          "completionScope": "当前Mac内部试用范围完成：固定Full真实授权截图／基本输入、Full/Slim实包和普通升级回退、合并回归及文档收尾；原正式发行和其他环境门继续开放。",
           "fullOriginalScopeAccepted": false,
-          "progress": "P6本轮Mac修复与可无人值守验收已收尾，应用／包装来源 74d57c88、验收夹具 b2283782。Full/Slim主执行与独立各安装13、离线19/7、Trash12通过；Full15为APFS独立副本升级／回退，普通第二copy的ENOSPC保留，Slim14为普通复制升级／回退。完整轮588/6，定点修复合并592退出成功/2真实App授权待验（非最终594件整轮重跑），32件原内部SKIP、14live排除。P6-04及P6继续in_progress；正式发行与原环境门未验收。[本轮收尾与新交付物](evidence/P6/mac-closeout/README.md)／[逐件对账](evidence/P6/mac-closeout/regression-composite.json)。",
+          "progress": "2026-11-13 当前Mac内部试用范围收尾完成。应用／包装74d57c88，验收夹具f3237570。固定安装Full本人授权后，主执行及独立录屏7、输入14通过，实际绑定包内helper；Full普通复制升级／完整快照回退主执行及独立各14项通过，原ENOSPC与拒权日志保留。Full/Slim既有安装13、离线19/7、Trash12及Slim普通升级14继续有效。逐件合并594退出成功，保留32件历史内部SKIP、14live排除；不是最终候选594件整轮重跑。currentMacTrialStatus=done；P6及P6-04原正式范围仍in_progress。见evidence/P6/authorization-resume/README.md。",
           "notAccepted": [
-            "Fresh source Ruyi App capture authorization-positive qualification: denied, requires personal authentication",
-            "Fresh source Ruyi App Accessibility/event input authorization-positive qualification: denied, requires personal authentication",
             "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
             "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
             "real clean standard-user installation or clean second Mac without developer tools",
@@ -2265,21 +2270,27 @@
           ],
           "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
           "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
-          "currentArtifactEvidence": "evidence/P6/mac-closeout/validation.json",
-          "acceptanceFixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
-          "automatableCloseoutCompleted": true
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json",
+          "acceptanceFixtureCommit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+          "automatableCloseoutCompleted": true,
+          "currentMacTrialStatus": "done",
+          "currentMacTrialCompletedDate": "2026-11-13",
+          "additionalLimits": [
+            "Slim positive App-origin capture/input qualification was not repeated in this resumed window.",
+            "Input Monitoring/event listening/manual recording is not qualified by a granted listen diagnostic alone.",
+            "No fresh final-candidate 594-file full run; 32 historical internal-SKIP files and 14 excluded live files remain explicit.",
+            "Permission revocation, locked-session and original P5 fault/environment scenarios remain bounded by their historical evidence."
+          ]
         }
       ],
       "owner": "Codex",
-      "progress": "P6本轮Mac修复与可无人值守验收已收尾，应用／包装来源 74d57c88、验收夹具 b2283782。Full/Slim主执行与独立各安装13、离线19/7、Trash12通过；Full15为APFS独立副本升级／回退，普通第二copy的ENOSPC保留，Slim14为普通复制升级／回退。完整轮588/6，定点修复合并592退出成功/2真实App授权待验（非最终594件整轮重跑），32件原内部SKIP、14live排除。P6-04及P6继续in_progress；正式发行与原环境门未验收。[本轮收尾与新交付物](evidence/P6/mac-closeout/README.md)／[逐件对账](evidence/P6/mac-closeout/regression-composite.json)。",
+      "progress": "2026-11-13 当前Mac内部试用范围收尾完成。应用／包装74d57c88，验收夹具f3237570。固定安装Full本人授权后，主执行及独立录屏7、输入14通过，实际绑定包内helper；Full普通复制升级／完整快照回退主执行及独立各14项通过，原ENOSPC与拒权日志保留。Full/Slim既有安装13、离线19/7、Trash12及Slim普通升级14继续有效。逐件合并594退出成功，保留32件历史内部SKIP、14live排除；不是最终候选594件整轮重跑。currentMacTrialStatus=done；P6及P6-04原正式范围仍in_progress。见evidence/P6/authorization-resume/README.md。",
       "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
       "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
       "fullOriginalScopeAccepted": false,
       "currentLocalTrialArtifactAcceptancePassed": true,
-      "acceptanceEvidence": "evidence/P6/mac-closeout/validation.json",
+      "acceptanceEvidence": "evidence/P6/authorization-resume/validation.json",
       "remainingGates": [
-        "Fresh source Ruyi App capture authorization-positive qualification: denied, requires personal authentication",
-        "Fresh source Ruyi App Accessibility/event input authorization-positive qualification: denied, requires personal authentication",
         "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
         "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
         "real clean standard-user installation or clean second Mac without developer tools",
@@ -2289,7 +2300,7 @@
         "Windows same-candidate full regression",
         "original unverified P5 environments; no new waiver inferred"
       ],
-      "acceptanceFixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+      "acceptanceFixtureCommit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
       "automatableCloseoutCompleted": true,
       "unattendedExecution": {
         "instruction": "修复Mac端的问题并收尾P6。接下来无人值守，设置防锁屏进行最终验收，完成后释放并休眠",
@@ -2301,7 +2312,22 @@
         "ownedAssertionReleased": true,
         "sleepQueued": true,
         "sleepScheduledForUTC": "2026-11-12T16:09:56.689913+00:00",
-        "observedAsleep": false
+        "observedAsleep": false,
+        "historicalRecord": true,
+        "laterPersonalAuthorizationEvidence": "evidence/P6/authorization-resume/independent/review.json"
+      },
+      "currentMacTrialStatus": "done",
+      "currentMacTrialCompletedDate": "2026-11-13",
+      "additionalLimits": [
+        "Slim positive App-origin capture/input qualification was not repeated in this resumed window.",
+        "Input Monitoring/event listening/manual recording is not qualified by a granted listen diagnostic alone.",
+        "No fresh final-candidate 594-file full run; 32 historical internal-SKIP files and 14 excluded live files remain explicit.",
+        "Permission revocation, locked-session and original P5 fault/environment scenarios remain bounded by their historical evidence."
+      ],
+      "authorizationResume": {
+        "personallyCompletedByUser": true,
+        "fixedFullPositiveCaptureAndBasicInputAccepted": true,
+        "evidence": "evidence/P6/authorization-resume/independent/review.json"
       }
     }
   ],

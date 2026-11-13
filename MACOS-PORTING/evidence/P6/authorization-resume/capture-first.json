@@ -1,0 +1,13 @@
+{
+  "command": [
+    "node",
+    "dev-harness/macos-capture-host.e2e.js"
+  ],
+  "testApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "exitCode": 1,
+  "seconds": 6.884,
+  "log": "capture-first.txt",
+  "finishedAt": "2026-11-13T02:17:02.572639+00:00",
+  "startedAt": "2026-11-13T02:16:55.688639+00:00",
+  "metadataNote": "Original metadata timestamp was written after the subprocess completed; labeled finishedAt and start reconstructed from measured wall duration."
+}

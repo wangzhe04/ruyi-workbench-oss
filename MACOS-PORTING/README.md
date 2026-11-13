@@ -4,7 +4,7 @@
 
 P6-01 已完成自包含 arm64 Full/Slim 离线候选实现与当前 Mac 验证，源码 `f059b7eb`；最终候选绑定见 [离线打包记录](evidence/P6/offline/README.md)。正式签名、公证、最低系统与干净安装仍按原阶段关口保留。
 
-P6本轮Mac修复与可无人值守验收已收尾，应用／包装来源 `74d57c88`、验收夹具 `b2283782`。Full/Slim主执行与独立各安装13、离线19/7、Trash12通过；Full15为APFS独立副本升级／回退，普通第二copy的ENOSPC保留，Slim14为普通复制升级／回退。完整轮588/6，定点修复合并592退出成功/2真实App授权待验（非最终594件整轮重跑），32件原内部SKIP、14live排除。P6-04及P6继续in_progress；正式发行与原环境门未验收。[本轮收尾与新交付物](evidence/P6/mac-closeout/README.md)／[逐件对账](evidence/P6/mac-closeout/regression-composite.json)。
+2026-11-13，**P6 当前 Mac 本地／内部试用范围已完成收尾**。固定 Full App 经本人授权后，主执行及独立录屏7项、基本输入14项通过；Full普通复制升级／完整快照回退各14项通过。应用／包装来源 `74d57c88`，验收夹具 `f3237570`，安装包未改动。完整轮与定点复验逐件合并为594退出成功，仍有32件历史内部SKIP、14项live排除，未重新执行最终候选594件完整轮。`currentMacTrialStatus=done`；P6及P6-04的原正式发行范围仍为 `in_progress`。[最新收尾](evidence/P6/authorization-resume/README.md)／[逐件对账](evidence/P6/authorization-resume/regression-composite.json)。
 
 版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
 状态更新于2026-11-11。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。

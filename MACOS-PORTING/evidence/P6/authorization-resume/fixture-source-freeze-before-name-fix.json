@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-11-13T02:32:58.496764+00:00",
+  "scope": "Only two App acceptance fixtures updated. Installed final Full App and all production source bytes are unchanged. Positive capture/input acceptance awaits user authentication for the exact fixed installed App.",
+  "files": [
+    {
+      "file": "dev-harness/macos-capture-host.e2e.js",
+      "sha256": "f4206c282199d80928c45354238369305a9d96a4dc1276df29dbef08bbb1c3a0"
+    },
+    {
+      "file": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "e8878d9dbc80c974c1cc521abee2d7c5db6cf6002586dbb9d281fc1b07bc8632"
+    }
+  ],
+  "fixedApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "expectedApplicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "expectedAppTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b"
+}

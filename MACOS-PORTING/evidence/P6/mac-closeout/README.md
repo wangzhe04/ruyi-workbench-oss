@@ -1,5 +1,7 @@
 # P6 Mac 修复与无人值守收尾
 
+> 2026-11-13更新：固定Full授权复验与普通复制升级已通过，当前Mac内部试用范围收尾完成，见[最新验收](../authorization-resume/README.md)。下文保留2026-11-12历史结论。用户后续已授权清除旧DMG／ZIP／原始构建目录，历史“保留”指当时状态；现有文件以[清理后核验](../../maintenance/2026-11-13-space-cleanup/retained-verification.json)为准。
+
 本轮可自动完成的修复、定点复验和内部试用包评估已收尾；**P6 仍为 `in_progress`，两项真实 Ruyi App 正向授权验收未通过**。没有本人认证或豁免答复，不把未授权输入／录屏算成成功。正式发行与原环境门继续保留。
 
 应用与包装来源 `74d57c88`，额外验收夹具 `b2283782`；分支 `codex/p6-mac-closeout`，仅本地提交。54份最终验证来源见 [冻结清单](source-freeze-package.json)，结构化结论见 [validation.json](validation.json)。

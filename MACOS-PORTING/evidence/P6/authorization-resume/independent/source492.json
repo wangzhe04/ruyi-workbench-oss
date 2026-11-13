@@ -1,0 +1,1974 @@
+{
+  "commit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "semantics": "Git checkout filters plus actual current source bytes",
+  "files": [
+    {
+      "file": "LICENSE",
+      "sha256": "f5fbb6f3a6ca411459987d36be8f683107c55b01a251451f4c889e488a8390e9"
+    },
+    {
+      "file": "MACOS-PORTING/dependencies/macos-offline-arm64.assets.json",
+      "sha256": "577b8c08ea33d0e8f295ecbdb3b2a6161e594574ae107241f2fb3b0fbaef236a"
+    },
+    {
+      "file": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt",
+      "sha256": "77c1e804c067a362c9db833e3db362625964756b90d6a65d1475ba4b06ea096f"
+    },
+    {
+      "file": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-full.lock.txt",
+      "sha256": "02d01b26456efbb7025ffac0a1af301acb1e008a00cb4cd222cdab93d7daef64"
+    },
+    {
+      "file": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt",
+      "sha256": "618d8e16a1b4ceca7ced065eb60280579911cfa43249667956468b55cdebb189"
+    },
+    {
+      "file": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt",
+      "sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538"
+    },
+    {
+      "file": "THIRD-PARTY-NOTICES.md",
+      "sha256": "ffe0a6f4c578a6e8a615e9319850f5cc5eb0dcb2e97ce3d64bef53ffef3bf697"
+    },
+    {
+      "file": "mcp/ai-computer-control/LICENSE",
+      "sha256": "f5fbb6f3a6ca411459987d36be8f683107c55b01a251451f4c889e488a8390e9"
+    },
+    {
+      "file": "mcp/ai-computer-control/README.md",
+      "sha256": "bf99853cb69e43ee9136fa71669d8643f5f9556a42f305bd1147136a93d44b53"
+    },
+    {
+      "file": "mcp/ai-computer-control/installer/APPLY-PYTHON-UPDATE.md",
+      "sha256": "e2f3f349576736ede2488f35b620f3feb17a870df9dcfffff39b6320f9e999e1"
+    },
+    {
+      "file": "mcp/ai-computer-control/installer/build_offline_package.py",
+      "sha256": "0207ec1be9bcd3207ca4064f73ad9deb4360bca6c1a83c29cc4fadc52df0807c"
+    },
+    {
+      "file": "mcp/ai-computer-control/installer/install.bat",
+      "sha256": "5d45e79f4182352dfe21f28917f997059bc01f05f5cef076d73823f2608c80fd"
+    },
+    {
+      "file": "mcp/ai-computer-control/installer/install.py",
+      "sha256": "1691e3eaa326caf38498762890feddb6550966fce45a1be91d6cb5105d41fcdb"
+    },
+    {
+      "file": "mcp/ai-computer-control/installer/mcp_config_template.json",
+      "sha256": "b465fbb02303c32ef1bf9eb79297a6620c6a503110626b7479cd43fcbaea27be"
+    },
+    {
+      "file": "mcp/ai-computer-control/installer/update.bat",
+      "sha256": "979b361411d9614b20c865f5c90dfe3a35a433b473c6ec3ce04ad23eec927646"
+    },
+    {
+      "file": "mcp/ai-computer-control/pyproject.toml",
+      "sha256": "507b34e11241f5424301f89f687288e0f19363f048a5d5c244f904d8cf0244cd"
+    },
+    {
+      "file": "mcp/ai-computer-control/requirements_offline.txt",
+      "sha256": "1d65be5f89c85300b6f30d00d42623ec4fee91ed6ca148fc29dfa8654c9347ec"
+    },
+    {
+      "file": "mcp/ai-computer-control/scripts/render_samples.py",
+      "sha256": "605288c6b25410e6d8756aec03d05c7eacc26c1fc688474471b58191316dcd65"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "sha256": "5785518cfa8dfd434ef39bb0e08fcf7e6b0c1eef3ac6f14b5e4986c07ef5a6ea"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/__main__.py",
+      "sha256": "e3532ff41fd74c729b5e42abcf6c411e4f5d7e2216c1136609028d9d08128d26"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/__init__.py",
+      "sha256": "cec602ce29f18d99ea1af22336ed5739f0634191d65f57a01f8256fc5d867d3d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/application.py",
+      "sha256": "0665d296c1266b726b91ce103d68d8c1447924570dcdc0b92a6048911fad7981"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/audio.py",
+      "sha256": "aad83f7a7e8afc8c425c9b211d4fe86eaca9d804da947c968a6b7b0179ab5bab"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "sha256": "411c553288e9960f10d53a6ba04040e3fa1e28da70d37d6b445c2538910e495a"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+      "sha256": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/capture.py",
+      "sha256": "cd25a59226edbe4ba0e6a0998da214a8a9f314233d8240e592f607d4dc93f3f1"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/clipboard.py",
+      "sha256": "645d0be19ad9237f4ce8bbe3cd4f35874dbd5b38029d1329f85422ffe862d282"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/desktop_extra.py",
+      "sha256": "518a3134f71e6e6132b0c9538ce4614e2163aca897b757b11e0b18c361fc3a5e"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "sha256": "0134ea37db3cbbccb140e6768a9614f983048766cada844c1324422d82406866"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/dialog.py",
+      "sha256": "fee53572527b3388e13a93b60f593d22447841b1de45a2472c495ae926f383a8"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+      "sha256": "6ca80952eac12ad9c3d11a50c06d6c7a9f51fa59fc255fe1f953a2847c09f456"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/editing.py",
+      "sha256": "26bcaea431dda18240fb590a3bd847d981fc254c3ee74ddaaee4f6a88f935e1a"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/filesystem.py",
+      "sha256": "e58c29268ef58063b49857170f2c33700461d72928f17aacbe9a6578d5c2ae6e"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/image_tools.py",
+      "sha256": "4160ce9528e037f531ec2d015279d5438ebb5a00ad8885d6eba4f8667a21f981"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "sha256": "767942a58c53504bdfd59c1cd21101c0cc5b02901ebb1b48aa9408fcf92e00ca"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+      "sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+      "sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+      "sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/memory.py",
+      "sha256": "2f076a102656f7604106e6597340f5bd3063a6128048b678ba583e03a2b124d8"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/mouse.py",
+      "sha256": "c4264670c233c5ba137cf6ee6792bcd2f2e55adfbaf46deff10f071e47b47b7a"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/observe.py",
+      "sha256": "1d1e425effc00ff81e77856bdfcb2b3b0c25db4defb279a17e6ad75b5c45a014"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py",
+      "sha256": "e5cce5766a751dc4f14d64bc705dfb1ff19392ca0c54b5f6b80fd717f811b7cb"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_excel.py",
+      "sha256": "7e9cdef2d030366a8c07728656e647f3e801f0dfda463119345a6d4f53bc3510"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_io.py",
+      "sha256": "4952c2f0f92bbd62095770cbeb8a4cafd85aa45fddaecfb364920a5a4b09b809"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_markup.py",
+      "sha256": "fdad4422fb2256950e8a2382ad99b6b00edffe0341a79aab39aaf6989da3d694"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_pptx.py",
+      "sha256": "aba8f918bc20d5aad1d900bbcec73001e4b3305600ec4e0f6a0a5c2e8c76442e"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py",
+      "sha256": "433d93acf6ee8756a9d121c925d4c7942ec4461fffdc4ee7329e73274cac28e4"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py",
+      "sha256": "5d40e1d164ebb65ec244a9cc989f91143f66c9f0e8ffe277607a379c70327bf7"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/safety.py",
+      "sha256": "ed7a288074843768dba0b2745d706dc2d98819e6e2257ce62ce60a2679aeed5d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/screen.py",
+      "sha256": "79ebf4919b496a6f04e3bb6fdfaa33c9e92db9b88ecc6705b8531ae040297e5c"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/shell.py",
+      "sha256": "32cd73b1a9a560c05b5a5646c3b4a6b49c698e6d1520e107caa51caa2e99397e"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/sync.py",
+      "sha256": "e43d02ca8c24ee294ea9cede367035c443c492257f0929ff45a56df8dc948869"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/system.py",
+      "sha256": "b18bff083ba9225ffa941a9f6544fba5feff1889c4549a3510e40a4e8a79925f"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/thinking.py",
+      "sha256": "b76b1ef426037f09703b2c13498a90d64dc48887790d4d6e6d9795c895c339c3"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/uia.py",
+      "sha256": "9cf7e0d407310311443a40d2e8bd21e6e9b1cacc2d2e9a6e4efeef85043810e8"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/web_fetch.py",
+      "sha256": "80cc46522129594c0371254962f8f22c698ff761a72ebe81f5a34fdc87b96afd"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/window.py",
+      "sha256": "edce6d3fc4b1dca8d4839378c1ea8e0a9c34ac8c70b57b7215094229c6ee9af4"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/__init__.py",
+      "sha256": "ed29dbc69c4a10d2bed9e7142f935f9d9f6890623b08e298c38585e3ad7bd873"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py",
+      "sha256": "0ca189dc4bbc8fe2c89cb403f15f92b37d9bd991d7ab513fd8392e9bfceb4f6d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "sha256": "2c9ea109d227d2483c50df2606787b2ad521b9299164f56ee63bf425c5796de3"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "sha256": "7b36d87a1fb6679188b980d6788109a2f9824b46525c929e1b144bf43e41889d"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/geometry.py",
+      "sha256": "65cb954c065e2b95d6582b4ecf007343653d77e9e17135738a97a780d002c7b5"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/image.py",
+      "sha256": "c4b76a4f6fde5bb3ecb1d735bc3228a8aee3ca8d308ff5e27319a7e9dc830505"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "sha256": "e117594fa5bb6f8ce59a2a3a184c3cb42ce2a4bed46fd0c7dd9f1f0fc5b6f08b"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "sha256": "fa87007f33587a73f1b4a3508515da264fea3d82f0ed5088fc20f84540daf472"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "sha256": "371287a8644b9746d5e6b1559997e9e5ad80f10e7bce0e55de51fa3d41c40987"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/optional.py",
+      "sha256": "e1cac86b06d1be9068c8cac87683b6e317a5a4d53bdc655c6b076703a9174857"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+      "sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/waits.py",
+      "sha256": "dd34a7fd06832568d8f78e2b3e89946432d57111500bc0347bdd4d4c438beccf"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/wincap.py",
+      "sha256": "e464ae003b3f1a47c2c9aa604cda09a4f90f9cc6cb60317f3b3726f03133d9fb"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/fixtures/macos-office-sample.json",
+      "sha256": "de77e5250903d83481af936888d7652fc9cfb7d210dd075ced5c1233689b051c"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/run_all.py",
+      "sha256": "5f2773d997eecb45b9971be13b8ef66cf8761012f92c8de22e9bd55f50f04515"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_action_tools.py",
+      "sha256": "68c318eab0bd41b8f7b076d1792d91bab938bd65836b9e91e55777bc6ba4ad41"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_async_contracts.py",
+      "sha256": "5990fa328c1bcf41d20929b1667d87947c271d51eb9d51cf1441f396521d1d11"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_audit_cancellation.py",
+      "sha256": "56b76d2d1ab510981d757c9a646ada4c20486ad08e65b7cadc049ef4647beb56"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_batch_invocation.py",
+      "sha256": "e0d7bbb3b2eb92ca8d47aac1fa8df7597a919dd57a70b1e0f517bea915c453a0"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_browser_runtime.py",
+      "sha256": "81e00ef07c43926cf12c1e3426e114d9b076399d290bcdd5ab60e9b82de41fb6"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_descriptions.py",
+      "sha256": "20f5227c136382caddf80d0b61cf2ea33e33bb95da351e778c0d728d4fb2ac29"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_desktop_edges.py",
+      "sha256": "0ffa3e07363bef1c5b8104b46e79b4f8cdf5902d0d9b82fdf719a56c94ea0622"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_envelope.py",
+      "sha256": "bba5069406abaa1c6d93bbb917f9781353d49c5bc444677be4dde3248b64f3b9"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+      "sha256": "2bbb4eabcb6718d6a281b1f96080c7f981e3202060478922668a779b59f890d4"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "sha256": "d824ea168eff2aabdf669f562c1dec74d199d4db45c50363e3276d98c44df798"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "sha256": "9ea60cb41aefbd4088d281cd97446dfa080774f496e6de5a27a1b0a660687b7b"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_fetch_pinning.py",
+      "sha256": "f2b5d3d0dc7845ad3df659de9d3000a432cdf73550c2959f615115295f6ff218"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_fetch_transport.py",
+      "sha256": "05dbd43b819c13ac771e314d81453cd8146143ac4c107e4382480e5aab256008"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_ax.py",
+      "sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_capture.py",
+      "sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_composed.py",
+      "sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+      "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+      "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "sha256": "ec9d43b43489cb9fb2696235f47a4edcee753bac3ae96f8550b9d9cc6bb990e2"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+      "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+      "sha256": "4a38e9d905cf33042d998383e3b64936c748d30474e3685aa3e12cd332a7df29"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_shared.py",
+      "sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_macos_visual.py",
+      "sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "sha256": "af55dff1f9b61e1051e0f915a2acd18df200a6ed057c99030bcddfa47b5c3be4"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_office_quality.py",
+      "sha256": "5fb4ce869d01b2de93b037f7bde83f15b147602ae99f1289043ed68da4504b0a"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_office_read_v2.py",
+      "sha256": "76279d9b9dce7baf8fe4f6e7d3fb77c4c0e1b8c890dc3ce2e1d066104e02b377"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_office_v2.py",
+      "sha256": "8cc30bf0ca7dff6ac0d8871a61bbc9c47402db2476aecd1b83112a64dccc9486"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_perception.py",
+      "sha256": "b019f9b4813192d48c13ed4eabc3a5605897574536dc687c65176163e0809ae9"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_registry.py",
+      "sha256": "ea87a060cd91daad9cbbdf2b117cb9263fda09a24f6c8e839462ff29ecf813b8"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_stdio.py",
+      "sha256": "416199ed3d8e62c754d365eb49cdd9719eb0c6af6b9f702bd010d7eede5b4b0d"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_toolsets.py",
+      "sha256": "b20f699ebca243e231336fbbb2408764c4a237756fcdc192af631c979750f2bb"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v13.py",
+      "sha256": "705d977a4cfa6c15ea0ce8a5859ad9a928cf88f4697f6f4cd9d0302c9bc3829b"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v15.py",
+      "sha256": "b5b2a4cfbcc1dd8ba20ecb72fe69fccfab96123a2a76ad12c12ae9f81033b141"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v16.py",
+      "sha256": "9f156499c5176db78bd8df1ef97aa2dc5f9f090ecfcaa23d5157d25f7ca2cf4c"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v161.py",
+      "sha256": "caa623d36224ecb2165a90838d1273a0a1d5dad48af8354ed3c441b2b8da6ced"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v17.py",
+      "sha256": "8f923c6a963ba9a5780c26d7eb700c98187b5eb82cf7bc48ecd337c7b024b998"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v171.py",
+      "sha256": "d5c60fea3bc60e3c2b53ca51b018d70a5f084ba3d93b5ba08fbc88bf3263fa5c"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v18.py",
+      "sha256": "8b586fc424119efbdce27e171b5253f866175c4b8325cf348ee42cf00890a94a"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v183.py",
+      "sha256": "e252b771d2917290e651dcc0c987ff204b46a18d7e0aa873e5ffccfcc86091e4"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v19.py",
+      "sha256": "45c5512a0542af66a112a77a25ba0c299984fb4cc3a069f958d32123e5f4b599"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v191.py",
+      "sha256": "5e185d91a411cb61285783977e3faa9450a9498ffd1e33bd7b7163be9c800c07"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/smoke_v192_chart_types.py",
+      "sha256": "5915486ab84e0be7ec120fd73fc0b982452d63bf6bf2182c3d87e7a731fccd5a"
+    },
+    {
+      "file": "mcp/ai-computer-control/tests/verify_macos_office_sample.py",
+      "sha256": "81493d280cf7e42d5bc9010bd61645d8c5e2f17d7123186ce1f5c0d278033f38"
+    },
+    {
+      "file": "ruyi-workbench/README-START-HERE.txt",
+      "sha256": "890d499f44de16980f5554a185f491777fe6cef0e44e0c0aebde78fe8f08da1a"
+    },
+    {
+      "file": "ruyi-workbench/README.md",
+      "sha256": "102ad2d8fd7887ac91ef5a5cbaa9df2995a20c4fe8491753f1282dfdaf1b76cc"
+    },
+    {
+      "file": "ruyi-workbench/Start-Workbench.cmd",
+      "sha256": "ff24e77446b556b33cc7fd425fa19a01ca0e2ba14675cc90c3fcb379aaa39a81"
+    },
+    {
+      "file": "ruyi-workbench/app/build.js",
+      "sha256": "37cac5c3933f2bc642966ec9d426b7517cfdc00d666d321f1e30193a97b6bc7b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/app.js",
+      "sha256": "0c6d7e0e05f0c0f0b7670662b1e656a9dfc7fe873f8bfe9963674d785e4f3396"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/base.css",
+      "sha256": "a4e45c2e8d619816e2830d3f67668f275b255caf41fcdbcf7ff30584c4d2751c"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/components/chat-composer.css",
+      "sha256": "dc70b87d23c47367a7e7535f87a6ca18ec54c66e5fb525e4b7f678210c578ed0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/components/chat-primitives.css",
+      "sha256": "6062f9935d8874d93952cb796de7776cd03c5ce148e03adf5c3218de9a69ed12"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/components/onboarding.css",
+      "sha256": "1291897547f3717bccf908ed0d982e32da8ed7867e32d323f0dff497da20cf5e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/components/tool-pane.css",
+      "sha256": "5b7a001c919bbc15a2813538f24952cce041694427aac3891937b5e2ad968270"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/layout.css",
+      "sha256": "4b35561627902e1545cc557ddfb9bfee2f05e8a6f427d52b45543cc25a1e0341"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/states/chat-live.css",
+      "sha256": "5b5fc5ef20c6e7dcaaa6bc0493688d8f0aa794b5d70678d36b380a7f6680be6e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/themes/color-schemes.css",
+      "sha256": "7087cfe7628fd1e938b2c005d7f4c33340cee2efdcf400e33124df731a06ae9e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/themes/ui-modes.css",
+      "sha256": "952228ebe5fde3d6892ff2986b4cc5a71a27e107da60cb1f93a07072a162bd1b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/tokens.css",
+      "sha256": "72183ab6762a5aa73afcca1aef1a59bf8bf229c61613f071f1aa419ee9622cda"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/background-tray.css",
+      "sha256": "67b33d6a0f65375635a9ef5c0ecc93711950e306d92d968f510c3542dea5cdd6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/chat-narrative.css",
+      "sha256": "8b7863bae6ba85363ba1e262c0c8ab8e3166f14b9ab26930cd2a32b2378888aa"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/chat-shell.css",
+      "sha256": "18cb59f80125f7dad53a113b2e522dd0ddf14d53c0901a036fb49880c2f24796"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/chat.css",
+      "sha256": "8162ff40350114896c29d8114ff6b387981eeceea064bdbfc6e3fbb9b62efd51"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/migration.css",
+      "sha256": "4717e66136201a6be09c5f2dac39021a71ed104d8ba36bea05da432aa2ba4786"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/prompt-dock.css",
+      "sha256": "abebecefd6f0dd279e61ab97d484c1b3bae36373308fc49efef15f70114ab274"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/quiet-card.css",
+      "sha256": "7ae00770af586662e4c0c44c989ac968753771ea416da244189f731ce6d4ad12"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/settings.css",
+      "sha256": "f695fa43651454c3494f8e976013b48a192147ca20dff30752a55701cdbe6a67"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/steward-avatar.css",
+      "sha256": "af3d6cd8383220b74d01b8bee63aeba746203854d18c2b11f8d6a1cc5d787836"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/steward-board.css",
+      "sha256": "8f89d7e3fc40447931e20c1350b4788ac65a3ac42f71b26d1731e0229967f71a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/steward-conversation.css",
+      "sha256": "a15b417b26f9425cd6cf1140f502e9998fa77dc056cd5d45e2a7951efd8bafd9"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/steward-drawer.css",
+      "sha256": "b3b1e2b73c938c72972daae60b42ea55be29483263a4351cc144dffd7d0d5c0b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/steward-settings.css",
+      "sha256": "d2819ff824c1a02f321ea9f4198a1c7ad619044cc27c446317c3892ecf1882fe"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/steward-shell.css",
+      "sha256": "35786be71dcfbfc1a70847c323b58c166f66f26e9e30c979a34a52bb01f80006"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/usage.css",
+      "sha256": "da4ff550c5d62c11e59c96801f427c91020dbe0b0fcf3f223fe7ace302dbf039"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/workbench.css",
+      "sha256": "aa0de9918c548e739ffeec44c5bdd91d3e9fa1983ff0d4e7818735e7f887631f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/views/workspace.css",
+      "sha256": "d6333916c91c9fb8663849cf4aeaf3c2b87fb84a52455f7e85e13a73f93767c6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/index.html",
+      "sha256": "65d6f127256e3f1f927871495d95d725bfbf4e490a2847d48a2e58eacf2fc3d4"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/agent-cli-registry.js",
+      "sha256": "948a7993239a7f70859ece211259c607a4c49755d96fe2088780717312734454"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/agent-roles.js",
+      "sha256": "ca5439324bcc533d79e3ce11e0a24f01e32d63435f769074c8e7b6f5fa738c57"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/agent-workflows.js",
+      "sha256": "60ef594adfbcebab401d017a0dfe6358988cfea0a361c560794e5f90e7bb547e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/app-frame.js",
+      "sha256": "d100eb4c27f0e741c1d7aacba9078de65b6e0b683b691e654ca649010c2c9ddf"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/artifact-changes.js",
+      "sha256": "ac6ecddc9ff926907654c42c8a200ddea8ff1edf246f0630f687afc2a9753999"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/attachment-tray.js",
+      "sha256": "c871acb39d230d001783fabbd3a246dcb57ea91020a426e518cae6688207d1ad"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/background-tray.js",
+      "sha256": "181ed3abbc674b2c2af53130346b7845ec3df4303f72f4c4f8b8868c0f4d33d0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/boot-failure.js",
+      "sha256": "a1a8dc10b344b2bbe749a51aa9d890c01c373e667c30e6335d4c7f945e91461f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/chat-render-primitives.js",
+      "sha256": "bdeee989db8c77ea5fb35a919f53ebed90c0953b4836d19d40264e56ea327c5f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/chat-scroll.js",
+      "sha256": "b62a2404007299b670f5c2910945018079c991bbac213435a6769963ea91d0d6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/chat-static-renderer.js",
+      "sha256": "522b6c887d99ff465657a059c1582dd015e832e6f6bfb65314a658d71a113b7c"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/chat-stream-runtime.js",
+      "sha256": "729a42e00e2d0d8754840d7624459e228ec4d46752a18daa67d81a4114f4dfe6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/composer-voice.js",
+      "sha256": "b830764d31cfe361a1b08aa3c5047e6128177895cb2eba5f2e528e2d6265678d"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/confirm-panel.js",
+      "sha256": "1bd8d34bff1c82d2f477cbfe251ca7834818bc0892f06f41b48bc6396cdb351e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/event-stream.js",
+      "sha256": "2c95e1f83262517e7b40d3457dacc56a63f4cc5baa0d52d53327e850263ef890"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/external-bot-setup.js",
+      "sha256": "89fcd988495f0bce190a0bbffd4a065cadb54ef118cd161463025073c11649f7"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/external-bots.js",
+      "sha256": "a81a1d863e1fb70712d200783372225ee35f6559fdb7ba89845170b46cf1ace2"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/file-browser.js",
+      "sha256": "846dc9a02ac698393aa515fcc91743ba792ef1a0825a2a635ccf99adbd92bb57"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/health-i18n.js",
+      "sha256": "ab4fcb0974d840e6571e4a465c9200f1aa3fc50716b4fb346eba5b35e81d60cf"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/help-menu.js",
+      "sha256": "029cd283107927088b421b4dcf09a43d8073afc3816c7cc23b3932a684eeba1a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/help-viewer.js",
+      "sha256": "b411390ae0bba0b65cb15aed87fdb33f646d505e7e55ad196ed2b51343415d9c"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/host-bridge.js",
+      "sha256": "a4c9a6da7dbd3a8d9cd02afe1e55101901b1bf6db132eec332193a42d05b4143"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/i18n.js",
+      "sha256": "607e96a8524892569c17d5ff384bbdf3eec7700965c7911893a8289f5600dcba"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/icons.js",
+      "sha256": "ee714364133db311eed02aa19fb347e9c75a99fc45cec573cf02ad58842bff86"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/interaction-prompts.js",
+      "sha256": "2fc03f1de7df29c082687580e1227e235ffd27be32d52e50119320d2db714fa0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/mermaid-postprocess.js",
+      "sha256": "ccbb45514479d9a894be45a7a75a45a13d77fe64a8706a5fbbae3d3fb5b157aa"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/mermaid-runtime.js",
+      "sha256": "a06a859e7caf723fdc5adfdf14381504e5b27106972eb6cd272bb20124ec42a6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/mermaid-source.js",
+      "sha256": "53754e1e3853954900ded007ce5c660687373fd88c26de088b05737810ce62ed"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/migration-center.js",
+      "sha256": "aa6c4a42ee3b530313e9449b0a6226a68503b5605caf1e822a9d1170bf3f275b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/mission-state.js",
+      "sha256": "aadb5195938438f89615e14ddab040b337ef424aa972038c01400816123f66e4"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/modal.js",
+      "sha256": "cc7a67cc5dc532e4a135071555e54da2c2a75589f9a54a5845cb3cce28405123"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/model-catalog.js",
+      "sha256": "040e6712501fbb48b9f04f0b2b5771ae8daabf18eadf9f34453760f21bb915fc"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/model-menu.js",
+      "sha256": "ddd23883950378874a706360103686f0ec781fd38e7897e013b5d911a5fcbd6a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/navigation-controls.js",
+      "sha256": "2ad4f43c9e954cfe35607be6f1fe94df691f3ad5d3af5c4b92ee52d7159e09f7"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/net.js",
+      "sha256": "e569d2a13dd2ba19d58e0bf48c9c1e4188eabbe0b3daf6bc85b264513b6acfc0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/notify-policy.js",
+      "sha256": "71b90f457531e53ce8e2a6a7aca8e4849c8536c08182b7974d5829ec91d54f4a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/onboarding-wizard.js",
+      "sha256": "da0977708f451cf7866735a7b127c39c78980037ca601a2b849cac290349634b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/operations-observability.js",
+      "sha256": "db365e8aa9324db7666d2dc0a8556b98ebe065ea0527260c0e0e5e8c9ebebf1b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/playbook-reuse.js",
+      "sha256": "021fcc23c1ffc2026f5796750b0f27e5c19a8db5153cd2892d3d3d5022c67e5b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/popover.js",
+      "sha256": "8c3615ba56ec2618b0c0402b095e2acccb0b61d32f5a6de5f56b841af07d1eb3"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/presence-viewing.js",
+      "sha256": "9e4b003c35c884763864971b6cd89a3ac3ff9ef76a5187c1129a25000f3a59f0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/privacy-settings.js",
+      "sha256": "93236d4df224da5b627658c4ff4874f468a9b693cdf3f3c0fdde65ed8ce34f44"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/prompt-queue.js",
+      "sha256": "eb1fc42ca852e6279a29cb0be67b0f24b061cbe5a5287678a091ab57ee3c785b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/provider-api-styles.js",
+      "sha256": "ee7b78d92fd4277403a36fc419656e22bff819dbe30a823db7ce0927519da43f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/provider-settings.js",
+      "sha256": "5c33963690169ef7f759e265a1f44e31d0a4ff9ac2569c7a2f07fd302954c97f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/quiet-card.js",
+      "sha256": "7d8c1320a526fe6524df547ca2bd7932a4c2e864f6f804d2b5d1b1f4a8230f30"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/rail-pocket.js",
+      "sha256": "0a4fc425c4ba096aac29fb2b1f9cd36dbc0a54ced7a496aea40a88ba41c12a5f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/run-health.js",
+      "sha256": "42f90b1ced135e744495dc1ca0e38ab278ac86e5fd299bd8a91c4c82a8149c17"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/run-state.js",
+      "sha256": "2a1ff8d561317463ba5d746bf170e9a473d7ff8df2ea0e7fc61762fdd3aab6bf"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/session-experience.js",
+      "sha256": "b81d255013b5a0cffa53f87e219c9138663d86724e7608252134debc439859a6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/settings-catalog.js",
+      "sha256": "81175ca1cb1ce893f49718cfbc092d7f90225807f88ba97bf3c206f44ab09f3f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/settings-operations.js",
+      "sha256": "0602c3f4a08d7b19e9dc938806526e25ce2b3540db254dc3fc10c2d0a075dc18"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/settings-skills.js",
+      "sha256": "978959577dfb166377605d10be139eeb63c40bab59c80d497e7879643434efc9"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/shell-mode.js",
+      "sha256": "d7855638f2375833eb7db307e527c9a979797adac2ac509ea39a3f8c925fbcaf"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/skills-memory.js",
+      "sha256": "9f939e1be9117db740f78745bebcb884c4c6257400ba3383f973326e28240b2a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/state.js",
+      "sha256": "f82493517407cebb57496b450a47c7c4159bfc3dff3454c029731146d37a42da"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-board.js",
+      "sha256": "20ee3fd944febe6dccb98d4293c31a5c955380335fad4db55e65e6c8318c24fe"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-chips.js",
+      "sha256": "6b3bffa34324740f0f2b9c6f29cbf5f77fd09c797c5974b130aadafaea5991ee"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-composer.js",
+      "sha256": "280472b5e7687d9d2c5de22302d2d9849b092f47a65fcc7387369fbfd23189c5"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-conversation.js",
+      "sha256": "d2705296233cb232c5121dc4550746b065104a7069a58090238a497f93e36806"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-decisions.js",
+      "sha256": "bce7b01096f6398e179ff62bb150c000bcd866fa497d4e339b4f6d9d6a19929a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-delivery.js",
+      "sha256": "10a98e53c8e39e00a9a79414abbc2b82c2a87982e93d119a44a14ca4b0439856"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-drawer.js",
+      "sha256": "59fd3df766489851ab53de90c38f51297efbc3abe0784f96396c8c38da509850"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-handoff-recovery.js",
+      "sha256": "e22cb225a00bb7c3638ac0bb50d4acdac3d7449e9080cd7e2c6dfd049196423e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-presence.js",
+      "sha256": "6c893d5a1a8568162cdfa3d5108924e7eca08be82c6b43ba42f44616b66a240e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-settings-receipt.js",
+      "sha256": "715cb62081db658070006f21c30573e92d87a42e6f8d1deeb52b3cf58b78682b"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-settings.js",
+      "sha256": "c7db4777dd5740803663cd5d8cc9f9e5da6cc21410c2fb3cd368eb2d02c35c35"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-shell.js",
+      "sha256": "a01b94434519c18f552061a1360c75e34777399b656c821f499a8fdacef92783"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/thread-facts.js",
+      "sha256": "06213658ab6c71f26be5f2b9a160dc558474e0d99a13c2551682be59d911ca0f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/thread-head.js",
+      "sha256": "274d3b356806fe56b5043011a1e2b688733d3dc284102fe2fd6b0d11db11b5b9"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/tool-runtime.js",
+      "sha256": "7ca0c644b86a02a3492f5ea65728dc457f1118a5160edc036ac665edd4968e04"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/turn-activity.js",
+      "sha256": "6d744db7ab35a38d8ee2107e35c7d6a3f1887b8c0eac2da1b2c25cd766ee780f"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/turn-narrative.js",
+      "sha256": "150b349c7dcfb1eca6d3b8acb5ed816b75de75ce166815c6c68aeb55f2d97634"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/usage-dashboard.js",
+      "sha256": "738a5831be329201ef75f20e5ad827fba5129f9a54929139287b2a8bca181c9e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/util.js",
+      "sha256": "bcb4960d074d99fd6cc8ea2a245779bfff8f13fcea1659dc37c5312dcbe3b68a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/workbench.js",
+      "sha256": "e37808f57003c4d8b89398d9ac99eca0e012ea17a079bce530cf567709aadeb0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/workspace-preferences.js",
+      "sha256": "d1915023a22d9832234d011d7a3cafb916f143cd86f0889ec807441c1fe7c8a1"
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee"
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e"
+    },
+    {
+      "file": "ruyi-workbench/app/public/styles.css",
+      "sha256": "b3b9e7518db6b9aec2cd1f0509b32e7746a8ab27fec3328cbaaaee4ecf144ed6"
+    },
+    {
+      "file": "ruyi-workbench/app/public/vendor/github-dark.min.css",
+      "sha256": "9f208d022102b1d0c7aebfecd8e42ca7997d5de636649d2b31ea63093d809019"
+    },
+    {
+      "file": "ruyi-workbench/app/public/vendor/github.min.css",
+      "sha256": "3a9a5def8b9c311e5ae43abde85c63133185eed4f0d9f67fea4b00a8308cf066"
+    },
+    {
+      "file": "ruyi-workbench/app/public/vendor/highlight.min.js",
+      "sha256": "837a6fa5b0c736b52bbde2b2b6190f305da3fc9ed41681db5321507057b5c846"
+    },
+    {
+      "file": "ruyi-workbench/app/public/vendor/marked.min.js",
+      "sha256": "15fabce5b65898b32b03f5ed25e9f891a729ad4c0d6d877110a7744aa847a894"
+    },
+    {
+      "file": "ruyi-workbench/app/public/vendor/mermaid.min.js",
+      "sha256": "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "584d7a291d7536c02e153d0a4b546a44c586f3e4710e40daadfade92318d208a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/00-boot.js",
+      "sha256": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25"
+    },
+    {
+      "file": "ruyi-workbench/app/src/00-platform-runtime.js",
+      "sha256": "6fc836ad79bbb2f33c049be258f89ea5d4a89dfa853051e3445ed34d781443ef"
+    },
+    {
+      "file": "ruyi-workbench/app/src/00b-ruyi-names.js",
+      "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "808aaa15c38f4f281f8aa115cecaff324799d2019f58b27fc5d5969d585c1328"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01b-route-auth.js",
+      "sha256": "85e8b92340e16d83c927c77c00f178fa775834eccd3f0ecf6542597205dc3c88"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01c-runtime-flags.js",
+      "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01d-win-cmdline.js",
+      "sha256": "ee1c5a7fe942332d8a75f5eaf6d8d589a37e935641b423c6a1be8ffa590e3456"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01e-permission-modes.js",
+      "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "sha256": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "sha256": "be996b8d394895da2bd48e43e967586c3c1f01132dd7fe6222055d8e33cc5f78"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01i-privacy-rules.js",
+      "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "sha256": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "sha256": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "sha256": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01m-privacy-regex.js",
+      "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "301ba64028ee3c499f9296f9453b63bee099aaf06e39b051e9127714e2152bee"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02d-session-overrides.js",
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02e-session-engine-route.js",
+      "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02f-turn-effect-kinds.js",
+      "sha256": "2bcf11e9fc95243da83addd0410efeede47ea2577aadd2849cb6c8000673509e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "sha256": "d13e8e1273b7b5415431dc2920a6b28bb7becabc96f255f21d06ec06bc16e7be"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "sha256": "f402d9f45cf7cba5eb3541f2fd4ac2c3fc448705eb3cf7cf135438ff61daf965"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "865424070c4b0e2fbbb5b1e4fa5bb485631de31cd80bd898f637c79eb3f4c37f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "8469f2b59f3dc6741e3734aac72fa341ac87f18d2d8115290703560d9d5904ce"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04-desktop-shell.js",
+      "sha256": "198ee712a1fa49a23ff8a8365f13cb3c54020789d2260bcc3274a372d3d7a326"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "sha256": "c054a79b4f046a2a55fc9685bdd98191fac9e5cde48520ee64efc227eb37c087"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04-visual-pipeline.js",
+      "sha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "sha256": "9c1865eed69ee7b8fce84ac8a5c25e11ef266a6339b88f6c435a3ac011766b18"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04h-provider-http.js",
+      "sha256": "4a7aa733436ea6c70a829d1be70f5b58ab1dc28fd5235daf77d51f193de3cb3f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04i-provider-anthropic.js",
+      "sha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "sha256": "c7d12d7866ab5a16451432955f1b10163292e7d5a51f108b04742842c7c3f12a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04j-hanzi-pinyin.js",
+      "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04j-voice-learn.js",
+      "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04j-voice-lexicon.js",
+      "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sha256": "ee17b519118a322dbeb6e2789a898795d2a719681e1dc4de882ffbbdefc3e24e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sha256": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05c-kimi-search-policy.js",
+      "sha256": "eb60a621d764822820784b39c36e182ffd8ffdf6596c25bfdd9dacfa176589ca"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05d-kimi-prompt-parts.js",
+      "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "a614752d7de7fae66120c52262f03c0b23c650c8c8cebf856a599dd5512a07bf"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "sha256": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "3b09710d349826f062e4616ab8934ed61fce2ba2fa1cf1fd4494bbf4916a23d1"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06e-mission-domain.js",
+      "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06f-autonomy-grants.js",
+      "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06h-retrieval-index.js",
+      "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06i-steward-core.js",
+      "sha256": "b1c6feb7d233cf8eeae35c3e98993741abdce10c8ddb849f2ee30c1239759e88"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06j-scheduler-core.js",
+      "sha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06k-config-patch.js",
+      "sha256": "3fa94c8584a9a65f23d858388f78c7e67472ebfe72ea9b165e120bc73ef42cbf"
+    },
+    {
+      "file": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "6f4882baeb99382e4cb21efbf848c7192c703d032b90a5b908186ee1bea932eb"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "66604b4a046fb46ef3973ae1c0ca76c43738552bdbb1b2b1fd7c371529c1ac7d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "801e142ab3f463904d246163e085aa1420011ec9aef826d0904929cf02cee1e0"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09d-token-estimation.js",
+      "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04"
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "429693af6534301bbe3805133d87988b042231231b0943ee90ab2e8ee2b678d8"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "sha256": "740cbf33bac9ffd5c967404940a47f78a2c760cc025b1a21227655651310f159"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11c-file-visual-io.js",
+      "sha256": "3427ec055e00f90a0fd6addf3bec5b540e9c5fb472e720a1ec34604a97aeee37"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11d-media-inspection.js",
+      "sha256": "dd185f06ada6739bbfb8777de403d1df63778982c282155fbbc1206251934a85"
+    },
+    {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "f794a665826fa1e87f977a670d40ea87e8b4aa0e8358b716747fff8f5980c80b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "9149f3f80140d172b9655fd14aecd41a64c501ced110a9afe137715031771f03"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13aa-steward-delivery.js",
+      "sha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "sha256": "e2c4076371c118d67db6aed6ed92a80fbe88a1f4dbe92c8f71209d92c344ad27"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13b-api-domain-routes.js",
+      "sha256": "b4b233812ab536d30c0e13a772e717dd9dfaa4f5fe4e5aef29196fdb174c1025"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13c-overlay-routes.js",
+      "sha256": "1526ae2f03b56ca7b1a2d890718478ebacdcdeb5bb8e1b1f2d59a57e3e058c45"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "95049eea61eec401efd65432f44f1831b5092bf180c681c3437ae8b419d1295e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "sha256": "ed3eae97a61b788cab3d19ed4423c3d2f519ba4f685663758079ba60910b3989"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13g-steward.js",
+      "sha256": "6092fb91bfc27c79bc7602befcb3fa96bcdfbd2ced0e40995d1459d43ab33e36"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "sha256": "038af68eebf3e711c844d267a205af2b67ee6caaddefe0982181026b63eb1d92"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "sha256": "640580ad0b773efcaaf059f2bb5c740320b35e84f0228785e6a04f85e0ce4e92"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "sha256": "849e4cad376a6275cadf52b2f89e88e28a53c83acb2bea36111b78e5a871d0af"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13k-steward-threads.js",
+      "sha256": "73b3e4898cc9e7f4e14e4cf511862f3a99be9ca6de95ebfe261be5bb58dcc6ac"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "sha256": "9559c5cb1968ddf3273dbc708d67fd9803f75e182b9e71c9eea1c7045c2f87fe"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "sha256": "9ccad7589001d88b0cf4379b79037c69e51cddef7ff94328c4d9a8d6db0b5a5d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13n-steward-arbiter.js",
+      "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "sha256": "f1c1d24425f08b66cccc77d63c3fa7385c52ea51177c2d5eb6853915cb989758"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "sha256": "dc98a4bf271e2fd4400cf90c2cbfc41e3a93ee4bb15ad45d2d1864c4004e7755"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "sha256": "06099c999b674189b973bc75344132d25d23cd1a73f87777c92b89c17905f775"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13r-event-stream.js",
+      "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "sha256": "14dbecff43342ff285faa8206ba0f164a4d2771df0291761a8b72fa0c8916b3a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13u-migration-center.js",
+      "sha256": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "sha256": "86fca44373a8ed7f434c6bb61ad5b2054dcea716d21178601ab929b680e8f8db"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "sha256": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"
+    },
+    {
+      "file": "ruyi-workbench/app/src/14-main.js",
+      "sha256": "6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de"
+    },
+    {
+      "file": "ruyi-workbench/app/src/context-governance-rules.json",
+      "sha256": "68b1205a18ee143aab399dcd8581e18be1d25788a7f7be2dca0de291d9ff044c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "c6bfb7eab109ea2e1252e7e9d64857ff0b7b60b187b80772b25d02bc64ea882b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "caa920ecae24acc5cedf2a85fe5cff67f03dc574505d74da1e1c1af8f6fc2d3b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-dependency-policy.json",
+      "sha256": "8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a"
+    },
+    {
+      "file": "ruyi-workbench/app/vendor-bin/rg.exe",
+      "sha256": "f162b54de2adfc72d78adb1dbada2dedda111ae0a5e2f6e9500f4f909664c5d2"
+    },
+    {
+      "file": "ruyi-workbench/config/example.claude-settings.json",
+      "sha256": "4672ba1e74f8363d054dfd39764c38875621fe4cd96759ba4b5b5f6075ed051d"
+    },
+    {
+      "file": "ruyi-workbench/config/example.mcp.json",
+      "sha256": "6546f316f5d9950037b79a0125357095ff806f863e6b40bd09a5d5ea7a67c0b0"
+    },
+    {
+      "file": "ruyi-workbench/config/workbench.defaults.json",
+      "sha256": "f50ce651636198ba2f85c617d71489a2ec3b252f1151f119398f48501c99f360"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/DesktopService.swift",
+      "sha256": "76e241f2702bcb00a43d9d92bbeae489a5c8b15c0a7adcec6e1f364846d559a8"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/INTERNAL-TRIAL.md",
+      "sha256": "373728b27f9d3125791a6007f73b158349b285b7ac1021cd9f3fedf11122c751"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/MacHostBridge.swift",
+      "sha256": "e1f97706f0584192d70da6ed1e7ef72228209b4b45f06f20c4c2feef9d0c94b5"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/OFFLINE-PACKAGING.md",
+      "sha256": "d93b58270dd236a89086e0097dc21f77c0f73062096d4c445a32188c58449a2a"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/README.md",
+      "sha256": "13d320e4d9e15e7ce884633c9173e11ba7abdf59e4dccf1d7e4f85a5fbfd7b81"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/RuyiDesktop.swift",
+      "sha256": "36771afb69e39b7aaf6b2dbf1c51e76cbbeb30192cc89190373a705973857548"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/main.swift",
+      "sha256": "5235a8b90c438a83d5d9414e3b5ea7d1d0977c5e22e5f25b1c01262204dc63bf"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/service-lease.cjs",
+      "sha256": "56f2e2eaba7e16ed249a5738df78337f4d72e85ec9c62be66c17c1ecec457fb6"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt",
+      "sha256": "f59ccf7ee2e1f46c83b3c14034417873737ed92c4883ee971881addc279c1e01"
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt",
+      "sha256": "a148250bbf240628e503a06f5f64a4b432e8f64dd59b1b43cc551149066632a7"
+    },
+    {
+      "file": "ruyi-workbench/desktop/RuyiDesktop.cs",
+      "sha256": "5e92e21d2f7824efca051136b96d2262364f3f1d3d083a19ba7b5f39f770ba28"
+    },
+    {
+      "file": "ruyi-workbench/desktop/WebView2Loader.dll",
+      "sha256": "462b36fd1be6ca9f7563466a89e57c41ef4a4def3e0a84fa885d203aea4a3aaf"
+    },
+    {
+      "file": "ruyi-workbench/desktop/app.manifest",
+      "sha256": "7594bad74aa0d30210755dd465693f8a44ed0f2f794c599cd0236e58f41c15f9"
+    },
+    {
+      "file": "ruyi-workbench/desktop/build-desktop.ps1",
+      "sha256": "ec70d8d9ef7d8b7066265c404bb63946dde69650ce7159d18bbe7770244198d8"
+    },
+    {
+      "file": "ruyi-workbench/desktop/build-icon.ps1",
+      "sha256": "1fb4fab38101c20b772506270f670b3e89ff1555a885ab4c8f33825881af9ea9"
+    },
+    {
+      "file": "ruyi-workbench/desktop/icon-source.png",
+      "sha256": "66701d9db2273b9c0d17884b68f173bfbb94440acc91dd96778027439b893a0a"
+    },
+    {
+      "file": "ruyi-workbench/desktop/ruyi.ico",
+      "sha256": "a1f92932338e75d3ac02f74d28a5452fbf85e9452d142f364fd392bdbfd43b77"
+    },
+    {
+      "file": "ruyi-workbench/docs/ARCHITECTURE_CN.md",
+      "sha256": "ee707c7e3883b8554c4081d50741f75c8a191396931e429315283df599fb3444"
+    },
+    {
+      "file": "ruyi-workbench/docs/ARCHITECTURE_EN.md",
+      "sha256": "ea56d69c09fba340f1de1a0aa115f130561472d3bf5c63b0dee04f7cbd8b3e40"
+    },
+    {
+      "file": "ruyi-workbench/docs/MACOS-RELEASE_CN.md",
+      "sha256": "d91646c68fed94ea15b832a1d73cf2dea00132933769416135d4bb2c7adf8b72"
+    },
+    {
+      "file": "ruyi-workbench/docs/MACOS-RELEASE_EN.md",
+      "sha256": "a6da9baa91e5397ec943e04522d6b90925e1c63cf65f11e61c07ad122041554f"
+    },
+    {
+      "file": "ruyi-workbench/docs/MODEL-WORKFLOW-SPEC_CN.md",
+      "sha256": "ef0aac018e220ffcd4cd0f6b93d37d5e5e2cf56563fd1471c36bb13f7f329fcd"
+    },
+    {
+      "file": "ruyi-workbench/docs/MODEL-WORKFLOW-SPEC_EN.md",
+      "sha256": "9bc679e64843be8e025f917b5df3fb5b94ee0607847ce58a9d4a77f1c1b8d5f6"
+    },
+    {
+      "file": "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md",
+      "sha256": "60649d68c710e79223adc8a17daea23d29858cf7bdf3a109a7396276c83457fe"
+    },
+    {
+      "file": "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md",
+      "sha256": "c7f63cc4d5c0f862781f350d1ae8a1b0f2537194235cbdeb92ce0a7b2aa42e39"
+    },
+    {
+      "file": "ruyi-workbench/docs/SKILLS-CATALOG_CN.md",
+      "sha256": "d7ddb8e1982f96a53eafe95ac439041b5ceffe6f48a6a55dc9e9f8f72998cd16"
+    },
+    {
+      "file": "ruyi-workbench/docs/SOURCE_REVIEW_CN.md",
+      "sha256": "92c349255d9fe842a0751c3b5484476685d7288470ee365b0f6541006f1a45d6"
+    },
+    {
+      "file": "ruyi-workbench/docs/SOURCE_REVIEW_EN.md",
+      "sha256": "ca6071fd2146496ae74989c617c26ab953b3145458819f958868ff4a73a369a8"
+    },
+    {
+      "file": "ruyi-workbench/docs/TOOL-LOADING_CN.md",
+      "sha256": "e04c56837a5d21611dda60db2e65fdb9a77acb829dca6d483576eddc39494f57"
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md",
+      "sha256": "316df8beddadc03e331a25c0db1db9661de9b52c1c0799b377c51d45e6c37a92"
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md",
+      "sha256": "9b228d2c9526312aaf55a568cb3c87b1a38c64acc21af6a1cfdc24134136ea7e"
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/USER-GUIDE_CN.md",
+      "sha256": "1a8e8d756fadf50b1f96c75fd2eda17f3a135639a81bf70ed42fe67031904004"
+    },
+    {
+      "file": "ruyi-workbench/docs/manuals/USER-GUIDE_EN.md",
+      "sha256": "9d8d5837df0fbec10abf4e26386416bf15b141587db60dcf40ad80df6781b50d"
+    },
+    {
+      "file": "ruyi-workbench/package-lock.json",
+      "sha256": "cddce51772dd4f5027beec4af4cf367b4aa48172045a3d1816e29796f62cb882"
+    },
+    {
+      "file": "ruyi-workbench/package.json",
+      "sha256": "bb89882e88daab1c2e40f4a77ee00f114e40b83b7b03f46b4da2731f358eb166"
+    },
+    {
+      "file": "ruyi-workbench/resources/kimi-acp-compat-loader.mjs",
+      "sha256": "10a9417562e233b614131225ef514c3d48523ce183032c1b4ed35e0f70d75e1d"
+    },
+    {
+      "file": "ruyi-workbench/resources/kimi-acp-compat-register.mjs",
+      "sha256": "4e51186d792b6d8ce43ce1e9e679da797a56c28bfaf4cf4963f7c2e4dcb04e24"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-ax.m",
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-events.m",
+      "sha256": "cf024af694fabc4dfa75cb374b9068e2ea21e0ecdb4e4d0dcbe5f05c00ccb0f0"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-helper.m",
+      "sha256": "78309aa3e36a7d4d75f2aa1788e896b182b2773e90e3b1c931ce40ca352f6ad4"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-input.m",
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-record.m",
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-session.m",
+      "sha256": "d647510e88323cdba786022147adf0beb3bc921ed96e001dd45fa2560a0aa7c3"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation.h",
+      "sha256": "5eb063a03f058272a7f59335a0dbfc46f69cc7166b67cae78a63ec9ecfae5cf2"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-keychain-helper.m",
+      "sha256": "1e1dfdea92eca0f86fccc52016db14576878e2f1bbc90bbe8257638fc36d5615"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-process-helper.c",
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-trash-helper.m",
+      "sha256": "8b7cf348e803ef98d66624d96586a016fd36b652dc74d22a680e3eab8f88d53d"
+    },
+    {
+      "file": "ruyi-workbench/resources/native-file-read.py",
+      "sha256": "f05afb130a368da18d7c6b6e22145221656352ecd04d7907adf2150dad42b47a"
+    },
+    {
+      "file": "ruyi-workbench/resources/offline-manifest.json",
+      "sha256": "4d7da51093e39412abe6ad3ed91907f660a948a342dcaf684a4973ecfc2f1577"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/archive-by-content.json",
+      "sha256": "dd053961d0efea03d6e228fce8c522d883ad5895c14a1e12dcb0784560718cf2"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/batch-rename.json",
+      "sha256": "7e6f8889222a3fa9143fc94dc4e30342c5fbfe1b8095f8ceee938d037b6ab3db"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/clean-csv.json",
+      "sha256": "cbd3bc39ef3124a45e99510c45a8ac524c9ca1b8940bc24524bce5a4ac8bbfd5"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/clean-downloads.json",
+      "sha256": "96bf2e3b86cd4fa0436513a82d59bc8264a0304f2481858fd1d3ee9895a498c9"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/compare-documents.json",
+      "sha256": "8a7d220445e562b89cc9c841969fad55a63b64656c99777f140e6c13be6a9c0d"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/desktop-open-app.json",
+      "sha256": "8f86cb6064272b872b6dbced7a8b57126666a403ed3dcaf7daaa71197bb067c2"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/folder-inventory.json",
+      "sha256": "4bb3bb87e2330ef2272235aa12a237129ffd959af9633f781bbb24532f41e38d"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/meeting-minutes.json",
+      "sha256": "c7868f00405ef4969f2ee490aed527ad771a30a22bab60525b465336dc82f775"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/merge-excel.json",
+      "sha256": "63b0c25689ab67ca5216462b25cb1a74bbcc068fa25778f2c4e5bb85bcd655f3"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/ocr-scan.json",
+      "sha256": "67d86e2538d13e7a9fcfda71f77077c8614e930dc884cad320cd8d89f8300111"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/pdf-summarize.json",
+      "sha256": "773d8f963f805dd3dcff53cfccc19a7c4550526c54bfe3d0362e3caa3911bbad"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/presentation-outline.json",
+      "sha256": "4b15b6708ab66b2a8b107a4ec668aebff5746b49e04b718cbbfd0fa9a688582c"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/scheduled-digest.json",
+      "sha256": "d0e374e25d697828db2a4790417bc44149f380e89fa85dcde5c3ffdae982d919"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/translate-document.json",
+      "sha256": "c977b5a0ecb226e14165197ed12fbeb250ad5d986b481740c90121b8a7d4ee63"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/web-form-fill.json",
+      "sha256": "96e3486d91a89b8c268bfdd2f37f52540eabb8cd102355e447da5f0d377b9aa3"
+    },
+    {
+      "file": "ruyi-workbench/resources/playbooks/weekly-report.json",
+      "sha256": "7e12bd67a89195b774f2ad31e3dffeea5b212d82a9bfd269d70cb63ef7acc94e"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/.claude-plugin/marketplace.json",
+      "sha256": "1747c2b188892c6669ca50b0488c82e420f2bf51b04dacc5e99fb351f78d5663"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/.claude-plugin/plugin.json",
+      "sha256": "1778a95a9982341dbaf8d2ba4088c899e0e8f4327a9f8ef23ef1e1b1e700c540"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/code-reviewer-offline.md",
+      "sha256": "153326eec6310fee2eef5550023015068e0fd7c302b768ed49b0aaa8c70f3ee6"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md",
+      "sha256": "8a1d3841b98ba2b9831377539c4b92f65c5ef5285e1e6cb6d9cb1bbe76de3f3f"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md",
+      "sha256": "f44c75cfbb8a314023545cd68a8ddc70b9085ceab53512b5218682717d5fc61a"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md",
+      "sha256": "17a675f89cf786e27c5f805a16e91e14f531ffccfc2a20d045e77cf68b4fc99a"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/api-probe.md",
+      "sha256": "b39ea3036370293cbaa44c81d5fef63bbca736cf151b7fa39db6c12e199a4dee"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/claude-md-audit.md",
+      "sha256": "a773600c5e8b5851e691b616a9fffab7417e505a0acecac2d63aa0cc52ee54f3"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/commit-message.md",
+      "sha256": "f9a67dec5cfd8990644880f1d8aa0efa414cc05c4d03c7ece1b9c72c8104003d"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/dependency-inventory.md",
+      "sha256": "8654206dec85cb68e89dcfcaadf5c19ff811630cbd2067ae30af72df0f38dd1d"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/explain-project.md",
+      "sha256": "2e10249e578583a204689af7be19f57160443b7977bbefb71523a96100b0bfa7"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/fix-tests.md",
+      "sha256": "cbfa0b0f349ae2bc656314c5e03578497d6adea2741d114f5ce05b2abd0e5f1a"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md",
+      "sha256": "d68e57ee6462f52f8cc862d9e9d294a085b50064d0faa9bf672fb3468c55f0c9"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/offline-code-review.md",
+      "sha256": "75cfbfb18b11a45fe9f11d38dc97c02893364bd91513af6dcbd873d45d1f2174"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/release-checklist.md",
+      "sha256": "3daa87e2767258c6a6d34f605300e9efe1c261cf8f0636f57988b5ae26d1f0bf"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/security-check.md",
+      "sha256": "70772a1e570ccd791cb3df36dac841ef382d814e2d6e5791d7dd61c984e73001"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/summarize-changes.md",
+      "sha256": "85af23db01679df40c27264a43177f1e4f9675103cf28bc1656ecb3f3cfde170"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md",
+      "sha256": "d073944eeb46fbd34b5a3984808d01db8fe0bd5bf8e6721f52529b00c9dd64dd"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md",
+      "sha256": "e9c38f9b8a023db6118fe8dcd276bca912146b15cc8a93d66e19f8b11426191d"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md",
+      "sha256": "54a3cf2ee12e47f8b0efcffe0cd82d23b5289dc567a983180c492f07a5f3c414"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md",
+      "sha256": "424e84d4ed0af7a98ee69b5d29e9d4e91484d45a8d83bdbe59bff61257ec40e5"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/claude-md-management/SKILL.md",
+      "sha256": "91181ae6b69a74571be704cdc8b0c8b47fe25ac1bd328dd46b9db2a16bfe3fd4"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-review-offline/SKILL.md",
+      "sha256": "1429abb6cc8aeb78c20d1d0ef4ff32d6ea842032cdb75b7b074fa11bd7fba8b3"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-simplifier/SKILL.md",
+      "sha256": "57c5ecd541313fcfa65b082f536baf51995cb9a5e09e6f3f25aeb72a62d0c8a3"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/commit-workflow/SKILL.md",
+      "sha256": "32b0acef03734f83eafaec2fb74a284ce1d7eec47b5e42103565bd17adc53cf8"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/devops-ci-local/SKILL.md",
+      "sha256": "83fdad71074876342c9b1b21507f47b1ec54f5f5c6f259bfe0dbb68a99b9dc11"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md",
+      "sha256": "ff905fb687769a53bfc1300996a00c3ccb1e3b420c7e22973f25ec05418572fb"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/feature-development/SKILL.md",
+      "sha256": "382a789ecbc8af7dfa2359503dddf11ba707a71c7f0e383a72a280071aa41cc7"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/frontend-design-craft/SKILL.md",
+      "sha256": "1d73bb4ab12d186b66e7ca9c58db22084513e97dc08bab523a87aa30287053c0"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/local-docs-context/SKILL.md",
+      "sha256": "4f324a9ce4f29e66ca2276ff8f5e583aff6d2f20a1356a330174700231b5c953"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/lsp-local-setup/SKILL.md",
+      "sha256": "443abb134deac3573a5867be26f03a1465787cdaa5f5dac277b8cdf995245c67"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md",
+      "sha256": "8035aabb349afe374357402ef02a2fd76762fc3dfe08852c9c98ba3855dd46c2"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/offline-packaging/SKILL.md",
+      "sha256": "cadd511fd0634d704d2f301e393028714e2ef7525d3c17bc106de40bc4d73496"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/plugin-development/SKILL.md",
+      "sha256": "7125025ea66148ca3f1e435e00420488579b5dc36efc2c229a1014b6f27e6164"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/research-synthesis/SKILL.md",
+      "sha256": "3ea8436056e6d19b448926c223fecf73e3ed49ee85388db78798e9a35e455cd5"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/security-guidance/SKILL.md",
+      "sha256": "ce10c86c226f0c0dc0caf3046c8098d9153efd5a4449883c8843e56d65f0c06d"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/spreadsheet-analysis/SKILL.md",
+      "sha256": "d331f9d4ded09201a844b69f68f1d8a277f67fe87f488389005b60f7a9d0b164"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/structured-writing/SKILL.md",
+      "sha256": "5cae5cb9c00159ceff23d6e5b481669e22c5d6301210fb619ab6fdb5bb6f1840"
+    },
+    {
+      "file": "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/windows-control/SKILL.md",
+      "sha256": "ad24658a384ca112bc12a95e3a8026838b6a966410f5092d557c88704e3797a1"
+    },
+    {
+      "file": "ruyi-workbench/resources/scripts/install-workbench.ps1",
+      "sha256": "e58edef6d311aeb49338484c37e52aa95cf52957860d4e0750f565600e1ccdfb"
+    },
+    {
+      "file": "ruyi-workbench/resources/scripts/launch-workbench.ps1",
+      "sha256": "15233e1fcc8b013123308195e7e10cc25112010e984ee222c3a19fe48fb84339"
+    },
+    {
+      "file": "ruyi-workbench/start-macos.command",
+      "sha256": "c8173d4e5b2e61bdfc94a5825076503e39b7f922579b411e13afea9652d09702"
+    },
+    {
+      "file": "ruyi-workbench/tools/APPLY-OVERLAY.md",
+      "sha256": "9d04586fdb25992cdd93345fdf0493206fbfe72e8621ce537dd3a2da764874ec"
+    },
+    {
+      "file": "ruyi-workbench/tools/Manage-Overlay.cmd",
+      "sha256": "59b380f61ae9a097a126676dbd890213b0636f7eaf87205316f51cbfdcbd4901"
+    },
+    {
+      "file": "ruyi-workbench/tools/Manage-Overlay.ps1",
+      "sha256": "3fa7fdedbf5f91975c28969caff3bb2e0849328d05fdbdbc4a2ba0c8f901da76"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-macos-desktop.js",
+      "sha256": "014781e85a7523279f5d26259743dc7c48cdac52871e960cc593a020bde9a79b"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-macos-keychain-helper.js",
+      "sha256": "e5ece6edd3d4123fe887a89f21101a77b629becef25fdc389b507f38f2e83872"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-macos-process-helper.js",
+      "sha256": "edd189489054a0054ab682f7049bb9eb580f07f967b1c6451056b23fb1ed5e6f"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-macos-trash-helper.js",
+      "sha256": "e3ec0b78424a79f2d477fe9bbaa520f9478fede9eb1be6c4b32eaff7b1d22d0d"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-overlay.js",
+      "sha256": "91dce601a297b34bf4b9139972cb12f7586c37eaeadb0505d60ddf667256fad0"
+    },
+    {
+      "file": "ruyi-workbench/tools/dev-serve.cmd",
+      "sha256": "20549600999b4269f3b0b739e6a5e1a84cdd3189ddbec2dcc985a30b3fc30249"
+    },
+    {
+      "file": "ruyi-workbench/tools/external-bot-gateway.js",
+      "sha256": "781eaf1f039842091143ebedfed4160c062ae99e84670ffe9d6bfc585fefee45"
+    },
+    {
+      "file": "ruyi-workbench/tools/fake-claude.js",
+      "sha256": "b2fab438144482fa2dc8906550bdd63a959680888bafb6b292a72ec0bc45a56a"
+    },
+    {
+      "file": "ruyi-workbench/tools/gen-manifest.js",
+      "sha256": "0818c238928b09d4122b1e099629eb38a2f813a6bff5f55fe6de41d5b8f0143d"
+    },
+    {
+      "file": "ruyi-workbench/tools/macos-offline-lib.js",
+      "sha256": "f1963208359447f5603225564b1bca1a82240f1ed3c03665973cd547073aac9d"
+    },
+    {
+      "file": "ruyi-workbench/tools/macos-offline-python.py",
+      "sha256": "6255d7153f6e1f70a62b2807ed35b613367036e70e1de069375e024c0a593670"
+    },
+    {
+      "file": "ruyi-workbench/tools/package-macos-offline.js",
+      "sha256": "f6fda5a2d3c9858bd2b213b85ed5df116bd033612ce9b9d66bc50b4719b7b560"
+    },
+    {
+      "file": "ruyi-workbench/tools/package-macos-trial.js",
+      "sha256": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f"
+    },
+    {
+      "file": "ruyi-workbench/tools/package-offline.ps1",
+      "sha256": "bf7b038d3e028459aa9e127088c569d22f63835821821ebff339a4e9501b6441"
+    },
+    {
+      "file": "ruyi-workbench/tools/prepare-macos-offline-assets.py",
+      "sha256": "79c6c5538b28eca6996800f92288fbb3fa68361c10d2ab00bc5b5d8be3eb7817"
+    }
+  ]
+}
