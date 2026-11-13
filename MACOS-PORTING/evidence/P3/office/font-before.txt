@@ -1,0 +1,6 @@
+/System/Library/Fonts/STHeiti Light.ttc faces 2 [('Heiti TC', 'Light', True), ('Heiti SC', 'Light', True)]
+/System/Library/Fonts/STHeiti Medium.ttc faces 2 [('Heiti TC', 'Medium', True), ('Heiti SC', 'Medium', True)]
+/System/Library/Fonts/Supplemental/Songti.ttc faces 8 [('Songti SC', 'Black', True), ('Songti SC', 'Bold', True), ('Songti TC', 'Bold', True)]
+chart {'family': None, 'path': None, 'warning': '未找到中文字体（msyh/simhei/simsun），图中中文可能显示为方块'}
+pdf {'name': 'STSong-Light'}
+

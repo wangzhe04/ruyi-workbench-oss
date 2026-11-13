@@ -1,0 +1,14 @@
+PASS server up
+PASS N4 直调 script_run 被分发点拒绝(got {"ok":false,"code":"tool-disabled","error":"tool 'script_run' is disabled by settings (allowCommandTools=false)","hint":"该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。"})
+PASS N4 证明文件不存在(命令没有执行)
+PASS N4 经 tool_invoke_exec 代理同样被拒(got {"ok":false,"code":"tool-disabled","error":"tool 'script_run' is disabled by settings (allowCommandTools=false)","hint":"该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。"})
+PASS N4 代理路径也没有执行
+PASS N5 未知工具 list_directory → did-you-mean file_list + tool_search 指引(got {"ok":false,"code":"unknown-tool","error":"Unknown tool: list_directory. Did you mean: file_list, list_tools, mcp_list?","didYouMean":["file_list","list_tools","mcp_list"],"hint":"use tool_search {query} to find tools by capability; only exact tool names can b)
+PASS N5 file_read {} → invalid-arguments 点名 path(got {"ok":false,"code":"invalid-arguments","tool":"file_read","error":"file_read: missing required 'path' (string)","expected":{"path":"string"},"hint":"fix the argument(s) and call file_read again; requi)
+PASS N1 tool_invoke_edit{file_write} 写成功且没有 checkpointWarn(got {"ok":true,"path":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-dispatch-hardening-2MKYkg/ws/via-invoke.txt","op":"create","bytes":5,"sourceLineEnding":"none","writtenLineEnding":"none","encoding)
+PASS N1 turn_summary.filesChanged[0].revertible === true(got {"type":"turn_summary","turnSeq":1,"filesChanged":[{"path":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-dispatch-hardening-2MKYkg/ws/via-invoke.txt","op":"create","revertible":true,"entrySeq":0}],"commands":0,"artifacts":[{"path":"/pr)
+PASS server up
+PASS N1b tool_invoke_exec{script_run} 在不可逆账里按 script_run 记(got {"type":"turn_summary","turnSeq":1,"filesChanged":[],"commands":1,"artifacts":[],"irreversible":[{"kind":"exec","name":"script_run","detail":"console.log('ran')","ok":true}],"deliveryEvidence":{"schema":1,"capturedAt":"2026-11-12T14:20:06.1)
+PASS N1b commands 计数为 1(got 1)
+
+TOOL DISPATCH HARDENING E2E: ALL PASS

@@ -1,0 +1,31 @@
+{
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:56:13.239388+00:00",
+  "pid": 67940,
+  "argv": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-neutral-abort.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-hard-abort-worktree",
+  "environment": {
+    "HOME": "/tmp/p5hi-05_zs6n8/h",
+    "USERPROFILE": "/tmp/p5hi-05_zs6n8/u",
+    "APPDATA": "/tmp/p5hi-05_zs6n8/a",
+    "LOCALAPPDATA": "/tmp/p5hi-05_zs6n8/l",
+    "WCW_DATA_DIR": "/tmp/p5hi-05_zs6n8/w",
+    "RUYI_HOME": "/tmp/p5hi-05_zs6n8/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5hi-05_zs6n8/c",
+    "TMPDIR": "/tmp/p5hi-05_zs6n8/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_P5_ABORT_REQUIRED": "1",
+    "RUYI_P5_ABORT_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_ABORT_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-hard-abort-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "attempt": 1,
+  "scope": "Approved/pending ordinary wait-only call root-termination calibration; no guaranteed ACC wait-entry ACK or macro durable attribution."
+}

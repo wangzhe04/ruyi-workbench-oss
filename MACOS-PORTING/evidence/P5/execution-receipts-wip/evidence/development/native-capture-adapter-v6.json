@@ -1,0 +1,6 @@
+{
+  "exitCode": 0,
+  "elapsed": 2.5347496250178665,
+  "isolation": "/tmp/rc-22v2dswp",
+  "scope": "23adapter cases: shared real generic/input query busy refusal and successful worker reuse, prior deadline and request-scope cancellation/observer-quarantine."
+}

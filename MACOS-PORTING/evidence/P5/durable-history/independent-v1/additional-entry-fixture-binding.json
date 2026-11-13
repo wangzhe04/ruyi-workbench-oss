@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T11:47:52.318436+00:00",
+  "baseCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+  "fixtures": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "gitBlobAt96db15f6": "aec4c8a054c05913be3b2fc61eee09ecc74717ec",
+      "mainAndWorktreeWorkingMatchBase": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "gitBlobAt96db15f6": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+      "mainAndWorktreeWorkingMatchBase": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "gitBlobAt96db15f6": "66157f31a6d4182bf74c94135294977b5f80786b",
+      "mainAndWorktreeWorkingMatchBase": true
+    }
+  ],
+  "scope": "Three unchanged existing entry fixtures, not new implementation. Raw base Git blob/OID and both working copies match; separately checked before/after independent stages."
+}

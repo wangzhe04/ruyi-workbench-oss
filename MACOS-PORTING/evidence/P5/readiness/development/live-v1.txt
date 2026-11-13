@@ -1,0 +1,28 @@
+PASS actual enabled Workbench helper begins ready with native screenshot visible
+PASS baseline confirms owned foreground focus before starting a recording
+PASS baseline confirms controlled recording before dispatching its one input
+PASS baseline confirms the actual unpressed pointer sequence before collection
+PASS baseline confirms complete collection and actual saved file before replay scenarios
+PASS baseline actually records and saves one owned unpressed pointer sequence for later hidden replay
+PASS ready baseline advertises actual loaded native capability families
+PASS same captured macro replays successfully through ordinary default-mode session before refusal controls
+PASS scenario service and all observed owned process identities exit completely
+PASS actual missing helper makes Workbench capture unavailable and removes its native screenshot
+PASS real ACC missing-helper diagnostic reports capture/input/record/AX unavailable
+PASS actual missing helper omits native capture/input/record/AX/OCR-screen families from compact catalog
+PASS READINESS_MISSING refuses through the ordinary provider proxy with dependency_missing
+PASS READINESS_MISSING has no receiver input or native input/focus dispatch audit
+PASS READINESS_MISSING leaves no pending permission
+PASS scenario service and all observed owned process identities exit completely
+PASS actual ACC registry removes only the requested sequence while normal macro dispatcher remains available
+FAIL READINESS_HIDDEN_RECORDING refuses through the ordinary provider proxy with tool_unavailable
+FAIL Error: Stopped after failed assertion: READINESS_HIDDEN_RECORDING refuses through the ordinary provider proxy with tool_unavailable
+    at check (/private/tmp/ruyi-p5-readiness-worktree/dev-harness/macos-native-readiness.e2e.js:133:82)
+    at refusedTurn (/private/tmp/ruyi-p5-readiness-worktree/dev-harness/macos-native-readiness.e2e.js:218:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /private/tmp/ruyi-p5-readiness-worktree/dev-harness/macos-native-readiness.e2e.js:294:5
+PASS scenario service and all observed owned process identities exit completely
+PASS receiver and all observed owned process identities exit
+PASS fixture restores the original input source after all readiness scenarios
+
+MACOS NATIVE READINESS E2E: FAIL (2)

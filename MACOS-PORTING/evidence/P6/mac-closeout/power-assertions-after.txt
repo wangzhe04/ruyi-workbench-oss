@@ -1,0 +1,22 @@
+2026-11-13 00:04:52 +0800 
+Assertion status system-wide:
+   BackgroundTask                 0
+   ApplePushServiceTask           0
+   UserIsActive                   0
+   PreventUserIdleDisplaySleep    0
+   SoftwareUpdateTask             0
+   PreventSystemSleep             0
+   PreventSystemSleepSecurityIndicator 0
+   ExternalMedia                  0
+   InternalPreventDisplaySleep    1
+   PreventUserIdleSystemSleep     1
+   NetworkClientActive            1
+Listed by owning process:
+   pid 30625(ChatGPT): [0x0001b0150001969f] 30:19:16 NoIdleSleepAssertion named: "Electron"  
+   pid 839(ExcelDevMon): [0x0000009000018141] 61:00:25 PreventUserIdleSystemSleep named: "Good Reason"  
+   pid 517(cupsd): [0x0000008d00118077] 61:00:28 NetworkClientActive named: "org.cups.cupsd"  
+   pid 389(powerd): [0x00032d7b0001931f] 03:11:58 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+   pid 389(powerd): [0x00035a79001086c9] 00:00:00 InternalPreventDisplaySleep named: "com.apple.powermanagement.delayDisplayOff"  
+	Timeout will fire in 300 secs Action=TimeoutActionTurnOff
+Kernel Assertions: 0x100=MAGICWAKE
+   id=542  level=255 0x100=MAGICWAKE creat=2026/11/10 11:06  mod=2026/11/12 10:21 description=en0 owner=IOSkywalkNetworkBSDClient

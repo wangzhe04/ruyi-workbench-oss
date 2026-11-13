@@ -1,0 +1,1864 @@
+{
+  "results": [
+    {
+      "name": "ocr_available_languages",
+      "elapsed_ms": 17,
+      "result": {
+        "ok": true,
+        "backend": "Vision",
+        "count": 33,
+        "languages": [
+          {
+            "name": "英语",
+            "tag": "en-US"
+          },
+          {
+            "name": "法语",
+            "tag": "fr-FR"
+          },
+          {
+            "name": "意大利语",
+            "tag": "it-IT"
+          },
+          {
+            "name": "德语",
+            "tag": "de-DE"
+          },
+          {
+            "name": "西班牙语",
+            "tag": "es-ES"
+          },
+          {
+            "name": "葡萄牙语",
+            "tag": "pt-BR"
+          },
+          {
+            "name": "中文",
+            "tag": "zh-Hans"
+          },
+          {
+            "name": "中文",
+            "tag": "zh-Hant"
+          },
+          {
+            "name": "粤语",
+            "tag": "yue-Hans"
+          },
+          {
+            "name": "粤语",
+            "tag": "yue-Hant"
+          },
+          {
+            "name": "韩语",
+            "tag": "ko-KR"
+          },
+          {
+            "name": "日语",
+            "tag": "ja-JP"
+          },
+          {
+            "name": "俄语",
+            "tag": "ru-RU"
+          },
+          {
+            "name": "乌克兰语",
+            "tag": "uk-UA"
+          },
+          {
+            "name": "泰语",
+            "tag": "th-TH"
+          },
+          {
+            "name": "越南语",
+            "tag": "vi-VT"
+          },
+          {
+            "name": "阿拉伯语",
+            "tag": "ar-SA"
+          },
+          {
+            "name": "阿拉伯语（内志）",
+            "tag": "ars-SA"
+          },
+          {
+            "name": "土耳其语",
+            "tag": "tr-TR"
+          },
+          {
+            "name": "印度尼西亚语",
+            "tag": "id-ID"
+          },
+          {
+            "name": "捷克语",
+            "tag": "cs-CZ"
+          },
+          {
+            "name": "丹麦语",
+            "tag": "da-DK"
+          },
+          {
+            "name": "荷兰语",
+            "tag": "nl-NL"
+          },
+          {
+            "name": "挪威语",
+            "tag": "no-NO"
+          },
+          {
+            "name": "新挪威语",
+            "tag": "nn-NO"
+          },
+          {
+            "name": "书面挪威语",
+            "tag": "nb-NO"
+          },
+          {
+            "name": "马来语",
+            "tag": "ms-MY"
+          },
+          {
+            "name": "波兰语",
+            "tag": "pl-PL"
+          },
+          {
+            "name": "罗马尼亚语",
+            "tag": "ro-RO"
+          },
+          {
+            "name": "瑞典语",
+            "tag": "sv-SE"
+          },
+          {
+            "name": "芬兰语",
+            "tag": "fi-FI"
+          },
+          {
+            "name": "印地语",
+            "tag": "hi-IN"
+          },
+          {
+            "name": "马拉地语",
+            "tag": "mr-IN"
+          }
+        ],
+        "protocolVersion": 1,
+        "recognition_revision": 3
+      }
+    },
+    {
+      "name": "ocr_image",
+      "elapsed_ms": 225,
+      "result": {
+        "ok": true,
+        "backend": "Vision",
+        "confidence_scope": "line_candidate",
+        "coordinate_space": "image_pixels",
+        "height": 300,
+        "image_orientation": "decoded_pixels_up",
+        "lines": [
+          "INVOICE 42",
+          "中文测试",
+          "Total $42.50"
+        ],
+        "protocolVersion": 1,
+        "recognition_languages": [
+          "zh-Hans",
+          "en-US"
+        ],
+        "recognition_revision": 3,
+        "success": true,
+        "text": "INVOICE 42\n中文测试\nTotal $42.50",
+        "width": 1000,
+        "words": [
+          {
+            "center": [
+              136.5,
+              62
+            ],
+            "confidence": 1,
+            "height": 40,
+            "left": 36,
+            "line": 0,
+            "text": "INVOICE",
+            "top": 42,
+            "width": 201
+          },
+          {
+            "center": [
+              275,
+              62
+            ],
+            "confidence": 1,
+            "height": 40,
+            "left": 240,
+            "line": 0,
+            "text": "42",
+            "top": 42,
+            "width": 70
+          },
+          {
+            "center": [
+              68,
+              152.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 41,
+            "line": 1,
+            "text": "中",
+            "top": 127,
+            "width": 54
+          },
+          {
+            "center": [
+              116.5,
+              152.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 94,
+            "line": 1,
+            "text": "文",
+            "top": 127,
+            "width": 45
+          },
+          {
+            "center": [
+              163.5,
+              153
+            ],
+            "confidence": 1,
+            "height": 52,
+            "left": 138,
+            "line": 1,
+            "text": "测",
+            "top": 127,
+            "width": 51
+          },
+          {
+            "center": [
+              213.5,
+              153.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 188,
+            "line": 1,
+            "text": "试",
+            "top": 128,
+            "width": 51
+          },
+          {
+            "center": [
+              94,
+              243.5
+            ],
+            "confidence": 0.5,
+            "height": 51,
+            "left": 37,
+            "line": 2,
+            "text": "Total",
+            "top": 218,
+            "width": 114
+          },
+          {
+            "center": [
+              238,
+              242
+            ],
+            "confidence": 0.5,
+            "height": 52,
+            "left": 151,
+            "line": 2,
+            "text": "$42.50",
+            "top": 216,
+            "width": 174
+          }
+        ],
+        "words_total": 8,
+        "truncated": false
+      }
+    },
+    {
+      "name": "ocr_image",
+      "elapsed_ms": 149,
+      "result": {
+        "ok": true,
+        "backend": "Vision",
+        "confidence_scope": "line_candidate",
+        "coordinate_space": "image_pixels",
+        "height": 300,
+        "image_orientation": "decoded_pixels_up",
+        "lines": [
+          "INVOICE 42",
+          "中文测试",
+          "Total $42.50"
+        ],
+        "protocolVersion": 1,
+        "recognition_languages": [
+          "zh-Hans",
+          "en-US"
+        ],
+        "recognition_revision": 3,
+        "success": true,
+        "text": "INVOICE 42\n中文测试\nTotal $42.50",
+        "width": 1000,
+        "words": [
+          {
+            "center": [
+              136.5,
+              62
+            ],
+            "confidence": 1,
+            "height": 40,
+            "left": 36,
+            "line": 0,
+            "text": "INVOICE",
+            "top": 42,
+            "width": 201
+          },
+          {
+            "center": [
+              275,
+              62
+            ],
+            "confidence": 1,
+            "height": 40,
+            "left": 240,
+            "line": 0,
+            "text": "42",
+            "top": 42,
+            "width": 70
+          },
+          {
+            "center": [
+              68,
+              152.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 41,
+            "line": 1,
+            "text": "中",
+            "top": 127,
+            "width": 54
+          },
+          {
+            "center": [
+              116.5,
+              152.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 94,
+            "line": 1,
+            "text": "文",
+            "top": 127,
+            "width": 45
+          },
+          {
+            "center": [
+              163.5,
+              153
+            ],
+            "confidence": 1,
+            "height": 52,
+            "left": 138,
+            "line": 1,
+            "text": "测",
+            "top": 127,
+            "width": 51
+          },
+          {
+            "center": [
+              213.5,
+              153.5
+            ],
+            "confidence": 1,
+            "height": 51,
+            "left": 188,
+            "line": 1,
+            "text": "试",
+            "top": 128,
+            "width": 51
+          },
+          {
+            "center": [
+              94,
+              243.5
+            ],
+            "confidence": 0.5,
+            "height": 51,
+            "left": 37,
+            "line": 2,
+            "text": "Total",
+            "top": 218,
+            "width": 114
+          },
+          {
+            "center": [
+              238,
+              242
+            ],
+            "confidence": 0.5,
+            "height": 52,
+            "left": 151,
+            "line": 2,
+            "text": "$42.50",
+            "top": 216,
+            "width": 174
+          }
+        ],
+        "words_total": 8,
+        "truncated": false
+      }
+    },
+    {
+      "name": "ocr_image",
+      "elapsed_ms": 18,
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Requested language is not supported by the installed Vision recognizer",
+        "code": "ocr_language_unsupported",
+        "available_languages": [
+          "en-US",
+          "fr-FR",
+          "it-IT",
+          "de-DE",
+          "es-ES",
+          "pt-BR",
+          "zh-Hans",
+          "zh-Hant",
+          "yue-Hans",
+          "yue-Hant",
+          "ko-KR",
+          "ja-JP",
+          "ru-RU",
+          "uk-UA",
+          "th-TH",
+          "vi-VT",
+          "ar-SA",
+          "ars-SA",
+          "tr-TR",
+          "id-ID",
+          "cs-CZ",
+          "da-DK",
+          "nl-NL",
+          "no-NO",
+          "nn-NO",
+          "nb-NO",
+          "ms-MY",
+          "pl-PL",
+          "ro-RO",
+          "sv-SE",
+          "fi-FI",
+          "hi-IN",
+          "mr-IN"
+        ]
+      }
+    },
+    {
+      "name": "ocr_image",
+      "elapsed_ms": 17,
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Input has no decodable image properties",
+        "code": "ocr_image_invalid"
+      }
+    },
+    {
+      "name": "ocr_image",
+      "elapsed_ms": 15,
+      "result": {
+        "ok": false,
+        "error": "DesktopError: OCR requires a nonempty regular image file of at most 50MB",
+        "code": "ocr_capacity"
+      }
+    },
+    {
+      "name": "list_windows",
+      "elapsed_ms": 119,
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "ocr-fixture",
+            "handle": 3343,
+            "height": 448,
+            "pid": 82354,
+            "process_start": "1794317403:265890",
+            "target": {
+              "bounds": {
+                "height": 448,
+                "width": 820,
+                "x": 160,
+                "y": 492
+              },
+              "handle": 3343,
+              "pid": 82354,
+              "process_start": "1794317403:265890",
+              "ref": "164284D0-BA47-4765-AA41-755925B2A2DA"
+            },
+            "title": "Ruyi P5 OCR 82354",
+            "visible": true,
+            "width": 820,
+            "x": 160,
+            "y": 492
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "41B19EC8-5BDD-4415-8E42-E4578DACA77E"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "51ACD62A-560B-4444-AE82-658F8E521578"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 45,
+            "height": 774,
+            "pid": 927,
+            "process_start": "1794279868:990047",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 45,
+              "pid": 927,
+              "process_start": "1794279868:990047",
+              "ref": "29C6EA4C-C0A6-4DB5-A08E-1D8B9F34C361"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "8F77630C-AE49-474E-9327-575215B3519B"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "name": "focus_window",
+      "elapsed_ms": 41,
+      "result": {
+        "ok": true,
+        "acted": true,
+        "foreground_verified": true,
+        "matched": true,
+        "protocolVersion": 1,
+        "window": {
+          "application": "ocr-fixture",
+          "handle": 3343,
+          "height": 448,
+          "pid": 82354,
+          "process_start": "1794317403:265890",
+          "target": {
+            "bounds": {
+              "height": 448,
+              "width": 820,
+              "x": 160,
+              "y": 492
+            },
+            "handle": 3343,
+            "pid": 82354,
+            "process_start": "1794317403:265890",
+            "ref": "164284D0-BA47-4765-AA41-755925B2A2DA"
+          },
+          "title": "Ruyi P5 OCR 82354",
+          "visible": true,
+          "width": 820,
+          "x": 160,
+          "y": 492
+        }
+      }
+    },
+    {
+      "name": "ocr_screen",
+      "elapsed_ms": 383,
+      "result": {
+        "ok": true,
+        "backend": "Vision",
+        "confidence_scope": "line_candidate",
+        "coordinate_space": "macos_global_points",
+        "height": 840,
+        "image_orientation": "decoded_pixels_up",
+        "lines": [
+          "INVOICE 42",
+          "中文测试",
+          "Save Draft",
+          "中文保存",
+          "Save Draft"
+        ],
+        "protocolVersion": 1,
+        "recognition_languages": [
+          "zh-Hans",
+          "en-US"
+        ],
+        "recognition_revision": 3,
+        "success": true,
+        "text": "INVOICE 42\n中文测试\nSave Draft\n中文保存\nSave Draft",
+        "width": 1640,
+        "words": [
+          {
+            "center": [
+              252,
+              579.5
+            ],
+            "confidence": 1,
+            "height": 27,
+            "left": 188.5,
+            "line": 0,
+            "text": "INVOICE",
+            "top": 566,
+            "width": 127
+          },
+          {
+            "center": [
+              339.75,
+              579.5
+            ],
+            "confidence": 1,
+            "height": 27,
+            "left": 318,
+            "line": 0,
+            "text": "42",
+            "top": 566,
+            "width": 43.5
+          },
+          {
+            "center": [
+              209.25,
+              650.75
+            ],
+            "confidence": 1,
+            "height": 31.5,
+            "left": 193,
+            "line": 1,
+            "text": "中",
+            "top": 635,
+            "width": 32.5
+          },
+          {
+            "center": [
+              238.75,
+              650.5
+            ],
+            "confidence": 1,
+            "height": 31,
+            "left": 225,
+            "line": 1,
+            "text": "文",
+            "top": 635,
+            "width": 27.5
+          },
+          {
+            "center": [
+              267.5,
+              650.5
+            ],
+            "confidence": 1,
+            "height": 31,
+            "left": 252,
+            "line": 1,
+            "text": "测",
+            "top": 635,
+            "width": 31
+          },
+          {
+            "center": [
+              298.25,
+              651
+            ],
+            "confidence": 1,
+            "height": 32,
+            "left": 282.5,
+            "line": 1,
+            "text": "试",
+            "top": 635,
+            "width": 31.5
+          },
+          {
+            "center": [
+              320.75,
+              776.5
+            ],
+            "confidence": 1,
+            "height": 23,
+            "left": 294,
+            "line": 2,
+            "text": "Save",
+            "top": 765,
+            "width": 53.5
+          },
+          {
+            "center": [
+              377.75,
+              777.5
+            ],
+            "confidence": 1,
+            "height": 23,
+            "left": 349.5,
+            "line": 2,
+            "text": "Draft",
+            "top": 766,
+            "width": 56.5
+          },
+          {
+            "center": [
+              317.75,
+              872.75
+            ],
+            "confidence": 1,
+            "height": 24.5,
+            "left": 305,
+            "line": 3,
+            "text": "中",
+            "top": 860.5,
+            "width": 25.5
+          },
+          {
+            "center": [
+              340.25,
+              872.25
+            ],
+            "confidence": 1,
+            "height": 24.5,
+            "left": 329.5,
+            "line": 3,
+            "text": "文",
+            "top": 860,
+            "width": 21.5
+          },
+          {
+            "center": [
+              362.25,
+              871.75
+            ],
+            "confidence": 1,
+            "height": 24.5,
+            "left": 350,
+            "line": 3,
+            "text": "保",
+            "top": 859.5,
+            "width": 24.5
+          },
+          {
+            "center": [
+              385,
+              871.25
+            ],
+            "confidence": 1,
+            "height": 24.5,
+            "left": 373.5,
+            "line": 3,
+            "text": "存",
+            "top": 859,
+            "width": 23
+          },
+          {
+            "center": [
+              718,
+              774.75
+            ],
+            "confidence": 1,
+            "height": 26.5,
+            "left": 690,
+            "line": 4,
+            "text": "Save",
+            "top": 761.5,
+            "width": 56
+          },
+          {
+            "center": [
+              777.25,
+              775.75
+            ],
+            "confidence": 1,
+            "height": 26.5,
+            "left": 748,
+            "line": 4,
+            "text": "Draft",
+            "top": 762.5,
+            "width": 58.5
+          }
+        ],
+        "words_total": 14,
+        "origin": {
+          "x": 160,
+          "y": 520
+        },
+        "logical_bounds": {
+          "height": 420,
+          "width": 820,
+          "x": 160,
+          "y": 520
+        },
+        "source_pixel_scale": {
+          "x": 2,
+          "y": 2
+        },
+        "truncated": false
+      }
+    },
+    {
+      "name": "ocr_find_text",
+      "elapsed_ms": 413,
+      "result": {
+        "ok": true,
+        "found": true,
+        "count": 1,
+        "center": {
+          "x": 350,
+          "y": 871.5
+        },
+        "rect": {
+          "left": 305,
+          "top": 859.5,
+          "width": 90,
+          "height": 24
+        },
+        "matched_text": "中 文 保 存",
+        "match_type": "phrase",
+        "coordinate_space": "macos_global_points"
+      }
+    },
+    {
+      "name": "ocr_find_text",
+      "elapsed_ms": 361,
+      "result": {
+        "ok": true,
+        "found": false,
+        "text": "NO_SUCH_OWNED_LABEL_999",
+        "words_seen": 14,
+        "hint": "Text not found. Try lang= for the screen's language, a smaller region, ocr_screen to read what OCR actually sees, or ui_find for UI Automation controls."
+      }
+    },
+    {
+      "name": "ocr_click",
+      "elapsed_ms": 380,
+      "result": {
+        "ok": true,
+        "found": true,
+        "count": 2,
+        "candidates": [
+          {
+            "text": "Save Draft",
+            "left": 294.5,
+            "top": 765.5,
+            "width": 111.5,
+            "height": 22.5,
+            "center": [
+              350.25,
+              776.75
+            ],
+            "match_type": "phrase"
+          },
+          {
+            "text": "Save Draft",
+            "left": 690,
+            "top": 766,
+            "width": 116,
+            "height": 21.5,
+            "center": [
+              748,
+              776.75
+            ],
+            "match_type": "phrase"
+          }
+        ],
+        "truncated": false,
+        "clicked": null
+      }
+    },
+    {
+      "name": "ocr_click",
+      "elapsed_ms": 387,
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Select nth or nearest_to for multiple matches",
+        "code": "ocr_ambiguous",
+        "count": 2,
+        "candidates": [
+          {
+            "text": "Save Draft",
+            "left": 294.5,
+            "top": 765.5,
+            "width": 111.5,
+            "height": 22.5,
+            "center": [
+              350.25,
+              776.75
+            ],
+            "match_type": "phrase"
+          },
+          {
+            "text": "Save Draft",
+            "left": 690,
+            "top": 766,
+            "width": 116,
+            "height": 21.5,
+            "center": [
+              748,
+              776.75
+            ],
+            "match_type": "phrase"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ocr_click",
+      "elapsed_ms": 750,
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 748,
+        "actual_y": 776.75,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "native_events_posted",
+        "confirmed": null,
+        "outcome": "unconfirmed",
+        "observation_age_ms": 609,
+        "success": true,
+        "found": true,
+        "clicked": {
+          "text": "Save Draft",
+          "left": 690,
+          "top": 766,
+          "width": 116,
+          "height": 21.5,
+          "center": [
+            748,
+            776.75
+          ],
+          "match_type": "phrase"
+        },
+        "count": 2
+      }
+    },
+    {
+      "name": "ocr_click",
+      "elapsed_ms": 640,
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 350,
+        "actual_y": 871.5,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "native_events_posted",
+        "confirmed": null,
+        "outcome": "unconfirmed",
+        "observation_age_ms": 569,
+        "success": true,
+        "found": true,
+        "clicked": {
+          "text": "中 文 保 存",
+          "left": 305,
+          "top": 859.5,
+          "width": 90,
+          "height": 24,
+          "center": [
+            350,
+            871.5
+          ],
+          "match_type": "phrase"
+        },
+        "count": 1
+      }
+    },
+    {
+      "name": "screenshot_region",
+      "elapsed_ms": 165,
+      "result": {
+        "ok": true,
+        "clipped": 0,
+        "coordinate_space": "macos_global_points",
+        "height": 64,
+        "logical_bounds": {
+          "height": 32,
+          "width": 160,
+          "x": 270,
+          "y": 767
+        },
+        "method": "ScreenCaptureKit",
+        "protocolVersion": 1,
+        "width": 320,
+        "scale": 2,
+        "format": "png",
+        "scale_y": 2,
+        "origin": {
+          "x": 270,
+          "y": 767
+        },
+        "source_pixel_scale": {
+          "x": 2,
+          "y": 2
+        }
+      }
+    },
+    {
+      "name": "find_all_templates",
+      "elapsed_ms": 363,
+      "result": {
+        "ok": true,
+        "count": 2,
+        "matches_total": 2,
+        "matches": [
+          {
+            "confidence": 0.9999997615814209,
+            "left": 270,
+            "top": 767,
+            "width": 160,
+            "height": 32,
+            "center": [
+              350,
+              783
+            ]
+          },
+          {
+            "confidence": 0.9999997615814209,
+            "left": 670,
+            "top": 767,
+            "width": 160,
+            "height": 32,
+            "center": [
+              750,
+              783
+            ]
+          }
+        ],
+        "truncated": false,
+        "coordinate_space": "macos_global_points"
+      }
+    },
+    {
+      "name": "find_all_templates",
+      "elapsed_ms": 349,
+      "result": {
+        "ok": true,
+        "count": 1,
+        "matches_total": 2,
+        "matches": [
+          {
+            "confidence": 0.9999997615814209,
+            "left": 270,
+            "top": 767,
+            "width": 160,
+            "height": 32,
+            "center": [
+              350,
+              783
+            ]
+          }
+        ],
+        "truncated": true,
+        "coordinate_space": "macos_global_points"
+      }
+    },
+    {
+      "name": "vision_click",
+      "elapsed_ms": 349,
+      "result": {
+        "ok": true,
+        "found": true,
+        "confidence": 0.9999997615814209,
+        "count": 2,
+        "center": {
+          "x": 350,
+          "y": 783
+        },
+        "rect": {
+          "left": 270,
+          "top": 767,
+          "width": 160,
+          "height": 32
+        },
+        "coordinate_space": "macos_global_points"
+      }
+    },
+    {
+      "name": "vision_click",
+      "elapsed_ms": 351,
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Select nth or nearest_to for multiple matches",
+        "code": "vision_ambiguous",
+        "count": 2,
+        "candidates": [
+          {
+            "confidence": 1,
+            "left": 270,
+            "top": 767,
+            "width": 160,
+            "height": 32,
+            "center": [
+              350,
+              783
+            ]
+          },
+          {
+            "confidence": 1,
+            "left": 670,
+            "top": 767,
+            "width": 160,
+            "height": 32,
+            "center": [
+              750,
+              783
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "vision_click",
+      "elapsed_ms": 582,
+      "result": {
+        "ok": true,
+        "found": true,
+        "confidence": 1,
+        "count": 2,
+        "center": {
+          "x": 750,
+          "y": 783
+        },
+        "rect": {
+          "left": 670,
+          "top": 767,
+          "width": 160,
+          "height": 32
+        },
+        "coordinate_space": "macos_global_points",
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 750,
+        "actual_y": 783,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "native_events_posted",
+        "confirmed": null,
+        "outcome": "unconfirmed",
+        "observation_age_ms": 523,
+        "clicked": true
+      }
+    },
+    {
+      "name": "wait_for_image",
+      "elapsed_ms": 359,
+      "result": {
+        "ok": true,
+        "found": true,
+        "match": {
+          "confidence": 0.9999997615814209,
+          "left": 270,
+          "top": 767,
+          "width": 160,
+          "height": 32,
+          "center": [
+            350,
+            783
+          ]
+        },
+        "coordinate_space": "macos_global_points"
+      }
+    },
+    {
+      "name": "ocr_click",
+      "elapsed_ms": 4,
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Cannot identify the focused accessible window",
+        "code": "window_not_found"
+      }
+    },
+    {
+      "name": "diagnostics",
+      "elapsed_ms": 244,
+      "result": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": false,
+          "cv2": true,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 41,
+        "load_errors": {},
+        "unsupported_modules": {
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "observe": "platform.unsupported: macOS desktop backend is not implemented",
+          "act_and_verify": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented",
+          "audio": "platform.unsupported: macOS desktop backend is not implemented",
+          "record": "platform.unsupported: macOS desktop backend is not implemented",
+          "batch": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "inputReady": true,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      }
+    }
+  ],
+  "reports": [
+    {
+      "counts": [
+        0,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "ready",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        0,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "state",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        1,
+        0
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "state",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        1,
+        1
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        1,
+        1
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "state",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        2,
+        1
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "pressed",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        2,
+        1
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "state",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        2,
+        1
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "other",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    },
+    {
+      "counts": [
+        0,
+        2,
+        1
+      ],
+      "content": {
+        "y": 520,
+        "x": 160,
+        "width": 820,
+        "height": 420
+      },
+      "buttons": [
+        {
+          "bounds": {
+            "y": 750,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 750,
+            "x": 590,
+            "width": 320,
+            "height": 65
+          },
+          "text": "Save Draft"
+        },
+        {
+          "bounds": {
+            "y": 845,
+            "x": 190,
+            "width": 320,
+            "height": 65
+          },
+          "text": "中文保存"
+        }
+      ],
+      "id": 3343,
+      "event": "front",
+      "title": "Ruyi P5 OCR 82354",
+      "modifiers": 0,
+      "leftHeld": false,
+      "pid": 82354
+    }
+  ]
+}

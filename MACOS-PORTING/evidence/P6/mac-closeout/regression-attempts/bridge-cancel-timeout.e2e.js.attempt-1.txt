@@ -1,0 +1,25 @@
+── E 段: 静态锁(超时表 / cancelled 通知 / kill 兜底) ──
+PASS E1 声明式按工具超时表在(run_command/launch_application 650s)
+PASS E2 tools/call 超时发 notifications/cancelled(MCP 标准取消)
+PASS E3 callTool catch 内超时即 kill 客户端进程树
+PASS E4 env 测试缝在(e2e 打秒级超时)
+PASS E5 callTool 缺省超时走声明式表(调用点免费获得)
+PASS E6 run_command 桥截止时间跟随本次 timeout 参数,不再一律显示运行中至 650s
+PASS workbench starts
+── A-D 段: 一回合双步(超时杀 → 重连恢复) ──
+PASS 回合在远小于 30s 内结束(慢工具被超时中止,没等满) (2051ms)
+PASS ① fake__slow_task 被调用
+PASS A1 ①的工具结果为超时错误 (got {"ok":false,"cleanupScope":"owned-group-and-observed","cleanupIncomplete":false,"cleanupEscapeCoverage":"observed-only",)
+PASS A2 timeout reports the actual verified cleanup scope without claiming unobserved descendants
+PASS B1 fake-mcp 收到 notifications/cancelled
+PASS B2 cancelled 带数字 requestId(MCP 标准形)
+PASS B3 cancelled reason=timeout
+PASS C0 fake-mcp 先后两个 pid(被杀 + 重连) (got 66092,66144)
+PASS C0b both actual MCP birth identities observed
+PASS C1 超时后旧 fake-mcp 进程树被杀(tasklist 查不到 pid 66092)
+PASS C2 重连的新 fake-mcp 活着(pid 66144,回合并发期间应在线)
+PASS ② fake__echo 被调用(超时杀后的下一次调用)
+PASS D1 ②的 echo 成功 —— 新客户端惰性重连恢复服务 (got {"ok":true,"echoed":"alive-after-kill"})
+PASS 回合正常收尾(turn_summary 在)
+
+BRIDGE CANCEL/TIMEOUT E2E: ALL PASS

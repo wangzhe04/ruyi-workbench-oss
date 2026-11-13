@@ -1,0 +1,27 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS S0 建出回放会话
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S1 回放会话的 4 张工具卡都画出来了(实得 4)
+PASS R0 shell 结果走了富渲染容器
+PASS R1a stdout / stderr 各一个文本块(实得 ["stdout","stderr"])
+PASS R1b stderr 是真的两行文本(含真换行),不是一行转义串
+PASS R1c 整张卡的文本里没有字面的 "\n"(修前 "stdout": "build line 0\nbuild line 1\n…")
+PASS R2a 400 行 stdout 默认只画前 40 行(实得 40)
+PASS R2b 带「展开全部(400 行)」按钮(实得 "展开全部(400 行)")
+PASS R2c 其余键(code/timedOut)仍以 JSON 文本可见
+PASS R2d 点「展开全部」后 400 行全在(实得 400)
+PASS R3a 落盘截图(imageAttachments)画成一张 <img>(实得 1)
+PASS R3b 这张图真的经 /api/upload/content 取回并解码了(naturalWidth > 0)
+PASS R3c 卡里没有 base64 文本墙
+PASS R4a 老会话里内嵌的 image_base64 也画成 <img>(data URI)
+PASS R4b 卡的文本里没有那段 base64(不再整墙文本)
+PASS R5 只有标量键的小结果:不走富渲染,仍是 JSON 文本
+PASS L1 live:file_read 的 tool_result 到达后画成文本块
+PASS L2 live:content 是真多行文本 现场:["content","第 1 行内容\n第 2 行内容\n第 3 行内容\n第 4 行内容\n第 5 行内容\n"]
+PASS L3 live:正文块里没有字面的 "\n",正文也不再以 "content": "…" 的 JSON 串出现
+PASS X 页面没有未捕获异常()
+
+TOOL RESULT RENDER BROWSER E2E: ALL PASS

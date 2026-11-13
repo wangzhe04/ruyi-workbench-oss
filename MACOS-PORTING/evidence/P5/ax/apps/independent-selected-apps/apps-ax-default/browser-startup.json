@@ -1,0 +1,12 @@
+{
+  "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "launchExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "pid": 37009,
+  "exitCode": null,
+  "signal": null,
+  "targetObserved": true,
+  "elapsedMs": 449.08358299999963,
+  "injectedNonrespondingEndpoint": false,
+  "reason": null,
+  "diagnostics": "[37009:803530:1110/193231.420219:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:\nERROR: Failed normalizing string\n  tag: 19\nERROR: Failed normalizing subject\n\n\nDevTools listening on ws://127.0.0.1:56186/devtools/browser/81465ed8-d6dd-4e52-a276-70afa325cdd3\n"
+}

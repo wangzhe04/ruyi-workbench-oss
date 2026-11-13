@@ -1,0 +1,37 @@
+PASS ① 找到工作区 tablist
+PASS ① 用户视图 files 存在
+PASS ① 用户视图 artifacts 存在
+PASS ① 用户视图 changes 存在
+PASS ① 用户视图 agent-runs 存在
+PASS ① 用户视图 usage 存在
+PASS ① 用户视图 audit 存在
+PASS ① 底层页签 powershell 未暴露
+PASS ① 底层页签 desktop 未暴露
+PASS ① 底层页签 mcp 未暴露
+PASS ① 底层页签 debug 未暴露
+PASS ① 底层页签 storage 未暴露
+PASS ① tablist 可访问语义完整
+PASS ② #runPsBtn 不再对用户暴露
+PASS ② #searchBtn 不再对用户暴露
+PASS ② #readFileBtn 不再对用户暴露
+PASS ② #browserOpenBtn 不再对用户暴露
+PASS ② #screenshotBtn 不再对用户暴露
+PASS ② #refreshMcpBtn 不再对用户暴露
+PASS ② 文件页改为自然语言引导
+PASS ③ files 默认激活
+PASS ③ #tab-files 默认激活
+PASS ③ raw tool output 仅作隐藏兼容宿主
+PASS ④ #storageSummary 已迁入设置体检
+PASS ④ #metricsPanel 已迁入设置体检
+PASS ④ #rawEvents 已迁入设置体检
+PASS ④ #debugDownloadBtn 已迁入设置体检
+PASS ④ 右栏页签在专家档 ≤2 行（7 枚 / 4 列 = 2 行）
+PASS ④ 右栏页签在精简档 ≤2 行（看得见 5 枚 / 3 列 = 2 行）
+PASS ⑤ 压缩控件未回潮到 composer
+PASS ⑥ 线程配置与新任务默认权限各只一枚（线程头 #threadChips ／ 顶栏盾牌），「更多」#moreMenuBtn 零枚（实测 0）
+PASS ⑥b 齿轮菜单一层七项、顺序固定、每项一枚 role="menuitem"（实测 ["openSettingsBtn","helpMenuBtn","helpBtn","themeToggle","uiModeToggle","capBadge","bulkCleanupBtn"]）
+PASS ⑥c 顶栏弹层处理器：openPermPopover 在场；openMoreMenu 已随「更多」一起退役（零残留）
+PASS ⑦ workbench listening（全新 HOME）
+PASS ⑦ 新装默认 simple 模式
+
+IA E2E: ALL PASS

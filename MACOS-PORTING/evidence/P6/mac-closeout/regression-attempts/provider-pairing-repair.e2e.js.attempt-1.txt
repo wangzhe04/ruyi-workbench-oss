@@ -1,0 +1,53 @@
+── [U] repairProviderHistoryPairing 单元 ──
+PASS U-a 完整配对不动(返回 0,长度不变)
+PASS U-b 尾部部分应答块尾补 call_b(实 repaired=1)
+PASS U-c 零应答补 2 条且插入在 user 之前(实 repaired=2)
+PASS U-d 中段孤儿原位补,后段完整回合不动(实 repaired=1)
+PASS U-e 无 tool_calls 不动
+PASS U-f 修复后 b/c/d 全历史过 strict 配对校验
+── [U2] repairProviderHistoryToolArgs 单元 ──
+PASS U2-a 返回值精确 = 4(空串/半截/非JSON/数组 各一;实 repaired=4)
+PASS U2-b 四条坏参数全改写成 {}(实 ["{}","{}","{}","{}"])
+PASS U2-c 合法对象参数一个字节不动(实 "{\"a\":1}")
+PASS U2-d 不增不删任何消息/任何 tool_call(实 len=3 calls=5)
+PASS U2-e 幂等(修过的历史再修返回 0)
+PASS U2-f 合法历史逐字节 no-op(repaired=0,bytes 426→426)
+PASS U2-g 无 tool_calls / 空 / 非数组 一律返回 0
+PASS U2-h 修复后全历史过 strict arguments 校验(Qwen 口径)
+── [L] Live:孤儿 tool_calls 历史 + 新回合 ──
+[fake] [fake-openai] listening on 52150
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 99256ffb9cdb)
+[wb] UI: http://127.0.0.1:52151/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-provider-pairing-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS L0 workbench listening on :52151
+PASS L1 会话已建(sess_90230e9c2f0adf81)
+PASS L2 播种后 detectDanglingTurn 报 dangling({"dangling":true,"kind":"tool_calls","turnSeq":0,"historyLength":3})
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-provider-pairing-e2e/generated/workbench.mcp.json
+PASS L3 回合完成 result.ok=true(修复前此处为 DeepSeek 400;实 {"ok":true})
+PASS L4 线上请求体里 call_a/call_b 均有紧随的 tool 回复(实紧随块=call_a,call_b)
+PASS L5 call_b 的合成占位声明结果丢失(勿重放)
+PASS L6 修复系统消息准确说明1项未保存结果、影响未确认且避免重复操作
+PASS L7 第二回合照常(修复不反弹)
+── [L2] Live:参数不是合法 JSON 的两条路(存量毒历史 / 流被截断)──
+[fake2] [fake-openai] listening on 52168
+[wb2] 如意 Ruyi 3.0.1  (launch: node, overlay 2de4cd11d832)
+[wb2] UI: http://127.0.0.1:52169/
+[wb2] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-provider-toolargs-e2e
+[wb2] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS L8 workbench up on :52169
+PASS L9 会话已建(sess_835f347446d4d948)
+[wb2] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-provider-toolargs-e2e/generated/workbench.mcp.json
+PASS L10 毒历史会话回合完成(修复前此处为 Qwen 400 invalid_parameter_error;实 {"ok":true})
+PASS L11 发到线上的第一条请求体里 call_t 的 arguments 已是可解析对象(实 [{"name":"file_read","args":"{}","okParse":true}])
+PASS L12 自愈落了一条 provider_tool_args_repair(tool/bytes/sessionId;实 [{"ts":"2026-11-12T14:13:22.829Z","kind":"provider_tool_args_repair","sessionId":"sess_835f347446d4d948","tool":"file_read","bytes":13}])
+PASS L13 日志不含原始片段(只带工具名与字节数 —— 片段可能含密钥)
+PASS L14 会话出现 🛠 参数修正系统消息
+PASS L15 会话已建(sess_046819bad07808e4)
+PASS L16 截断流回合完成(修复前:回放半截参数 -> 下一次请求 Qwen 400;实 {"ok":true})
+PASS L17 工具回合后的每一条请求体 arguments 均 parse 成对象(实 [{"name":"file_read","args":"{}","okParse":true}])
+PASS L18 半截参数被收口成 {} —— 与执行方 catch → {} 完全一致(实 ["{}"])
+PASS L19 写侧收口落了 provider_tool_args_coerced(tool=file_read,bytes=10 = 半截片段真实长度;实 [{"ts":"2026-11-12T14:13:24.218Z","kind":"provider_tool_args_coerced","sessionId":"sess_046819bad07808e4","tool":"file_read","bytes":10}])
+PASS L20 收口日志同样不含原始片段
+
+PROVIDER-PAIRING-REPAIR E2E: ALL PASS

@@ -1,0 +1,45 @@
+{
+  "label": "routes",
+  "argv": [
+    "node",
+    "dev-harness/route-inventory.static.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-_9vp6124/home",
+    "USERPROFILE": "/tmp/rd-_9vp6124/userprofile",
+    "APPDATA": "/tmp/rd-_9vp6124/appdata",
+    "LOCALAPPDATA": "/tmp/rd-_9vp6124/localappdata",
+    "RUYI_HOME": "/tmp/rd-_9vp6124/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-_9vp6124/data",
+    "WCW_DATA_DIR": "/tmp/rd-_9vp6124/acc-data",
+    "TMPDIR": "/tmp/rd-_9vp6124/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-_9vp6124/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-_9vp6124/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "startedAt": "2026-11-11T18:36:45.115563+00:00",
+  "freezeSha256": "0be4d5c38a8ef6f35cf6f2b0a14809607ec2e3cda118952754e983509aeb6bbb",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T18:36:45.787797+00:00",
+  "elapsedSeconds": 0.6721308330015745,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-dispatch-v2/routes.log",
+    "bytes": 1024,
+    "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+  }
+}

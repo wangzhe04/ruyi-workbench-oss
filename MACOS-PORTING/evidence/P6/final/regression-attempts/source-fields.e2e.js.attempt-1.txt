@@ -1,0 +1,20 @@
+[fake] [fake-openai] listening on 62023
+PASS [openai] workbench listening on :62024
+PASS [openai] session id captured
+PASS [openai] last assistant message present
+PASS [openai] engine==="openai" (got openai)
+PASS [openai] providerId==="fake" (got fake)
+PASS [openai] model non-empty (got "fake-model")
+PASS [openai] providerLabel preserved (got "Fake Provider")
+PASS [openai] persisted ordered tool,tool,text segments
+PASS [openai] parallel calls share one batchId
+PASS [claude] fake-claude.js exists at /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/fake-claude.js
+PASS [claude] workbench listening on :62039
+PASS [claude] session id captured
+PASS [claude] last assistant message present
+PASS [claude] engine==="claude" (got claude)
+PASS [claude] model carried through (got "claude-test-model")
+PASS [claude] persisted ordered text,tool,text segments
+PASS [claude] tool_result updates segment status
+
+SOURCE-FIELDS E2E: ALL PASS

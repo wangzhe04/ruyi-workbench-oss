@@ -61,6 +61,8 @@ const IRREVERSIBLE_NATIVE_KIND = {
 const IRREVERSIBLE_BRIDGED_KIND = {
   run_command: 'exec', kill_process: 'exec', launch_application: 'exec',
   mouse_click: 'desktop', mouse_move: 'desktop', mouse_drag: 'desktop', mouse_scroll: 'desktop', scroll_at: 'desktop',
+  input_sequence: 'desktop', focus_window: 'desktop', ui_invoke: 'desktop', act_and_verify: 'desktop',
+  ocr_find_text: 'desktop', ocr_click: 'desktop', vision_click: 'desktop',
   type_text: 'desktop', press_key: 'desktop', hotkey: 'desktop', key_down: 'desktop', key_up: 'desktop',
   set_clipboard: 'desktop', set_clipboard_image: 'desktop', close_window: 'desktop', move_window: 'desktop',
   resize_window: 'desktop', minimize_window: 'desktop', maximize_window: 'desktop', set_window_topmost: 'desktop',

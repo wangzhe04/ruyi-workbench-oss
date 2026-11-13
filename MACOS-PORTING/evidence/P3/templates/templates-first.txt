@@ -1,0 +1,20 @@
+PASS shared ACC connection still enables shared document workflows
+PASS desktopAutomation explicitly unavailable on Mac even when shared ACC is connected
+PASS ocr explicitly unavailable on Mac even when shared ACC is connected
+PASS system URL handoff does not enable form filling on Mac
+PASS Windows keeps the installed desktop path for system-browser forms
+PASS prepared DOM runtime may be started but is not reported verified/attached
+PASS missing browser binary blocks form workflow
+PASS missing Playwright package blocks form workflow
+PASS attached DOM runtime is reported available
+PASS unattached external CDP remains unknown instead of claiming reachability
+PASS missing capability snapshot is not upgraded to an implemented desktop backend
+PASS platform hints preserve Windows fallback and explain the Mac handoff boundary
+PASS zh-CN provider prompt uses shared Mac capability text without prescribing Windows UI automation
+PASS en-US provider prompt uses shared Mac capability text without prescribing Windows UI automation
+FAIL Error: /api/playbooks: HTTP 403
+    at get (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-platform-templates.e2e.js:83:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-platform-templates.e2e.js:97:22
+
+MACOS PLATFORM TEMPLATES E2E: FAIL (1)

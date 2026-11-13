@@ -1,0 +1,158 @@
+[
+  {
+    "name": "syntax",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "startedAt": "2026-11-11T05:19:02.578042+00:00",
+    "elapsedSeconds": 27.258,
+    "exitCode": 0,
+    "environment": {
+      "HOME": "/tmp/ruyi-v6-u4_2fwmi/h",
+      "USERPROFILE": "/tmp/ruyi-v6-u4_2fwmi/u",
+      "APPDATA": "/tmp/ruyi-v6-u4_2fwmi/a",
+      "LOCALAPPDATA": "/tmp/ruyi-v6-u4_2fwmi/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-v6-u4_2fwmi/w",
+      "RUYI_HOME": "/tmp/ruyi-v6-u4_2fwmi/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v6-u4_2fwmi/c",
+      "TMPDIR": "/tmp/ruyi-v6-u4_2fwmi/t",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v6-u4_2fwmi/absent-helper",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "tmpdirPathBytes": 23,
+    "outsideGit": true,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v6/syntax.txt",
+    "logDigest": {
+      "bytes": 60,
+      "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad"
+    }
+  },
+  {
+    "name": "build-check",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "startedAt": "2026-11-11T05:19:29.861003+00:00",
+    "elapsedSeconds": 0.182,
+    "exitCode": 0,
+    "environment": {
+      "HOME": "/tmp/ruyi-v6-py20ovxd/h",
+      "USERPROFILE": "/tmp/ruyi-v6-py20ovxd/u",
+      "APPDATA": "/tmp/ruyi-v6-py20ovxd/a",
+      "LOCALAPPDATA": "/tmp/ruyi-v6-py20ovxd/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-v6-py20ovxd/w",
+      "RUYI_HOME": "/tmp/ruyi-v6-py20ovxd/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v6-py20ovxd/c",
+      "TMPDIR": "/tmp/ruyi-v6-py20ovxd/t",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v6-py20ovxd/absent-helper",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "tmpdirPathBytes": 23,
+    "outsideGit": true,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v6/build-check.txt",
+    "logDigest": {
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    }
+  },
+  {
+    "name": "fullunit",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "--test",
+      "dev-harness/unit/*.test.js"
+    ],
+    "startedAt": "2026-11-11T05:19:30.066495+00:00",
+    "elapsedSeconds": 111.0,
+    "exitCode": 0,
+    "environment": {
+      "HOME": "/tmp/ruyi-v6-3s5xsb2x/h",
+      "USERPROFILE": "/tmp/ruyi-v6-3s5xsb2x/u",
+      "APPDATA": "/tmp/ruyi-v6-3s5xsb2x/a",
+      "LOCALAPPDATA": "/tmp/ruyi-v6-3s5xsb2x/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-v6-3s5xsb2x/w",
+      "RUYI_HOME": "/tmp/ruyi-v6-3s5xsb2x/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v6-3s5xsb2x/c",
+      "TMPDIR": "/tmp/ruyi-v6-3s5xsb2x/t",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v6-3s5xsb2x/absent-helper",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "tmpdirPathBytes": 23,
+    "outsideGit": true,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fullunit.txt",
+    "logDigest": {
+      "bytes": 392990,
+      "sha256": "46f717819164c2474b07e47325ddac39f5f662472bbea11817158359d8656ac2"
+    },
+    "counts": {
+      "tests": 2517,
+      "suites": 192,
+      "pass": 2499,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 18,
+      "todo": 0
+    }
+  },
+  {
+    "name": "fast",
+    "command": [
+      "/Users/jiming/.local/bin/node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "startedAt": "2026-11-11T05:21:21.113881+00:00",
+    "elapsedSeconds": 121.716,
+    "exitCode": 0,
+    "environment": {
+      "HOME": "/tmp/ruyi-v6-sc4_5pza/h",
+      "USERPROFILE": "/tmp/ruyi-v6-sc4_5pza/u",
+      "APPDATA": "/tmp/ruyi-v6-sc4_5pza/a",
+      "LOCALAPPDATA": "/tmp/ruyi-v6-sc4_5pza/l",
+      "WCW_DATA_DIR": "/tmp/ruyi-v6-sc4_5pza/w",
+      "RUYI_HOME": "/tmp/ruyi-v6-sc4_5pza/r",
+      "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v6-sc4_5pza/c",
+      "TMPDIR": "/tmp/ruyi-v6-sc4_5pza/t",
+      "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v6-sc4_5pza/absent-helper",
+      "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+      "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+      "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "tmpdirPathBytes": 23,
+    "outsideGit": true,
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fast.txt",
+    "logDigest": {
+      "bytes": 5750,
+      "sha256": "a179834b68c242eac5adca6fd023acffaa10d0d1665f697c95cfac0d69fc4bc6"
+    },
+    "counts": {
+      "pass": 80,
+      "fail": 0,
+      "knownFail": 0,
+      "unexpectedPass": 0,
+      "flaky": 0,
+      "ran": 80,
+      "skipped": 7
+    },
+    "nestedUnitPreflight": {
+      "tests": 2517,
+      "pass": 2499,
+      "fail": 0,
+      "skipped": 18
+    },
+    "retryLines": []
+  }
+]

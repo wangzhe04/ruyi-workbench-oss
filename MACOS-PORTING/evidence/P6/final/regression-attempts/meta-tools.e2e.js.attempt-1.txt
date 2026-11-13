@@ -1,0 +1,16 @@
+PASS hints-on: all five meta calls executed
+PASS hints-on: one search / one load / one read / two todos
+PASS hints-on: search result carries hint fields
+PASS hints-on: file_read requiredArgs=[path] typed string
+PASS hints-on: pack-activated file_read hints direct/loaded
+PASS hints-on: every match carries a valid callHint/state
+PASS hints-on: tool_search carries searchSeq
+PASS hints-on: tool_load inherits discoverySeq from the search
+PASS hints-on: file_read inherits the same discoverySeq
+PASS hints-on: duplicate todo flagged deduped in the ledger
+PASS hints-on: deduped todo still completes and pairs
+PASS hints-off: search result has NO hint fields (legacy shape preserved)
+PASS hints-off: duplicate todo NOT deduped (legacy full-write behavior)
+PASS hints-off: discoverySeq observation still works (E0 ledger)
+
+META-TOOLS E2E: ALL PASS

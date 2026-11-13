@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T08:20:25.652433+00:00",
+  "status": "passed_source_review_observer_shell_only",
+  "observer": {
+    "path": "/tmp/ruyi-p5-selected-refresh.py",
+    "bytes": 10298,
+    "sha256": "ecdf207a3125a05252c34b39d642718e487fcd681e51e0f633b74ad9177229a2"
+  },
+  "headAtReview": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "scope": "Read-only source review of the primary executor observational wrapper for selected TextEdit/CFT default/CFT renderer/Finder fixtures. The wrapper and E2Es were not executed. This is not selected-application runtime acceptance or permission to expand the existing execution scope.",
+  "supportingSourcesRead": [
+    {
+      "path": "dev-harness/macos-input-apps.e2e.js",
+      "bytes": 29397,
+      "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe"
+    },
+    {
+      "path": "dev-harness/macos-ax-finder.e2e.js",
+      "bytes": 11628,
+      "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "bytes": 2728,
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+      "bytes": 3434,
+      "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93"
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/entry/next-selected-apps-plan.json",
+      "bytes": 15743,
+      "sha256": "6c5ff78a4f8e6ba04e9d9513c0af45f4f1d7e0c9659e9a9202e2e7a092f9956f"
+    }
+  ],
+  "findings": [
+    {
+      "id": "observer-native-source-freeze",
+      "priority": 1,
+      "status": "closed",
+      "issue": "Original list froze ruyi-workbench/native but omitted actual resources/macos-automation implementation and header compiled by the builder.",
+      "resolution": "Tracked resources/macos-* plus explicit input.m inclusion assertion now cover the compiled native implementation/header. Comparator source is also included in before/after freeze."
+    },
+    {
+      "id": "observer-default-helper-binding",
+      "priority": 1,
+      "status": "closed",
+      "issue": "Default reference was a mutable path without the claimed 1cc raw identity assertion.",
+      "resolution": "Preflight requires raw SHA-256 1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5. Default helper, process helper, browser launcher and observer script are hashed before/after; final hashes follow comparisons."
+    },
+    {
+      "id": "observer-process-ownership",
+      "priority": 2,
+      "status": "closed",
+      "issue": "First root birth was selected solely by PID; TextEdit used a prefix substring and non-coherent command/birth snapshots.",
+      "resolution": "First root requires ppid equal observer PID and live Popen child, then fixes microsecond birth. Descendants use creation ordering. Process snapshot, ps -ww and second process snapshot retain only unchanged birth identities. The complete TextEdit -RuyiP5Fixture value must match an actual private case TMPDIR/ruyi-p5-apps-* directory."
+    },
+    {
+      "id": "observer-terminal-evidence",
+      "priority": 2,
+      "status": "closed",
+      "issue": "Late snapshot/comparison errors could omit terminal evidence; final hashes previously preceded comparison execution.",
+      "resolution": "Execution and comparisons are guarded; timeout/non-JSON preserves available raw stdout/stderr and errors. Finally writes failed/blocked report with available final process/source/artifact observations. Unknown process snapshot is null and cannot pass. Final hashes occur after comparisons. Budget leaves child alone and marks blocked, with no automatic retry."
+    }
+  ],
+  "unresolvedFindings": [],
+  "helperCaptureAssessment": {
+    "privateScope": "Candidates are only helper files under this freshly created case TMPDIR/ruyi-p5-*/helper; no shared/default helper is modified. Existing fixtures build to exactly these private helper paths and pass the same helper variable to ACC.",
+    "completeBytes": "Builder atomically renames signed temporary output. Sampler verifies strict signature, copies to Git-external case artifacts, requires copied SHA/length equality, and the final comparator independently verifies preserved copy signatures. No capture yields failure.",
+    "equivalence": "Comparator requires full thin Mach-O byte-length and body equality excluding only LC_UUID payload and trailing Apple signature blob; all other bytes/load-command fields match. Exit zero AND equivalent===true required. This proves the stated normalized equivalence, not raw binary identity or execution of the default helper artifact."
+  },
+  "cleanupAssessment": {
+    "observerMutations": "The sampler itself does not inject input, terminate processes, close applications or delete case roots. The launched existing fixtures perform their already-scoped owned application operations and cleanup.",
+    "observedScope": "Only sampled, birth-verified descendants and exact tagged TextEdit identities are externally checked. Transient/unobserved or already reparented children are not universally proved absent; retained fixture assertions provide separate cleanup evidence.",
+    "finder": "Shared Finder is never treated as an owned process to kill. Existing fixture requires windowless baseline, proves newly created window content/identity and refuses uncertain close; prerequisite failure stops the case without changing user windows.",
+    "blocked": "900-second budget stops the outer case and marks blocked while preserving identities, log and artifact locations. It does not guarantee the child finished or cleanup completed. Subsequent cases must not start after any failure/blocked result."
+  },
+  "runtimeClaimLimits": [
+    "Primary executor wrapper only; independent selected-app acceptance remains separately scheduled.",
+    "No E2E/GUI/process-snapshot/signature tool/comparator execution was performed by this review; only file reads, Git metadata and inert Python AST parsing were used.",
+    "No App LaunchServices AX route, real TCC revoke, OS lock, physical displays, minimum OS, Windows or formal identity acceptance is added.",
+    "All runs must remain serial, preserve first failure and avoid retries or shared-application interventions outside existing authorization.",
+    "Main executor is responsible for pinning and preflight/version/evidence collection required by the selected-app plan; this shell review alone supplies no execution evidence."
+  ],
+  "actionsThisReview": {
+    "observerExecuted": false,
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "productSourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "stagingChanges": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/selected-current/observer-code-review-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress"
+}

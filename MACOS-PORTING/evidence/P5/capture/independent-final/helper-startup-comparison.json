@@ -1,0 +1,73 @@
+{
+  "purpose": "Compare original shebang fake with POSIX fake under unchanged product probe deadline",
+  "timeoutMs": 1000,
+  "delayMs": 150,
+  "results": [
+    {
+      "kind": "node",
+      "attempt": 1,
+      "ms": 1006.473708,
+      "error": {
+        "code": null,
+        "killed": true,
+        "signal": "SIGKILL"
+      },
+      "stdout": "",
+      "stderr": "",
+      "markerCreated": false
+    },
+    {
+      "kind": "node",
+      "attempt": 2,
+      "ms": 1003.7891249999998,
+      "error": {
+        "code": null,
+        "killed": true,
+        "signal": "SIGKILL"
+      },
+      "stdout": "",
+      "stderr": "",
+      "markerCreated": false
+    },
+    {
+      "kind": "node",
+      "attempt": 3,
+      "ms": 1003.828,
+      "error": {
+        "code": null,
+        "killed": true,
+        "signal": "SIGKILL"
+      },
+      "stdout": "",
+      "stderr": "",
+      "markerCreated": false
+    },
+    {
+      "kind": "shell",
+      "attempt": 1,
+      "ms": 178.51908300000014,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "markerCreated": true
+    },
+    {
+      "kind": "shell",
+      "attempt": 2,
+      "ms": 165.5110840000002,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "markerCreated": true
+    },
+    {
+      "kind": "shell",
+      "attempt": 3,
+      "ms": 171.04624999999987,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "markerCreated": true
+    }
+  ]
+}

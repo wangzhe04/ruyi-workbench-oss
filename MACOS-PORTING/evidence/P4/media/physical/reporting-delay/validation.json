@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-08",
+  "status": "passed_current_host_and_physical_scope",
+  "reviewer": "/root/p4_host_review",
+  "staticReview": "passed_no_remaining_findings",
+  "independent": {
+    "host": {
+      "passed": 30,
+      "failed": 1,
+      "exitCode": 1,
+      "reason": "new_adhoc_code_requirement_mismatch_and_Documents_prompt",
+      "ownedProcessesExited": true,
+      "afterPermissionRecovery": {
+        "passed": 31,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "host-after-permission-independent.txt"
+      }
+    },
+    "media": {
+      "passed": 36,
+      "failed": 0,
+      "exitCode": 0,
+      "input": "synthetic_oscillator"
+    },
+    "lifecycle": {
+      "passed": 23,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "bridge": {
+      "passed": 47,
+      "failed": 0,
+      "exitCode": 0,
+      "unexecutedConditional": 3
+    }
+  },
+  "syntaxFiles": 1134,
+  "syntaxFailed": 0,
+  "nativeSourceFingerprintsMatched": 6,
+  "physical": {
+    "status": "passed",
+    "probeExitCode": 0,
+    "fixture": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-physical-microphone-JLGGzP",
+    "wavDurationMs": 647.5,
+    "format": "16kHz mono 16bit PCM",
+    "bytes": 20764,
+    "sha256": "e6f4f97f810b046d252793749b18589f8eccc557bb73e25368aa4431682de2b9",
+    "trackEndedMs": 1110,
+    "nativeStopCompletedMs": 1417.1177498064935,
+    "reportedIndicatorMs": 3000.7043331861496,
+    "deadlineFired": false,
+    "finalReportedState": "none",
+    "stopInFlight": false,
+    "fakeASRUploads": 1,
+    "automaticSends": 0,
+    "cleanupComplete": true,
+    "TCCSubject": "org.ruyi.workbench.development",
+    "TCCMicrophone": "authValue2 authReason2",
+    "independentInspection": "/root/p4_host_review"
+  }
+}

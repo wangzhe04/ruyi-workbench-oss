@@ -1,0 +1,21 @@
+{
+  "scope": "Staged closeout documents and verbatim evidence",
+  "fullDiffCheckExit": 2,
+  "rawTextWarningFiles": [
+    "MACOS-PORTING/evidence/P6/final/baseline-full.txt",
+    "MACOS-PORTING/evidence/P6/final/engineering-current.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/agent-workflow-budget-finalizer.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/agent-workflow-claude-transient-repro.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/agent-workflow-transient-repro.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/composer-session-races.browser.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/crew-experience.browser.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/session-stop-identity.browser.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-attempts/steward-stop-receipts.browser.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/regression-recovery-attempts/steward-global-health.browser.e2e.js.attempt-1.txt",
+    "MACOS-PORTING/evidence/P6/final/unit-before-locale-sync.txt"
+  ],
+  "warningCount": 13,
+  "nonRawWarningFiles": [],
+  "interpretation": "Original raw terminal evidence is preserved byte-for-byte; whitespace warnings there are not edited away. Authored Markdown/JSON and tracking changes must pass.",
+  "authoredMaterialsPass": true
+}

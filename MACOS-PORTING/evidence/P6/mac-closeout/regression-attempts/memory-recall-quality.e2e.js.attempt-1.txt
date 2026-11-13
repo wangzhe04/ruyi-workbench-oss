@@ -1,0 +1,31 @@
+PASS S0 两条排序路径都从 src 切片装载成功(切点未漂移)
+PASS S1 合成记忆库 50 条,含同主题干扰簇(实得 50)
+PASS S2 查询集 20 条(实得 20)
+PASS S2b 每条查询的正解都在记忆库里(夹具自洽)
+PASS D1 开关关/缺省时与今天的词法 Top-3 逐条同序
+
+# Recall@3 对照(50 条记忆 × 20 条查询)
+#   词法 L0 : 19/20 = 95.0%
+#   融合 L0+L1: 19/20 = 95.0%
+#   差值    : +0.0pp  (25 号 §3.3 翻默认门槛 +10pp)
+#   verbatim      词法 4/4  融合 4/4
+#   paraphrase    词法 6/6  融合 6/6
+#   typo          词法 6/6  融合 6/6
+#   crosslingual  词法 3/4  融合 3/4
+#   词法未命中: crosslingual:how long are local logs kept
+#   融合未命中: crosslingual:how long are local logs kept
+#   [miss] crosslingual 「how long are local logs kept」 想要 log-retention: 词法名次 未入候选, 向量名次 6
+
+PASS D2 融合不低于词法(词法 19/20,融合 19/20)
+PASS D3 翻默认门槛(+10pp)未达到,开关保持默认关 :: 实测 +0.0pp
+PASS D4 空查询不抛异常
+PASS D5 convention/preference 在零命中时仍进候选(与今天的语义一致)
+PASS D6 同分时 project 作用域仍优先(类型/作用域加分未被 RRF 抹平)
+PASS D7 同一输入多次调用结果稳定(无 Map 迭代序抖动)
+#   负例精度(30 句无关问句 × 50 条记忆):词法被污染 2 句,融合被污染 2 句
+PASS D8 向量层开着时无关问句基本不召回无关条目(被污染 2/30,上限 2:统计一下这个表格的平均值→markdown-table-align | 帮我写一封邮件给客户→http-client-timeout)
+PASS D8b 纯词法路径同样(被污染 2/30,上限 2)
+PASS D8c 向量层没有额外放进任何条目:融合的误报都已在词法准入的结果里(向量只重排、不独立准入噪声)
+PASS D9 拼写漂移 canry→canary 在纯词法路径也召回(编辑距离 ≤1 准入)
+PASS D10 Recall@3 不低于修前的融合水平 19/20(融合 19/20,词法 19/20)
+MEMORY RECALL QUALITY E2E: ALL PASS

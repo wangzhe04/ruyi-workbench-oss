@@ -1,0 +1,3 @@
+SKIP 全部 realhist-fixtures/checkpoints 不在当前环境(需要外部数据)
+
+REAL-HISTORY E2E: SKIP

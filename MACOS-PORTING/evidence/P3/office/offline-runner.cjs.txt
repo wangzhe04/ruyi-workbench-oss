@@ -1,0 +1,22 @@
+const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process');
+const repo='/Users/jiming/Documents/ruyi-workbench-mac';
+const fixture=require(path.join(repo,'dev-harness/lib/fixture-home')).fixtureChildEnv({perTest:true});
+const root=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-office-offline-'));
+const basePython=path.join(repo,'mcp/ai-computer-control/.venv/bin/python');
+const python=path.join(root,'venv/bin/python');
+const env={...fixture.env,PIP_NO_INDEX:'1',PIP_DISABLE_PIP_VERSION_CHECK:'1',WCW_DATA_DIR:path.join(root,'acc'),MPLCONFIGDIR:path.join(root,'mpl'),RUYI_ACC_PYTHON:python,RUYI_OFFICE_REQUIRED:'1',RUYI_ACC_INSTALLED_ONLY:'1',RUYI_OFFICE_ARTIFACT_DIR:'/tmp/ruyi-p3-02-offline-artifacts'};
+delete env.PYTHONPATH;
+const run=(bin,args,timeout=60000,cwd=root)=>cp.execFileSync(bin,args,{env,cwd,encoding:'utf8',timeout,maxBuffer:8*1024*1024});
+try{
+ console.log(run(basePython,['-m','venv',path.join(root,'venv')]));
+ console.log(run(python,['-m','pip','install','--no-index','--find-links','/tmp/ruyi-p3-02-wheelhouse','-r',path.join(repo,'MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt')]));
+ console.log(run(python,['-m','pip','install','--no-index','--find-links','/tmp/ruyi-p3-02-wheelhouse','--no-deps','ai-computer-control']));
+ console.log(run(python,['-m','pip','check']));
+ console.log(run(python,['-c',`import ai_computer_control.server as s
+assert '${root}/venv' in s.__file__,s.__file__
+print('NONEDITABLE_PACKAGE='+s.__file__)
+`]));
+ console.log(run(process.execPath,[path.join(repo,'dev-harness/macos-office-artifacts.e2e.js')],90000,repo));
+ console.log('P3 OFFICE LOCKED OFFLINE REPLAY: ALL PASS');
+}catch(e){process.stdout.write(e.stdout||'');process.stderr.write(e.stderr||'');process.exitCode=e.status||1;}
+finally{fs.rmSync(root,{recursive:true,force:true});fs.rmSync(fixture.home,{recursive:true,force:true});}

@@ -1,0 +1,1130 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T17:54:35.562993+00:00",
+  "verdict": "passed_frozen_root_authority_scope_after_explicit_isolation_environment_correction",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "implementationState": "Uncommitted partial root authority/runtime integration. Ordinary ACC/native tool dispatch has not invoked the preparation API; synthetic client facts/seeded unfinished preparation remain explicitly separated from actual root OS ownership and HTTP driver behavior.",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/root-authority-freeze-v1.json",
+    "bytes": 25753,
+    "sha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5"
+  },
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64"
+  },
+  "invocations": [
+    {
+      "label": "unit",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-execution-runtime.test.js",
+        "dev-harness/unit/server-ownership.test.js",
+        "dev-harness/unit/desktop-execution-ledger.test.js",
+        "dev-harness/unit/credential-recovery.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/home",
+        "USERPROFILE": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/userprofile",
+        "APPDATA": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/localappdata",
+        "RUYI_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/data",
+        "WCW_DATA_DIR": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/acc-data",
+        "TMPDIR": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp",
+        "XDG_CONFIG_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T17:49:49.666463+00:00",
+      "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64"
+      },
+      "finishedAt": "2026-11-11T17:49:50.974275+00:00",
+      "elapsedSeconds": 1.3075165000045672,
+      "exitCode": 1,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit.log",
+        "bytes": 14179,
+        "sha256": "c1442532e3fec2f339cf1e0789fa8f82065d61a70c1639189a62339fd71e344f"
+      }
+    },
+    {
+      "label": "unit-env-v2",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/desktop-execution-runtime.test.js",
+        "dev-harness/unit/server-ownership.test.js",
+        "dev-harness/unit/desktop-execution-ledger.test.js",
+        "dev-harness/unit/credential-recovery.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rra-f5ts1vqa/home",
+        "USERPROFILE": "/tmp/rra-f5ts1vqa/userprofile",
+        "APPDATA": "/tmp/rra-f5ts1vqa/appdata",
+        "LOCALAPPDATA": "/tmp/rra-f5ts1vqa/localappdata",
+        "RUYI_HOME": "/tmp/rra-f5ts1vqa/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-f5ts1vqa/data",
+        "WCW_DATA_DIR": "/tmp/rra-f5ts1vqa/acc-data",
+        "TMPDIR": "/tmp/rra-f5ts1vqa/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rra-f5ts1vqa/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rra-f5ts1vqa/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T17:51:30.734170+00:00",
+      "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64"
+      },
+      "finishedAt": "2026-11-11T17:51:32.052582+00:00",
+      "elapsedSeconds": 1.3182863330002874,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2.log",
+        "bytes": 6813,
+        "sha256": "a7130d1f80f32e225f4c68137a211cc75e1da24d8e03dbf81ac881224f408a81"
+      }
+    },
+    {
+      "label": "root-http",
+      "argv": [
+        "node",
+        "dev-harness/desktop-execution-root.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rra-w071v69d/home",
+        "USERPROFILE": "/tmp/rra-w071v69d/userprofile",
+        "APPDATA": "/tmp/rra-w071v69d/appdata",
+        "LOCALAPPDATA": "/tmp/rra-w071v69d/localappdata",
+        "RUYI_HOME": "/tmp/rra-w071v69d/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-w071v69d/data",
+        "WCW_DATA_DIR": "/tmp/rra-w071v69d/acc-data",
+        "TMPDIR": "/tmp/rra-w071v69d/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rra-w071v69d/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rra-w071v69d/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_ROOT_EXECUTION_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-results.json"
+      },
+      "startedAt": "2026-11-11T17:51:51.604119+00:00",
+      "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64"
+      },
+      "finishedAt": "2026-11-11T17:51:52.626055+00:00",
+      "elapsedSeconds": 1.021772542007966,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http.log",
+        "bytes": 800,
+        "sha256": "a15cf50a0896734036222779f0f7cb6263e69b23d2a92a61fc5e257bd8edcc3f"
+      }
+    },
+    {
+      "label": "module-graph",
+      "argv": [
+        "node",
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rra-yy77qa55/home",
+        "USERPROFILE": "/tmp/rra-yy77qa55/userprofile",
+        "APPDATA": "/tmp/rra-yy77qa55/appdata",
+        "LOCALAPPDATA": "/tmp/rra-yy77qa55/localappdata",
+        "RUYI_HOME": "/tmp/rra-yy77qa55/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-yy77qa55/data",
+        "WCW_DATA_DIR": "/tmp/rra-yy77qa55/acc-data",
+        "TMPDIR": "/tmp/rra-yy77qa55/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rra-yy77qa55/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rra-yy77qa55/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T17:51:58.222687+00:00",
+      "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64"
+      },
+      "finishedAt": "2026-11-11T17:51:58.810366+00:00",
+      "elapsedSeconds": 0.5875205839984119,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph.log",
+        "bytes": 1327,
+        "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+      }
+    },
+    {
+      "label": "routes",
+      "argv": [
+        "node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rra-bz42hivh/home",
+        "USERPROFILE": "/tmp/rra-bz42hivh/userprofile",
+        "APPDATA": "/tmp/rra-bz42hivh/appdata",
+        "LOCALAPPDATA": "/tmp/rra-bz42hivh/localappdata",
+        "RUYI_HOME": "/tmp/rra-bz42hivh/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-bz42hivh/data",
+        "WCW_DATA_DIR": "/tmp/rra-bz42hivh/acc-data",
+        "TMPDIR": "/tmp/rra-bz42hivh/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rra-bz42hivh/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rra-bz42hivh/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T17:52:03.998272+00:00",
+      "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64"
+      },
+      "finishedAt": "2026-11-11T17:52:04.590069+00:00",
+      "elapsedSeconds": 0.5916282089892775,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes.log",
+        "bytes": 1024,
+        "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+      }
+    },
+    {
+      "label": "build",
+      "argv": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "HOME": "/tmp/rra-ba16lf7l/home",
+        "USERPROFILE": "/tmp/rra-ba16lf7l/userprofile",
+        "APPDATA": "/tmp/rra-ba16lf7l/appdata",
+        "LOCALAPPDATA": "/tmp/rra-ba16lf7l/localappdata",
+        "RUYI_HOME": "/tmp/rra-ba16lf7l/data",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-ba16lf7l/data",
+        "WCW_DATA_DIR": "/tmp/rra-ba16lf7l/acc-data",
+        "TMPDIR": "/tmp/rra-ba16lf7l/tmp",
+        "XDG_CONFIG_HOME": "/tmp/rra-ba16lf7l/xdg-config",
+        "XDG_CACHE_HOME": "/tmp/rra-ba16lf7l/xdg-cache",
+        "RUYI_REAL_HOME": "/Users/jiming",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T17:52:10.204190+00:00",
+      "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+      "attempt": 1,
+      "runtimeVersions": {
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0",
+        "hostPlatform": "Darwin",
+        "hostMachine": "arm64"
+      },
+      "finishedAt": "2026-11-11T17:52:10.372885+00:00",
+      "elapsedSeconds": 0.1685555409931112,
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build.log",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      }
+    }
+  ],
+  "results": {
+    "initialRelatedUnit": {
+      "tests": 64,
+      "passed": 59,
+      "failed": 5,
+      "skipped": 0,
+      "exitCode": 1,
+      "log": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit.log",
+        "bytes": 14179,
+        "sha256": "c1442532e3fec2f339cf1e0789fa8f82065d61a70c1639189a62339fd71e344f"
+      },
+      "cause": "Independent runner chose a long evidence-directory TMPDIR. Five legacy Unix-domain socket ownership cases could not bind128-byte paths (EINVAL), with one subsequent missing-socket ENOENT assertion. Candidate source was unchanged.",
+      "failingSocketPaths": [
+        {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-5013129dd1977f042397f48b2746e509.sock",
+          "utf8Bytes": 128
+        },
+        {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-5024e694e544a20abe532cbb2001ace8.sock",
+          "utf8Bytes": 128
+        },
+        {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-54ac920bcd98a5c89e32b811c33c90dd.sock",
+          "utf8Bytes": 128
+        },
+        {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-7170357ab47f86e28f4ed02a203aeeb5.sock",
+          "utf8Bytes": 128
+        },
+        {
+          "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/isolation/unit/tmp/ruyi-serve-d45efa273c3794aa127938cc785cf0b6.sock",
+          "utf8Bytes": 128
+        }
+      ],
+      "failureNames": [
+        "Mac preserves unknown residual sockets and malformed ownership evidence",
+        "Mac never removes a live socket even with matching stale-owner metadata",
+        "Mac FIFO ownership records fail promptly on both read and write paths",
+        "Mac socket ownership reads remain bounded when the record grows after stat",
+        "Mac stored casing and trailing whitespace produce one existing-root lock with legacy aliases"
+      ]
+    },
+    "environmentCounterexample": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/socket-length-counterexample.json",
+      "bytes": 1616,
+      "sha256": "2ca96fbd1d3ebc251ef2820ca35ef747bb1f3427a1f8ae197d56577005297dae",
+      "result": {
+        "long": {
+          "path": "/tmp/rra-probe-18s8phau/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/s.sock",
+          "utf8Bytes": 141,
+          "ok": false,
+          "code": "EINVAL",
+          "errno": -22,
+          "syscall": "listen"
+        },
+        "short": {
+          "path": "/tmp/rra-probe-18s8phau/s.sock",
+          "utf8Bytes": 30,
+          "ok": true
+        }
+      },
+      "exitCode": 0,
+      "scope": "Only own temporary socket paths.141 UTF8 bytes reproduces listenEINVAL/errno-22;30 bytes binds successfully. Fixture removed."
+    },
+    "correctedRelatedUnit": {
+      "tests": 64,
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "evidenceLabel": "unit-env-v2",
+      "suiteExecutionNumber": 2,
+      "retry": "Explicitly authorized environment-corrected rerun after diagnosis; no source change or automatic retry. Evidence-label attempt1 in raw invocation means that distinct label, not first suite execution."
+    },
+    "actualRootHttp": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "exitCode": 0
+    },
+    "moduleGraph": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "exitCode": 0,
+      "actualSummary": {
+        "modules": 93,
+        "providedSymbols": 3911,
+        "requiredSymbols": 3538,
+        "edges": 653,
+        "forwardEdges": 67,
+        "duplicateProvides": 0,
+        "stronglyConnectedComponents": 1
+      },
+      "largestSccMembers": 31,
+      "newPolicyViolations": false
+    },
+    "routes": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "exitCode": 0,
+      "decisionPoints": 175,
+      "authRows": 161
+    },
+    "buildCheck": {
+      "fresh": true,
+      "manifestLineRangesConsistent": true,
+      "executions": 1,
+      "exitCode": 0
+    },
+    "finalAcceptedAssertions": 105,
+    "allCommandsFirstRunPassed": false,
+    "automaticRetries": 0,
+    "suiteEnvironmentReruns": 1
+  },
+  "isolation": {
+    "initial": "Each variable was isolated, but outer TMPDIR length invalidated legacy-socket fixtures; initial failed command is retained.",
+    "corrected": "Each subsequent command has its own short/tmp/rra-* root with distinct HOME/USERPROFILE/APPDATA/LOCALAPPDATA/RUYI_HOME/WIN_CLAUDE_WORKBENCH_HOME/WCW_DATA_DIR/TMPDIR/XDG dirs. Runtime/root tests also allocate their own source-defined fixture data. Successful outer roots removed after all observed identities exited.",
+    "rawRootHttp": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-results.json",
+      "bytes": 6506,
+      "sha256": "4a294381b370f2e1229b4734499a648186a48866ebb6a1589c812d2fe8cd356f"
+    },
+    "rootHttpFixtureDirectoryRemoved": true,
+    "correctedCleanupFiles": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-isolation-cleanup.json",
+        "bytes": 97,
+        "sha256": "3a5dfb1dcf9c8aa139e9d954ffc20210709b403e28338eb369ea66c49623b298"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-isolation-cleanup.json",
+        "bytes": 97,
+        "sha256": "814962f871a6f38991a4e74a58d942c9ca2614ee2199eb52a942c9cce6cb5ab5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-isolation-cleanup.json",
+        "bytes": 97,
+        "sha256": "668f46e7d7635d173c0df94e0f817ffed8dddb3d3fafb75cebf3e7b897d1af9b"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-isolation-cleanup.json",
+        "bytes": 97,
+        "sha256": "1676686a014e182b93bfd953a4ccbb770a98c673600e9204d21e57322c0d827e"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-isolation-cleanup.json",
+        "bytes": 97,
+        "sha256": "034419386a1935aa1c898a0c646188edbb73d8207d18fe38668580fc99de9f45"
+      }
+    ]
+  },
+  "bindings": {
+    "sources": 99,
+    "checkpointCount": 12,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-after-binding.json",
+        "bytes": 26788,
+        "sha256": "95f45d2758f246c13aae7de17d9d3edd10ad3de1aca654939603bb0edb4af552",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-before-binding.json",
+        "bytes": 26788,
+        "sha256": "1bf2659f90d0ab89b4ff47ddb7c4e4e129a96534fb69b03d7bbdde916b33185f",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-after-binding.json",
+        "bytes": 26788,
+        "sha256": "430ae20efb062a4900efdf364f54e34a0ff84e490e5fee3c6b17f3ff8db83072",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-before-binding.json",
+        "bytes": 26788,
+        "sha256": "80eeb5dc447773cff02799481e2aaf2b95ea9bbf332463f79d87d940f241fe5f",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-after-binding.json",
+        "bytes": 26788,
+        "sha256": "f00fc126bd79ff6c5d5ed3a1c565907ab62f2c85c301c2ee9272c93378616da1",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-before-binding.json",
+        "bytes": 26788,
+        "sha256": "62c7e76ac37e8bb51ab6fca4690b2e2b1d4aa704e654b097d6adade27bfe6561",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-after-binding.json",
+        "bytes": 26788,
+        "sha256": "bd84018d2e7b730cc35cf236b80b1628aa2dfd1ce1c275b944419e626d4a4f94",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-before-binding.json",
+        "bytes": 26788,
+        "sha256": "4d09508a76526cd294e43b9b145d8b0a87e4dccceba7da1a0c4ab713b28ab357",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-after-binding.json",
+        "bytes": 26788,
+        "sha256": "3c4a05c3ccb724de090a599bb8b779f4f34e33dc43039dd03e9565a8224a15ff",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-before-binding.json",
+        "bytes": 26788,
+        "sha256": "7bdc9bc0b48dcd71fc77d48fc9ec359709c20d1f410f7dbbf50b3e22972d8ab6",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-after-binding.json",
+        "bytes": 26788,
+        "sha256": "3976c37faa99ec0d7e3efa1a2924a9b81ba744ed303b46ea52f4e451ba495d06",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-before-binding.json",
+        "bytes": 26788,
+        "sha256": "0ce248e171c02ad5768598e3345b141a6c3920429bd2704afa814328af58c9ed",
+        "sourceCount": 99,
+        "allMatched": true,
+        "osProcessHelperMatchesBaseline": true
+      }
+    ],
+    "freezeHasNoArtifacts": true,
+    "additionalActualOSProcessHelper": {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+    },
+    "osHelperMeaning": "Process identity/kernel ownership/own-tree cleanup only. This is an additional executable binding; no desktop automation helper, ACC or GUI was executed."
+  },
+  "processCleanup": {
+    "allObservedIdentitiesExited": true,
+    "perCommand": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-cleanup.json",
+        "bytes": 1427,
+        "sha256": "f1d45fe04cc932a73b0405b7638c961bd1ddec598bfa27944a28a3e09383e4e1",
+        "at": "2026-11-11T17:49:50.974059+00:00",
+        "rootPid": 69914,
+        "observedIdentities": [
+          {
+            "pid": 69914,
+            "ppid": 69910,
+            "created": "1794419389667021"
+          },
+          {
+            "pid": 69919,
+            "ppid": 69914,
+            "created": "1794419389698850"
+          },
+          {
+            "pid": 69918,
+            "ppid": 69914,
+            "created": "1794419389698377"
+          },
+          {
+            "pid": 69917,
+            "ppid": 69914,
+            "created": "1794419389697814"
+          },
+          {
+            "pid": 69916,
+            "ppid": 69914,
+            "created": "1794419389696361"
+          },
+          {
+            "pid": 69965,
+            "ppid": 69919,
+            "created": "1794419389881972"
+          },
+          {
+            "pid": 69983,
+            "ppid": 69918,
+            "created": "1794419389953659"
+          },
+          {
+            "pid": 69980,
+            "ppid": 69919,
+            "created": "1794419389929004"
+          },
+          {
+            "pid": 70019,
+            "ppid": 69919,
+            "created": "1794419390047542"
+          },
+          {
+            "pid": 70051,
+            "ppid": 69919,
+            "created": "1794419390154561"
+          },
+          {
+            "pid": 70077,
+            "ppid": 69918,
+            "created": "1794419390248481"
+          },
+          {
+            "pid": 70114,
+            "ppid": 69918,
+            "created": "1794419390441562"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-cleanup.json",
+        "bytes": 1787,
+        "sha256": "ef7147234cf455d29686cfa2aae8951f8ae53df26d4b97094a09b5ac812060d5",
+        "at": "2026-11-11T17:51:32.052336+00:00",
+        "rootPid": 70179,
+        "observedIdentities": [
+          {
+            "pid": 70179,
+            "ppid": 70174,
+            "created": "1794419490734518"
+          },
+          {
+            "pid": 70184,
+            "ppid": 70179,
+            "created": "1794419490765242"
+          },
+          {
+            "pid": 70183,
+            "ppid": 70179,
+            "created": "1794419490764797"
+          },
+          {
+            "pid": 70182,
+            "ppid": 70179,
+            "created": "1794419490764299"
+          },
+          {
+            "pid": 70181,
+            "ppid": 70179,
+            "created": "1794419490762958"
+          },
+          {
+            "pid": 70220,
+            "ppid": 70184,
+            "created": "1794419490932747"
+          },
+          {
+            "pid": 70241,
+            "ppid": 70184,
+            "created": "1794419490983968"
+          },
+          {
+            "pid": 70264,
+            "ppid": 70184,
+            "created": "1794419491079649"
+          },
+          {
+            "pid": 70299,
+            "ppid": 70183,
+            "created": "1794419491182826"
+          },
+          {
+            "pid": 70295,
+            "ppid": 70184,
+            "created": "1794419491162281"
+          },
+          {
+            "pid": 70319,
+            "ppid": 70184,
+            "created": "1794419491266418"
+          },
+          {
+            "pid": 70339,
+            "ppid": 70183,
+            "created": "1794419491382214"
+          },
+          {
+            "pid": 70370,
+            "ppid": 70184,
+            "created": "1794419491482148"
+          },
+          {
+            "pid": 70371,
+            "ppid": 70184,
+            "created": "1794419491507162"
+          },
+          {
+            "pid": 70404,
+            "ppid": 70184,
+            "created": "1794419491638291"
+          },
+          {
+            "pid": 70415,
+            "ppid": 70184,
+            "created": "1794419491729210"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-cleanup.json",
+        "bytes": 1157,
+        "sha256": "dfc1f23b0d16d033c4ccc80d7bbc59073927f4f51d3735b3fa61c4c9c0d24db2",
+        "at": "2026-11-11T17:51:52.625821+00:00",
+        "rootPid": 70436,
+        "observedIdentities": [
+          {
+            "pid": 70436,
+            "ppid": 70434,
+            "created": "1794419511604543"
+          },
+          {
+            "pid": 70439,
+            "ppid": 70436,
+            "created": "1794419511694135"
+          },
+          {
+            "pid": 70451,
+            "ppid": 70439,
+            "created": "1794419511790433"
+          },
+          {
+            "pid": 70448,
+            "ppid": 70439,
+            "created": "1794419511788619"
+          },
+          {
+            "pid": 70459,
+            "ppid": 70436,
+            "created": "1794419512024810"
+          },
+          {
+            "pid": 70468,
+            "ppid": 70436,
+            "created": "1794419512174544"
+          },
+          {
+            "pid": 70472,
+            "ppid": 70436,
+            "created": "1794419512188978"
+          },
+          {
+            "pid": 70491,
+            "ppid": 70472,
+            "created": "1794419512435820"
+          },
+          {
+            "pid": 70499,
+            "ppid": 70472,
+            "created": "1794419512516052"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-cleanup.json",
+        "bytes": 527,
+        "sha256": "804dbdacd4a6132be53d218e2d3bb63c9a8409261c6f67bb48b6994a9cdc63f5",
+        "at": "2026-11-11T17:51:58.810152+00:00",
+        "rootPid": 70512,
+        "observedIdentities": [
+          {
+            "pid": 70512,
+            "ppid": 70510,
+            "created": "1794419518223104"
+          },
+          {
+            "pid": 70514,
+            "ppid": 70512,
+            "created": "1794419518246746"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-cleanup.json",
+        "bytes": 437,
+        "sha256": "daf97bdbee8ab2ad70933a2fc52ac45925fbedd589bd47285b1a0e1932f1cea9",
+        "at": "2026-11-11T17:52:04.589838+00:00",
+        "rootPid": 70531,
+        "observedIdentities": [
+          {
+            "pid": 70531,
+            "ppid": 70529,
+            "created": "1794419523998729"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-cleanup.json",
+        "bytes": 527,
+        "sha256": "b761599132bbcbc2fa3f44770f235f3979a89e3b2f072c53a8b5f736550ed08e",
+        "at": "2026-11-11T17:52:10.372681+00:00",
+        "rootPid": 70553,
+        "observedIdentities": [
+          {
+            "pid": 70553,
+            "ppid": 70551,
+            "created": "1794419530204579"
+          },
+          {
+            "pid": 70555,
+            "ppid": 70553,
+            "created": "1794419530252888"
+          }
+        ],
+        "allObservedIdentitiesExited": true,
+        "remaining": [],
+        "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+      }
+    ],
+    "scope": "Monitor records only the spawned test root and birth-checked descendants observed under it. Every observed identity is absent after completion. This is not an exhaustive guarantee for unobserved escaped processes. No unrelated/fullunit process was signalled."
+  },
+  "actualQualification": {
+    "real": [
+      "MacOS ServerOwnership kernel lock and actual canonical data-root identity",
+      "Actual root runtime/session and owner object admission, live turnSettlers authority checks",
+      "Actual serve initializes private root ledger before readiness, duplicate serve cannot alter owner ledger",
+      "Actual stop/start recovers seeded prepared row to unknown/host_restarted before readiness",
+      "Actual HTTP driver refuses two held-session requests before provider call/turn advancement/history injection",
+      "Unrelated healthy session completes actual HTTP/provider flow with offline fake provider; unresolved evidence remains"
+    ],
+    "synthetic": [
+      "clientId/ACC workerId/PID in prepared input are synthetic",
+      "Unfinished preparation seeded by direct ledger API between real server instances, not observed interrupted ACC/native dispatch",
+      "Factory tests still include simulated receipt/retirement/history callbacks; root-runtime current-turn/source cases do not prove ordinary provider tool call activation"
+    ]
+  },
+  "primaryEngineeringReadOnlyReference": {
+    "report": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/root-authority-engineering-v1.json",
+      "bytes": 533,
+      "sha256": "34af374cdb2a1d054841abfbb8999321a0abf0dab3e5d93739023743e84c29fa"
+    },
+    "sameFreezeSha": true,
+    "sourceCount": 99,
+    "reportedMismatches": [],
+    "fullUnit": {
+      "tests": 2603,
+      "pass": 2585,
+      "skip": 18,
+      "fail": 0,
+      "existingSkips": true,
+      "log": "development/full-unit-root-v3.log",
+      "logBinding": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/full-unit-root-v3.log",
+        "bytes": 402988,
+        "sha256": "79188ba859f010c4863ed5bbff5d0e8135016b58e79cde01e74f2d930132178d"
+      },
+      "exactExistingSkipRows": [
+        "﹣ configured batch launcher waits for actual async executable verification and keeps original disk spelling (0.060958ms) # SKIP",
+        "﹣ failed shim verification preserves the configured fallback and missing discoveries remain empty (0.078208ms) # SKIP",
+        "﹣ [E5] 源头编码:powershell_run / script_run / shell_start 的中文输出与中文文件名不再变成 ? (0.140333ms) # 仅 Windows 且有 powershell.exe",
+        "﹣ compiled desktop isolates explicit data roots and retains default desktop compatibility (0.275834ms) # SKIP",
+        "﹣ [W1] Windows:真 powershell.exe 解析整段脚本、Add-Type 编译其中的 C#(不弹窗) (0.048875ms) # 需要 Windows PowerShell 5.1(.NET Framework 的 C# 编译器)",
+        "﹣ [P1] dry:撞号的陌生人不算子孙,conhost 不杀,根最先、深的先杀 (0.294083ms) # SKIP",
+        "﹣ [P2] dry:根不在表里 ⇒ 什么都不杀 (0.042708ms) # SKIP",
+        "﹣ [R1] 真进程 killOwnProcessTree:根与 detached 孙子都收掉 (0.034333ms) # SKIP",
+        "﹣ [R2] 真进程 killChildTree(发出去就算):几秒内根与 detached 孙子都没了 (0.031833ms) # SKIP",
+        "﹣ [R3] Linux 真进程 killChildTree:根与 detached 孙子都没了 (0.039542ms) # SKIP",
+        "﹣ real FFmpeg WAV inspection measures tone/silence locally; never claims listening (30.113667ms) # FFmpeg unavailable; parser covered separately",
+        "﹣ PDF text + rendered scan/chart pages and page continuation (0.073375ms) # SKIP",
+        "﹣ BMP/TIFF/ICO convert to provider-compatible PNG without desktop tools (0.035959ms) # SKIP",
+        "﹣ [G] 安装脚本经 Invoke-NativeExact 把 JSON 原样交给原生程序(Windows PowerShell 5.1) (0.057541ms) # 需要 Windows PowerShell",
+        "﹣ 离线包只携带独立回调网关并能用随包 Node 运行帮助 (0.37925ms) # SKIP",
+        "﹣ 离线打包在依赖、EXE 或桌面编译失败时拒绝旧产物 (0.043708ms) # SKIP",
+        "﹣ 端到端:file_read / file_write 对 UNC 路径返回 not-allowed,不抛、不落盘 (0.096625ms) # UNC absolute paths exist only on Windows hosts",
+        "﹣ [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等 (0.060792ms) # SKIP"
+      ],
+      "skipRowCount": 18
+    },
+    "syntax": {
+      "files": 1172,
+      "fail": 0,
+      "log": "development/syntax-root-v2.log",
+      "logBinding": {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/syntax-root-v2.log",
+        "bytes": 60,
+        "sha256": "50324fd1d86364987321e2805019d2956550d3f397c2ba9a6ff7d8f3e38526b8"
+      }
+    },
+    "mode": "Read/hash reference of already-completed parent engineering; independently did not rerun full unit or syntax.18 existing skips stay unverified. Fullfast/final feature gates not inferred.",
+    "priorHistoryPreserved": [
+      "Parent fullunit-root-v1 failure at VM fixture missing newhook is retained",
+      "Parent v2 pass2583 preceded final small correction; not used as final current-source fullunit reference"
+    ]
+  },
+  "skipAndScopeLimits": {
+    "independentCommandsSkipped": 0,
+    "platform": "Actual independent execution is current Mac arm64 only; selectedMac tests had no skip. No Windows/Linux runtime equivalence claimed.",
+    "notExercised": [
+      "Normal ACC/native dispatch or native mutation/GUI/clipboard/window action",
+      "Provider/proxy/subagent/CLI root RPC tool lifecycle and actual result delivery",
+      "Real retention callback/history closure retirement/reconciliation to finished results",
+      "Held input/release/rescue, root hard-kill during native action, unknown replay continuation",
+      "TCC/lock, physical display/Finder/user demonstration, App/signature, minimumOS and Windows samecandidate",
+      "Full P5 or complete execution-receipts feature acceptance"
+    ]
+  },
+  "actions": {
+    "productOrTestSourceEdits": 0,
+    "desktopNativeOrGuiActions": 0,
+    "ACCProcesses": 0,
+    "heldLockTCCOrAppActions": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Not performed; reserved until fullP5 acceptance.",
+  "evidence": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-after-binding.json",
+      "bytes": 26788,
+      "sha256": "95f45d2758f246c13aae7de17d9d3edd10ad3de1aca654939603bb0edb4af552"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-before-binding.json",
+      "bytes": 26788,
+      "sha256": "1bf2659f90d0ab89b4ff47ddb7c4e4e129a96534fb69b03d7bbdde916b33185f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-cleanup.json",
+      "bytes": 527,
+      "sha256": "b761599132bbcbc2fa3f44770f235f3979a89e3b2f072c53a8b5f736550ed08e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-invocation.json",
+      "bytes": 1381,
+      "sha256": "3c1ddc222259326d0a8da3b324615cd97d5fb6aba91fc98e85368264a3489d99"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build-isolation-cleanup.json",
+      "bytes": 97,
+      "sha256": "3a5dfb1dcf9c8aa139e9d954ffc20210709b403e28338eb369ea66c49623b298"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/build.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-after-binding.json",
+      "bytes": 26788,
+      "sha256": "430ae20efb062a4900efdf364f54e34a0ff84e490e5fee3c6b17f3ff8db83072"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-before-binding.json",
+      "bytes": 26788,
+      "sha256": "80eeb5dc447773cff02799481e2aaf2b95ea9bbf332463f79d87d940f241fe5f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-cleanup.json",
+      "bytes": 527,
+      "sha256": "804dbdacd4a6132be53d218e2d3bb63c9a8409261c6f67bb48b6994a9cdc63f5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-invocation.json",
+      "bytes": 1404,
+      "sha256": "1172b66ad660ccf1b9bddcd995766946a150c247b7272e2c8c09d127f063187d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph-isolation-cleanup.json",
+      "bytes": 97,
+      "sha256": "814962f871a6f38991a4e74a58d942c9ca2614ee2199eb52a942c9cce6cb5ab5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/module-graph.log",
+      "bytes": 1327,
+      "sha256": "384a761435e5a152e2a2f5aed76906c5f57d40df03f4a7f363f1ceb79726a940"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/os-process-helper-baseline.json",
+      "bytes": 204,
+      "sha256": "19183671c1f66d4ec87c476d8ac5c1a1d746eb25f77953a1af1bb015e72b4a51"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-authority-freeze-v1.json",
+      "bytes": 25753,
+      "sha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-after-binding.json",
+      "bytes": 26788,
+      "sha256": "f00fc126bd79ff6c5d5ed3a1c565907ab62f2c85c301c2ee9272c93378616da1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-before-binding.json",
+      "bytes": 26788,
+      "sha256": "62c7e76ac37e8bb51ab6fca4690b2e2b1d4aa704e654b097d6adade27bfe6561"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-cleanup.json",
+      "bytes": 1157,
+      "sha256": "dfc1f23b0d16d033c4ccc80d7bbc59073927f4f51d3735b3fa61c4c9c0d24db2"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-invocation.json",
+      "bytes": 1511,
+      "sha256": "a6c39554558d2c67ab4a7964002f1a61f0f5e0d3c1dd6607a0da7df60c16420d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-isolation-cleanup.json",
+      "bytes": 97,
+      "sha256": "668f46e7d7635d173c0df94e0f817ffed8dddb3d3fafb75cebf3e7b897d1af9b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-results.json",
+      "bytes": 6506,
+      "sha256": "4a294381b370f2e1229b4734499a648186a48866ebb6a1589c812d2fe8cd356f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http.log",
+      "bytes": 800,
+      "sha256": "a15cf50a0896734036222779f0f7cb6263e69b23d2a92a61fc5e257bd8edcc3f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-after-binding.json",
+      "bytes": 26788,
+      "sha256": "bd84018d2e7b730cc35cf236b80b1628aa2dfd1ce1c275b944419e626d4a4f94"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-before-binding.json",
+      "bytes": 26788,
+      "sha256": "4d09508a76526cd294e43b9b145d8b0a87e4dccceba7da1a0c4ab713b28ab357"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-cleanup.json",
+      "bytes": 437,
+      "sha256": "daf97bdbee8ab2ad70933a2fc52ac45925fbedd589bd47285b1a0e1932f1cea9"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-invocation.json",
+      "bytes": 1384,
+      "sha256": "1d67f62477a010cdec1bef8c5b75961368c6d18be269060de0a71d5bc9917c22"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes-isolation-cleanup.json",
+      "bytes": 97,
+      "sha256": "1676686a014e182b93bfd953a4ccbb770a98c673600e9204d21e57322c0d827e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes.log",
+      "bytes": 1024,
+      "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/run_once.py",
+      "bytes": 5591,
+      "sha256": "81ce95159ddfcf1718f93fb0d08933bf9415202ff6e017a6cf14ff24064e19d8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/runtime-versions.json",
+      "bytes": 139,
+      "sha256": "6a123f797d2d97e7bb02dcecf5c971d48cda9af642199bf10faf73107fb7dd2a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/socket-length-counterexample.json",
+      "bytes": 1616,
+      "sha256": "2ca96fbd1d3ebc251ef2820ca35ef747bb1f3427a1f8ae197d56577005297dae"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/socket-length-counterexample.log",
+      "bytes": 311,
+      "sha256": "58b900d1cc59187d2ebee945862149a3768901053c800bf41400256fe6d49275"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-after-binding.json",
+      "bytes": 26788,
+      "sha256": "3c4a05c3ccb724de090a599bb8b779f4f34e33dc43039dd03e9565a8224a15ff"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-before-binding.json",
+      "bytes": 26788,
+      "sha256": "7bdc9bc0b48dcd71fc77d48fc9ec359709c20d1f410f7dbbf50b3e22972d8ab6"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-cleanup.json",
+      "bytes": 1427,
+      "sha256": "f1d45fe04cc932a73b0405b7638c961bd1ddec598bfa27944a28a3e09383e4e1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-after-binding.json",
+      "bytes": 26788,
+      "sha256": "3976c37faa99ec0d7e3efa1a2924a9b81ba744ed303b46ea52f4e451ba495d06"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-before-binding.json",
+      "bytes": 26788,
+      "sha256": "0ce248e171c02ad5768598e3345b141a6c3920429bd2704afa814328af58c9ed"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-cleanup.json",
+      "bytes": 1787,
+      "sha256": "ef7147234cf455d29686cfa2aae8951f8ae53df26d4b97094a09b5ac812060d5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-invocation.json",
+      "bytes": 1575,
+      "sha256": "f59e20f3d267e006450bb313bced6d8ee2d8f43202998504dadcec2166392dd6"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2-isolation-cleanup.json",
+      "bytes": 97,
+      "sha256": "034419386a1935aa1c898a0c646188edbb73d8207d18fe38668580fc99de9f45"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2.log",
+      "bytes": 6813,
+      "sha256": "a7130d1f80f32e225f4c68137a211cc75e1da24d8e03dbf81ac881224f408a81"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-invocation.json",
+      "bytes": 2142,
+      "sha256": "f03af04ee74b4cafe72853b92a3cb1ba6d0ca0d6611fa949b501c2ec087c7cf9"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit.log",
+      "bytes": 14179,
+      "sha256": "c1442532e3fec2f339cf1e0789fa8f82065d61a70c1639189a62339fd71e344f"
+    }
+  ]
+}

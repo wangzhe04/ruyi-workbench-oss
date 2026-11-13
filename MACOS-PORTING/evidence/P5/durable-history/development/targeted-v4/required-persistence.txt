@@ -1,0 +1,36 @@
+✔ required persistence commits the exact pending tool identity and model arguments (213.335292ms)
+✔ required persistence rejects a deleted session while legacy saves remain discarded (97.220542ms)
+✔ required persistence rejects an older rewind generation without changing the current body (103.754416ms)
+✔ required persistence rejects a newer committed turn before accepting old tool intent (104.967375ms)
+✔ required persistence checks owner replacement inside the queued write (97.887ms)
+✔ failed intent head commit prevents the real file effect instead of dispatching without history (370.778791ms)
+✔ Stop after first parallel read retains the already returned second result (121.179667ms)
+✔ a failed prefix-result commit stops the second actual file effect (111.533541ms)
+✖ steered parallel image result keeps bounded display and a real saved attachment (112.707041ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8971.685458
+
+✖ failing tests:
+
+test at dev-harness/unit/session-required-persistence.test.js:155:1
+✖ steered parallel image result keeps bounded display and a real saved attachment (112.707041ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(attachments?.length > 0)
+  
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-durable-history-worktree/dev-harness/unit/session-required-persistence.test.js:181:12)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

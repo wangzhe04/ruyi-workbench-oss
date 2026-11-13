@@ -1,0 +1,29 @@
+PASS parent wait yields for mail without claiming completion or timeout
+PASS parent receives and replies while worker is still active
+PASS foreign-run rejection is checked while the run is active
+PASS different session cannot message a foreign run
+PASS worker receives server-bound parent message at model boundary
+PASS worker can discover its node id and peer roster
+PASS child cannot offer a tool that changes parent title
+PASS parent mail binds actual run and node source
+PASS idle cross-thread send returns queued receipt
+PASS main tool status queries queued cross-session receipt
+PASS invalid cross-session status target does not fail parent turn
+PASS idle peer target is not automatically awakened even when agent auto-wake is enabled
+PASS cross-thread source identity is server-bound
+PASS peer message remains reference evidence
+PASS peer UI receipt is appended exactly once
+PASS ledger records actual boundary delivery
+PASS main tool status queries cross-session local delivery after target turn
+PASS persisted provider history injects peer exactly once with bound metadata
+PASS peer evidence never replaces the latest real user request
+PASS parent-bound run message records actual delivery without a drop
+PASS main tool status queries own receipt after run has completed
+PASS actual node compaction input binds mail source and production parser classifies it as peer
+PASS completed run cannot be revived by sending a message
+PASS main provider title tool updates automatic title
+PASS title tool preserves manual title
+PASS finished child mail remains queued for idle parent
+PASS completed run read projects actual idle-parent delivery from ledger
+
+AGENT PARENT MAILBOX E2E: ALL PASS

@@ -189,6 +189,7 @@ test('startup diagnostic retains its schema, size limit and original error while
       paths: { data: 'synthetic-data' }, path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
       lstatOrNull: () => null, isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => ({ portable: false, releaseStartup: async () => {} }) },
       startServerInner: async () => { throw error; }, finishBootCliPathProbes: () => { finished++; },
+      DesktopExecutionHooks: { initialize: async () => {}, canWriteStartupError: () => true },
       START_ERROR_KINDS: ['port-unavailable', 'data-dir-unwritable', 'startup-failed'], LAST_START_ERROR_FILE: 'last-start-error.json',
       fsp: { mkdir: async () => {} }, atomicWriteJson: async (_file, value) => records.push(value), nowIso: () => '2026-10-20T00:00:00.000Z',
     });
@@ -198,5 +199,23 @@ test('startup diagnostic retains its schema, size limit and original error while
     assert.equal(records[0].kind, 'startup-failed'); assert.ok(records[0].message.length <= 800);
     assert.equal(records[0].message, code === 'credential_vault.unlock_failed' ? f.CredentialRecovery.startupGuidance(error) : error.message.slice(0, 800));
     assert.ok(records[0].next); assert.equal(records[0].message.includes('synthetic-data'), false);
+  }
+});
+
+test('startup diagnostic checks actual authority before mkdir and again before writing', async () => {
+  const { functionBlock } = require('../lib/source-slice');
+  const source = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src/13-http-router.js'), 'utf8');
+  const code = functionBlock(source, 'writeStartError');
+  for (const loseAt of ['before', 'after-mkdir', 'never']) {
+    let allowed = loseAt !== 'before', mkdir = 0, writes = 0;
+    const write = vm.runInNewContext(code + '\nwriteStartError', {
+      DesktopExecutionHooks: { canWriteStartupError: () => allowed }, START_ERROR_KINDS: ['startup-failed'],
+      paths: { data: 'synthetic-data' }, path, LAST_START_ERROR_FILE: 'last-start-error.json', nowIso: () => 'test', startErrorNextText: () => 'test',
+      fsp: { mkdir: async () => { mkdir++; if (loseAt === 'after-mkdir') allowed = false; } },
+      atomicWriteJson: async () => { writes++; },
+    });
+    await write('startup-failed', 'synthetic');
+    assert.equal(mkdir, loseAt === 'before' ? 0 : 1, loseAt);
+    assert.equal(writes, loseAt === 'never' ? 1 : 0, loseAt);
   }
 });

@@ -1,0 +1,69 @@
+PASS owned OCR scene starts without injected input
+PASS NATIVE_WINDOW_CAPTURE actual root turn completes
+PASS NATIVE_WINDOW_CAPTURE all actual SDK results have strict receipts and saved deliveries
+PASS NATIVE_WINDOW_CAPTURE actual next model request follows durable deliveries
+PASS NATIVE_WINDOW_CAPTURE native chain is bound to actual root preparation screenshot
+PASS NATIVE_WINDOW_CAPTURE real native handlers enter exact requested operations screenshot
+PASS NATIVE_WINDOW_CAPTURE exact native frames have terminal receipts before SDK completion screenshot
+PASS NATIVE_WINDOW_CAPTURE native chain is bound to actual root preparation get_screen_info
+PASS NATIVE_WINDOW_CAPTURE real native handlers enter exact requested operations get_screen_info
+PASS NATIVE_WINDOW_CAPTURE exact native frames have terminal receipts before SDK completion get_screen_info
+PASS real native screenshot reaches exactly one saved image row
+PASS actual screenshot retains PNG image transport
+PASS independently decoded screenshot dimensions cover the owned window
+PASS NATIVE_IMAGE_OCR actual root turn completes
+PASS NATIVE_IMAGE_OCR all actual SDK results have strict receipts and saved deliveries
+PASS NATIVE_IMAGE_OCR actual next model request follows durable deliveries
+PASS NATIVE_IMAGE_OCR native chain is bound to actual root preparation ocr_image
+PASS NATIVE_IMAGE_OCR real native handlers enter exact requested operations ocr_image
+PASS NATIVE_IMAGE_OCR exact native frames have terminal receipts before SDK completion ocr_image
+PASS NATIVE_IMAGE_OCR native chain is bound to actual root preparation ocr_image
+PASS NATIVE_IMAGE_OCR real native handlers enter exact requested operations ocr_image
+PASS NATIVE_IMAGE_OCR exact native frames have terminal receipts before SDK completion ocr_image
+PASS NATIVE_IMAGE_OCR native chain is bound to actual root preparation ocr_available_languages
+PASS NATIVE_IMAGE_OCR real native handlers enter exact requested operations ocr_available_languages
+PASS NATIVE_IMAGE_OCR exact native frames have terminal receipts before SDK completion ocr_available_languages
+PASS real Vision recognizes English and Chinese through saved root result native_local_ocr
+PASS real Vision recognizes English and Chinese through saved root result native_capture_ocr
+PASS NATIVE_CAPTURE_REFUSAL actual root turn completes
+PASS NATIVE_CAPTURE_REFUSAL all actual SDK results have strict receipts and saved deliveries
+PASS NATIVE_CAPTURE_REFUSAL actual next model request follows durable deliveries
+PASS NATIVE_CAPTURE_REFUSAL native chain is bound to actual root preparation screenshot
+PASS NATIVE_CAPTURE_REFUSAL real native handlers enter exact requested operations screenshot
+PASS NATIVE_CAPTURE_REFUSAL exact native frames have terminal receipts before SDK completion screenshot
+PASS missing owned window produces a real native failure with no invented image
+PASS entry_stop captures live actual ACC/native identities at committed native boundary
+PASS entry_stop Stop targets a live actual turn while its exact native gate is still blocked before deadline
+PASS entry_stop actual workbench Stop accepts exact current execution
+PASS entry_stop exits before the earliest possible native handshake timeout
+PASS entry_stop actual identities exit and uncertainty commits before fixture timeout or manual release
+PASS entry_stop retains exactly one unacknowledged uncertain invocation
+PASS entry_stop prevents later same-batch local file mutation
+PASS entry_stop sends no actual provider request after initial tool proposal
+PASS entry_stop never invents native terminal and entry Stop sends no committed continue
+PASS entry_stop completes real Stop before any fixture release
+PASS entry_stop actual cold restart holds before model or tool replay
+PASS continue_stop captures live actual ACC/native identities at committed native boundary
+PASS continue_stop Stop targets a live actual turn while its exact native gate is still blocked before deadline
+PASS continue_stop actual workbench Stop accepts exact current execution
+PASS continue_stop exits before the earliest possible native handshake timeout
+PASS continue_stop actual identities exit and uncertainty commits before fixture timeout or manual release
+PASS continue_stop retains exactly one unacknowledged uncertain invocation
+PASS continue_stop prevents later same-batch local file mutation
+PASS continue_stop sends no actual provider request after initial tool proposal
+PASS continue_stop never invents native terminal and entry Stop sends no committed continue
+PASS continue_stop completes real Stop before any fixture release
+PASS continue_stop actual cold restart holds before model or tool replay
+PASS native_terminal_eio retains exactly one unacknowledged uncertain invocation
+PASS native_terminal_eio prevents later same-batch local file mutation
+PASS native_terminal_eio sends no actual provider request after initial tool proposal
+PASS native terminal EIO preserves actual continue but cannot publish a completed screenshot
+PASS native_terminal_eio actual cold restart holds before model or tool replay
+PASS image_save_fault retains exactly one unacknowledged uncertain invocation
+PASS image_save_fault prevents later same-batch local file mutation
+PASS image_save_fault sends no actual provider request after initial tool proposal
+PASS actual screenshot image-history EIO distinguishes completed native result from uncommitted consumer delivery
+PASS image_save_fault actual cold restart holds before model or tool replay
+PASS capture and OCR leave owned controls unchanged
+
+MACOS EXECUTION CAPTURE E2E: ALL PASS

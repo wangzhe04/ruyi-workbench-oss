@@ -1,0 +1,30 @@
+{
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T11:48:53.247405+00:00",
+  "argv": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-native-entry.e2e.js"
+  ],
+  "pid": 92243,
+  "cwd": "/tmp/ruyi-p5-durable-history-worktree",
+  "environment": {
+    "HOME": "/tmp/p5dh-093r6h4m/h",
+    "USERPROFILE": "/tmp/p5dh-093r6h4m/u",
+    "APPDATA": "/tmp/p5dh-093r6h4m/a",
+    "LOCALAPPDATA": "/tmp/p5dh-093r6h4m/l",
+    "WCW_DATA_DIR": "/tmp/p5dh-093r6h4m/w",
+    "RUYI_HOME": "/tmp/p5dh-093r6h4m/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5dh-093r6h4m/c",
+    "TMPDIR": "/tmp/p5dh-093r6h4m/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "PYTHONPATH": "/tmp/ruyi-p5-durable-history-worktree/mcp/ai-computer-control/src",
+    "RUYI_P5_ENTRY_REQUIRED": "1",
+    "RUYI_P5_ENTRY_HELPER": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "RUYI_P5_ENTRY_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/native"
+  },
+  "attempt": 1
+}

@@ -1,0 +1,92 @@
+{
+  "recordedAt": "2026-11-12T15:18:28.130265+00:00",
+  "originalOfficialResult": "Both Mac observe and OCR files were killed at120s twice, with all reached assertions passing; raw attempts retained.",
+  "measuredCompleteDiagnosticRuns": [
+    {
+      "file": "macos-observe.e2e.js",
+      "exitCode": 0,
+      "seconds": 202.021,
+      "diagnosticWallLimitSeconds": 300
+    },
+    {
+      "file": "macos-ocr.e2e.js",
+      "exitCode": 0,
+      "seconds": 166.525,
+      "diagnosticWallLimitSeconds": 300
+    }
+  ],
+  "callMeasurements": [
+    {
+      "receipt": "targeted-recheck/observe-receipts/results.json",
+      "longCalls": [
+        {
+          "name": "ocr_image",
+          "elapsed_ms": 38056
+        },
+        {
+          "name": "observe",
+          "elapsed_ms": 38577
+        },
+        {
+          "name": "observe",
+          "elapsed_ms": 38632
+        },
+        {
+          "name": "macro_run",
+          "elapsed_ms": 77200
+        }
+      ]
+    },
+    {
+      "receipt": "targeted-recheck/ocr-receipts/results.json",
+      "longCalls": [
+        {
+          "name": "ocr_image",
+          "elapsed_ms": 37959
+        },
+        {
+          "name": "ocr_image",
+          "elapsed_ms": 37830
+        },
+        {
+          "name": "ocr_screen",
+          "elapsed_ms": 38002
+        },
+        {
+          "name": "ocr_find_text",
+          "elapsed_ms": 38006
+        }
+      ]
+    }
+  ],
+  "finalOfficialTargetedAttempts": [
+    {
+      "file": "macos-input-events.e2e.js",
+      "attempt": 1,
+      "ok": true,
+      "status": 0,
+      "timedOut": false,
+      "ms": 30697
+    },
+    {
+      "file": "macos-ocr.e2e.js",
+      "attempt": 1,
+      "ok": true,
+      "status": 0,
+      "timedOut": false,
+      "ms": 14415
+    },
+    {
+      "file": "macos-observe.e2e.js",
+      "attempt": 1,
+      "ok": true,
+      "status": 0,
+      "timedOut": false,
+      "ms": 50669
+    }
+  ],
+  "wholeFileGuardSeconds": 300,
+  "productDeadlines": "Existing native60s/Python65s single OCR request deadlines unchanged.",
+  "rootCause": "Underlying host/Vision latency cause unconfirmed; no claim that a system service or permissions caused it. Subsequent official full fixture durations were50.669/14.415 seconds.",
+  "scope": "Whole-file guard now accommodates measured cumulative cold OCR work; no assertion skip, no single product-call deadline increase."
+}

@@ -1,0 +1,252 @@
+{
+  "events": [
+    {
+      "trusted": true,
+      "types": [
+        "Files"
+      ],
+      "entries": [
+        {
+          "kind": "file",
+          "name": "P4 Finder 可见定位.txt",
+          "file": true,
+          "directory": false
+        }
+      ]
+    },
+    {
+      "trusted": true,
+      "types": [
+        "Files"
+      ],
+      "entries": [
+        {
+          "kind": "file",
+          "name": "P4 Finder 可见定位.txt",
+          "file": true,
+          "directory": false
+        }
+      ]
+    },
+    {
+      "trusted": true,
+      "types": [
+        "Files"
+      ],
+      "entries": [
+        {
+          "kind": "file",
+          "name": "P4 Finder 可见定位.txt",
+          "file": true,
+          "directory": false
+        }
+      ]
+    },
+    {
+      "trusted": true,
+      "types": [
+        "Files"
+      ],
+      "entries": [
+        {
+          "kind": "file",
+          "name": "P4 选择目标文件夹",
+          "file": false,
+          "directory": true
+        }
+      ]
+    },
+    {
+      "trusted": true,
+      "types": [
+        "Files"
+      ],
+      "entries": [
+        {
+          "kind": "file",
+          "name": "P4 选择目标文件夹",
+          "file": false,
+          "directory": true
+        }
+      ]
+    },
+    {
+      "trusted": true,
+      "types": [
+        "Files"
+      ],
+      "entries": [
+        {
+          "kind": "file",
+          "name": "P4 选择目标文件夹",
+          "file": false,
+          "directory": true
+        }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "path": "/api/upload",
+      "body": {
+        "name": "P4 Finder 可见定位.txt",
+        "encodedBytes": 67
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "file": {
+          "id": "file_60dff974ad0d6512",
+          "name": "P4 Finder 可见定位.txt",
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_60dff974ad0d6512/P4 Finder 可见定位.txt",
+          "size": 31,
+          "createdAt": "2026-11-08T04:55:53.324Z",
+          "textPreview": "P4 controlled Finder selection\n"
+        }
+      }
+    },
+    {
+      "path": "/api/upload",
+      "body": {
+        "name": "P4 Finder 可见定位.txt",
+        "encodedBytes": 67
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "file": {
+          "id": "file_9ae48508190b2d4b",
+          "name": "P4 Finder 可见定位.txt",
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_9ae48508190b2d4b/P4 Finder 可见定位.txt",
+          "size": 31,
+          "createdAt": "2026-11-08T04:56:05.689Z",
+          "textPreview": "P4 controlled Finder selection\n"
+        }
+      }
+    },
+    {
+      "path": "/api/upload",
+      "body": {
+        "name": "P4 Finder 可见定位.txt",
+        "encodedBytes": 67
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "file": {
+          "id": "file_5b2627cefd036e98",
+          "name": "P4 Finder 可见定位.txt",
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/data/uploads/file_5b2627cefd036e98/P4 Finder 可见定位.txt",
+          "size": 31,
+          "createdAt": "2026-11-08T05:43:00.627Z",
+          "textPreview": "P4 controlled Finder selection\n"
+        }
+      }
+    },
+    {
+      "path": "/api/workspace/resolve",
+      "body": {
+        "name": "P4 选择目标文件夹",
+        "children": [
+          "P4 选择验收文件.txt"
+        ]
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "matches": [
+          {
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+            "score": 1
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "path": "/api/workspace/resolve",
+      "body": {
+        "name": "P4 选择目标文件夹",
+        "children": [
+          "P4 选择验收文件.txt"
+        ]
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "matches": [
+          {
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+            "score": 1
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "path": "/api/workspace/resolve",
+      "body": {
+        "selectedPath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+        "favorite": {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+          "read": true,
+          "write": true,
+          "execute": true
+        },
+        "aliases": [
+          "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+          "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"
+        ],
+        "matches": []
+      }
+    },
+    {
+      "path": "/api/workspace/resolve",
+      "body": {
+        "name": "P4 选择目标文件夹",
+        "children": [
+          "P4 选择验收文件.txt"
+        ]
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "matches": [
+          {
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+            "score": 1
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "path": "/api/workspace/resolve",
+      "body": {
+        "selectedPath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"
+      },
+      "status": 200,
+      "result": {
+        "ok": true,
+        "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+        "favorite": {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+          "read": true,
+          "write": true,
+          "execute": true
+        },
+        "aliases": [
+          "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹",
+          "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹"
+        ],
+        "matches": []
+      }
+    }
+  ],
+  "sends": 0
+}

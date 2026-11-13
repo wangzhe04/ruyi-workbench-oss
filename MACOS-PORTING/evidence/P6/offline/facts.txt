@@ -1,0 +1,15 @@
+# 注意: 本机无 ACC venv,accTools 保留旧值 108(CI acc-smoke 会做活注册表对账)
+# facts.json 已生成:
+#   schema: 1
+#   generatedAt: 2026-11-12T06:38:33.397Z
+#   workbenchVersion: 3.0.1
+#   accVersion: 1.9.1
+#   nativeTools: 121
+#   accTools: 108
+#   e2eCount: 604
+#   e2eLiveSkipped: 14
+#   unitSuites: 291
+#   accSmokes: 44
+#   defaultPort: 8765
+#   tokenBootstrap: api-bootstrap
+#   liveProbes: 14

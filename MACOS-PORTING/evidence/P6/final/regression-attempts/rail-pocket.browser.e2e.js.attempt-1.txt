@@ -1,0 +1,65 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A2b 造了一条线程（右栏因此有焦点可画 —— 「接下来」跟它同住一栏）
+PASS A3 GET /api/scheduler/tasks 有生产者了（123 波 M1；实测 HTTP 200，tasks 0 条）
+PASS A4 Edge/Chrome found
+PASS A5 browser target available
+PASS A6 管家视角就绪且口袋已画出四项
+PASS B1 口袋恰四项、顺序固定（§2.3：定时任务／行动流水／记得的关于你／体检 · 用量；实测 ["schedule","decisions","memory","doctor"]）
+PASS B2 每一项都是「字形 ＋ 短词」（实测 [[1,"定时任务"],[1,"行动流水"],[1,"记得的关于你"],[1,"体检 · 用量"]]）
+PASS B3 四项各可 Tab 到（.focus() 之后就是 activeElement；实测 [true,true,true,true]）
+PASS B4 四枚按钮的文本与 title 零金额（§7.2；实测命中 []）
+PASS B5 短词走目录（实测「定时任务」「体检 · 用量」）
+PASS B6 「定时任务」→ 设置·管家页的定时任务组可见（实测 {"scheduleLanded":true,"memoryLanded":false,"decisionsLanded":false,"settingsOpen":true,"stewardTabActive":true,"doctorTabActive":false,"stewardPanelShown":true,"doctorPanelShown":false,"scheduleGroup":true,"memoryGroup":false,"decisionsGroup":false,"powerGroup":false,"onlyBar":"只看「定时任务」显示全部管家设置","usageTabSelected":false,"usageSectionActive":false,"lens":"steward"}）
+PASS B6b 「定时任务」直接落到定时任务那一段（段顶进视口、焦点在段内；修前停在页首「管家总开关」）
+PASS B6c 只看「定时任务」：其余段落收起、顶上有说明与「显示全部」（实测 {"power":false,"memory":false,"bar":"只看「定时任务」显示全部管家设置"}）
+PASS B6d 点「显示全部管家设置」→ 整页回来（实测 {"power":true,"memory":true,"bar":false}）
+PASS B6e 切走再切回「管家」页签 → 整页（「只看」只活到下一次切页签；实测 {"power":true,"bar":false}）
+PASS B7 「行动流水」→ 设置·管家页的行动流水组可见（实测 stewardTab=true）
+PASS B7b 「行动流水」直接落到行动流水那一段
+PASS B8 「记得的关于你」→ 设置·管家页的记忆组可见（实测 stewardTab=true）
+PASS B8b 「记得的关于你」直接落到记忆那一段
+PASS B7c0 重载之后口袋重新画出四项
+PASS B7c 列表晚到之后「行动流水」仍停在那一段（实测 {"top":204,"bottom":347,"ih":993,"focusIn":true,"active":"cfgStewardDecisionsThread","rows":1}）
+PASS B9 管家视角「体检 · 用量」→ 设置的体检页（§7.2 两视角两条路的管家那一条；实测 doctorTab=true）
+PASS B10 工作台视角「体检 · 用量」→ 右栏「用量」页签（aria-selected=true ＋ #tab-usage.active，不开设置弹层；实测 {"scheduleLanded":false,"memoryLanded":false,"decisionsLanded":false,"settingsOpen":false,"stewardTabActive":false,"doctorTabActive":true,"stewardPanelShown":false,"doctorPanelShown":false,"scheduleGroup":false,"memoryGroup":false,"decisionsGroup":false,"powerGroup":false,"onlyBar":"","usageTabSelected":true,"usageSectionActive":true,"lens":"classic"}）
+PASS F1 专家档：右栏 392px 里七枚页签 2 行（§13.13 K8 登记②：折三行归本刀；判据 ≤2）
+PASS F2 精简档：看得见的 5 枚排 2 行（判据 ≤2）
+PASS G1 设置里有那个数字框且播种成缺省 30（实测 {"exists":true,"value":"30","min":"10","max":"200"}）
+PASS G2 改成 12 → 服务端 config.threadIndexRecent 真的是 12（唯一写口 POST /api/config）
+PASS G3 填 5 → 服务端钳到下限 10（区间只有 src/01-config.js 一份，客户端不重写）
+PASS G4 UI 随后回填服务端钳过的那个数（实测 10）
+PASS D1 零定时任务 → 「接下来」整段不画（§2.6；实测 {"exists":true,"hidden":true,"visible":false,"sideShown":true,"rows":[]}）
+PASS D2 零任务时口袋上的计数也不印（实测「」）
+PASS C1 只有 48 小时前写的那条记忆 → 不出「新」（判据是服务端 13g 的 counts.isNew；实测「」）
+PASS C1b 服务端那一头：1 条记忆、isNew=0（实测 {"total":1,"active":1,"vetoed":0,"isNew":0}）
+PASS C2a 服务端那一头：24 小时内那条把 counts.isNew 抬到 1
+PASS C2b 重载之后口袋重新画出四项
+PASS C3 「记得的关于你」出现「新」角标（实测「新」，可访问名「记得的关于你」）
+PASS D3 五条任务（其中三条在未来）→ 「接下来」恰两行（§2.6「最近两条」——第三条被上限截掉；实测 ["备份工作区 · 30分钟后","写周报 · 2小时后"]）
+PASS D4 按下次触发时间升序（30 分钟那条在 2 小时那条前面），且已过去与关掉的两条都不进（实测 ["备份工作区 · 30分钟后","写周报 · 2小时后"]）
+PASS D5 每行印「名字 · 相对时间」（§2.6 的形状）
+PASS D6 口袋上的数量＝定时任务总条数（不是「接下来」那两条；实测「5」）
+PASS H1 12 秒静置期内 /api/scheduler/tasks 零新请求（口袋与「接下来」都不挂计时器；实测 3 → 3）
+PASS J1 1181：右栏仍在栅格里（left=789 < 视口 1181），顶栏没有「右栏」钮
+PASS J2 1180：右栏离开栅格、滑到屏幕外等着（left=1180 ≥ 视口 1180），顶栏出「右栏」钮（display=grid）
+PASS E1 ≤980 图标栏：四枚按钮与字形还在、短词的盒子 0×0（§7.3；实测 [[[47,30],[0,0]],[[47,30],[0,0]],[[47,30],[0,0]],[[47,30],[0,0]]]）
+PASS E2 收起字之后可访问名仍在 title 上（图标不作唯一信号，F5a 纪律）
+PASS E3 ≤980 每颗色点悬停都说得出是哪一条（行头 title＝显示名；实测 [{"title":"夹具线程","name":"夹具线程"}]）
+#   screenshot /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-BTXowc/ruyi-rail-pocket-TXFE17/k7-steward-1920.png
+#   screenshot /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-BTXowc/ruyi-rail-pocket-TXFE17/k7-classic-1920.png
+PASS I1 全新 HOME 的 workbench 起来了
+PASS I2 向导那一台的 CDP target 就绪
+PASS I3 全新 HOME 首开落管家视角（K0 的默认入口；实测 "steward"）
+PASS I3b 首跑卡的「开始引导」打开向导，步骤条 7 格（§8.4 拍板③：多了「管家用哪个模型」；实测 {"steps":7,"labels":["语言","引擎","密钥","管家","文件夹","安全","完成"]}）
+PASS I4 第 4 步就是「管家用哪个模型」（两张卡 ＋ 模型名框；实测 {"hasStep":true,"input":true,"cards":2,"title":"管家用哪个模型"}）
+PASS I5 填的模型名真的落进 config.stewardModel（与设置·管家页同一个字段、同一条写口）
+PASS I6 点「完成」之后向导关闭（实测 {"lens":"steward","open":false}）
+PASS I7 走完向导落在管家视角 data-shell-mode="steward"（§8.4「完成页落在管家视角」；实测 "steward"）
+PASS I8 onboarding.completedAt 已写（向导真的走完了，不是被跳过）
+PASS K1 记忆组打开
+PASS K2 两条都列在面板上 —— **过期的没被删掉**（实测 2 行）
+PASS K3 过期那条画出了「已过期」标且真的在屏上（实测「已过期」，可见 true）
+PASS K4 没过期的那条【没有】这枚标（实测 没有）—— 不是所有条目都印
+PASS K5 悬停说得出到期时刻（实测 这条已过到期日(2026-11-11T11:26:04.048Z),不再被用上;仍留在这里,可以改掉到期日续期,也可以否）
+RAIL POCKET BROWSER E2E: ALL PASS

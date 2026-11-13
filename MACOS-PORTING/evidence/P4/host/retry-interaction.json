@@ -1,0 +1,38 @@
+{
+  "method": "CUA native accessibility interaction",
+  "initialState": {
+    "state": "failed",
+    "code": "instance_lock_unavailable",
+    "visibleText": "如意工作台暂时无法启动。错误代码 instance_lock_unavailable",
+    "button": "重试"
+  },
+  "fixture": "isolated HOME; Hosts path deliberately occupied by a regular file",
+  "actions": [
+    "remove only fixture blocker file",
+    "click native 重试 button through CUA",
+    "observe 正在启动如意工作台…",
+    "verify complete workbench config in native readiness report"
+  ],
+  "finalReport": {
+    "activationCount": 1,
+    "nativePID": 91807,
+    "page": {
+      "additional": null,
+      "composer": true,
+      "configLoaded": true,
+      "frame": true,
+      "health": true,
+      "readyState": "complete",
+      "title": "如意工作台"
+    },
+    "previewNavigations": 0,
+    "profileIdentifier": "6B868CCF-1C89-BFBA-96AD-F96D6889A62B",
+    "servicePID": 91824,
+    "state": "ready",
+    "url": "http://127.0.0.1:8766/",
+    "windowFrame": "{{215, 175}, {1280, 868}}",
+    "windowVisible": true
+  },
+  "nativeExitCode": 0,
+  "servicePIDAbsentAfterExit": true
+}

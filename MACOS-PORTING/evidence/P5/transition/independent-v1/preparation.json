@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T10:04:48.009985+00:00",
+  "status": "prepared_awaiting_completed_engineering_and_explicit_gui_handoff",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/freeze-v3.json",
+    "bytes": 2790,
+    "sha256": "6f08fb8139c64f60ea981cad75754db98ef239069f4afaab122a0c122fab8628"
+  },
+  "review": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/transition/code-review-v1.json",
+    "bytes": 14413,
+    "sha256": "52194e6d3ac770dd634bcf4b3da708844aa998eef813b18c6de97cfcd7722443"
+  },
+  "additionalSources": [
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "bytes": 5201,
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-transition-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "18fb360975d75f1c9ced563ffa3e42bdd22bdce15e7241223997e4c7cfa1051a"
+    }
+  ],
+  "plannedCases": "One opt-in transition E2E containing8 serial moving-window captures plus mandatory stable-before/after controls. Dynamic PASS count; no required moving success.",
+  "testsStarted": 0,
+  "GUIUsed": false,
+  "engineeringRerunPlanned": false,
+  "phaseStatus": "in_progress"
+}

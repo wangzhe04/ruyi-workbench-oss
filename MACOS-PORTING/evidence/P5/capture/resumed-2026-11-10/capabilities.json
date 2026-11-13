@@ -1,0 +1,23 @@
+[
+  {
+    "attempt": 1,
+    "exitCode": 0,
+    "signal": null,
+    "ms": 8838,
+    "pass": 25
+  },
+  {
+    "attempt": 2,
+    "exitCode": 0,
+    "signal": null,
+    "ms": 8410,
+    "pass": 25
+  },
+  {
+    "attempt": 3,
+    "exitCode": 0,
+    "signal": null,
+    "ms": 8438,
+    "pass": 25
+  }
+]

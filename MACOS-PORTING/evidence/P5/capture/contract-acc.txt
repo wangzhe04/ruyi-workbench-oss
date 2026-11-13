@@ -1,0 +1,13 @@
+FAIL Error: spawnSync /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-contract-yqhYV3/test-helper ETIMEDOUT
+    at Object.spawnSync (node:internal/child_process:1143:20)
+    at Object.spawnSync (node:child_process:911:24)
+    at plan (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-contract.e2e.js:36:25)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-contract.e2e.js:40:18
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capture-contract.e2e.js:164:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+
+MACOS CAPTURE CONTRACT E2E: FAIL (1)

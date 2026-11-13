@@ -1,0 +1,64 @@
+── (A) 真收件箱:回合收了计划 1/5 → 管家自己续 → 做完 ──
+PASS A0 工作台起来了
+PASS A1 建了线程
+PASS A2 第一回合收了,计划只完成 1/5(turnSeq=1,done=1)
+PASS A3 这一回合是正常收的(没有「上次任务未完成」横幅),没做完的只是计划
+PASS A4 管家自己续了一轮,第二回合把计划做完了(5/5)
+PASS A5 行动流水里恰有一行自动续跑(got 1)
+PASS A6 流水的 basis 写明理由与次数(reason=计划已完成 1/5;第 1 次自动续跑)
+PASS A7 递给线程的就是前端「继续」横幅那一句
+PASS A8 管家的回合层拿到「已经自动续了」的说明(它该如实讲给用户听,不再问「要不要我拉出来」)
+PASS A9 做完之后不再续
+── (A2) 真收件箱:回合 network_down 失败 → 不是 done,管家自动重试 ──
+PASS A2.1 用户发起的回合失败,会话头落了成败账(got {"seq":1,"ok":false,"aborted":false,"errorClass":"network_down","at":"2026-11-12T11:36:12.628Z","todosStartSig":"97d170e1550eee4a"})
+PASS A2.2 errorClass=network_down(got network_down)
+PASS A2.4 管家自动重试了一次,线程第二回合起来了
+PASS A2.5 行动流水:一行自理重试(origin=steward-retry;got ["steward-retry"])
+PASS A2.6 同一事件只走一条路:没有「没做完就续」的流水
+PASS A2.7 重试回合成功,成败账翻成 ok:true
+── (B) 进程内:判据与闸 ──
+PASS A2.3 失败回合的线程五态不再是 done(got stopped,lastTurnFailed=true)
+PASS B1.0 前置:5/5 且回合收口
+PASS B1 做完了的线程:不续、不出提议按钮
+PASS B1b 这一次到访的回合层里没有「没做完」的说明
+PASS B1c 零流水
+PASS B2.0 前置:计划 1/5,最后一句以问号收尾
+PASS B2 最后一条在向用户提问 → 不自动续
+PASS B2b 线程没动
+PASS B3 计划 1/5、回合正常收 → 自动递「继续」(got true)
+PASS B3b 第二回合做完了计划(5/5)
+PASS B3c 落了一行带理由的行动流水
+PASS B3d 做完之后的下一次到访不再续(账清零)
+PASS B4.0 前置:撞了工具次数上限,横幅判据 dangling({"dangling":true,"kind":"tool_calls","turnSeq":1,"historyLength":5}),没有计划
+PASS B4 同一份横幅判据 → 自动续一轮(got true)
+PASS B4b 续完回合收口,横幅判据翻回 false
+PASS B4c 流水的理由写的是「回合没有收口」
+PASS B5.1 第 1 次自动续
+PASS B5.2 第 2 次自动续(流水写着「第 2 次」)
+PASS B5.3 第 3 次到顶 → 不再自动,降级成提议(got 已经连续自动续跑 2 次,仍没做完,不再自动续,只提议)
+PASS B5.4 用户手里留着一枚「继续」按钮
+PASS B5.5 线程没再被续(turnSeq 仍是 3,只有两行续跑流水)
+PASS B5.6 到顶这一次也记了流水(steward_continue_stopped,reason=max)
+PASS B6.1 第一次:计划 1/5 → 续
+PASS B6.2 续了一轮,计划仍是 1/5
+PASS B6.3 计划没往前走 → 停(got 上次自动续跑之后计划没有往前走(仍是 1/5),不再自动续,只提议)
+PASS B6.4 线程没再被续
+PASS B6.5 记了流水 reason=no_progress(got {"reason":"no_progress","todosDone":1,"todosTotal":5})
+PASS B7 开关关 → 只提议(got 「任务没做完时自动续上」没有勾选,只能提议)
+PASS B7b 手里留一枚「继续」按钮
+PASS B7c 零执行、零流水
+PASS B8 「每步都问」档 → 只提议(got 目标线程权限为「每步都问」,没做完的任务只能提议)
+PASS B8b 零执行
+PASS B9 小时回合数到顶 → 熔断(got turns_per_hour)
+PASS B9b 线程没被续
+PASS B10 管家总开关关 → 到访不跑
+PASS B10b 线程没被续
+PASS B11.0 前置:第二回合正常收,计划还是第一回合留下的 1/5
+PASS B11 上一回合没碰过的旧计划 → 不自动续
+PASS B11b 线程没动、零流水
+PASS B12 失败那条照样自理重试(got true)
+PASS B12b 收工那条没有出续跑行
+PASS B13 旧回合的账晚到不覆盖(got {"seq":5,"ok":false,"aborted":false,"errorClass":"network_down","at":"x","todosStartSig":""})
+PASS B13b 同号可覆盖
+
+STEWARD CONTINUE UNFINISHED E2E: ALL PASS

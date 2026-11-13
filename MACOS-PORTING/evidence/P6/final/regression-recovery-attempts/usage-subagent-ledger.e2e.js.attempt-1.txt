@@ -1,0 +1,37 @@
+[fake] [fake-openai] listening on 53792
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay cf065bded0cf)
+[wb] UI: http://127.0.0.1:53793/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-usage-subagent-ledger-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :53793
+PASS got workbench token
+PASS created a session
+PASS workflow launched async with a run id
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-usage-subagent-ledger-e2e/generated/workbench.mcp.json
+PASS workflow run terminated
+PASS openai node succeeded (status succeeded)
+PASS claude node succeeded (status succeeded)
+  run status: succeeded | nodes: oa=succeeded,cl=succeeded
+PASS ledger has exactly 2 subagent rows (got 2 of 2 total)
+PASS openai subagent row: fake/fake-model, 42/15, CNY cost=0.000072 (got 0.000072)
+PASS openai subagent row carries agentKey=oa + a subagentId
+PASS claude subagent row: claude-cli, 812/214, cost=0.0123 USD costTrusted estimated:false (got 0.0123/USD/est=false)
+PASS claude subagent row carries agentKey=cl + kind=subagent
+PASS summary ok:true
+PASS totals.subagentTurns === 2 (got 2)
+PASS byProvider fake = the openai sub-agent tokens (42/15) + CNY cost
+PASS byProvider claude-cli = the claude sub-agent tokens (812/214) + USD cost
+PASS byEngine claude reflects the claude sub-agent (was 漏算 before the fix)
+PASS exactly 1 kind:turn row after a normal chat turn (got 1)
+PASS the chat-turn row is a plain trusted openai turn (no agentKey/subagentId)
+PASS the chat turn did NOT add or disturb the 2 subagent rows
+PASS bySession parent = sum of its 3 rows (896/244), got 896/244
+PASS legacy (no-kind) row counts in totals.turns (3→4)
+PASS legacy row NOT counted as subagent (stays 2)
+PASS legacy row NOT counted as aux (stays 0)
+PASS provider/compact ok:true ()
+PASS exactly 1 aux/compact row (got 1)
+PASS aux/compact row: fake/fake-model, k×11/k×7 (k=2), CNY cost=tokens×pricing=0.00005 (got 0.000049999999999999996), no agent attribution
+PASS totals.auxCalls === 1 after one compaction (got 1)
+
+USAGE-SUBAGENT-LEDGER E2E: ALL PASS

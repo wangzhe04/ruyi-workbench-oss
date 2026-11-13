@@ -1,0 +1,6 @@
+PASS P0 服务起来了
+PASS P1 探测在飞时 /api/status 秒回、desktopMcp.probing(151 ms,探测至少还要 6000 ms;desktopMcp {"enabled":true,"detected":null,"resolved":null,"probing":true})
+PASS P2 健康项 desktop-control 报既有的 preparing 态、mcpConfigPath 仍是那条路径({"id":"desktop-control","ok":false,"detail":"preparing: bridge configured, capability probe has not run yet"})
+PASS P3 在飞期间 /health 也秒回(1 ms)
+PASS P4 探测完之后不再 probing,desktopMcp 形状与改前一致(["enabled","detected","resolved"])
+DESKTOP PROBE STATUS E2E: ALL PASS

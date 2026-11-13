@@ -1,0 +1,105 @@
+test_actual_driver_is_owned_before_start_returns (__main__.BrowserRuntime.test_actual_driver_is_owned_before_start_returns) ... [11/07/26 04:02:49] WARNING  Executing <Task finished        base_events.py:1994
+                             name='Task-1'                                      
+                             coro=<BrowserRuntime.asyncSetUp                    
+                             () done, defined at                                
+                             /Users/jiming/Documents/ruyi-wo                    
+                             rkbench-mac/mcp/ai-computer-con                    
+                             trol/tests/smoke_browser_runtim                    
+                             e.py:19> result=None created at                    
+                             /Users/jiming/.local/esp-runtim                    
+                             es/Python.framework/Versions/3.                    
+                             12/lib/python3.12/asyncio/runne                    
+                             rs.py:100> took 0.344 seconds                      
+                    INFO     execute program                 base_events.py:1760
+                             '/Users/jiming/Documents/ruyi-w                    
+                             orkbench-mac/mcp/ai-computer-co                    
+                             ntrol/.venv/lib/python3.12/site                    
+                             -packages/playwright/driver/nod                    
+                             e': <_UnixSubprocessTransport                      
+                             pid=32393 running                                  
+                             stdin=<_UnixWritePipeTransport                     
+                             fd=7 idle bufsize=0>                               
+                             stdout=<_UnixReadPipeTransport                     
+                             fd=8 polling>>                                     
+[11/07/26 04:02:54] INFO     <_UnixReadPipeTransport fd=8     unix_events.py:535
+                             polling> was closed by peer                        
+                    INFO     <_UnixSubprocessTransport    base_subprocess.py:211
+                             pid=32393 running                                  
+                             stdin=<_UnixWritePipeTranspo                       
+                             rt closed fd=7 closed>                             
+                             stdout=<_UnixReadPipeTranspo                       
+                             rt closed fd=8 closed>>                            
+                             exited with return code 0                          
+ok
+test_actual_launcher_is_gone_when_launch_request_is_cancelled (__main__.BrowserRuntime.test_actual_launcher_is_gone_when_launch_request_is_cancelled) ...                     INFO     execute program                 base_events.py:1760
+                             '/Users/jiming/Documents/ruyi-w                    
+                             orkbench-mac/mcp/ai-computer-co                    
+                             ntrol/.venv/lib/python3.12/site                    
+                             -packages/playwright/driver/nod                    
+                             e': <_UnixSubprocessTransport                      
+                             pid=32861 running                                  
+                             stdin=<_UnixWritePipeTransport                     
+                             fd=7 idle bufsize=0>                               
+                             stdout=<_UnixReadPipeTransport                     
+                             fd=8 polling>>                                     
+[11/07/26 04:02:55] INFO     <_UnixReadPipeTransport fd=8     unix_events.py:535
+                             polling> was closed by peer                        
+                    INFO     <_UnixSubprocessTransport    base_subprocess.py:211
+                             pid=32861 running                                  
+                             stdin=<_UnixWritePipeTranspo                       
+                             rt closed fd=7 closed>                             
+                             stdout=<_UnixReadPipeTranspo                       
+                             rt closed fd=8 closed>>                            
+                             exited with return code 0                          
+ok
+test_cdp_closes_all_owned_pages_but_not_the_selected_user_page (__main__.BrowserRuntime.test_cdp_closes_all_owned_pages_but_not_the_selected_user_page) ... ok
+test_close_failures_still_stop_driver_and_report_incomplete_cleanup (__main__.BrowserRuntime.test_close_failures_still_stop_driver_and_report_incomplete_cleanup) ... ok
+test_installed_mac_browser_detection_retains_windows_resolver (__main__.BrowserRuntime.test_installed_mac_browser_detection_retains_windows_resolver) ... ok
+test_status_probe_cancel_keeps_driver_owned_until_cleanup (__main__.BrowserRuntime.test_status_probe_cancel_keeps_driver_owned_until_cleanup) ...                     INFO     execute program                 base_events.py:1760
+                             '/Users/jiming/Documents/ruyi-w                    
+                             orkbench-mac/mcp/ai-computer-co                    
+                             ntrol/.venv/lib/python3.12/site                    
+                             -packages/playwright/driver/nod                    
+                             e': <_UnixSubprocessTransport                      
+                             pid=32871 running                                  
+                             stdin=<_UnixWritePipeTransport                     
+                             fd=7 idle bufsize=0>                               
+                             stdout=<_UnixReadPipeTransport                     
+                             fd=8 polling>>                                     
+[11/07/26 04:03:00] INFO     <_UnixReadPipeTransport fd=8     unix_events.py:535
+                             polling> was closed by peer                        
+                    INFO     <_UnixSubprocessTransport    base_subprocess.py:211
+                             pid=32871 running                                  
+                             stdin=<_UnixWritePipeTranspo                       
+                             rt closed fd=7 closed>                             
+                             stdout=<_UnixReadPipeTranspo                       
+                             rt closed fd=8 closed>>                            
+                             exited with return code 0                          
+ok
+test_status_probe_own_timeout_cleans_its_driver (__main__.BrowserRuntime.test_status_probe_own_timeout_cleans_its_driver) ...                     INFO     execute program                 base_events.py:1760
+                             '/Users/jiming/Documents/ruyi-w                    
+                             orkbench-mac/mcp/ai-computer-co                    
+                             ntrol/.venv/lib/python3.12/site                    
+                             -packages/playwright/driver/nod                    
+                             e': <_UnixSubprocessTransport                      
+                             pid=33127 running                                  
+                             stdin=<_UnixWritePipeTransport                     
+                             fd=7 idle bufsize=0>                               
+                             stdout=<_UnixReadPipeTransport                     
+                             fd=8 polling>>                                     
+[11/07/26 04:03:10] INFO     <_UnixReadPipeTransport fd=8     unix_events.py:535
+                             polling> was closed by peer                        
+                    INFO     <_UnixSubprocessTransport    base_subprocess.py:211
+                             pid=33127 running                                  
+                             stdin=<_UnixWritePipeTranspo                       
+                             rt closed fd=7 closed>                             
+                             stdout=<_UnixReadPipeTranspo                       
+                             rt closed fd=8 closed>>                            
+                             exited with return code 0                          
+ok
+test_system_handoff_does_not_claim_dom_or_mac_desktop_control (__main__.BrowserRuntime.test_system_handoff_does_not_claim_dom_or_mac_desktop_control) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 21.349s
+
+OK

@@ -1,0 +1,51 @@
+[fake] [fake-openai] listening on 51998
+PASS workbench up on :51999
+PASS version === package.json
+PASS UI token scraped
+PASS (a) session created
+PASS (a) a `plan` event was streamed
+PASS (a) plan event carries a planId
+PASS (a) plan event carries the PLAN markdown
+PASS (a) approve decision {ok:true} (got {"ok":true,"missionId":"sess_d0f00812fa95264b","interventionId":"plan_b42bf361ef38ac69","type":"plan","action":"approve","status":"approved","interventionVersion":2,"delivered":true})
+PASS (a) model-visible approval context prevents a post-confirmation wait loop
+PASS (a) file_write EXECUTED post-approval (x.txt exists)
+PASS (a) a file_write tool_use was streamed
+PASS (a) file_write tool_result is NOT an error (allowed by plan approval)
+PASS (a) turn_summary.filesChanged records x.txt (journal entry)
+PASS (a) turn result ok, no errorClass
+PASS (a) approved plan emits a semantic plan_decision event
+PASS (a) approved plan state survives static session reload
+PASS (c) plan decision without token → 403 (got 403)
+PASS (c) unknown planId → {ok:false, no pending plan}
+PASS (c) re-decide consumed planId → no pending plan (idempotent)
+[fake] [fake-openai] listening on 51998
+PASS (b) reject fake respawned
+PASS (b) session created
+PASS (b) a `plan` event was streamed
+PASS (b) reject decision {ok:true}
+PASS (b) file_write NOT executed after reject (y.txt absent)
+PASS (b) no tool_use streamed (turn ended at rejection)
+PASS (b) result.errorClass === plan_rejected (got plan_rejected)
+PASS (b) rejected plan state and note survive static session reload
+[fake] [fake-openai] listening on 51998
+PASS (d) no-plan fake respawned
+PASS (d) no `plan` event (model did not emit PLAN:)
+PASS (d) mutating tool NOT executed in plan mode (z.txt absent)
+PASS (d) F5: first-message tool_call refused with «计划模式:请先提交 PLAN:» (plan phase not consumed by a bare tool_call)
+[fake] [fake-openai] listening on 51998
+PASS (e) plan-when-refused fake respawned
+PASS (e) first tool_call was refused (F5 path taken)
+PASS (e) 拒绝后补交的 PLAN: 仍发出 `plan` 事件(planPhase 重新武装,防回潮核心断言)
+PASS (e) approve decision {ok:true}
+PASS (e) file_write EXECUTED post-approval (w.txt exists)
+PASS (e) turn result ok
+[fake] [fake-openai] listening on 51998
+PASS (f) read-before-plan fake respawned
+PASS (f) file_read executes before the final plan is submitted
+PASS (f) read-only discovery is not refused by plan mode
+PASS (f) read-only discovery re-arms plan phase and emits a `plan` event
+PASS (f) discovery plan approve decision {ok:true}
+PASS (f) file_write executes only after discovery plan approval
+PASS (f) read → plan → approve → write turn completes
+
+PLAN-MODE E2E: ALL PASS

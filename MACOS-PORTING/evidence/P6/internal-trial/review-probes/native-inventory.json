@@ -1,0 +1,26 @@
+{
+  "sourceHash": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+  "work": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p602-review-inventory-NWX8rq",
+  "codeSignCalls": 0,
+  "checks": [
+    {
+      "name": "missing native object",
+      "passed": true,
+      "sourceUnchanged": true
+    },
+    {
+      "name": "duplicate registry object",
+      "passed": true,
+      "sourceUnchanged": true
+    },
+    {
+      "name": "registry outside App",
+      "passed": true,
+      "sourceUnchanged": true
+    },
+    {
+      "name": "output overlap through ancestor symlink",
+      "passed": true
+    }
+  ]
+}

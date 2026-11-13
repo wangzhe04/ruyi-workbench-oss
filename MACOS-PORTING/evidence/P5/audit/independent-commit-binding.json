@@ -1,0 +1,1080 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-10T16:35:11.447291+00:00",
+  "implementationCommit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+  "verdict": "passed_independent_commit_binding",
+  "fullP5Completion": false,
+  "scope": "Independent read-only post-commit binding of complete raw Git source blobs and committed evidence, with current runtime artifact hashes and README binding-note verification. No GUI, tests, rebuilds or product/test modifications were performed.",
+  "method": "Read each complete raw blob through git cat-file blob COMMIT:PATH as bytes using subprocess.check_output, hash SHA256 and compare with the manifest read from that same commit and current disk. No fixed output buffer or text conversion is used for source and evidence blobs.",
+  "sourceCount": 100,
+  "rawSourceBlobBytes": 10990280,
+  "sourceCommitManifestDiskAllMatch": true,
+  "sourceRecords": [
+    {
+      "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+      "rawBlobBytes": 7069,
+      "sha256": "a31fc9cb3345596c18d48e4f00188f4cf7dffd0fa8aa467e666774cea6456e12",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "MACOS-PORTING/10-TRACKING.md",
+      "rawBlobBytes": 34902,
+      "sha256": "8a5e3a61b78d873299f994c3b67e796c8fc49c3b219580cda0dd537b8bcf608e",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "rawBlobBytes": 87006,
+      "sha256": "8a471f506fcdbd44ba1443ff8a359a595208f6a98326f5f7787bdf7e237ebf53",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt",
+      "rawBlobBytes": 1533,
+      "sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "README.md",
+      "rawBlobBytes": 65808,
+      "sha256": "57b9785887aa7d9381a6fdef222ee6985d5d76a9a566a2bab77b7ae2bdace3bc",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "README_EN.md",
+      "rawBlobBytes": 72914,
+      "sha256": "4438fc21f1001f10fa14f4a110502b0f72de88247402464b5faa31a44f477e9c",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "rawBlobBytes": 41655,
+      "sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-audit-cancel-server.py",
+      "rawBlobBytes": 1265,
+      "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ax-window.m",
+      "rawBlobBytes": 11136,
+      "sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-capture-window.m",
+      "rawBlobBytes": 6245,
+      "sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "rawBlobBytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-finder-identity.m",
+      "rawBlobBytes": 7537,
+      "sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "rawBlobBytes": 14194,
+      "sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ocr-window.m",
+      "rawBlobBytes": 7227,
+      "sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/lib/browser-fixture.js",
+      "rawBlobBytes": 21509,
+      "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-acc-shared.e2e.js",
+      "rawBlobBytes": 7191,
+      "sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-audit-cancellation.e2e.js",
+      "rawBlobBytes": 10208,
+      "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-ax-finder.e2e.js",
+      "rawBlobBytes": 11628,
+      "sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-ax.e2e.js",
+      "rawBlobBytes": 18492,
+      "sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-capabilities.e2e.js",
+      "rawBlobBytes": 8091,
+      "sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-capture-contract.e2e.js",
+      "rawBlobBytes": 12752,
+      "sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-capture-host.e2e.js",
+      "rawBlobBytes": 5558,
+      "sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-capture.e2e.js",
+      "rawBlobBytes": 13434,
+      "sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-input-apps.e2e.js",
+      "rawBlobBytes": 29397,
+      "sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-input-events.e2e.js",
+      "rawBlobBytes": 23780,
+      "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "rawBlobBytes": 21492,
+      "sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-mcp-capabilities.e2e.js",
+      "rawBlobBytes": 5447,
+      "sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-observe.e2e.js",
+      "rawBlobBytes": 10944,
+      "sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-ocr.e2e.js",
+      "rawBlobBytes": 14279,
+      "sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-record.e2e.js",
+      "rawBlobBytes": 14122,
+      "sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/macos-window-clipboard.e2e.js",
+      "rawBlobBytes": 16038,
+      "sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "rawBlobBytes": 13918,
+      "sha256": "4900978f9d02c2e47962d17b2af6cc4908b418d80972e017b8be3406fcb04f4d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/theme-default.browser.e2e.js",
+      "rawBlobBytes": 3282,
+      "sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/unit/browser-fixture-deadline.test.js",
+      "rawBlobBytes": 6256,
+      "sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "dev-harness/unit/tool-dispatch-hardening.test.js",
+      "rawBlobBytes": 26441,
+      "sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "rawBlobBytes": 923751,
+      "sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "rawBlobBytes": 205532,
+      "sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "facts.json",
+      "rawBlobBytes": 1335,
+      "sha256": "66a8963a1ff092b0468b50b4ef86754727cc60a0a81aac117b11d830351a6051",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "rawBlobBytes": 23023,
+      "sha256": "1b5026145545e4c3046cf346c6a2654d4b359b51ca5dd140baeb952570c3059a",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "rawBlobBytes": 11509,
+      "sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "rawBlobBytes": 9948,
+      "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "rawBlobBytes": 10402,
+      "sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "rawBlobBytes": 10638,
+      "sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "rawBlobBytes": 9275,
+      "sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "rawBlobBytes": 12096,
+      "sha256": "767942a58c53504bdfd59c1cd21101c0cc5b02901ebb1b48aa9408fcf92e00ca",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+      "rawBlobBytes": 1685,
+      "sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+      "rawBlobBytes": 3163,
+      "sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "rawBlobBytes": 5201,
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "rawBlobBytes": 6043,
+      "sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "rawBlobBytes": 5512,
+      "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+      "rawBlobBytes": 9182,
+      "sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "rawBlobBytes": 6119,
+      "sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "rawBlobBytes": 5634,
+      "sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "rawBlobBytes": 6903,
+      "sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "rawBlobBytes": 32996,
+      "sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "rawBlobBytes": 14860,
+      "sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "rawBlobBytes": 11015,
+      "sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/errors.py",
+      "rawBlobBytes": 7011,
+      "sha256": "0ca189dc4bbc8fe2c89cb403f15f92b37d9bd991d7ab513fd8392e9bfceb4f6d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "rawBlobBytes": 12450,
+      "sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "rawBlobBytes": 4493,
+      "sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "rawBlobBytes": 7775,
+      "sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "rawBlobBytes": 6057,
+      "sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "rawBlobBytes": 4104,
+      "sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "rawBlobBytes": 3620,
+      "sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "rawBlobBytes": 8532,
+      "sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "rawBlobBytes": 8643,
+      "sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "rawBlobBytes": 3820,
+      "sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "rawBlobBytes": 2589,
+      "sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+      "rawBlobBytes": 5321,
+      "sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_audit_cancellation.py",
+      "rawBlobBytes": 14199,
+      "sha256": "56b76d2d1ab510981d757c9a646ada4c20486ad08e65b7cadc049ef4647beb56",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_browser_runtime.py",
+      "rawBlobBytes": 9018,
+      "sha256": "81e00ef07c43926cf12c1e3426e114d9b076399d290bcdd5ab60e9b82de41fb6",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_ax.py",
+      "rawBlobBytes": 6311,
+      "sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_capture.py",
+      "rawBlobBytes": 9976,
+      "sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_composed.py",
+      "rawBlobBytes": 15520,
+      "sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+      "rawBlobBytes": 8420,
+      "sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+      "rawBlobBytes": 13646,
+      "sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+      "rawBlobBytes": 17336,
+      "sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_shared.py",
+      "rawBlobBytes": 10579,
+      "sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_visual.py",
+      "rawBlobBytes": 18044,
+      "sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "rawBlobBytes": 6777632,
+      "sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "rawBlobBytes": 24619,
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "rawBlobBytes": 5148,
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "rawBlobBytes": 166256,
+      "sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "rawBlobBytes": 234075,
+      "sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "rawBlobBytes": 301464,
+      "sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "rawBlobBytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "rawBlobBytes": 150843,
+      "sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "rawBlobBytes": 23789,
+      "sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "rawBlobBytes": 697478,
+      "sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/desktop-macos/RuyiDesktop.swift",
+      "rawBlobBytes": 35428,
+      "sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "rawBlobBytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "rawBlobBytes": 31746,
+      "sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "rawBlobBytes": 22388,
+      "sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "rawBlobBytes": 47155,
+      "sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "rawBlobBytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "rawBlobBytes": 7671,
+      "sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "rawBlobBytes": 5315,
+      "sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "rawBlobBytes": 2908,
+      "sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "rawBlobBytes": 2589,
+      "sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+      "matchesCommittedManifestAndDisk": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-desktop.js",
+      "rawBlobBytes": 6489,
+      "sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "matchesCommittedManifestAndDisk": true
+    }
+  ],
+  "runtimeArtifactBinding": "Committed final manifest SHA256 values compared with current disk artifacts. Their frozen execution provenance remains in the committed independent/final delivery reports.",
+  "runtimeArtifactCount": 3,
+  "runtimeArtifacts": [
+    {
+      "path": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "expectedSha256FromCommittedManifest": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+      "currentDiskSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "expectedSha256FromCommittedManifest": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "currentDiskSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "expectedSha256FromCommittedManifest": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "currentDiskSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "match": true
+    }
+  ],
+  "evidenceBinding": {
+    "committedAuditEvidenceCountExcludingREADME": 63,
+    "allCommittedAuditEvidenceMatchDisk": true,
+    "records": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/engineering/build-check.txt",
+        "rawBlobBytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/engineering/results.json",
+        "rawBlobBytes": 123818,
+        "sha256": "0479253997f0e5ec9014d1fd685b6dc572b6b155bc53fcd6f143d268bf0e8d14",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/engineering/static.txt",
+        "rawBlobBytes": 5851,
+        "sha256": "9dc05a0a8d6100e4a3d1f72656b9640bee6983f401947acad556d52f018043cc",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/engineering/syntax.txt",
+        "rawBlobBytes": 60,
+        "sha256": "c55d6bf13321fb91b449212bbc24185df30dd0fa0d27c3362ddb7876c7731c2b",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/engineering/unit.txt",
+        "rawBlobBytes": 393599,
+        "sha256": "e170c62b5157fcb90132e5c06cfe3e0b7a82023a89e6609428287abde5049c5d",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/final-facts.txt",
+        "rawBlobBytes": 2333,
+        "sha256": "be6062abdc5e95414ad45d31c6655d20cb2d88843cb8002d892d5612eb2c2b29",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/acceptance/final-process-safety.txt",
+        "rawBlobBytes": 855,
+        "sha256": "82a7f313d2b9ce0e0b9a5128094477dfc4ac2ceee1e97f14eed2b0dc69a29b41",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/code-review.json",
+        "rawBlobBytes": 12321,
+        "sha256": "8c532cf77cbc0c24547f57fccccc21690cca74c5283d3b02c92f6b373a7ac934",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/live-first.txt",
+        "rawBlobBytes": 1309,
+        "sha256": "8e57d37d4a61c29b96cef693379d350fd2d37ae509bd90584c4927c80a912eb4",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/live-first/results.json",
+        "rawBlobBytes": 25401,
+        "sha256": "af3a78058f600a445b73cde0ca28814d9eeaaf7c673d65c9965ec929cc8c35fb",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/live-reviewed.txt",
+        "rawBlobBytes": 2046,
+        "sha256": "b9014d93429ceac84cafa74c3aca4de979e7afbb40ce6a55dbfa658b8462d89c",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/live-reviewed/results.json",
+        "rawBlobBytes": 46250,
+        "sha256": "55279f10a8f315ea8a2c7fb4f4eebe21bdf193044f31598e2e316a74b100eeef",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/pure-corrected.txt",
+        "rawBlobBytes": 1553,
+        "sha256": "fb84aa2180509234137043a472e9717f02daafbfa80cad72dd9cf40da34b7f71",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/pure-final.txt",
+        "rawBlobBytes": 2085,
+        "sha256": "aef42a2efd83bf7e3d5cdf8ad02896f30bf33ab3f9223d7e4f16e4d23c79cc43",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/pure-first.raw.base64",
+        "rawBlobBytes": 8584,
+        "sha256": "c0ce5256ff6b79136bac6b05dfa64fd5db090ceee4bc9ba74f6d79296d61ece1",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/pure-first.txt",
+        "rawBlobBytes": 6168,
+        "sha256": "c6da02c4215db0b3ecac485f33af5c384ba6a7d2abf50836de0f0eb1b0c3e988",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/pure-reviewed.txt",
+        "rawBlobBytes": 1931,
+        "sha256": "e6ce52d349b03e9029e381b6186210a863830e3e2a2efcdb1bae46d80824fee1",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/final-delivery-review.json",
+        "rawBlobBytes": 41644,
+        "sha256": "03a1cf2529b574d968257c626b7bd620bf1983ed25d2170c08afc7cec486d65c",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/acc-shared.txt",
+        "rawBlobBytes": 1401,
+        "sha256": "42e0a3177925769773e1366b8beed6ceb74f9d509549d4e0212751b1fe26fe56",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-ax.txt",
+        "rawBlobBytes": 871,
+        "sha256": "2fac9d1f048a48858da2091fd7f8cb335eed9681980988cffbeed6057763b898",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-ax/input-host.json",
+        "rawBlobBytes": 6480,
+        "sha256": "c63f3b83802cd45a091aabe24a985e2def352276127af2e8d476b5cbc116c94c",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-codesign.txt",
+        "rawBlobBytes": 197,
+        "sha256": "834c5397e0b11c8b40b546cf9132479d56a74b8e0246c0d25a424937d79ddd7a",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-composed.txt",
+        "rawBlobBytes": 960,
+        "sha256": "7a6e9fa93868bd262a9b80a9217ebc5aa6a2db1beff885685242531c0f7d0081",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-composed/composed-host.json",
+        "rawBlobBytes": 70314,
+        "sha256": "b928fe113814b6d51876be6cdce8a451b2e58bf97f351af5b85bcfdf5edd28f1",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-input.txt",
+        "rawBlobBytes": 910,
+        "sha256": "da5c92f8d536f07212428e3214c691c874badec7ca1a9ea42b16a8621238b658",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-input/input-host.json",
+        "rawBlobBytes": 4940,
+        "sha256": "9a92ae87d1aeac604c8aad313f722580708812efb5db95dd9441507e68a14912",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-record.txt",
+        "rawBlobBytes": 1331,
+        "sha256": "2dc50dbede9aa96bfd37f2a7b21ca41092415091792b65fd1408a995dc934d31",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-record/record-host.json",
+        "rawBlobBytes": 10411,
+        "sha256": "863fab847ffbecef6e4eb896b51ed00d5b4b3de7caccc224e54acf2587311ad2",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-visual.txt",
+        "rawBlobBytes": 970,
+        "sha256": "d73e19a6bb409456388750cb9450db64188f25180a6582718e5466eef32d87f7",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/app-visual/visual-host.json",
+        "rawBlobBytes": 10574,
+        "sha256": "da3f81bd370110c3121dd34c9a3283d6cf49971fed85aaec25ffa723b339b8cb",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/audit-cancel.txt",
+        "rawBlobBytes": 2046,
+        "sha256": "b9014d93429ceac84cafa74c3aca4de979e7afbb40ce6a55dbfa658b8462d89c",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/audit-cancel/results.json",
+        "rawBlobBytes": 46250,
+        "sha256": "366eb90d6fffeca8594464ca836fa69d813fbaa7f86d70390b134bf4525eb807",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/ax.txt",
+        "rawBlobBytes": 2805,
+        "sha256": "fa4cc419c2b9f585f58f58399d636e5d60842b7efa5dc9ae1d12ba30259c6c8f",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/ax/ax.json",
+        "rawBlobBytes": 20331,
+        "sha256": "f6baa1fa022bc98624edef5b7226f79fd19d7996bfeec82d3125cd18ec49efa8",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/capture.txt",
+        "rawBlobBytes": 2191,
+        "sha256": "b5c2bd3643d1f11685d8551389e8326ba3f4032ef4d1d3a10af99e42f84946f8",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/capture/capture.json",
+        "rawBlobBytes": 3548,
+        "sha256": "553a0383e44f341b8dffbc9872fb37224af69da24f2a9c3de0d6135ba3b2dc71",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/composed.txt",
+        "rawBlobBytes": 1687,
+        "sha256": "36a7bf632b25150d5bc39cd31d66a919847b74fbb431a11f1aa9675dbdf350a3",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/composed/results.json",
+        "rawBlobBytes": 66331,
+        "sha256": "b4fa2f3865e4820fda739c70d7f43100b8fbfddb378f8be0eab86fd524f71141",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/default-helper-status.txt",
+        "rawBlobBytes": 692,
+        "sha256": "169b46a4ea78b95c1db22e1026c4602f0f422467c151de7ff7658de21a310bf1",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/helper-codesign.txt",
+        "rawBlobBytes": 243,
+        "sha256": "c6848e8aac7c6a5399492090fc138a7cc6f313ac4f74914eb173b87e20499cd5",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/input-events.txt",
+        "rawBlobBytes": 3460,
+        "sha256": "4442c4a5646cacf22f8c5b0c9c9627e43727a2b116f33af5fc61dc010923cc0f",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/ocr.txt",
+        "rawBlobBytes": 3579,
+        "sha256": "e31e696d8e231a5e6d45182326df7e60ef099c5c947d6b220ef10ab04f46b8a2",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/ocr/button-template.png",
+        "rawBlobBytes": 4359,
+        "sha256": "eec3d3186b7d8a2dbab929cb621c523008ade98ec4738cfa4bf75ec6e23d90df",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/ocr/results.json",
+        "rawBlobBytes": 45767,
+        "sha256": "82acab322e1811186d820412891f6f10daeed9dce2f2bb566868b322b30e985f",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/ocr/synthetic.png",
+        "rawBlobBytes": 25157,
+        "sha256": "4aece3301c6ff6dce48176e8e4287598ca2eee8eacfd23ae05c9614a4de5bff7",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-audit-cancellation.txt",
+        "rawBlobBytes": 2085,
+        "sha256": "e54af3dcaa5c4648c9446b7a3e6cae7f7b3e153bae322ddedd797eea21e452ab",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-ax.txt",
+        "rawBlobBytes": 106,
+        "sha256": "c74f0952c8f65146106e0797b4da9847492755810a01f0204aee2ebaf9b2d27b",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-browser-runtime.raw.base64",
+        "rawBlobBytes": 11834,
+        "sha256": "6ea544f45eca63ffb3b24ba9dca52450cba159fa18bfbf00887c087ec5c4c444",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-browser-runtime.txt",
+        "rawBlobBytes": 6775,
+        "sha256": "3ef0c51401957bda744f11c8041a70624bf5b864d2b1b348e71032eb4557a8b0",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-capture.txt",
+        "rawBlobBytes": 1799,
+        "sha256": "d75a1514a54535b347836c9a763ea3051479e329bfef2195991d0cfcf15babf2",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-composed.txt",
+        "rawBlobBytes": 115,
+        "sha256": "ca3203ebb9d05bc41fc6064d2d43120920674c04457511668be2f35e69bb6b82",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-events.txt",
+        "rawBlobBytes": 2015,
+        "sha256": "f6b2dc0490193d72d2d1349945f3e12a100bc36ffa5f9ed099b76060131e680a",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-input.txt",
+        "rawBlobBytes": 2555,
+        "sha256": "1766272ba6cb0d4253fb29a2b252dc17a956df95e851d16e75357f1296c0425a",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-record.txt",
+        "rawBlobBytes": 3709,
+        "sha256": "2f0ffdc7455d1619b82e76e175e0cf487397487916440c059da0113d442d25d4",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-shared.txt",
+        "rawBlobBytes": 1152,
+        "sha256": "ca34a491495aee2ed25f4b26365802c928f37dbb0d54d54d83e50a2c2fac27bf",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-visual.txt",
+        "rawBlobBytes": 124,
+        "sha256": "ec158b90ba85cfaa45a4901b6b2caeb6c809964b275516073a406531b1af751a",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/record.txt",
+        "rawBlobBytes": 1924,
+        "sha256": "7ba7d6786ba902efc753f184a456a99eb2d83e9fadc40a3a6b99efebe1a5c2c6",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/record/results.json",
+        "rawBlobBytes": 91024,
+        "sha256": "059fd0f6293b2645995670dc3bc64d5ed2332a017dd0f46d29bce053a875e765",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/report.json",
+        "rawBlobBytes": 1760466,
+        "sha256": "e098269cc98ff7474bd7eda82fcbaa4c2d1ded66491e774821845bbc344d0f9d",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/window-clipboard.txt",
+        "rawBlobBytes": 2413,
+        "sha256": "806a20d086402da3c3e513aa4ff9c1f3267bcfb8a64063e630afcb2a35e55c02",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/log-normalization.json",
+        "rawBlobBytes": 2120,
+        "sha256": "f888e72d809f628e12a0d52baa7be2199ea96679298f9f7cfb1d4dd3812d6a15",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/source-fingerprint-final-delivery.json",
+        "rawBlobBytes": 14115,
+        "sha256": "bdb5248aa01f77b5ddb4e6190a3a8eb522a61cb753339444f05c51634b711af7",
+        "commitDiskMatch": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/source-fingerprint.json",
+        "rawBlobBytes": 13264,
+        "sha256": "d387ffd32308f60555db87677f4cbd58bc3ce80c0b6c4e3610d7a9d69ba44f72",
+        "commitDiskMatch": true
+      }
+    ],
+    "finalDeliveryReviewSha256": "03a1cf2529b574d968257c626b7bd620bf1983ed25d2170c08afc7cec486d65c",
+    "sourceReviewSha256": "8c532cf77cbc0c24547f57fccccc21690cca74c5283d3b02c92f6b373a7ac934",
+    "independentExecutionReportSha256": "e098269cc98ff7474bd7eda82fcbaa4c2d1ded66491e774821845bbc344d0f9d",
+    "engineeringReportSha256": "0479253997f0e5ec9014d1fd685b6dc572b6b155bc53fcd6f143d268bf0e8d14",
+    "functionalManifestSha256": "d387ffd32308f60555db87677f4cbd58bc3ce80c0b6c4e3610d7a9d69ba44f72",
+    "finalManifestSha256": "bdb5248aa01f77b5ddb4e6190a3a8eb522a61cb753339444f05c51634b711af7",
+    "allFinalReviewRunLogHashesRecheckedFromCommit": true,
+    "allSourceReviewEvidenceHashesRecheckedFromCommit": true,
+    "normalizationChecks": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/development/pure-first.txt",
+        "originalRawSha256": "14801d65003c0de4e73a16c2ae5659769ae72e32af9e335451a1c745541417e2",
+        "normalizedSha256": "c6da02c4215db0b3ecac485f33af5c384ba6a7d2abf50836de0f0eb1b0c3e988",
+        "changedLineCount": 6,
+        "rawBase64CommittedAndExactRoundtrip": true,
+        "onlyTrailingAsciiSpacesRemoved": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/audit/independent/python-browser-runtime.txt",
+        "originalRawSha256": "e830c2cd3a54b3916347c07fb492ff56d78bab1a18f94de26f6c6570fe15103a",
+        "normalizedSha256": "3ef0c51401957bda744f11c8041a70624bf5b864d2b1b348e71032eb4557a8b0",
+        "changedLineCount": 79,
+        "rawBase64CommittedAndExactRoundtrip": true,
+        "onlyTrailingAsciiSpacesRemoved": true
+      }
+    ]
+  },
+  "rootBinding": {
+    "path": "MACOS-PORTING/evidence/P5/audit/commit-binding.json",
+    "sha256": "cdcbad5d76ad5517e9a76acd1cafe8029961d768e64e70e0e692dc181f471386",
+    "all100RowsIndependentlyReproduced": true,
+    "allThreeArtifactHashesAgree": true
+  },
+  "readme": {
+    "path": "MACOS-PORTING/evidence/P5/audit/README.md",
+    "committedSha256": "11cec25431c95ef252aa3b25acf08d1ad5da92e4b0f31c58967a6ed114ae397a",
+    "postBindingDiskSha256": "94a0d87687f530c9e3cf7de56af370f775d28683933ee417a764467931f13e0a",
+    "committedVersionMatchesFinalDeliveryReview": true,
+    "onlyExpectedChanges": [
+      "Removed implementation-binding-pending wording from opening paragraph",
+      "Appended implementation commit, 100 raw blobs/10,990,280 bytes, three runtime artifacts and commit-binding.json link"
+    ],
+    "currentBindingClaimsIndependentlyVerified": true
+  },
+  "acceptedEvidenceScope": {
+    "commands": 24,
+    "nodeAssertions": 326,
+    "pythonTests": 147,
+    "unexpectedFailures": 0,
+    "skipped": 0,
+    "automaticRetries": 0,
+    "cooperativeMcpCancellationOnly": true,
+    "phaseStatus": "in_progress"
+  },
+  "excluded": [
+    "MACOS-PORTING/evidence/P5/manual/ untracked probes",
+    "/tmp/ruyi-p5-manual-worktree implementation"
+  ],
+  "manualPathsAbsentFromImplementationCommit": true,
+  "conclusion": "Implementation commit 280d148b92f0dd9fe7b2151b73ff6b5866183a0f binds the approved current-host cooperative cancellation-audit slice. The README post-commit binding paragraph is accurate. Source and tests remain identical to the reviewed delivery. Full P5 and its remaining functionality/environment requirements stay open."
+}

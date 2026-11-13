@@ -1,0 +1,33 @@
+{
+  "implementationCommit": "35ce93b9106d331472ea94f49dfd82e9968f2da4",
+  "files": {
+    ".gitattributes": "bc18d97343bf46ad38bdf8435afbcc897dc48f8392de4e2637915bc875e6c056",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt": "77c1e804c067a362c9db833e3db362625964756b90d6a65d1475ba4b06ea096f",
+    "README.md": "798a75d59403b9132ca378f162a6616528a5bf69ec532bd9e9775e2364f2fcb2",
+    "README_EN.md": "8d959f04766985bf1cfe0e17adbafa4b431b36a93fd43f5d486daf3c2e2f97fb",
+    "dev-harness/fixture-home.static.e2e.js": "ea62cbaf38d63f5ca663b6782ba68a9efa7815d496710acf803b5c486345e301",
+    "dev-harness/macos-browser-runtime.e2e.js": "217eb39a5d7d35a9b45c5c131c805660a31c1b0a9deea4f39e5faad91e87ad4d",
+    "dev-harness/process-safety.static.e2e.js": "0b2c7f26ccf93a4f607d433f237b1d781f6303c471ddcb9fbe8c177ce198dd2c",
+    "facts.json": "6caec097236fa2322002ee632ec75224314657b67332e57d8c7aa59ecb6d2081",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "32e2db5769cb61910cb5ee91864b4ed166e09a36e0d0e5822488a3fa7291d57e",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f",
+    "mcp/ai-computer-control/tests/run_all.py": "5f2773d997eecb45b9971be13b8ef66cf8761012f92c8de22e9bd55f50f04515",
+    "mcp/ai-computer-control/tests/smoke_browser_runtime.py": "3d480327bac60c67d3285e2e7e2b9600420c979b9f9daa72ab20ad916f2b1c51",
+    "ruyi-workbench/app/server.js": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6"
+  },
+  "gitBlobOids": {
+    ".gitattributes": "99d500ffdd91e76d6899548c499bb032a5a7f2ff",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt": "c0055887ef52a8f0e578a568f92dda572c229eee",
+    "README.md": "75b5d587799d6358aca729633b396a4fff933e4b",
+    "README_EN.md": "6b5a0c96bad58398c848b552aa9f92cf61459032",
+    "dev-harness/fixture-home.static.e2e.js": "d8ffab53837f15f84eb8356738a19cb967acb623",
+    "dev-harness/macos-browser-runtime.e2e.js": "6d7b592ff02511543a00bbb231cbc2e5f57d2de7",
+    "dev-harness/process-safety.static.e2e.js": "c847533b43fa2a9a3557e81e114641319bece2f1",
+    "facts.json": "f25728f82b5a516da4df076def60a85d8733d296",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "dd2cc300f1e05b2a2f0b8161da425785e4988f54",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "9af98daa5d0f5158bb703c8e6cc0b38ec747ed56",
+    "mcp/ai-computer-control/tests/run_all.py": "85fd98eb673bbc2d5d294d87285fa7e5bb5590f7",
+    "mcp/ai-computer-control/tests/smoke_browser_runtime.py": "be819c8ccadb41c8a8475ad1eba61c570b75c1cc",
+    "ruyi-workbench/app/server.js": "87d4de0eb9a684dbc48a6dc08dd9dd817901dae8"
+  }
+}

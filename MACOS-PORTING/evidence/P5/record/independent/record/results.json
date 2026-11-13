@@ -1,0 +1,3671 @@
+{
+  "results": [
+    {
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 3703,
+            "height": 528,
+            "pid": 12678,
+            "process_start": "1794325082:975294",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 319
+              },
+              "handle": 3703,
+              "pid": 12678,
+              "process_start": "1794325082:975294",
+              "ref": "C5E82DF5-CF3E-468D-8485-B6351B3196BA"
+            },
+            "title": "Ruyi P5 Input 12678",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 319
+          },
+          {
+            "application": "QQ",
+            "handle": 3447,
+            "height": 460,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 460,
+                "width": 320,
+                "x": 695,
+                "y": 268
+              },
+              "handle": 3447,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "6433DCA6-2C7D-43CC-8FB1-8763993C3F82"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 320,
+            "x": 695,
+            "y": 268
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "ABAE5949-CD61-4F56-A317-30F874F274CD"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "C3558656-257C-4397-AC46-4F9390562834"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "FD593D8A-D5E0-4957-8C3A-292B813F210C"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "name": "focus_window",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "foreground_verified": true,
+        "matched": true,
+        "protocolVersion": 1,
+        "window": {
+          "application": "receiver",
+          "handle": 3703,
+          "height": 528,
+          "pid": 12678,
+          "process_start": "1794325082:975294",
+          "target": {
+            "bounds": {
+              "height": 528,
+              "width": 760,
+              "x": 180,
+              "y": 319
+            },
+            "handle": 3703,
+            "pid": 12678,
+            "process_start": "1794325082:975294",
+            "ref": "C5E82DF5-CF3E-468D-8485-B6351B3196BA"
+          },
+          "title": "Ruyi P5 Input 12678",
+          "visible": true,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        }
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": false,
+        "text": "Error executing tool record_start: 2 validation errors for record_startArguments\nmax_seconds.float\n  Input should be a valid number [type=float_type, input_value=True, input_type=bool]\n    For further information visit https://errors.pydantic.dev/2.14/v/float_type\nmax_seconds.int\n  Input should be a valid integer [type=int_type, input_value=True, input_type=bool]\n    For further information visit https://errors.pydantic.dev/2.14/v/int_type"
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Stop and collect the previous recording first",
+        "code": "recording_exists"
+      }
+    },
+    {
+      "name": "get_mouse_position",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "protocolVersion": 1,
+        "x": 560,
+        "y": 742
+      }
+    },
+    {
+      "name": "hotkey",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "keys": [
+          "cmd",
+          "a"
+        ]
+      }
+    },
+    {
+      "name": "type_text",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "change_count": 506,
+        "protocolVersion": 1,
+        "restore": "done",
+        "verification": "events_posted",
+        "length": 11,
+        "method": "clipboard",
+        "route": "non_ascii",
+        "trailing_enter": 1
+      }
+    },
+    {
+      "name": "mouse_click",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 560,
+        "actual_y": 742,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "name": "mouse_move",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 560,
+        "actual_y": 742,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "name": "mouse_scroll",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 560,
+        "actual_y": 742,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "name": "mouse_drag",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "actual_x": 590,
+        "actual_y": 742,
+        "protocolVersion": 1,
+        "reached": true,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Collect the active recording before replay",
+        "code": "recording_exists"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Use a 1–80 character macro name with letters, digits, spaces, underscores or hyphens",
+        "code": "invalid_args"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.07811433332972229,
+              "ended": 0.15288304166460875,
+              "keys": [
+                "cmd",
+                "a"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.15470133333292324,
+              "ended": 0.5863588333304506,
+              "enters": 1,
+              "interval": 0,
+              "op": "keyboard.text",
+              "paste": true,
+              "text": "如意受控录制 中文😀"
+            },
+            {
+              "at": 0.5906654583304771,
+              "button": "left",
+              "clicks": 1,
+              "ended": 0.6641882083276869,
+              "interval": 0.1,
+              "op": "mouse.click",
+              "x": 560,
+              "y": 742
+            },
+            {
+              "at": 0.6673773333313875,
+              "duration": 0.02,
+              "ended": 0.7477235416663461,
+              "op": "mouse.move",
+              "x": 560,
+              "y": 742
+            },
+            {
+              "amount": 2,
+              "at": 0.7497655833285535,
+              "direction": "horizontal",
+              "ended": 0.804530416666239,
+              "op": "mouse.scroll",
+              "x": 560,
+              "y": 742
+            },
+            {
+              "at": 0.8070488749945071,
+              "button": "left",
+              "duration": 0.05,
+              "ended": 0.9268916666624136,
+              "op": "mouse.drag",
+              "start_x": 530,
+              "start_y": 742,
+              "x": 590,
+              "y": 742
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 319
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 6,
+        "complete": true,
+        "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/acc-data/macros/受控宏.json",
+        "output_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/acc-data/macros/受控宏.json",
+        "saved_as": "受控宏"
+      }
+    },
+    {
+      "name": "macro_list",
+      "result": {
+        "ok": true,
+        "count": 1,
+        "macros": [
+          {
+            "name": "受控宏",
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/acc-data/macros/受控宏.json",
+            "valid": true,
+            "steps": 6,
+            "source": "controlled_native_requests"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 3703,
+            "height": 528,
+            "pid": 12678,
+            "process_start": "1794325082:975294",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 220,
+                "y": 499
+              },
+              "handle": 3703,
+              "pid": 12678,
+              "process_start": "1794325082:975294",
+              "ref": "C5E82DF5-CF3E-468D-8485-B6351B3196BA"
+            },
+            "title": "Ruyi P5 Input 12678",
+            "visible": true,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          {
+            "application": "QQ",
+            "handle": 3447,
+            "height": 460,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 460,
+                "width": 320,
+                "x": 695,
+                "y": 268
+              },
+              "handle": 3447,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "6433DCA6-2C7D-43CC-8FB1-8763993C3F82"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 320,
+            "x": 695,
+            "y": 268
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "ABAE5949-CD61-4F56-A317-30F874F274CD"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "C3558656-257C-4397-AC46-4F9390562834"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "FD593D8A-D5E0-4957-8C3A-292B813F210C"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 7,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "hotkey",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted",
+              "keys": [
+                "cmd",
+                "a"
+              ]
+            }
+          },
+          {
+            "step": 1,
+            "tool": "type_text",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "change_count": 508,
+              "ok": true,
+              "protocolVersion": 1,
+              "restore": "done",
+              "verification": "events_posted",
+              "length": 10,
+              "method": "clipboard",
+              "route": "explicit"
+            }
+          },
+          {
+            "step": 2,
+            "tool": "press_key",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted",
+              "key": "enter"
+            }
+          },
+          {
+            "step": 3,
+            "tool": "mouse_click",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "actual_x": 600,
+              "actual_y": 922,
+              "ok": true,
+              "protocolVersion": 1,
+              "reached": true,
+              "verification": "events_posted"
+            }
+          },
+          {
+            "step": 4,
+            "tool": "mouse_move",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "actual_x": 600,
+              "actual_y": 922,
+              "ok": true,
+              "protocolVersion": 1,
+              "reached": true,
+              "verification": "events_posted"
+            }
+          },
+          {
+            "step": 5,
+            "tool": "mouse_scroll",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "actual_x": 600,
+              "actual_y": 922,
+              "ok": true,
+              "protocolVersion": 1,
+              "reached": true,
+              "verification": "events_posted"
+            }
+          },
+          {
+            "step": 6,
+            "tool": "mouse_drag",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "actual_x": 630,
+              "actual_y": 922,
+              "ok": true,
+              "protocolVersion": 1,
+              "reached": true,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Unknown or repeated Mac key name",
+        "code": "invalid_args"
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: A composed character exceeds the Unicode event capacity",
+        "code": "invalid_args"
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Unknown or repeated Mac key name",
+        "code": "invalid_args"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "input_failed",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 0,
+        "complete": false
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "focus_changed",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 0,
+        "complete": false,
+        "save_error": "Pass a complete bounded Mac controlled recording from record_stop",
+        "saved": null
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 1,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "deadline",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 0,
+        "complete": false
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "secure_input",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 0,
+        "complete": false
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Recording is unavailable during secure input",
+        "code": "secure_input"
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "window_changed",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 0,
+        "complete": false
+      }
+    },
+    {
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 3703,
+            "height": 528,
+            "pid": 12678,
+            "process_start": "1794325082:975294",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 780,
+                "x": 220,
+                "y": 499
+              },
+              "handle": 3703,
+              "pid": 12678,
+              "process_start": "1794325082:975294",
+              "ref": "C5E82DF5-CF3E-468D-8485-B6351B3196BA"
+            },
+            "title": "Ruyi P5 Input 12678",
+            "visible": true,
+            "width": 780,
+            "x": 220,
+            "y": 499
+          },
+          {
+            "application": "QQ",
+            "handle": 3447,
+            "height": 460,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 460,
+                "width": 320,
+                "x": 695,
+                "y": 268
+              },
+              "handle": 3447,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "6433DCA6-2C7D-43CC-8FB1-8763993C3F82"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 320,
+            "x": 695,
+            "y": 268
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "ABAE5949-CD61-4F56-A317-30F874F274CD"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "C3558656-257C-4397-AC46-4F9390562834"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "FD593D8A-D5E0-4957-8C3A-292B813F210C"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Replay requires the recorded window size",
+        "code": "window_changed"
+      }
+    },
+    {
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Pass a complete bounded Mac controlled recording from record_stop",
+        "code": "recording_invalid"
+      }
+    },
+    {
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "controlled_native_requests"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "press_key",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "protocolVersion": 1,
+        "verification": "events_posted",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.0019947499968111515,
+              "ended": 0.012227125000208616,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.013965250000183005,
+              "ended": 0.017485583332017995,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.018944041665236,
+              "ended": 0.02580149999994319,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.02724691666662693,
+              "ended": 0.030586041662900243,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.031990625000617,
+              "ended": 0.03507829166483134,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.03631825000047684,
+              "ended": 0.04214295832935022,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.04375320833059959,
+              "ended": 0.049151125000207685,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.050963916663022246,
+              "ended": 0.05682654166594148,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.05847074999473989,
+              "ended": 0.06214187499426771,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.06373033332783962,
+              "ended": 0.0670954166635056,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.06842416666768258,
+              "ended": 0.08071212499635294,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.08256116666598246,
+              "ended": 0.08637658332736464,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.08812595833296655,
+              "ended": 0.09356349999870872,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.09508695833210368,
+              "ended": 0.09838274999492569,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.0997784999999567,
+              "ended": 0.10337316666118568,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.10481062499457039,
+              "ended": 0.10980549999658251,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.11120470832975116,
+              "ended": 0.11439091666397871,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.11582954166078707,
+              "ended": 0.11906883332994767,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.12042149999615503,
+              "ended": 0.12375591666204855,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.12515599999460392,
+              "ended": 0.12823849999404047,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.1296450833324343,
+              "ended": 0.13303070833353559,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.13433449999865843,
+              "ended": 0.14204654166678665,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.14376245833409484,
+              "ended": 0.14778770833072485,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.14925995832891203,
+              "ended": 0.15249649999896064,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.15370174999407027,
+              "ended": 0.15688075000070967,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.1580270416670828,
+              "ended": 0.16129416666080942,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.16249466666340595,
+              "ended": 0.16640583333355607,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.1675903750001453,
+              "ended": 0.17069379166059662,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.1718037499958882,
+              "ended": 0.1769352916671778,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.17804641666589305,
+              "ended": 0.18150600000080885,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.1826253333274508,
+              "ended": 0.18594595832837513,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.18700445833383128,
+              "ended": 0.19042154166527325,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.1917070833296748,
+              "ended": 0.19507049999810988,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.19623558333114488,
+              "ended": 0.1994313749964931,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.20052329166355776,
+              "ended": 0.2035354583276785,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.20457058332976885,
+              "ended": 0.2096173749960144,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.21065558333066292,
+              "ended": 0.21384654166467953,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.215071499995247,
+              "ended": 0.21828495833324268,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.2194606249977369,
+              "ended": 0.2226832916639978,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.22378016666334588,
+              "ended": 0.22669287499593338,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.22775312500016298,
+              "ended": 0.23101104166562436,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.23249716666759923,
+              "ended": 0.2359130416662083,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.23705166666331934,
+              "ended": 0.24319387499417644,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.24436174999573268,
+              "ended": 0.2478764583283919,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.24907074999646284,
+              "ended": 0.2526554583309917,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.25367908333282685,
+              "ended": 0.2596185833317577,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.2606527083335095,
+              "ended": 0.26367541666695615,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.2646859583328478,
+              "ended": 0.2673227083287202,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.268360041663982,
+              "ended": 0.2710089166648686,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.27207729166548233,
+              "ended": 0.274708124998142,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.27582966666523134,
+              "ended": 0.278134083331679,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.27930408332758816,
+              "ended": 0.2829576666626963,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.28432279166736407,
+              "ended": 0.2870385833302862,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.2882480833286536,
+              "ended": 0.29140441666095285,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.29263154166255845,
+              "ended": 0.294974333330174,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.2961621666618157,
+              "ended": 0.29904262499621836,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.30013704166776733,
+              "ended": 0.3029176666677813,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.30400645833287854,
+              "ended": 0.30680912499519764,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.3079004166647792,
+              "ended": 0.3105408749979688,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.31165074999444187,
+              "ended": 0.3149403749994235,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.3161515416650218,
+              "ended": 0.31910633332881844,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.32020570833265083,
+              "ended": 0.3250157083311933,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.3262093749945052,
+              "ended": 0.3289210833318066,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.33011758333304897,
+              "ended": 0.3323614999972051,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.33345158333395375,
+              "ended": 0.3359967083306401,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.3370294999986072,
+              "ended": 0.34150674999546027,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.34264450000046054,
+              "ended": 0.3452368333310005,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.34633379166189115,
+              "ended": 0.34907041666156147,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.35020904166594846,
+              "ended": 0.3530035833318834,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.35405612499744166,
+              "ended": 0.35916824999731034,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.36020708332944196,
+              "ended": 0.3628536666656146,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.36402695833385224,
+              "ended": 0.3666321666678414,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.36768541666242527,
+              "ended": 0.3702004999940982,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.37133774999529123,
+              "ended": 0.3735082083294401,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.3745725416665664,
+              "ended": 0.37704695833235746,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.37812041666620644,
+              "ended": 0.38108933332841843,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.3824850416640402,
+              "ended": 0.38551091666158754,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.38660016666108277,
+              "ended": 0.3919644999987213,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.39308695832733065,
+              "ended": 0.39566879166522995,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.39694045833311975,
+              "ended": 0.40031945832743077,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.40138637500058394,
+              "ended": 0.4057979583303677,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.40710883332940284,
+              "ended": 0.4095835416665068,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.41068774999439484,
+              "ended": 0.41387354166363366,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4149754166646744,
+              "ended": 0.41728783333383035,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.41837024999404093,
+              "ended": 0.4210916666634148,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.42219083332747687,
+              "ended": 0.4249553333283984,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4259938749964931,
+              "ended": 0.42942320833390113,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.43052066666132305,
+              "ended": 0.43370245832920773,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4347270416619722,
+              "ended": 0.43995795833325246,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4410904166652472,
+              "ended": 0.44399195833102567,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.44504474999848753,
+              "ended": 0.44722495833411813,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4483084166640765,
+              "ended": 0.4508747916624998,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.45188754166156286,
+              "ended": 0.45453899999847636,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.455636416663765,
+              "ended": 0.4579681666655233,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4590637083310867,
+              "ended": 0.4615703749950626,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4626462083324441,
+              "ended": 0.4656055416635354,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.466717791663541,
+              "ended": 0.4693006666639121,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.470347499998752,
+              "ended": 0.4740474166610511,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4753149583339109,
+              "ended": 0.4774474999940139,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            },
+            {
+              "at": 0.4785340833332157,
+              "ended": 0.4812314583323314,
+              "keys": [
+                "escape"
+              ],
+              "op": "keyboard.chord"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-record-OVJJZQ/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 780,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "capacity",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 100,
+        "complete": false
+      }
+    },
+    {
+      "name": "diagnostics",
+      "result": {
+        "ok": true,
+        "version": "1.9.1",
+        "python": "3.12.10",
+        "python_full": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "is_admin": null,
+        "monitors": {
+          "count": 1,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "dpi": {
+          "ok": true,
+          "coordinate_space": "macos_global_points",
+          "awareness": "logical_points",
+          "primary_scale": 2,
+          "monitors": [
+            {
+              "height": 1107,
+              "id": 1,
+              "index": 0,
+              "is_primary": 1,
+              "scale": 2,
+              "width": 1710,
+              "x": 0,
+              "y": 0
+            }
+          ]
+        },
+        "optional": {
+          "ocr": true,
+          "uia": true,
+          "cv2": false,
+          "playwright": false,
+          "pynput": false,
+          "pptx": false,
+          "matplotlib": false
+        },
+        "optional_modules": {
+          "uiautomation": false,
+          "winsdk_ocr": false,
+          "cv2": true,
+          "numpy": true,
+          "playwright": true,
+          "win10toast": false,
+          "pynput": false,
+          "pptx": true,
+          "matplotlib": true
+        },
+        "tool_count": 38,
+        "load_errors": {},
+        "unsupported_modules": {
+          "audio": "platform.unsupported: macOS desktop backend is not implemented",
+          "sync": "platform.unsupported: macOS desktop backend is not implemented",
+          "system": "platform.unsupported: macOS desktop backend is not implemented",
+          "desktop_extra": "platform.unsupported: macOS desktop backend is not implemented",
+          "dialog": "platform.unsupported: macOS desktop backend is not implemented"
+        },
+        "capabilities": {
+          "desktop.capture": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "queryReady": true,
+            "windowReady": true,
+            "windowQueryReady": true,
+            "clipboardReady": true,
+            "inputReady": true,
+            "pointerQueryReady": true,
+            "applicationReady": true,
+            "windowAuthorization": "granted",
+            "eventAuthorization": "granted",
+            "axSupported": true,
+            "axReady": true,
+            "ocrSupported": true,
+            "ocrReady": true,
+            "ocrRevision": 3,
+            "recordSupported": true,
+            "recordReady": true,
+            "recordSource": "controlled_native_requests",
+            "locked": false,
+            "reasonCode": ""
+          },
+          "desktop.accessibility": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "backend": "AXUIElement",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.ocr": {
+            "supported": true,
+            "installed": true,
+            "authorization": "not_required_for_local_images",
+            "ready": true,
+            "screenReady": true,
+            "inputReady": true,
+            "backend": "Vision",
+            "recognition_revision": 3,
+            "image_coordinate_space": "image_pixels",
+            "screen_coordinate_space": "macos_global_points"
+          },
+          "desktop.template_matching": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "inputReady": false,
+            "backend": "OpenCV",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.observe": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "axReady": true,
+            "ocrReady": true,
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.action_verification": {
+            "supported": true,
+            "installed": false,
+            "authorization": "granted",
+            "ready": false,
+            "verification": "screen_change_observation",
+            "coordinate_space": "macos_global_points"
+          },
+          "desktop.macro_replay": {
+            "supported": true,
+            "installed": true,
+            "ready": true,
+            "inputReady": true,
+            "backend": "ACC tool registry"
+          },
+          "desktop.recording": {
+            "supported": true,
+            "installed": true,
+            "authorization": "granted",
+            "ready": true,
+            "source": "controlled_native_requests",
+            "coordinate_space": "macos_global_points"
+          }
+        },
+        "hidden_tools": []
+      }
+    },
+    {
+      "name": "record_stop",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: No recording to collect",
+        "code": "recording_absent"
+      }
+    }
+  ],
+  "reports": [
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 503,
+      "counts": {},
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "ready",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 503,
+      "counts": {},
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "focus-text",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 504,
+      "counts": {},
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "seed-clipboard",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 504,
+      "counts": {},
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "clipboard-track 5aaC5oSP5Y+X5o6n5b2V5Yi2IOS4reaWh/CfmIA=",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 506,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 1,
+        "key_down": 3,
+        "key_up": 3,
+        "left_down": 2,
+        "left_up": 2
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "state",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 506,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 1,
+        "key_down": 3,
+        "key_up": 3,
+        "left_down": 2,
+        "left_up": 2
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "event": "focus-text",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 657
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 506,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 1,
+        "key_down": 3,
+        "key_up": 3,
+        "left_down": 2,
+        "left_up": 2
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "record-move",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "cover",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "focus-text",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "secure-on",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "secure-off",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 6,
+        "key_up": 6,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "record-resize",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 508,
+      "counts": {
+        "dragged": 6,
+        "horizontal_scroll": 2,
+        "key_down": 107,
+        "key_up": 107,
+        "left_down": 4,
+        "left_up": 4
+      },
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "secure-off",
+      "id": 3703,
+      "leftHeld": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 12678,
+      "temporaryClipboardOwned": false,
+      "text": "如意受控录制 中文😀\n",
+      "title": "Ruyi P5 Input 12678"
+    },
+    {
+      "event": "clipboard-restore",
+      "restored": true
+    }
+  ]
+}

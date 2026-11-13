@@ -1,0 +1,11 @@
+PASS fake provider and workbench start
+PASS R5: workflow launches, got runId: run_ecaf0e0e5b3d813c
+PASS R5: persisted run JSON readable
+PASS R5: run has replanPatches array
+PASS R5: exactly one replanPatch (nodeA only, nodeB zero-migration)
+PASS R5: patch status is pending (never auto-applied)
+PASS R5: trigger classified as gate_rejected
+PASS R5: patch targets nodeA (the replan=true node)
+PASS R5: changes is an array (empty, pending to fill)
+
+AGENT WORKFLOW REPLAN E2E: ALL PASS

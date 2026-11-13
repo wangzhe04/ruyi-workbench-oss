@@ -1,0 +1,32 @@
+{
+  "textEdit": {
+    "pid": 7049,
+    "ownDocumentExact": true,
+    "closed": true,
+    "version": "1.21",
+    "bundleID": "com.apple.TextEdit"
+  },
+  "chromium": {
+    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "launchExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "product": "Chrome/157.0.8103.79",
+    "pid": 7090,
+    "windowTitle": "Ruyi P5 Chromium 7005",
+    "bounds": {
+      "height": 850,
+      "width": 1200,
+      "x": 22,
+      "y": 56
+    },
+    "clipboardRestored": true,
+    "trustedClick": true,
+    "scrollY": 160,
+    "scrollX": 120,
+    "ambiguousRebindRefused": true,
+    "bundleID": null,
+    "observedCommand": null,
+    "rendererAccessibilityRequested": false
+  },
+  "nativeAXScenariosRequested": false,
+  "axResults": {}
+}

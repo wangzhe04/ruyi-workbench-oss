@@ -1,0 +1,946 @@
+{
+  "at": "2026-11-11T06:28:55.275864+00:00",
+  "v1Manifest": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v1.json",
+    "digest": {
+      "bytes": 7709,
+      "sha256": "a855a64d2feb22bcf277d11a3b128d0ae8a11b7a5d4848d8800f7310d1756090"
+    }
+  },
+  "v2Manifest": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v2.json",
+    "digest": {
+      "bytes": 8015,
+      "sha256": "db04380ed1dcad757d8381ed0ab21f5955fcd9c2e1f5a696f173e7b02c4acba0"
+    }
+  },
+  "priorOfflineReport": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/report.json",
+    "digest": {
+      "bytes": 320089,
+      "sha256": "3660ddc10c3ac3af854a68e5382f12b8ffbd8edc46c2e4dda532374a816e38a4"
+    }
+  },
+  "changedPaths": [
+    {
+      "path": "dev-harness/macos-manual-record.e2e.js",
+      "v1": {
+        "bytes": 42257,
+        "sha256": "339cd720c25aafd523b4aaace07e1886e15ebda34de2f103774af28ccb7d11dd"
+      },
+      "v2": {
+        "bytes": 43275,
+        "sha256": "519e0d77063c77c43c1f1b665ebc0e88a8d5dfa282c2def937f9a4c996d8d7f9"
+      }
+    }
+  ],
+  "unchangedSourceCount": 33,
+  "unchangedSources": [
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "sha256": "cad0b90722bc1d53942ac7e458f2e7dda691c947555a6f977ffaf2dd77ab5913"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "sha256": "aa73839eb4b7173c6371192f8a555fc2f17ab9b9adb66ce46e2a485223498320"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "bytes": 32559,
+      "sha256": "8af816871d67ead76dbfac586f2bee8d28abf75f34627411f1564cfa4b9a81fc"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 13981,
+      "sha256": "b7d263ba08b812cba42be26d6a5614a4ec349c85ee19f0dc396ce42d4f355d44"
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "bytes": 11806,
+      "sha256": "d3b7b05d85dbb5afb1806e9f75cffddd513bd0865704c218eb30be34f9ada98d"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "671d0bbb684b49a263b01ba9b2cddfa6c37ba5c3a15547601b0c1170e4bb99c4"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 23110,
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 10462,
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 11463,
+      "sha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11174,
+      "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "bytes": 7462,
+      "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13332,
+      "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "bytes": 11734,
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "bytes": 7972,
+      "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "bytes": 2694,
+      "sha256": "5264ac458ed96dfe13c0a843825d411b13a97569bf6d02daa74dd7114a9b8598"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+      "bytes": 8718,
+      "sha256": "5f5b92582407906a5b34be332175d647c0b55cf02a6bf997d81bf7616a817419"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+      "bytes": 16622,
+      "sha256": "dee3fb287eb9701b95598b9f17debc2dfa5cb4d9248ecd0402c77f0da4d44b64"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+      "bytes": 22572,
+      "sha256": "7599a44c0359e6d40f7ab4ceafe76a3ea74a8b1036013e83f18d28199263a380"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_sequence.py",
+      "bytes": 16964,
+      "sha256": "4a38e9d905cf33042d998383e3b64936c748d30474e3685aa3e12cd332a7df29"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6777726,
+      "sha256": "a45e96c39b420624cd14ddb38d69f2f7f0e251cdbb8036a23fcb004938a661bb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06g-resource-leases.js",
+      "bytes": 18239,
+      "sha256": "ba7b757896206643a168c138102d046a5ef8fd3e1434ae768b798ab90b70236f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234136,
+      "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 8641,
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4588,
+      "sha256": "d1fae709ff7a1ce541aaf014d61f1d11bf883a0dcad231241984f0a243303e3b"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "bytes": 2728,
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3"
+    }
+  ],
+  "reusedHelper": {
+    "mode": "production",
+    "path": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "bytes": 291712,
+    "sha256": "49b6b38536827026107f5c58aceacf0fb86f6e6266bad745ceacca9c5cdb4e74"
+  },
+  "reusedScope": {
+    "exactNativeCases": 50,
+    "standardProjectionCases": 20,
+    "nativePythonFieldCases": 56,
+    "schemaCases": 11,
+    "wholeNativePreflightRefusals": 3,
+    "pythonSmokeTests": 170,
+    "pythonSkipped": 0,
+    "fullunit": {
+      "tests": 2517,
+      "suites": 192,
+      "pass": 2499,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 18,
+      "todo": 0
+    },
+    "fast": {
+      "pass": 80,
+      "fail": 0,
+      "knownFail": 0,
+      "unexpectedPass": 0,
+      "flaky": 0,
+      "ran": 80,
+      "skipped": 7
+    },
+    "automaticRetries": 0
+  },
+  "priorLogsVerified": [
+    {
+      "name": "build-production",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/build-production.txt",
+      "digest": {
+        "bytes": 47,
+        "sha256": "5c1b66ca686aad99330a3e171098b37769b41f11c86197d0bc522fafe20c3c51"
+      }
+    },
+    {
+      "name": "build-testing",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/build-testing.txt",
+      "digest": {
+        "bytes": 44,
+        "sha256": "c376f7ecc1e7863b39c19968f7f9c7f1dc90ff0d51f1f0969e43e185d02ee69d"
+      }
+    },
+    {
+      "name": "native-owned-release",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-owned-release.txt",
+      "digest": {
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856"
+      }
+    },
+    {
+      "name": "native-stopped-mutations",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-stopped-mutations.txt",
+      "digest": {
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb"
+      }
+    },
+    {
+      "name": "native-exact-subtypes",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-exact-subtypes.txt",
+      "digest": {
+        "bytes": 9380,
+        "sha256": "cc24ca945b7d2cd18bea3ab8aa168c0f7c5ed32555608a81c54ec89ebf56ef19"
+      }
+    },
+    {
+      "name": "native-standard-projection",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-standard-projection.txt",
+      "digest": {
+        "bytes": 4384,
+        "sha256": "3839e52742a2514d625b51987e23f620e1d7e5d6b9c42a2f3fac536b28049757"
+      }
+    },
+    {
+      "name": "production-excludes-test_release_allocation",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_release_allocation.txt",
+      "digest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      }
+    },
+    {
+      "name": "production-excludes-test_stopped_mutations",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_stopped_mutations.txt",
+      "digest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      }
+    },
+    {
+      "name": "production-excludes-test_validate_sequence",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_validate_sequence.txt",
+      "digest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      }
+    },
+    {
+      "name": "production-excludes-test_stall_sequence",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_stall_sequence.txt",
+      "digest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      }
+    },
+    {
+      "name": "production-excludes-test_pointer_subtypes",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_pointer_subtypes.txt",
+      "digest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      }
+    },
+    {
+      "name": "production-excludes-test_pointer_projection",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_pointer_projection.txt",
+      "digest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      }
+    },
+    {
+      "name": "matrix-standard-base",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-standard-base.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-standard-no-provenance",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-standard-no-provenance.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-mask-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-zero.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-mask-all-allowed",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-all-allowed.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-mask-float",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-float.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-true",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-true.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-false",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-false.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-null",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-null.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-string",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-string.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-negative",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-negative.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-unknown-bit",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-unknown-bit.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-unknown-high",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-unknown-high.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-unsafe-range",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-unsafe-range.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-mask-max-json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-max-json.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-exact",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-exact.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-none",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-none.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-unknown",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-unknown.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-true",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-true.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-false",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-false.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-number",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-number.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-list",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-list.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-profile-dict",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-dict.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-zero.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-touch",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-touch.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-float-touch",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-float-touch.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-tablet",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-tablet.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-proximity",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-proximity.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-unknown",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-unknown.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-negative",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-negative.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-true",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-true.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-false",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-false.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-null",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-null.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-string",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-string.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-source-subtype-fraction",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-fraction.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-zero.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-float-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-float-zero.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-touch",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-touch.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-tablet",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-tablet.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-unknown",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-unknown.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-true",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-true.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-false",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-false.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-null",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-null.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-canonical-subtype-string",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-string.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-down-pressure-half",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-half.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-down-pressure-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-zero.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-down-pressure-true",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-true.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-down-pressure-null",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-null.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-up-pressure-one",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-up-pressure-one.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-move-pressure-one",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-move-pressure-one.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-move-mask-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-move-mask-zero.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-move-source-touch",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-move-source-touch.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-drag-canonical",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-drag-canonical.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-drag-wrong-pressure",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-drag-wrong-pressure.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-exact-legacy-pressure",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-exact-legacy-pressure.txt",
+      "digest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      }
+    },
+    {
+      "name": "matrix-exact-source-metadata",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-exact-source-metadata.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "matrix-exact-associated-zero",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-exact-associated-zero.txt",
+      "digest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      }
+    },
+    {
+      "name": "python-field-parity",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/python-field-parity.txt",
+      "digest": {
+        "bytes": 30219,
+        "sha256": "0840ac8d019729e805622cf1603288dd10dcb3aea601c7fa4410c466eef6d09e"
+      }
+    },
+    {
+      "name": "native-action-override-omitted-root",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-action-override-omitted-root.txt",
+      "digest": {
+        "bytes": 108,
+        "sha256": "46efd1be6cab89876c0f02ad251afff2393b93b49e661e0cbe9243bb14f89628"
+      }
+    },
+    {
+      "name": "native-action-override-exact-root",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-action-override-exact-root.txt",
+      "digest": {
+        "bytes": 108,
+        "sha256": "46efd1be6cab89876c0f02ad251afff2393b93b49e661e0cbe9243bb14f89628"
+      }
+    },
+    {
+      "name": "native-action-override-standard-root",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-action-override-standard-root.txt",
+      "digest": {
+        "bytes": 108,
+        "sha256": "46efd1be6cab89876c0f02ad251afff2393b93b49e661e0cbe9243bb14f89628"
+      }
+    },
+    {
+      "name": "python-schema-contracts",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/python-schema-contracts.txt",
+      "digest": {
+        "bytes": 1083,
+        "sha256": "c68cba55b2bfc2eca3611d096623a5db431f56e71b668b3bd98b21fbd8672f6c"
+      }
+    },
+    {
+      "name": "smoke_audit_cancellation",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_audit_cancellation.txt",
+      "digest": {
+        "bytes": 2085,
+        "sha256": "7e4722abca3715af49d5ebf613b3000603343f1584a214641ed845539517c549"
+      }
+    },
+    {
+      "name": "smoke_macos_record",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_record.txt",
+      "digest": {
+        "bytes": 4918,
+        "sha256": "1e4acb9c97e8356a0e5c3497ffec1d979afcbfed65f419f4de124d980171183a"
+      }
+    },
+    {
+      "name": "smoke_macos_sequence",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_sequence.txt",
+      "digest": {
+        "bytes": 3421,
+        "sha256": "0321c31d42977eab641d963d5b4d2587a654976eed2bf59703f414379d8b2972"
+      }
+    },
+    {
+      "name": "smoke_macos_composed",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_composed.txt",
+      "digest": {
+        "bytes": 115,
+        "sha256": "084277824c09c37ec821a8d1395371fbef90e3b01906926f7f5a775233a6e709"
+      }
+    },
+    {
+      "name": "smoke_macos_visual",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_visual.txt",
+      "digest": {
+        "bytes": 124,
+        "sha256": "4f057f37c9cf86e98fcb8001b63923537988b4d6b8a576c6734c445f227af8df"
+      }
+    },
+    {
+      "name": "smoke_macos_capture",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_capture.txt",
+      "digest": {
+        "bytes": 1799,
+        "sha256": "f8249183978f531708bc8335ffec3f6508897bdbf91a2f1f2592b27871fe2d95"
+      }
+    },
+    {
+      "name": "smoke_macos_shared",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_shared.txt",
+      "digest": {
+        "bytes": 1152,
+        "sha256": "203c0996531be434604f3e91f18529f0165a013a73fbbb3237c35a97953eb47b"
+      }
+    },
+    {
+      "name": "smoke_macos_input",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_input.txt",
+      "digest": {
+        "bytes": 2980,
+        "sha256": "ecfc8bb133a40e6e855a96272a29e6d6763e8eff9ff93ef7d15a83f0c8d563e3"
+      }
+    },
+    {
+      "name": "smoke_macos_events",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_events.txt",
+      "digest": {
+        "bytes": 2172,
+        "sha256": "2c8574b2c00b8cd261d1d729706856b8f633a7ec2a89007c520b1d83f6b2a279"
+      }
+    },
+    {
+      "name": "smoke_macos_ax",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_ax.txt",
+      "digest": {
+        "bytes": 106,
+        "sha256": "6a38c2110cec8227870179c8ea3ab6eb5ad9f5abac4cb6a2c94a37affbfac6cc"
+      }
+    },
+    {
+      "name": "syntax",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/syntax.txt",
+      "digest": {
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad"
+      }
+    },
+    {
+      "name": "build-check",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/build-check.txt",
+      "digest": {
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      }
+    },
+    {
+      "name": "fullunit",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fullunit.txt",
+      "digest": {
+        "bytes": 393046,
+        "sha256": "d40ed7ab762e1563875e37bdc41db2af088c7b564919c226aaa270a39c6a4191"
+      }
+    },
+    {
+      "name": "fast",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fast.txt",
+      "digest": {
+        "bytes": 5749,
+        "sha256": "2b7ad4c8cdbf8fa5b02d20d704e9c8cd94bd3586b712a4ae3066cb0a41de3459"
+      }
+    }
+  ],
+  "separatePhysicalSourceReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+    "digest": {
+      "bytes": 13527,
+      "sha256": "8b991d0c89a43180a8496aa2bb8be879d71c13d7be32311070cda7fbc67721ba"
+    },
+    "scope": "Independent read-only record/source review of the parent-executed standard-mouse physical demonstration. The reviewer did not interact with the GUI, produce physical input, rerun the demonstration, rebuild code or execute runtime tests. This supports this keyboard/standard-pointer projection run only, not pressure-gesture acceptance or full P5 completion.",
+    "interpretation": "This is a separate reviewer source/record audit of the parent-executed physical demonstration, not new physical execution by p5_acceptance."
+  }
+}

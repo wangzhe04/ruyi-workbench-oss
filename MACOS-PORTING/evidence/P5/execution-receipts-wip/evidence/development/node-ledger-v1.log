@@ -1,0 +1,20 @@
+✔ preparation commits only hashes/identities before returning an immutable dispatchable value (6.060542ms)
+✔ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (8.918458ms)
+✔ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (12.357542ms)
+✔ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (5.986833ms)
+✔ ordinary returned results require matching actual worker/tool/argument and terminal facts (18.849708ms)
+✔ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (4.214292ms)
+✔ client replacement or lost ownership prevents a preparation being used for dispatch (4.446667ms)
+✔ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (2.271875ms)
+✔ corrupt, missing and replaced storage is refused rather than reinitialized as empty (2.716833ms)
+✔ capacity refuses without pruning any unresolved row (14.977125ms)
+✔ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (4.250584ms)
+✔ unknown records cannot be retired even if a caller confirms closure (4.363125ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 184.896

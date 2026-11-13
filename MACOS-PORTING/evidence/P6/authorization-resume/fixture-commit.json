@@ -1,0 +1,20 @@
+{
+  "commit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+  "files": [
+    {
+      "file": "dev-harness/macos-capture-host.e2e.js",
+      "sha256": "49acfc2f0ce0d325d37b3b321e146542b15ad39313193010956daa11b8355d5b"
+    },
+    {
+      "file": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "e8878d9dbc80c974c1cc521abee2d7c5db6cf6002586dbb9d281fc1b07bc8632"
+    }
+  ],
+  "codeReviews": [
+    "fixture-code-review.json",
+    "fixture-name-delta-review.json"
+  ],
+  "runtimeQualification": "independent/review.json",
+  "productionAndPackageCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "scope": "Two acceptance fixtures only; installed Full/package/production bytes unchanged."
+}

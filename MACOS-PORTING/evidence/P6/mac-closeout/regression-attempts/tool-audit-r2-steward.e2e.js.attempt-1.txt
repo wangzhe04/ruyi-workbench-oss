@@ -1,0 +1,96 @@
+PASS R1a 前提:假 provider 回 500,这一回合 ok:false
+PASS R1b 没标 stewardWatch 的线程失败后 thread_status 是 stopped / lastTurnFailed(修前 done;got stopped/true)
+PASS R1c 成败账落在会话头上
+PASS R1d threads_search 里同样是 stopped(got stopped)
+PASS R1e missions 聚合态是 stopped(got stopped)
+PASS R1f 成功的未盯线程仍是 done(got done)
+PASS R8a 用户正文里的密钥已脱敏(修前原样交出;got "READOK 请读文件,顺便我的 key 是 «redacted»")
+PASS R8b 成功的工具行 ok:true(got {"turnSeq":1,"role":"tool","ok":true,"text":"[工具] file_read {\"path\":\"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-r2-steward-ws-W8Mgrf/a.txt\"} → 246 字符 ✓ (id=call_ok)","rowIndex":2,"startChar":0,"endChar":126})
+PASS R8c 失败的工具行 ok:false 且文本带失败标(got {"turnSeq":1,"role":"tool","ok":false,"text":"[工具] file_read {\"path\":\"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-r2-steward-ws-W8Mgrf/no-such-file.txt\"} → 184 字符 ✗失败 (id=call_bad)","rowIndex":2,"startChar":0,"endChar":140})
+PASS R8d 普通线程的 kind 不是 quick_ask(got mission)
+PASS R8e threads_search 的 kind 同样是 mission
+PASS R2a 默认 limit 50:返回 50 条、total≥60、truncated:true(got 50/64/true)
+PASS R2b limit:5 → 5 条
+PASS R2c limit 夹取到 200
+PASS R2d 不够 limit 时 truncated:false
+PASS R3a 默认排除遥测(types ["turn_end","turn_start","intervention","turn_end","runtime_failure_classified"])
+PASS R3b 同一毫秒:后写的 turn_end 在前(修前 limit 1 拿到先写的;got "T-B")
+PASS R3c limit:1 取到的就是最新那条
+PASS R3d kinds:['intervention'] 能回答「我批准过什么」,哪怕它被 30 条遥测盖在后面(got ["intervention"])
+PASS R3e kinds 给单个字符串也认
+PASS R3f includeTelemetry:true 把遥测放回来
+PASS R3g 最近一个日志文件里不够时往前读(got 3)
+PASS R3h 过滤参数进了 schema
+PASS R4a 一个字符的查询 → 空结果 + query_too_short(got 0/query_too_short)
+PASS R4b includeClosed 进了 schema
+PASS R4c 两个字的查询照常
+PASS R5a usage day:'yesterday' 认成昨天的日期(修前静默回全期累计;got {"sessionId":"","day":"2026-11-11"})
+PASS R5b usage 非法 day → invalid_request 并列出写法(got invalid_request)
+PASS R5c 合法 YYYY-MM-DD 照常
+PASS R5d config_get keys 给字符串 → 当成 [key](修前返回全部键;got 1 个)
+PASS R5e config_get keys 既不是数组也不是字符串 → invalid_request(got invalid_request)
+PASS R5f self_status 非法 section → invalid_request 并列出可选值(got invalid_request)
+PASS R5g 合法 section 照常
+PASS R5h rename title:{a:1} → invalid_request,标题没被改成 [object Object](got invalid_request/改名目标)
+PASS R5i 运行器注入的 basis 等未声明字段不被拒(got ok)
+PASS R5j continue message:12345 → invalid_request(got invalid_request)
+PASS R5k thread_new tier:'ultra' → invalid_request(修前静默按 strong;got invalid_request)
+PASS R5l schedule_create tier:'ultra' → invalid_request(修前静默丢;got invalid_request)
+PASS R6 外部 MCP 的 env 值全遮,不露末 4 位(got "••••")
+PASS R7a .env → sensitive_path(got sensitive_path)
+PASS R7a .git/config → sensitive_path(got sensitive_path)
+PASS R7a .ssh/id_rsa → sensitive_path(got sensitive_path)
+PASS R7a server.pem → sensitive_path(got sensitive_path)
+PASS R7b 反斜杠写法同样拒(按 Windows 形判)
+PASS R7c .env.example 模板放行(got ok)
+PASS R7d 含 NUL 的 bin.dat → binary_file(修前回乱码文本;got binary_file)
+PASS R7e 普通文本照常读
+PASS R7e2 管家原生图片读取保留像素与 tainted
+PASS R7f artifact_read 二进制同样拒(got binary_file)
+PASS R7g artifact_read 文本照常
+PASS R7g2 图片交付物原生读取保留像素
+PASS R10a runId 格式非法 → invalid_request(修前 no_agent_run「没有班组可暂停」;got invalid_request)
+PASS R10b 没给 runId 的收紧类仍是 no_agent_run(got no_agent_run)
+PASS R11a 没有用户消息 → draft_failed(got draft_failed)
+PASS R11b 同一回合再起草一条有用户消息的线程,不被配额挡(修前 quota_exceeded;got draft_failed)
+PASS R11c 真调过模型之后名额照旧用掉(got quota_exceeded)
+PASS R12a 前提:真实用户消息作来源能写记忆(got undefined)
+PASS R12b 第一次否决:undoRef.prev 是 active
+PASS R12c 第二次否决:unchanged、没有 undoRef、不多一行决策日志(修前 prev:'vetoed' + 多一行;got {"ok":true,"id":"smem_14d4419da0f9f819","state":"vetoed","unchanged":true} rows 1->1)
+PASS R12d 已过去的 expiresAt → 拒(修前静默收下;got invalid_request)
+PASS R12e 将来的 expiresAt 照常(got undefined)
+PASS R12f 前提:建一条 reminder(got undefined)
+PASS R12g 已暂停再暂停:unchanged、不多决策行(got {"ok":true,"task":{"id":"sch_28ad361a1913c61e","title":"幂等检查","enabled":false,"n rows 1->1)
+PASS R12h 已在运行再 resume:unchanged,revision 只因第一次 +1(1->2)
+PASS R13a allow 命中永久豁免仍 propose_required(got propose_required/permanently_exempt)
+PASS R13b deny 命中永久豁免不再被挡(修前 propose_required「必须用户亲自决定」;got delivery_unavailable/undefined)
+PASS R13c default 档下 allow 仍 propose_required(got propose_required/permission_mode)
+PASS R13d default 档下 deny 不再被挡(got delivery_unavailable/undefined)
+PASS R13e 目标待决不存在仍 not_found(got not_found)
+PASS R14a missionId 不存在 → not_found 且没建出线程(修前建出幽灵事项;got not_found, 会话 70->70)
+PASS R14b missionId 是一条真实线程的 id(未归类事项)照常归入(got ok)
+PASS R14c quick_ask 起得来(got undefined)
+PASS R14d 存下的速查问题逐字(尖括号/换行不改;got "请解释 List<String> 与 a<b 的区别\n第二行")
+PASS R14e 递给线程的首条用户消息逐字(修前是 List＜String＞;got "请解释 List<String> 与 a<b 的区别\n第二行")
+PASS R17a 前提:thread_new 起得来
+PASS R17b 管家发起的用户消息落盘带 meta.origin:'steward'(got {"origin":"steward","tool":"steward_thread_new"})
+PASS R17c 以管家转述的消息为来源 → source_not_user(修前写得进去;got source_not_user)
+PASS R17d 用户本人在界面上发的消息仍能当来源(got undefined)
+PASS R15a 永不触发的 cron → 拒(修前收下且 nextRunAt:'';got invalid_request)
+PASS R15b existing-session 指向不存在的线程 → not_found(got not_found)
+PASS R15c existing-session 指向 steward → not_found(got not_found)
+PASS R15d prompt + 每分钟 cron → 拒(got invalid_request/interval_too_short)
+PASS R15e 不规则 cron(间隔 5、55 交替)按最小间隔判,同样拒
+PASS R15f 每 20 分钟的 prompt 放行(got undefined)
+PASS R15g reminder 仍可每分钟(提醒不调模型;got undefined)
+PASS R15h 静默归一列进 notes:截断 / tier 被忽略 / permissionMode 没生效(got ["payload.text 有 5000 字,超过上限 4000,已截成 4000 字","tier 被忽略:它只对 prompt 载荷 + 每次开新线程(target.mode:new-session)有意义","permissionMode「bypass」没有生效(bypass 永远不给定时任务),这条任务跟随全局默认权限档"])
+PASS R15i 没有被改动的创建不带 notes
+PASS R15j 前提:指向真实线程的任务建得出来(got undefined)
+PASS R15k 目标线程没了 → outcome:failed 且没有悄悄新开线程(修前 succeeded + 新线程;got failed, 会话 73->73)
+PASS R16a 无人值守(inbox)run_now → propose_required(got propose_required)
+PASS R16b 暂停中的任务手动跑一次:照跑,但如实带 wasPaused(got {"ok":true,"outcome":"succeeded","task":{"id":"sch_28ad361a1913c61e","title":"幂等检查","enabled":false,"nextRunAt":"2026-11-13T01:30:00.000Z",")
+PASS R16c 手动跑一次不会把它恢复
+PASS R16d 没暂停的任务照常,不带 wasPaused
+PASS R9 插队后回包的 wait.ahead 是 0(修前是插队前的 1;got {"reason":"slot","label":"等并发位：下一个就是它","ahead":0})
+
+TOOL AUDIT R2 STEWARD E2E: ALL PASS

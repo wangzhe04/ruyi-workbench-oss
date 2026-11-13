@@ -1,0 +1,30 @@
+✔ stdio abort attempts the matching cancellation packet before immediate owned cleanup (1.354292ms)
+✔ [1] 连不上的 SSE 连接器:start 如实拒掉,不抛成 uncaughtException (63.007709ms)
+✔ [1][3] SSE 连上但一直不给 endpoint 事件:按 startupTimeoutMs 拒掉并断开 (1004.030084ms)
+✔ [2] streamable-HTTP 会话失效(404):就地重握手并重发,后续调用恢复 (6.557708ms)
+✔ [3] enabledTools / disabledTools 进目录前过滤,调用时再挡;bearerTokenEnvVar 补 Authorization (61.502792ms)
+✔ [3] startupTimeoutMs / toolTimeoutMs 落到客户端已有的超时参数上 (2086.497334ms)
+✔ [4] 同 id 连接器改好之后,不再吃旧配置的失败冷却 (92.925291ms)
+✔ [5] 对端发来的 ping 请求不再冒充响应 (77.936291ms)
+✔ [6] 5MB 单行响应完整收下;超上限的行整行丢弃、如实拒掉那一次,客户端照常可用 (43.228792ms)
+✔ [7] 前缀撞车不丢工具;工具函数名合法且 ≤64 (30.807291ms)
+✔ [8] 数组结果进 items;工具 ok:true 不再盖掉 isError (26.08625ms)
+✔ [9] config.toml:多行数组、env 子表、行尾注释、单引号值、远程条目、无法解析的段标 unsupported (1.523958ms)
+✔ [10] 大于 256KB 的 ~/.claude.json 照常导入 (5.844334ms)
+✔ [11] 链接进 mcp/ 的 drop-in 目录被识别 (0.715667ms)
+✔ [14] killAllMcpClients 也杀还在握手的客户端 (2054.110666ms)
+✔ [15] 健康探针真发 tools/list:握手后卡死的服务器不再报 ok (2049.091625ms)
+✔ [16] tools/list 跟 nextCursor 翻页 (54.068583ms)
+✔ [F7] stdio:服务端自己回的 "timed out" 错误原样交给模型,不杀健康的 MCP 进程 (27.889709ms)
+✔ [F7] stdio:桥接自己的超时仍照旧 —— 杀进程树并如实说 (1057.771208ms)
+✔ [F7] stdio:用户插话中断仍走 steerInterrupted (294.1485ms)
+✔ [F7] concurrent stdio cancellation preserves cleanup scope for both calls (80.438708ms)
+✔ [F7] http:服务端 JSON-RPC error 含 "timed out" 原样回传、连接不重置;真超时与插话照旧 (1224.730458ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11555.972917

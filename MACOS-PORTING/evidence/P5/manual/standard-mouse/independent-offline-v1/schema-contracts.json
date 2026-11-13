@@ -1,0 +1,68 @@
+[
+  {
+    "name": "schema3-valid",
+    "accepted": true,
+    "code": null,
+    "nativeCalls": 1
+  },
+  {
+    "name": "schema2-downgrade",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "schema3-missing-profile",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "schema3-wrong-profile",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "schema3-wrong-scope",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "schema3-bool-schema",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "manual-action-standard-override",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "manual-action-exact-override",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "schema1-cannot-upgrade-action",
+    "accepted": false,
+    "code": "recording_invalid",
+    "nativeCalls": 0
+  },
+  {
+    "name": "schema2-exact-still-valid",
+    "accepted": true,
+    "code": null,
+    "nativeCalls": 1
+  },
+  {
+    "name": "schema1-exact-still-valid",
+    "accepted": true,
+    "code": null,
+    "nativeCalls": 1
+  }
+]

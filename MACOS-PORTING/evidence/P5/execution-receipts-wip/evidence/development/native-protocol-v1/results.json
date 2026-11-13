@@ -1,0 +1,390 @@
+{
+  "helper": "/tmp/ruyi-p5-receipts-helper",
+  "helperSha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18",
+  "records": [
+    {
+      "label": "legacy",
+      "pid": 30256,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "49630a55610244e1af93e422106c4f70",
+          "worker_pid": 30256
+        },
+        {
+          "coordinate_space": "macos_global_points",
+          "id": 2,
+          "ok": true,
+          "protocolVersion": 1,
+          "x": 300,
+          "y": 890
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30256,
+        "ppid": 30253,
+        "created": "1794403877938562",
+        "name": ""
+      },
+      "exitCode": 0,
+      "signalCode": null
+    },
+    {
+      "label": "committed",
+      "pid": 30259,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "5dc2cedb749943ee98476a2e50bd10ac",
+          "worker_pid": 30259
+        },
+        {
+          "id": 2,
+          "receipt": {
+            "challenge": "27a28d6ccbf64764a06ccb87c8ed70eb",
+            "frame_id": 2,
+            "frame_sha256": "5ffec23af7166ffe833e8ff6dbfe2b79b898292aed2b39ff733dfca892f2125e",
+            "invocation_id": "c3fb290d0ab9a007bdd89f6d61cc9384",
+            "op": "mouse.position",
+            "operation_id": "d988f50ed1fb521766f8892cb8aba2a2",
+            "phase": "handler_entered",
+            "schema": 1,
+            "worker_id": "5dc2cedb749943ee98476a2e50bd10ac",
+            "worker_pid": 30259
+          }
+        },
+        {
+          "coordinate_space": "macos_global_points",
+          "id": 2,
+          "ok": true,
+          "protocolVersion": 1,
+          "receipt": {
+            "challenge": "27a28d6ccbf64764a06ccb87c8ed70eb",
+            "frame_id": 2,
+            "frame_sha256": "5ffec23af7166ffe833e8ff6dbfe2b79b898292aed2b39ff733dfca892f2125e",
+            "invocation_id": "c3fb290d0ab9a007bdd89f6d61cc9384",
+            "op": "mouse.position",
+            "operation_id": "d988f50ed1fb521766f8892cb8aba2a2",
+            "phase": "terminal",
+            "schema": 1,
+            "worker_id": "5dc2cedb749943ee98476a2e50bd10ac",
+            "worker_pid": 30259
+          },
+          "x": 300,
+          "y": 890
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30259,
+        "ppid": 30253,
+        "created": "1794403878531750",
+        "name": ""
+      },
+      "exitCode": 0,
+      "signalCode": null
+    },
+    {
+      "label": "wrong-challenge",
+      "pid": 30262,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "5ceea1438c9a4b00b6fd1444062e4fd1",
+          "worker_pid": 30262
+        },
+        {
+          "id": 2,
+          "receipt": {
+            "challenge": "8ce3872b6db244eda35a7db645821490",
+            "frame_id": 2,
+            "frame_sha256": "7d3dd1ef4ae6ab90506d97fdd801810ec783d3d257eb1c23deca1db576a6dd3d",
+            "invocation_id": "dffa2a6eeaeb9ba667d93496927146b4",
+            "op": "mouse.position",
+            "operation_id": "926e476633effca4da42a00fc347e8ff",
+            "phase": "handler_entered",
+            "schema": 1,
+            "worker_id": "5ceea1438c9a4b00b6fd1444062e4fd1",
+            "worker_pid": 30262
+          }
+        },
+        {
+          "acted": false,
+          "action_sent": false,
+          "code": "execution_receipt_failed",
+          "error": "Execution receipt was not committed",
+          "id": 2,
+          "ok": false,
+          "outcome": "not_dispatched",
+          "receipt": {
+            "challenge": "8ce3872b6db244eda35a7db645821490",
+            "frame_id": 2,
+            "frame_sha256": "7d3dd1ef4ae6ab90506d97fdd801810ec783d3d257eb1c23deca1db576a6dd3d",
+            "invocation_id": "dffa2a6eeaeb9ba667d93496927146b4",
+            "op": "mouse.position",
+            "operation_id": "926e476633effca4da42a00fc347e8ff",
+            "phase": "terminal",
+            "schema": 1,
+            "worker_id": "5ceea1438c9a4b00b6fd1444062e4fd1",
+            "worker_pid": 30262
+          }
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30262,
+        "ppid": 30253,
+        "created": "1794403878634790",
+        "name": ""
+      },
+      "exitCode": 70,
+      "signalCode": null
+    },
+    {
+      "label": "withheld",
+      "pid": 30265,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "07f0af0c075146dbb8967510a2a93bfa",
+          "worker_pid": 30265
+        },
+        {
+          "id": 2,
+          "receipt": {
+            "challenge": "72dea9a22fc34eef9249b3ea3edcc5cf",
+            "frame_id": 2,
+            "frame_sha256": "8d7171894adfb45b577a24acc4cf4f581866057e5e81d4fa64e849c8c1d9092f",
+            "invocation_id": "0a371d2788258544ec7444a6b9654ca0",
+            "op": "mouse.position",
+            "operation_id": "9c51a74bba2f7b9c9f7f72edb5b7d90d",
+            "phase": "handler_entered",
+            "schema": 1,
+            "worker_id": "07f0af0c075146dbb8967510a2a93bfa",
+            "worker_pid": 30265
+          }
+        },
+        {
+          "acted": false,
+          "action_sent": false,
+          "code": "execution_receipt_failed",
+          "error": "Execution receipt was not committed",
+          "id": 2,
+          "ok": false,
+          "outcome": "not_dispatched",
+          "receipt": {
+            "challenge": "72dea9a22fc34eef9249b3ea3edcc5cf",
+            "frame_id": 2,
+            "frame_sha256": "8d7171894adfb45b577a24acc4cf4f581866057e5e81d4fa64e849c8c1d9092f",
+            "invocation_id": "0a371d2788258544ec7444a6b9654ca0",
+            "op": "mouse.position",
+            "operation_id": "9c51a74bba2f7b9c9f7f72edb5b7d90d",
+            "phase": "terminal",
+            "schema": 1,
+            "worker_id": "07f0af0c075146dbb8967510a2a93bfa",
+            "worker_pid": 30265
+          }
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30265,
+        "ppid": 30253,
+        "created": "1794403878726161",
+        "name": ""
+      },
+      "exitCode": 70,
+      "signalCode": null
+    },
+    {
+      "label": "eof",
+      "pid": 30268,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "848657a6654a43888447a00158f2dd7c",
+          "worker_pid": 30268
+        },
+        {
+          "id": 2,
+          "receipt": {
+            "challenge": "6d419e0993954a409726df78d8a8b94e",
+            "frame_id": 2,
+            "frame_sha256": "42101dbadf3fc13146dc7a69dd9abfa934559b46975705083f7e92a3c65a9714",
+            "invocation_id": "5578ef9326f53f07cd38cba2d9fb8ab7",
+            "op": "mouse.position",
+            "operation_id": "ddf517e37030f0d3be6a7814b4e6f9e3",
+            "phase": "handler_entered",
+            "schema": 1,
+            "worker_id": "848657a6654a43888447a00158f2dd7c",
+            "worker_pid": 30268
+          }
+        },
+        {
+          "acted": false,
+          "action_sent": false,
+          "code": "execution_receipt_failed",
+          "error": "Execution receipt was not committed",
+          "id": 2,
+          "ok": false,
+          "outcome": "not_dispatched",
+          "receipt": {
+            "challenge": "6d419e0993954a409726df78d8a8b94e",
+            "frame_id": 2,
+            "frame_sha256": "42101dbadf3fc13146dc7a69dd9abfa934559b46975705083f7e92a3c65a9714",
+            "invocation_id": "5578ef9326f53f07cd38cba2d9fb8ab7",
+            "op": "mouse.position",
+            "operation_id": "ddf517e37030f0d3be6a7814b4e6f9e3",
+            "phase": "terminal",
+            "schema": 1,
+            "worker_id": "848657a6654a43888447a00158f2dd7c",
+            "worker_pid": 30268
+          }
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30268,
+        "ppid": 30253,
+        "created": "1794403880812930",
+        "name": ""
+      },
+      "exitCode": 70,
+      "signalCode": null
+    },
+    {
+      "label": "prefetched-business",
+      "pid": 30271,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "230872c8a55d4ac89ffd0859950132a9",
+          "worker_pid": 30271
+        },
+        {
+          "id": 2,
+          "receipt": {
+            "challenge": "ccba8dba19fa4faaa9000a36646f9800",
+            "frame_id": 2,
+            "frame_sha256": "b0c9d5f13ae6e7df164253144b045e18657d0c6b44adbbb3f0d073a85046a839",
+            "invocation_id": "a20282014c12ad276e6911d8c213d303",
+            "op": "mouse.position",
+            "operation_id": "fed9313dd4e7206e6157eb365221b199",
+            "phase": "handler_entered",
+            "schema": 1,
+            "worker_id": "230872c8a55d4ac89ffd0859950132a9",
+            "worker_pid": 30271
+          }
+        },
+        {
+          "acted": false,
+          "action_sent": false,
+          "code": "execution_receipt_failed",
+          "error": "Execution receipt was not committed",
+          "id": 2,
+          "ok": false,
+          "outcome": "not_dispatched",
+          "receipt": {
+            "challenge": "ccba8dba19fa4faaa9000a36646f9800",
+            "frame_id": 2,
+            "frame_sha256": "b0c9d5f13ae6e7df164253144b045e18657d0c6b44adbbb3f0d073a85046a839",
+            "invocation_id": "a20282014c12ad276e6911d8c213d303",
+            "op": "mouse.position",
+            "operation_id": "fed9313dd4e7206e6157eb365221b199",
+            "phase": "terminal",
+            "schema": 1,
+            "worker_id": "230872c8a55d4ac89ffd0859950132a9",
+            "worker_pid": 30271
+          }
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30271,
+        "ppid": 30253,
+        "created": "1794403880906365",
+        "name": ""
+      },
+      "exitCode": 70,
+      "signalCode": null
+    },
+    {
+      "label": "wrong-worker",
+      "pid": 30274,
+      "rows": [
+        {
+          "executionReceiptVersion": 1,
+          "id": 1,
+          "ok": true,
+          "protocolVersion": 1,
+          "worker_id": "a0b2ad70b2144aaeb4a6660143392414",
+          "worker_pid": 30274
+        },
+        {
+          "code": "invalid_args",
+          "error": "Invalid native session request envelope",
+          "id": 2,
+          "ok": false
+        }
+      ],
+      "stderr": "",
+      "birth": {
+        "pid": 30274,
+        "ppid": 30253,
+        "created": "1794403880983344",
+        "name": ""
+      },
+      "exitCode": 70,
+      "signalCode": null
+    },
+    {
+      "label": "oversized",
+      "pid": 30277,
+      "rows": [],
+      "stderr": "",
+      "birth": {
+        "pid": 30277,
+        "ppid": 30253,
+        "created": "1794403881060377",
+        "name": ""
+      },
+      "exitCode": 65,
+      "signalCode": null
+    },
+    {
+      "label": "truncated",
+      "pid": 30280,
+      "rows": [],
+      "stderr": "",
+      "birth": {
+        "pid": 30280,
+        "ppid": 30253,
+        "created": "1794403881123310",
+        "name": ""
+      },
+      "exitCode": 70,
+      "signalCode": null
+    }
+  ],
+  "retained": false,
+  "retainedRoot": null
+}

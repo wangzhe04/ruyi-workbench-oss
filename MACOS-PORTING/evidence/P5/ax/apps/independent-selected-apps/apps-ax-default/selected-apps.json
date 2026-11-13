@@ -1,0 +1,44 @@
+{
+  "textEdit": {
+    "pid": 36961,
+    "ownDocumentExact": true,
+    "closed": true,
+    "version": "1.21",
+    "bundleID": "com.apple.TextEdit"
+  },
+  "chromium": {
+    "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "launchExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "product": "Chrome/148.0.7778.96",
+    "pid": 37009,
+    "windowTitle": "Ruyi P5 Chromium 36897",
+    "bounds": {
+      "height": 850,
+      "width": 1200,
+      "x": 22,
+      "y": 56
+    },
+    "clipboardRestored": true,
+    "trustedClick": true,
+    "scrollY": 160,
+    "scrollX": 120,
+    "ambiguousRebindRefused": true,
+    "bundleID": "com.google.chrome.for.testing",
+    "observedCommand": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --no-first-run --no-default-browser-check --disable-sync --disable-extensions --disable-background-networking --use-mock-keychain --password-store=basic --window-size=1200,850 --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-apps-SJNirh/profile --remote-debugging-port=56186 http://127.0.0.1:56185/",
+    "rendererAccessibilityRequested": false
+  },
+  "nativeAXScenariosRequested": true,
+  "axResults": {
+    "textEdit": {
+      "valueConfirmed": true,
+      "savedExact": true
+    },
+    "chromium": {
+      "nativeAddressValueConfirmed": true,
+      "webAreaObserved": false,
+      "nodesScanned": 46,
+      "truncated": 0,
+      "reasonCode": "web_area_not_observed"
+    }
+  }
+}

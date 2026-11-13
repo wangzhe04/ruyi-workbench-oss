@@ -1,0 +1,64 @@
+[
+  {
+    "path": "A/liba.dylib",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumVersions": [
+      "14.0"
+    ],
+    "dependencies": [
+      "@loader_path/liba.dylib",
+      "@rpath/libsub.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rpaths": [],
+    "executable": false
+  },
+  {
+    "path": "A/main",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumVersions": [
+      "14.0"
+    ],
+    "dependencies": [
+      "@loader_path/liba.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rpaths": [],
+    "executable": true
+  },
+  {
+    "path": "B/libs/libsub.dylib",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumVersions": [
+      "14.0"
+    ],
+    "dependencies": [
+      "@rpath/libsub.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rpaths": [],
+    "executable": false
+  },
+  {
+    "path": "B/main",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumVersions": [
+      "14.0"
+    ],
+    "dependencies": [
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rpaths": [
+      "@loader_path/libs"
+    ],
+    "executable": true
+  }
+]

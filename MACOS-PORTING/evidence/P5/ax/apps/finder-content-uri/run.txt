@@ -1,0 +1,10 @@
+PASS public AXWindows and all-space WindowServer baseline exclude existing Finder content windows
+PASS new Finder window exposes the exact controlled content file URIs and no additional tab surface
+FAIL Error: focus_window {"ok":false,"error":"DesktopError: Window geometry changed after observation","code":"window_changed"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:35:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:97:21
+PASS only the proved Finder window closes and the shared Finder process survives
+PASS Finder scenario MCP and native helper exit completely
+
+MACOS AX FINDER E2E: FAIL (1)

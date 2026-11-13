@@ -1,0 +1,36 @@
+{
+  "implementationCommit": "f135bda1c4bb9703ccbb926f36d99f855ad0f63c",
+  "files": {
+    "README.md": "9b2b8a3892cfc6817c6de08cdc93285969d8948f3c1e314a870fa33e54dbc7d3",
+    "README_EN.md": "507698fec59c2e182f551e3d7432a58c3b0c63f57bab058182655e5e454696f6",
+    "dev-harness/acc-offline-installer.static.e2e.js": "76feeb8d5020afe2dc83c43c3193e021cc87db08b606e1f041ba342e8d080b5b",
+    "dev-harness/macos-acc-shared.e2e.js": "8dffcc846ee38a3e54f666269eb6670016caf5a0e6db9186705b3563809c70b9",
+    "facts.json": "396f352327d965f23e38516655244fc9ee90fc46bdd0fc517d96b7e61d7f7b45",
+    "mcp/ai-computer-control/README.md": "6282be5f792fc63b82235c082a4b6624a947a55fd7c4be0d78ada379a93ac08f",
+    "mcp/ai-computer-control/pyproject.toml": "9436c4878c1a586fd4046f483616337ebe3d852ccd86a6f453139ab378ae5257",
+    "mcp/ai-computer-control/requirements_offline.txt": "1d65be5f89c85300b6f30d00d42623ec4fee91ed6ca148fc29dfa8654c9347ec",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "df6c79d3f400b089f4ea9d8fcbab0acc473917ca6d2f29fec25de2902225ee18",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": "b5ed43a105dd59c4f25fdf6e9f075de7fd0bed7b0e1deeb30cc6ee1cbcd81773",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/safety.py": "ed7a288074843768dba0b2745d706dc2d98819e6e2257ce62ce60a2679aeed5d",
+    "mcp/ai-computer-control/tests/smoke_macos_shared.py": "fee2c80082dbf164f99435b7faefdabddb9388f25486cb8b274a762d35728f01",
+    "ruyi-workbench/tools/package-offline.ps1": "bf7b038d3e028459aa9e127088c569d22f63835821821ebff339a4e9501b6441",
+    "ruyi-workbench/app/server.js": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6"
+  },
+  "gitBlobOids": {
+    "README.md": "2c44f1bfa0d6f2c819babd8afe493101527af925",
+    "README_EN.md": "4c4a4e4d8952cf979b91f06aef5081a4253e0b2d",
+    "dev-harness/acc-offline-installer.static.e2e.js": "13fecdb387758827a406d4ec74d7e3968cde7bca",
+    "dev-harness/macos-acc-shared.e2e.js": "f9262ac7fa4d51130508aaeae4c0800ce7ab860d",
+    "facts.json": "7f8080908fbb11f09ad18b3a688930fc856eddce",
+    "mcp/ai-computer-control/README.md": "5a954e55ad2a207d2d743d748b83308847b02140",
+    "mcp/ai-computer-control/pyproject.toml": "03e01bd8c8a38b4e8c64c71d49f2f30ab12f4a31",
+    "mcp/ai-computer-control/requirements_offline.txt": "58d0b6de9646b5094eaa5dbd4369d7d3d817388e",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "26cb62c9f55ef7ac31e78d1e181b2a910c0c58fd",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": "69d020174d0a8646fb16d18580d80f30936e6c81",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/safety.py": "eb2cc085c469faf2d1ead5a688eaee44ff29ed5d",
+    "mcp/ai-computer-control/tests/smoke_macos_shared.py": "8ef7eecaf936f6df7696e4874e9ace4581a5ab9c",
+    "ruyi-workbench/tools/package-offline.ps1": "08663b418a33db4abe54a55d518aa5461016e2ce",
+    "ruyi-workbench/app/server.js": "87d4de0eb9a684dbc48a6dc08dd9dd817901dae8"
+  },
+  "lineEndings": "SHA256 is the actual validated working-tree content; gitBlobOids compares committed content after repository filters (the Windows PowerShell file uses CRLF in the working tree and LF in Git)."
+}

@@ -1,0 +1,34 @@
+[fake:A] [fake-openai] listening on 57613
+[wb:A] 如意 Ruyi 3.0.1  (launch: node, overlay 689adbde5a10)
+[wb:A] UI: http://127.0.0.1:57612/
+[wb:A] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridged-read-a
+[wb:A] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+[wb:A] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridged-read-a/generated/workbench.mcp.json
+PASS segment A workbench listening
+PASS A: tool_use fake__screenshot_full emitted
+PASS A: NO permission_request (read tier auto-allowed in default mode)
+PASS A: tool_result ok (not error)
+PASS A: result ok=true
+[fake:B] [fake-openai] listening on 57621
+[wb:B] 如意 Ruyi 3.0.1  (launch: node, overlay dda7b94f1cdb)
+[wb:B] UI: http://127.0.0.1:57620/
+[wb:B] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridged-read-b
+[wb:B] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+[wb:B] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridged-read-b/generated/workbench.mcp.json
+PASS segment B workbench listening
+PASS B: permission_request emitted (exec tier prompts in default mode)
+PASS B: tool_result is a denial (isError true) after prompt timeout
+PASS B: denial carries a denied/timeout reason: {"ok":false,"error":"permission prompt timed out"}
+PASS B: turn finished cleanly (result event present)
+[fake:C] [fake-openai] listening on 57673
+[wb:C] 如意 Ruyi 3.0.1  (launch: node, overlay e1cda1123a33)
+[wb:C] UI: http://127.0.0.1:57672/
+[wb:C] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridged-read-c
+[wb:C] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+[wb:C] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridged-read-c/generated/workbench.mcp.json
+PASS segment C workbench listening
+PASS C: permission_request emitted
+PASS C: contract permission allow -> 200 allowed
+PASS C: allowed bridged tool executes once
+
+BRIDGED-READ-NOPROMPT E2E: ALL PASS

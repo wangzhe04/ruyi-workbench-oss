@@ -1,0 +1,32 @@
+✔ required persistence commits the exact pending tool identity and model arguments (169.714958ms)
+✔ required persistence rejects a deleted session while legacy saves remain discarded (96.422ms)
+✔ required persistence rejects an older rewind generation without changing the current body (97.210416ms)
+✔ required persistence rejects a newer committed turn before accepting old tool intent (98.437333ms)
+✔ required persistence checks owner replacement inside the queued write (96.511833ms)
+✔ failed intent head commit prevents the real file effect instead of dispatching without history (372.510625ms)
+✔ Stop after first parallel read retains the already returned second result (118.498667ms)
+✔ a failed prefix-result commit stops the second actual file effect (112.638959ms)
+✔ steered parallel image result keeps bounded display and a real saved attachment (112.017833ms)
+✔ N2 shell 结果:stderr / code / timedOut 与 stdout 末尾在截断后仍在 (5.979208ms)
+✔ N2 stderr 与 stdout 同时超大:两者都留头尾,不会一方被挤成零 (0.956833ms)
+✔ N2 file_read:内容头 40K + 尾 8K 不变,提示指向 offset/lineOffset,状态键保留 (0.966458ms)
+✔ N2 数组:按条数截断并留计数标记,其余键不动 (4.438834ms)
+✔ N2 幂等:预算内的结果原样返回;已收缩过的结果再收缩一次不变 (5.773167ms)
+✔ N2 中文结果按 token 口径收紧:同样的字符数,CJK 更早被截 (1.229416ms)
+✔ N2 非 JSON 串回退整串截头(带标记与按工具的提示),file_read 仍是头+尾 (0.362625ms)
+✔ N2 头尾切点不劈代理对(emoji),也尽量落在行边界 (0.773833ms)
+✔ N3 展示副本:大结果同构收缩、原对象不动;小结果同一引用 (7.50925ms)
+✔ N3 展示副本:嵌套字段(results[i].body)也按最大字段先收 (0.628125ms)
+✔ N3 图片:image_base64 落 uploads 附件,存盘/发送的结果只留占位与 imageAttachments (9.459459ms)
+✔ N3 图片:data: URI、嵌套 screenshot.image、jpeg 识别;小图与非图字段不动 (2.050875ms)
+✔ N3 图片:uploads 不可写时只留占位(无 imageAttachments),回合不受影响 (0.954666ms)
+✔ [file_read CJK] 默认一页 40K 汉字不被 CJK 收紧挖洞:页面完整到模型,nextOffset 仍衔接 (1.515417ms)
+✔ N3 图片:附件先写 tmp 再 rename;带会话标签的目录名;同一张图再来不重写 (2.383166ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8905.710625

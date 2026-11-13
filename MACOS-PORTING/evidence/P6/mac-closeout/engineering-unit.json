@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-11-12T13:59:59.974958+00:00",
+  "counts": {
+    "tests": 2671,
+    "suites": 192,
+    "pass": 2653,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 18,
+    "todo": 0
+  },
+  "log": "unit-final.txt",
+  "sourceFreeze": "source-freeze.json",
+  "pass": true
+}

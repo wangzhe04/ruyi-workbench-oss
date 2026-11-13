@@ -1,0 +1,35 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS S00 三条线程已建并各跑一回合
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S00b 在管家视角
+PASS A1 右栏展开着焦点卡(A),栏头有开关钮(aria-expanded=true)、窄条藏着(实测 {"w":392,"toggle":true,"strip":true})
+PASS A2 点开关 → 右栏收成窄条(data-collapsed=1、宽 44px、栏本身不 hidden、窄条可见、开关随栏收起)
+PASS A3 收起时抽屉那一份收摊(hidden、回 overlay 挂法,不在 #stewardFocus 里;实测 {"hidden":true,"mount":"overlay","parent":"stewardShell"})
+PASS A4 偏好记在本机 wcw.stewardSideCollapsed=1(实测「1」)
+PASS A5 收起后焦点送到窄条上(键盘用户不落到 body;实测 stewardSideStrip)
+PASS A6 窄条的可访问名以「展开右栏」开头(实测「展开右栏」)
+PASS B0 刷新后首屏就绪
+PASS B0b 仍在管家视角
+PASS B1 刷新后右栏仍是收起的(宽 44px、抽屉没开;偏好活过刷新)
+PASS B2 之后 1.5 s 仍收着(实测 collapsed=「1」drawerHidden=true)
+PASS C1 派 steward:focus-thread(B):右栏仍收着、抽屉没以覆盖式开出来(实测 collapsed=「1」drawerHidden=true mount=overlay)
+PASS C2 窄条亮了一颗「有新动静」的点(data-fresh=1;实测「1」)
+PASS C3 点窄条 → 展开,抽屉开在收起期间聚焦的那条 B、点擦掉、偏好写回 0(实测「写周报初稿」pref=「0」)
+PASS D1 Esc(焦点在焦点卡上)→ 右栏收成窄条、抽屉收摊
+PASS D1b Esc 之后焦点回到管家输入框(实测 stewardComposerInput)
+PASS D2 1.5 s 内没有被 syncNow 按自动挑选顶回(实测 collapsed=「1」)
+PASS D3 再点窄条展开(收摊)
+PASS E0 问候语下有一枚「打开「X」」的 act(实测 {"label":"打开「核对三月账单」","disabled":false})
+PASS E1 点它 → 切到工作台并选中那条线程(实测 mode=classic title=「核对三月账单」,应为「核对三月账单」)
+PASS E2 管家视角的右栏随视角一起收起(实测 hidden=true)
+PASS F1 线程头管家条里有「回到管家」入口且看得见(实测 {"visible":true,"text":"回到管家"})
+PASS F2 工作台换到线程 C(「核对三月账单」)
+PASS F3 点「回到管家」→ 管家视角、右栏展开着、焦点就是刚看的 C(实测 mode=steward title=「核对三月账单」)
+PASS F4a 先把右栏收起
+PASS F4b 切到工作台
+PASS F4 右栏是收着的时候「回到管家」不把它顶开(实测 collapsed=「1」drawerHidden=true)
+PASS G1 全程页面上没有未捕获异常(实 0)
+STEWARD SIDE COLLAPSE BROWSER E2E: ALL PASS

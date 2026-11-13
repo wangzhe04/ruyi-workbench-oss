@@ -1,0 +1,1019 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent_native_capture_checkpoint_document_review",
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-11T23:27:11.607067+00:00",
+  "mainHead": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+  "status": "passed_after_document_truth_corrections_no_confirmed_remaining_document_blocker",
+  "scope": "Read-only review of proposed checkpoint docs,JSON,Git objects,source/artifact hashes,tar members,evidence index and preserved independent result records.No tests,build,native helper,GUI,MCP probe,process sample,lock,TCC,keepawake or source edits executed.Only this requested evidence JSON created.",
+  "qualifiedImplementation": {
+    "sourceCommit": "56c970cf885de4a249c637fe10d3419115ffa979",
+    "integratedMainCommit": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+    "gitCommitChecks": {
+      "56c970cf885de4a249c637fe10d3419115ffa979": {
+        "all125SourceBlobsMatch": true,
+        "changedPaths": 22,
+        "allChangesInFreeze": true
+      },
+      "b7930bde0ad44e4f50f0b5553f206623433f3079": {
+        "all125SourceBlobsMatch": true,
+        "changedPaths": 22,
+        "allChangesInFreeze": true
+      }
+    },
+    "freeze": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-freeze-v2.json",
+      "bytes": 32390,
+      "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b"
+    },
+    "mainAndWorktree125SourcesBytesShaGitBlobMatch": true,
+    "actual4ArtifactsBytesShaMatch": true,
+    "independentReport": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/report.json",
+      "bytes": 57454,
+      "sha256": "91b954b015031630142d4a6d96b256001fb161a6653e81b05809d80e56d76a8d"
+    },
+    "dualCommitBinder": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/postqualification-commit-binding.json",
+      "bytes": 61564,
+      "sha256": "f822584be5741e9609b97c78e970d696b20408224dda254651d28cc97c5ea39d"
+    },
+    "scope": "Default-off Node serve plus exact named frozen helper,selected current-host owned screenshot/Vision/receipt/strict delivery,selected Stop/storage/quota/cold holds.Not App identity,posted input,held fault,fullP5 or all14 broad runtime cases."
+  },
+  "sourceArchive": {
+    "archive": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-source-freeze-v2.tar.gz",
+      "bytes": 4459950,
+      "sha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448"
+    },
+    "manifest": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/native-capture-source-freeze-v2.archive.json",
+      "bytes": 43850,
+      "sha256": "3423894230ab194c56b1967b19dd28ca3a9ad84e2267cbbd8a703e75eac9cad1"
+    },
+    "sourceArtifactPayloadMembers": 129,
+    "sources": 125,
+    "artifacts": 4,
+    "allPayloadBytesShaVerified": true,
+    "extraManifestMember": "native-capture-freeze-v2.json",
+    "extraManifestByteIdentical": true,
+    "totalRegularFiles": 130,
+    "interpretation": "129 refers to source/artifact payloads;archive additionally carries exact freeze manifest.Preservation does not itself imply runtime acceptance."
+  },
+  "evidenceArchive": {
+    "index": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v10.json",
+      "bytes": 179990,
+      "sha256": "3d807b0df219be58a06f29d80a4802d8b30a31b00234c98de063225f05a3adcb"
+    },
+    "files": 941,
+    "bytes": 77658280,
+    "allFileBytesAndShaVerified": true,
+    "allIndexedHistoryPreserved": true,
+    "priorIndexesPreserved": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v2.json",
+        "bytes": 20541,
+        "sha256": "1374dee9615659c92c36b361364403256390b542b80e755bbb07439bf5d796f0",
+        "entriesPreservedWithoutChange": 112
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v3.json",
+        "bytes": 26661,
+        "sha256": "cc0cd0e41ff5d7cdc1734a7b75e20a2256c4651738ff4d45b92855edcb8ede1e",
+        "entriesPreservedWithoutChange": 144
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v4.json",
+        "bytes": 39847,
+        "sha256": "01650046b68b85469abd810c2b8a89a7e1d997913845f5e34b5d1bec5af94152",
+        "entriesPreservedWithoutChange": 215
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v5.json",
+        "bytes": 53735,
+        "sha256": "4130b33cc448473e6172e34b62042d17b8fd0b907041625874c18437f0b2c967",
+        "entriesPreservedWithoutChange": 289
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v6.json",
+        "bytes": 78523,
+        "sha256": "976aa690b985dccff5ca08f81b347c3c7126999cb4d93d6845d67ae1a99730f2",
+        "entriesPreservedWithoutChange": 418
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v7.json",
+        "bytes": 104117,
+        "sha256": "a848550806d9d750157b4ba0d371253253d500f611f3f84e2365b88763a8aa51",
+        "entriesPreservedWithoutChange": 551
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v8.json",
+        "bytes": 138538,
+        "sha256": "77e3f562b43c57bd7617aaaa02e0f7fe3e2b952a8236278193f4f6799816f430",
+        "entriesPreservedWithoutChange": 728
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v9.json",
+        "bytes": 145370,
+        "sha256": "a1e05898400b4bc92ba3fa033d73e11ca2f0007446dd598aea5bdb0339365f54",
+        "entriesPreservedWithoutChange": 764
+      }
+    ],
+    "outsideV10Cutoff": [
+      {
+        "path": "evidence/next-implementation-plan-v10.json",
+        "sha256": "2a1c1f7ad7365ecdf1668789f0122c2da101edeb2ed57f7bb0f5cf05733e8f91"
+      },
+      {
+        "path": "evidence/next-implementation-plan-v11.json",
+        "sha256": "5234d004b998998643ec88240f9627fc55274378609d918e6d6642538136634c"
+      }
+    ],
+    "outsideFilesVerified": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/next-implementation-plan-v10.json",
+        "bytes": 18615,
+        "sha256": "2a1c1f7ad7365ecdf1668789f0122c2da101edeb2ed57f7bb0f5cf05733e8f91"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/next-implementation-plan-v11.json",
+        "bytes": 19250,
+        "sha256": "5234d004b998998643ec88240f9627fc55274378609d918e6d6642538136634c"
+      }
+    ],
+    "meaning": "Immutable raw941-file cutoff remains unchanged.Newtruth plans are additive and explicitly listed outside cutoff;oldv9/v10 statements retained as historical snapshots."
+  },
+  "independentRuntimeEvidenceReadOnlyAudit": {
+    "reviewerRuntimeExecutions": 0,
+    "resultSummary": {
+      "commands": 18,
+      "allExit0": true,
+      "allCountsMatchPlan": true,
+      "independentFailed": 0,
+      "independentSkipped": 0,
+      "automaticRetries": 0,
+      "capture": 87,
+      "nativeProtocol": 51,
+      "actualAdapter": 23,
+      "pureNative": 16,
+      "pureRequired": 12,
+      "pureJournal": 18,
+      "pureControl": 4,
+      "actualContext": 38,
+      "actualImages": 26,
+      "actualDispatch": 32,
+      "actualSubagents": 117,
+      "staticAssertions": {
+        "moduleGraph": 17,
+        "routes": 14,
+        "facts": 30,
+        "processSafety": 12,
+        "sessionSaveCensus": 20
+      },
+      "durableSurfaces": 72,
+      "buildFresh": true,
+      "countBoundary": "Per-suite executions overlap; inventory surfaces are not runtime tests. No extra tests or whole-unit rerun were added for reporting."
+    },
+    "bindingSummary": {
+      "checkpoints": 36,
+      "eachSources": 125,
+      "eachArtifacts": 4,
+      "allRawRowsRecheckedAgainstFreeze": true,
+      "allMatched": true
+    },
+    "engineeringBoundary": "Fullunit2626pass/18existingSkip,static80/13centralLiveSkip,syntax1179 and build were primary final-v2 commands whose logs and before/after binding the independent reviewer reused read-only.The independent18commands do not include invented repeated fullunit/syntax/fast runs;no global0skip claim made for engineering unit preflight.",
+    "ownership": "Independent report records all observed owned identities exited/released;documentation does not turn observed-only cleanup into unobserved escape completeness or body-interruption proof.",
+    "rawBindingManifest": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/adapter-after-binding.json",
+        "bytes": 34506,
+        "sha256": "d45340f217bac6f6f0db7ca5aeeddd4f1a5f6d58a9a72c7d55a151f5ab9a9ea6"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/adapter-before-binding.json",
+        "bytes": 34506,
+        "sha256": "56a22d09539a000369df7c42adb307f6a552914d6db76b5a128919f7e4671d9e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/build-after-binding.json",
+        "bytes": 34506,
+        "sha256": "8ef157c0f97dd09dbc05d806d1897f78ea7bf01e4d36d701b5da36f7811790a5"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/build-before-binding.json",
+        "bytes": 34506,
+        "sha256": "e1cb04ade503035873a1fdc04fa80523ad3841f1b79159ffd9e34cf68df5761f"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/capture-after-binding.json",
+        "bytes": 34506,
+        "sha256": "aea10aff83f5945e1e7bab1d6208f16b5d9987f379e04b55da363768d6039bdc"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/capture-before-binding.json",
+        "bytes": 34506,
+        "sha256": "a1b490dae95764dbc39afea70623788d72b91e67eac8774bb635a68a44b0fa5c"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/context-after-binding.json",
+        "bytes": 34506,
+        "sha256": "98d3d9b83c2789d5b06a0ffe871984568eeadca3de449c08d61c8466f136b538"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/context-before-binding.json",
+        "bytes": 34506,
+        "sha256": "385b41d83583d29e9810ed62acea712ff4d57adca3c0363c18381caf2b56aa96"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/dispatch-after-binding.json",
+        "bytes": 34506,
+        "sha256": "5e1e12b6f5db17d00a12f8220da5d486bcff7b822c411e5a4df0bb422bd64332"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/dispatch-before-binding.json",
+        "bytes": 34506,
+        "sha256": "e34cf462d2500b7db1fe37b10b75b89057ab124768aa776210c16dcc53879b98"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/durable-after-binding.json",
+        "bytes": 34506,
+        "sha256": "23d9072da33c1749a78ee77b2bb8f8d7ecf8b94ff972be99d68c13a7d52aa12b"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/durable-before-binding.json",
+        "bytes": 34506,
+        "sha256": "2ec336ee8f9ab9902fe4ceecbd3ee481e1029ab7b426f38375e716ab9b439e0d"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/facts-after-binding.json",
+        "bytes": 34506,
+        "sha256": "483ddf4b823403e45624742d5156a20581d98f805a02ed4ff84203bdc5e73e66"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/facts-before-binding.json",
+        "bytes": 34506,
+        "sha256": "977074d1d8f5988db3653c0111b3d86142a3c6545cc71a75392239772691310d"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/images-after-binding.json",
+        "bytes": 34506,
+        "sha256": "13c73d11c2aa54e3fd6c59ec9b8ce35ade51d73b1abd32e3031c0e228105b4e4"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/images-before-binding.json",
+        "bytes": 34506,
+        "sha256": "053f40e94c7bf4d5b02f5e5eea2ea7cbb6501f9c058fe3cc488acedf77c7905a"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/module-graph-after-binding.json",
+        "bytes": 34506,
+        "sha256": "cdfc8373fe352808c39f57877ea8c7c8ed24af53a4efbea6d77d7379b2458737"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/module-graph-before-binding.json",
+        "bytes": 34506,
+        "sha256": "fd137010626da6fa339815f9656d6b42aa6492c37c25fd4fba3e5dd598794a1f"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/process-safety-after-binding.json",
+        "bytes": 34506,
+        "sha256": "1e19f4c43eac0b8a48eca7fc5082fd693f7150d8e91043fa4a2faf9042a5dc4c"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/process-safety-before-binding.json",
+        "bytes": 34506,
+        "sha256": "1fe8a2e54c6a176746e98176d485a4bd6474a923ccb10b8decf99b03d001104e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/protocol-after-binding.json",
+        "bytes": 34506,
+        "sha256": "c918714d187351b01ba4c6266581e580a860f466ce2f665646f0f218f8b27e16"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/protocol-before-binding.json",
+        "bytes": 34506,
+        "sha256": "a0dd4c490cab79f344813d13b0351d781fbdfa28972dc652b395879e069cb587"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-control-after-binding.json",
+        "bytes": 34506,
+        "sha256": "ddfba4af44bc798ddfcca9d1d0d1f585fe96a9c6209be9d28417d9b206e9c12f"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-control-before-binding.json",
+        "bytes": 34506,
+        "sha256": "c1d60deee5c8e3a5fd0f87a92b4e739e08d862997b95a2d19bf4a371164ee4a0"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-journal-after-binding.json",
+        "bytes": 34506,
+        "sha256": "742d0b56bc4d9e035718e0040615eb2ee6b5a5cf54a4d4d31b98201731860aaf"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-journal-before-binding.json",
+        "bytes": 34506,
+        "sha256": "b6d321a8be9e92468e81e4d51024002e8d44137e463b27bf096f57a970c55271"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-native-after-binding.json",
+        "bytes": 34506,
+        "sha256": "cb25885707fd34f7786d0d18be1b9dce666d3e6e3edc891a064c3eecd62abbf8"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-native-before-binding.json",
+        "bytes": 34506,
+        "sha256": "1be1056d5b4459e64027a3df9129563b8129d78afcd1a14e3ee989dc15981b00"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-required-after-binding.json",
+        "bytes": 34506,
+        "sha256": "280f96c2cccfc18f4df767e11a2c29f30aa56d42d5e68d9845d9502c5db2f6f1"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/pure-required-before-binding.json",
+        "bytes": 34506,
+        "sha256": "30b031ac091e6d2ca20c0b0d402577c62fad1697ecfa35d317040ef5f3fb44af"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/routes-after-binding.json",
+        "bytes": 34506,
+        "sha256": "ee90b6e738e68a020702a97dbdad06da1491abb2e6862b9ecd5a05c7097deae0"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/routes-before-binding.json",
+        "bytes": 34506,
+        "sha256": "293bc4eab28b3256403c2fb977c9425a37116f23a6c84fa0effeb284f703c805"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/session-save-census-after-binding.json",
+        "bytes": 34506,
+        "sha256": "9e43a322f3742452ad485c65fa41c804edddfafa0643d4494f677c9a9c40ff2a"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/session-save-census-before-binding.json",
+        "bytes": 34506,
+        "sha256": "ba63760ffb4c2ecab2f36a6c6187a452e3afde28c6973ba6bfb238907541df30"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/subagents-after-binding.json",
+        "bytes": 34506,
+        "sha256": "4075c039d0e54976826d9f297ef5c587c67f9d89631f573ba34213359e6fc67a"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/subagents-before-binding.json",
+        "bytes": 34506,
+        "sha256": "39bbd02139274d13a7b710976020cae5ef21dfa40d353630856ffe31505fdde1"
+      }
+    ]
+  },
+  "documentTruthChecks": {
+    "TASKS_P5_05_inProgress": true,
+    "nativeSliceDefaultOff": true,
+    "nativeSliceFullP5AcceptedFalse": true,
+    "currentStateSchema": 7,
+    "currentStateP5InProgress": true,
+    "currentStateNoFullCompletion": true,
+    "currentStatePathShaReferencesVerified": 150,
+    "markdownLinksVerified": 83,
+    "currentPlan": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/next-implementation-plan-v11.json",
+      "bytes": 19250,
+      "sha256": "5234d004b998998643ec88240f9627fc55274378609d918e6d6642538136634c"
+    },
+    "currentBalancedDesign": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence/root-input-hard-abort-next-stage-design-v1.json",
+      "bytes": 32409,
+      "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5"
+    },
+    "helperRoles": "ec6 currentgeneric capture candidate;955 oldinput-receipt-only negative compatibility;1cc unchanged original no-receipt legacy helper.No original helper rebuild/re-sign or App responsible identity claim.",
+    "historicalAndCurrentSeparated": "README labels coref671 wait/mouse/fixedPNG and122/3 as historical;currentb793 selected native125/4 scope separately explained.Planv11 explicitly labels inherited implementation and old subagent design chronology,while currentqualification/nextRequiredWork define next work."
+  },
+  "findingsClosedBeforeReport": [
+    {
+      "id": "NCD1",
+      "area": "Current versus historical core README scope",
+      "finding": "Updated lead previously left wait/mouse-only/fixedPNG122/3 and realcapture-open wording apparently current.",
+      "resolution": "Parent labels coref671 historical,distinguishes current125/4 source archive,and removes qualified realcapture/OCR from current open list.All historical evidence retained.",
+      "state": "closed"
+    },
+    {
+      "id": "NCD2",
+      "area": "Current next-plan status",
+      "finding": "Oldcurrentnextwork and goal said nativecapture remained next implementation/no commit despite actualb793integration.",
+      "resolution": "New additiveplanv10 fixes goal/qualified scope,census602/289/44/13 and balancednextwork;v11 becomes currentpointer.Oldindexedv9 and intermediatev10 SHA unchanged.",
+      "state": "closed"
+    },
+    {
+      "id": "NCD3",
+      "area": "Current helper runtime role",
+      "finding": "runtime.candidateHelper formerly named oldinput-only955 helper.",
+      "resolution": "Currentruntime now names ec6 nativegeneric helper with exactSHA;955and1cc roles separately preserved and hashchecked.",
+      "state": "closed"
+    },
+    {
+      "id": "NCD4",
+      "area": "Inherited cumulative implementation/design fields",
+      "finding": "Then-unimplemented statements and oldinventories still appeared under implementedNow/current design label.",
+      "resolution": "Additiveplanv11 renames historicalImplementationSequence,historicalSubagentDesignInspection,historicalSubagentAdmissionDesignReview;historicalFieldsMeaning says these are oldcheckpoint facts and currentstatus lives in qualification/nextRequiredWork.CurrentnextStageReviewedDesign points to balanced43abdesign.",
+      "state": "closed"
+    }
+  ],
+  "confirmedRemainingBlockingFindings": [],
+  "scopeAndOriginalRequirements": {
+    "mapping": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11-effects.json",
+      "bytes": 17089,
+      "sha256": "d81fe75fdd5f7514f37bc20023bbb848329f73cf8536223346ca89b7fae84d2e"
+    },
+    "localIDs": [
+      "live_input_recording",
+      "cancelled_action_audit",
+      "approval_and_native_audit",
+      "file_checkpoints",
+      "actual_ime",
+      "live_revoke_and_lock",
+      "layout_transition",
+      "catalog_readiness_and_hidden_tools",
+      "selected_application_candidate_scope",
+      "status_and_bindings"
+    ],
+    "externalIDs": [
+      "physical_displays",
+      "minimum_os",
+      "windows_candidate",
+      "release_identity"
+    ],
+    "statusesPreserved": "Linked original10local+4external mapping remains unchanged;historical scoped closures are not reset and open scopes not waived.",
+    "retainedOpenWork": [
+      "Background/API0/actualturn0/persistedresume explicitschema and lifetimes;do not relax schema1 or invent foreground parent.",
+      "AuthenticatedCLI relay/main+subagent response persistence and real manual API/MCP/standalone admission.",
+      "Historical reconciliation,trusted peer/connector-data-root locator,lost output versus lostdelivery,retentionACK/globalbytesfiles quotas/delete/rewind;no unknown eviction.",
+      "Balanced actual root/provider input still design-only;heldfault prohibited until independently reviewed/qualified bounded out-of-tree rescue.Noninterference with userhardware remains unproved by aggregateHID/combined state.",
+      "Originalschema2 supportedsubset/historical failures and schema3standard-mouse selectedscope remain;no repeat physical你好/drag/Finder.",
+      "TCCrevoke/denied/regrant/action-timeOSlock/displaytopology/macOS14/finalcandidateWindows/formalAppreleaseidentity/credentials/cleaninstall remain distinct."
+    ],
+    "proofLimits": "Actual rootStop establishes exact observed cleanup+unknown before terminal observation,not nativebody interruption.Forcednativecallback and nativeOCRlongdeadline branches remain source-only.Smallnodevalidreopen is not full workflow resume/replay or semantic model comprehension.",
+    "restoration": "P5remainsin_progress;originalautomaticlock300/currentlastobserved0 and ownedkeepawake restoration only after fullP5.This review did not inspect/change live settings or signal any process."
+  },
+  "failureHistoryPreserved": {
+    "allOldIndexesSubsetByteIdentical": true,
+    "nativeDevelopmentFailures": [
+      {
+        "log": "development/native-capture-smoke_macos_receipt_session-v1.log",
+        "cause": "Primary runner omitted pre-existing RUYI_RECEIPT_SESSION_LEGACY_HELPER env; one KeyError, new cases passed. Env-only v2 passed19; v3 after observer repair20, v4 actual shared cancellation21."
+      },
+      {
+        "log": "development/actual-native-capture-v1.log",
+        "cause": "Fixture enabled desktop,vision but omitted actual ocr toolset; actual screenshot/status passed, OCR unknown-tool before business dispatch. Config corrected desktop,ocr,vision; predicates unchanged. V2 passed35 before final observer repair, V3 passed35 after repair."
+      },
+      {
+        "log": "development/actual-native-capture-v4.log",
+        "cause": "Fixture wrongly sampled dispatching immediately at HTTP turn Stop; actual09 contract explicitly permits asynchronous tool cleanup. V5 saves immediate state then requires exact worker exits and same-invocation durable unknown; no phaseOR. V6 adds liveowner/stopped:true/allmodelattempts and pre-native2s/pre-fixture5s timing fences."
+      },
+      {
+        "log": "development/actual-native-capture-v7.log",
+        "cause": "Fixture incorrectly expected >4M base64 display attachment. Existing source intentionally bounds display instead. V8 independently observes actual _fields returned image without changing object, verifies original display chars and exact PNG/invocation, derives16MiB actual snapshot refusal. No product fallback or missing image waiver."
+      },
+      {
+        "log": "development/native-final-fast-v1.log",
+        "cause": "Primary mutated a smoke test during frozen gate. Unit2626/static80 ran successfully but after-binding failed; this is not valid finalfreeze qualification. Traceback/session43140 and gate-v1 records retained. Freezev2 finalgate rerun after source locked passed all before/after."
+      }
+    ],
+    "oldFailures": "Originalcapture/adaptertoolset/environment failures,V4immediateStop sampling,V7displayattachment error and finalgate-v1 source mutation/afterhash invalidation retained;v1unit/static pass not accepted as complete frozenqualification.Finalv2 valid checks are separately referenced.No oldfailed assertion deleted as scope waiver."
+  },
+  "checkpointPreservation": {
+    "previousTrackedCurrentStateExactCopies": [
+      "current-state-pre-native-wip-20261111T2219Z.json",
+      "current-state-20261111T220319Z.json"
+    ],
+    "checkpointSnapshots": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T140216Z.json",
+        "bytes": 6647,
+        "sha256": "7d4bc3493bd3ef8274b8f3403f6962aa3c56c07ee54c5500d937280062a393e4"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T1535Z.json",
+        "bytes": 16104,
+        "sha256": "a859dfe308ac3b6a47530b7b67585ae999277e0925390ec560f181e07ec88938"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T154754Z.json",
+        "bytes": 18600,
+        "sha256": "9847830821439732b9d8508b5b37409b1c4b302577799bbb131fb34916f23e54"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T172604Z.json",
+        "bytes": 35113,
+        "sha256": "e1e64e5a9ef7edf3c560bdfeee73ae4edc737efade6f9a6460c01fbae07f7aa0"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T175548Z.json",
+        "bytes": 42070,
+        "sha256": "56d8ee874d4b67d053740365552ec60b186c1dbf1469ad860f357baa2ea842d3"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T184418Z.json",
+        "bytes": 50301,
+        "sha256": "fd0264e123e48a3ea9b150abd98740f6ffc1c48b502e1795a0bd0deb11d434c3"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T201029Z.json",
+        "bytes": 35409,
+        "sha256": "044a57212d426f208930abd47f9e5eb0c9f33f010c1bf0c3299e3d0f0f4577a5"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T215838Z.json",
+        "bytes": 46827,
+        "sha256": "13a3e807c4ce0222f093c386aa00f1beb7e0d06cc03be7abb2e6be3082e39758"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T220319Z.json",
+        "bytes": 47549,
+        "sha256": "6d5097a74190ec780249ba96286f62ccd1469406c401b16329e935b11ba85de7"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T222103Z.json",
+        "bytes": 52151,
+        "sha256": "8ef31090927d8c36627c7bd694a037705125808535d85e833aab6bc922e958e4"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T231838Z.json",
+        "bytes": 53450,
+        "sha256": "105ca683527fed0d40e8403a49977dfdbc37079fcb74bbcb70c931180bb34377"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T232229Z.json",
+        "bytes": 53663,
+        "sha256": "72262671e09074e19a9b6b23db6996fa4989ba5dc59a14b6d6ec476bae0204a1"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T232251Z.json",
+        "bytes": 54401,
+        "sha256": "61c9c5044a04ed0bd9510967b964ba3158ed7faecd83b3c3d387c43d6aa2d5ab"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-20261111T232438Z.json",
+        "bytes": 54557,
+        "sha256": "4cdee1a86cdb145c3ea71aa3a4bd3bfdc4ba5ce18945864f3d59f331831bf8e7"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-pre-native-qualified-20261111T2318Z.json",
+        "bytes": 52151,
+        "sha256": "8ef31090927d8c36627c7bd694a037705125808535d85e833aab6bc922e958e4"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state-pre-native-wip-20261111T2219Z.json",
+        "bytes": 47549,
+        "sha256": "6d5097a74190ec780249ba96286f62ccd1469406c401b16329e935b11ba85de7"
+      }
+    ],
+    "currentStateIsMutablePointer": "Reviewed currentstate hash is bound below;historical immutable snapshot copies preserve prior pointers.New reviewerpointer/evidence may be appended after this report without changing product/runtime qualification;any substantive status/scope edits require review."
+  },
+  "reviewedDocuments": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/TASKS.json",
+      "bytes": 108742,
+      "sha256": "21b161ea49487ac0fd64bcaa16321dfc9a4cf7c04e4c63453dfae057593dcd63"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 13444,
+      "sha256": "08959fff9a1ef5207fe6f4e60627dec78dc750c08680f1956b1fe1d34cea2444"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "bytes": 12274,
+      "sha256": "cd8bec22c693a86f85c1c382db57ef206954cc0c64c9e4014e33925f73af675c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "bytes": 2536,
+      "sha256": "a921b3f149476a47ff8bfc8fdd868764d63b894cbf57ce7d113e6b2836990af8"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state.json",
+      "bytes": 54557,
+      "sha256": "4cdee1a86cdb145c3ea71aa3a4bd3bfdc4ba5ce18945864f3d59f331831bf8e7"
+    }
+  ],
+  "markdownLinkChecks": [
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/screen.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/capture.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/desktop_extra.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/mouse.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/window.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/uia.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/observe.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "../ruyi-workbench/app/src/12-tool-dispatch.js",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/ax/apps/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/ax/apps/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/ocr/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/composed/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "10-TRACKING.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "08-VALIDATION.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/record/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/audit/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/remaining-audit.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/manual/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/entry/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/selected-current/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/readiness/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/transition/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/hard-abort/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/durable-history/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/tool-effect-audit/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/remaining-resolution-2026-11-11-effects.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/execution-receipts-wip/current-state.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/06-P5-AUTOMATION.md",
+      "link": "evidence/P5/execution-receipts-wip/current-state.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P3/final-mac-acceptance/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P4/host/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "TASKS.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/manual/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/entry/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/selected-current/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/readiness/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/transition/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/remaining-audit.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/remaining-resolution-2026-11-11.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/remaining-resolution-2026-11-11-current.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/hard-abort/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/durable-history/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "11-P0-DECISIONS.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "01-P0-BASELINE.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "02-P1-RUNTIME.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "03-P2-AGENT-CORE.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "04-P3-DOCUMENT-BROWSER.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "05-P4-DESKTOP-APP.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "06-P5-AUTOMATION.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "07-P6-RELEASE.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "09-EFFORT-ESTIMATE.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "11-P0-DECISIONS.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "probes/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P0/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "00-ARCHITECTURE.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "08-VALIDATION.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "10-TRACKING.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "TASKS.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "../docs/MACOS-MIGRATION-AUDIT.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "../docs/MACOS-FILE-INVENTORY.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "../docs/MACOS-BASELINE-TESTS.txt",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P0/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P1/closeout/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P2/final-acceptance/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P3/acc-shared/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P3/office/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P3/final-mac-acceptance/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "05-P4-DESKTOP-APP.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P4/local-closeout.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P4/full-mac-acceptance/README.md",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P4/full-mac-acceptance/review.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/execution-receipts-wip/current-state.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/README.md",
+      "link": "evidence/P5/execution-receipts-wip/current-state.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "evidence/independent-foreground-subagent-v1/report.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "evidence/foreground-subagent-source-review-v3.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "evidence/foreground-subagent-review-coverage-v1.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "current-state.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "evidence/native-capture-source-review-v2.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "evidence/independent-native-capture-v1/report.json",
+      "exists": true
+    },
+    {
+      "from": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/README.md",
+      "link": "evidence/native-capture-source-review-v2.json",
+      "exists": true
+    }
+  ],
+  "finalDecision": "Documentation truth,links,hashes,preservation and scope boundaries pass after recordedcorrections.Ready for parent document/evidence commit.No runtime rerun or feature change requested;no fullP5,held/input or release acceptance granted."
+}

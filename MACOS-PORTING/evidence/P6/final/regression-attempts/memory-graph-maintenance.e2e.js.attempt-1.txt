@@ -1,0 +1,17 @@
+PASS fixtures: project/global memories saved
+PASS fixtures: 3 confirmed + 1 pending relation
+PASS report is scoped to current project (4 memories only)
+PASS confirmed relations form one deterministic 3-memory cluster
+PASS cluster preserves relation types and conflict count
+PASS pending edge does not pull an isolated memory into a cluster
+PASS confirmed supersedes yields high-priority review-only suggestion
+PASS old memory with no confirmed links yields low-priority review suggestion
+PASS old but linked memories are not mislabeled stale merely by creation age
+PASS same graph + clock produces byte-stable cluster/suggestion output
+PASS analysis is read-only: no relation confirmation or memory deletion
+PASS project scope does not leak memories or clusters across cwd
+PASS global analysis is separate from project graph
+PASS missing relation endpoints are surfaced as cleanup candidates
+PASS orphaned edges are excluded while remaining confirmed graph still clusters
+
+ALL PASS (R4-S3 memory maintenance)

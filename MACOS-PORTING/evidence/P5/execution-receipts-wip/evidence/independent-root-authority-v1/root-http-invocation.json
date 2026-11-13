@@ -1,0 +1,40 @@
+{
+  "label": "root-http",
+  "argv": [
+    "node",
+    "dev-harness/desktop-execution-root.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rra-w071v69d/home",
+    "USERPROFILE": "/tmp/rra-w071v69d/userprofile",
+    "APPDATA": "/tmp/rra-w071v69d/appdata",
+    "LOCALAPPDATA": "/tmp/rra-w071v69d/localappdata",
+    "RUYI_HOME": "/tmp/rra-w071v69d/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-w071v69d/data",
+    "WCW_DATA_DIR": "/tmp/rra-w071v69d/acc-data",
+    "TMPDIR": "/tmp/rra-w071v69d/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rra-w071v69d/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rra-w071v69d/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_ROOT_EXECUTION_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http-results.json"
+  },
+  "startedAt": "2026-11-11T17:51:51.604119+00:00",
+  "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64"
+  },
+  "finishedAt": "2026-11-11T17:51:52.626055+00:00",
+  "elapsedSeconds": 1.021772542007966,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/root-http.log",
+    "bytes": 800,
+    "sha256": "a15cf50a0896734036222779f0f7cb6263e69b23d2a92a61fc5e257bd8edcc3f"
+  }
+}

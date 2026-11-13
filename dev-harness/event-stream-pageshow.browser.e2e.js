@@ -231,6 +231,7 @@ try {
   browser = cp.spawn(executable, [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    ...(process.platform === 'darwin' ? ['--use-mock-keychain', '--password-store=basic'] : []),
     '--force-device-scale-factor=1', '--window-size=1440,1000',
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
   ], { windowsHide: true, stdio: 'ignore' });

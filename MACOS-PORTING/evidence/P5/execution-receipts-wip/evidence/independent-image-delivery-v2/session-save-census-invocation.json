@@ -1,0 +1,45 @@
+{
+  "label": "session-save-census",
+  "argv": [
+    "node",
+    "dev-harness/session-save-census.static.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-n5xgmr99/home",
+    "USERPROFILE": "/tmp/rd-n5xgmr99/userprofile",
+    "APPDATA": "/tmp/rd-n5xgmr99/appdata",
+    "LOCALAPPDATA": "/tmp/rd-n5xgmr99/localappdata",
+    "RUYI_HOME": "/tmp/rd-n5xgmr99/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-n5xgmr99/data",
+    "WCW_DATA_DIR": "/tmp/rd-n5xgmr99/acc-data",
+    "TMPDIR": "/tmp/rd-n5xgmr99/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-n5xgmr99/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-n5xgmr99/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "startedAt": "2026-11-11T19:59:15.877574+00:00",
+  "freezeSha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T19:59:15.988745+00:00",
+  "elapsedSeconds": 0.11107016701134853,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/session-save-census.log",
+    "bytes": 1906,
+    "sha256": "3b78743dcb63f5d2ea9b8e69fe9e74e6c05acf8427249a06d0c22bc4a8fa2b86"
+  }
+}

@@ -1,0 +1,48 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 0d8fd11c7588)
+[wb] UI: http://127.0.0.1:49965/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-help-menu-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :49965
+PASS bootstrap 换到 token
+PASS ④ open-path 无 token -> 403
+PASS ④ open-path 错 token -> 403
+PASS ④ logs/tail 无 token -> 403
+PASS ④ logs/tail 错 token -> 403
+PASS ② 枚举外的 22 个样本(含 '../..'、'data;calc'、大小写/空格变体、客户端传路径)全部 400 openPath.target_unknown
+PASS ③ target=workspace 且无会话 -> 400 openPath.workspace_missing
+PASS ③ sessionId 穿越串被 safeSessionId 挡掉,退化为「没有会话」而不是拼路径
+PASS ① target=data -> {ok:true,target:"data"}(服务端把资源管理器开出来)
+PASS ① 成功响应里不含任何绝对路径(界面上不会出现「照着去找」的路径)
+PASS ⑤ logs/tail 默认 -> ok:true + lines 数组
+PASS ⑤ 缺省 200 行,上限声明 2000(前端行数选择器与服务端同值)
+PASS ⑤ file 只回文件名不回目录: workbench-2026-11-12.ndjson
+PASS ⑤ lines 全是非空字符串(空行已过滤)
+PASS ⑤ lines 超上限被夹到 2000
+PASS ⑤ lines=0 被夹到 1
+PASS ⑤ lines 负数被夹到 1
+PASS ⑤ lines 非数字回落默认 200
+PASS ⑤ lines 带尾巴只取前缀数字(parseInt),不进任何路径/命令
+PASS ⑤ lines=3 只回三行以内
+PASS ⑤ POST 同路径不被本路由服务(status=403)
+PASS ⑤b 写坏的请求体漏到顶层 → 400 api.bad_json(实 400:{
+  "ok": false,
+  "error": {
+    "code": "api.bad_json",
+    "params": {},
+    "message": "request body is not valid JS)
+PASS ⑤b「看日志」里有一条 http_unhandled:方法／路径(不带查询串)／状态／错误名／栈({"ts":"2026-11-12T14:06:53.499Z","kind":"http_unhandled","method":"POST","path":"/api/sessions","status":400,"name":"Error","message":"request body is not valid JSON","stack":["at readJsonBody (/Users/jiming/Documents/ru)
+PASS ⑤b 请求体原文与查询串都不进日志(金丝雀不在 —— JSON.parse 的消息会引请求体原文,那里面可能有密钥)
+PASS ⑥ 日志文件不在 -> 200 降级 logs.none(移走 1 份;实得 {"ok":false,"maxLines":2000,"error":{"code":"api.request_failed","params":{},"message":"logs.none"}})
+PASS ⑥ 降级响应里也没有路径,前端只能在应用内解释
+PASS ⑥ 降级信封被 normalizeApiErrorPayload 结构化(前端必须按 message/code 判定,不能只比字符串)
+PASS ⑥ 日志面板按 helpErrorTag 判定两条降级分支(不再只比字符串)
+PASS ⑥ 手册阅读器的缺文件降级同款修补(118a-fix 遗留的恒不命中已修)
+PASS ⑦ OPEN_PATH_TARGETS 是 Object.freeze 的源码枚举
+PASS ⑦ open-path handler 内没有任何 path.join/path.resolve(目录只由 openPathTargetDir 的常量映射给出)
+PASS ⑦ target 必须先过 OPEN_PATH_TARGETS.includes,handler 不读任何路径型 body 字段
+PASS ⑦ 目录映射是四条硬编码分支 + 兜底空串,没有任何字符串拼接
+PASS ⑦ 日志文件名在服务端已知目录里按固定正则筛,请求里没有文件名入参
+PASS ⑦ 读失败只回机器码,e.message(含绝对路径)只进结构化日志,不回前端
+PASS ⑦ 两条路由都在 ROUTE_AUTH 表里登记为 token 级
+
+HELP MENU E2E: ALL PASS

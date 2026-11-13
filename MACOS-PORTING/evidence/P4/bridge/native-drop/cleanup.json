@@ -1,0 +1,13 @@
+{
+  "complete": true,
+  "probeExitCode": 0,
+  "method": "quit.txt triggers normal SIGTERM handling; finally closes handoff server and reclaims owned child",
+  "nativePID": 8477,
+  "servicePID": 8480,
+  "probePID": 8474,
+  "ownedProcessesAbsent": true,
+  "testFinderWindowClosed": true,
+  "textEditExited": true,
+  "userCodeEmptyWindowRestored": true,
+  "caffeinateRetainedForUserRequestedUnattendedDevelopment": true
+}

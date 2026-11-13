@@ -1,0 +1,9 @@
+Collecting setuptools==80.9.0
+  Using cached setuptools-80.9.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting wheel==0.45.1
+  Downloading wheel-0.45.1-py3-none-any.whl.metadata (2.3 kB)
+Using cached setuptools-80.9.0-py3-none-any.whl (1.2 MB)
+Downloading wheel-0.45.1-py3-none-any.whl (72 kB)
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/setuptools-80.9.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p6-assets/downloads/wheels/wheel-0.45.1-py3-none-any.whl
+Successfully downloaded setuptools wheel

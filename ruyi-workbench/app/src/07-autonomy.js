@@ -156,7 +156,7 @@ async function policyDesktopOverrideFor(ctx) {
 
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
-  if (process.platform === 'darwin' && (name === 'powershell_run' || NATIVE_DESKTOP_TOOL_NAMES.has(name))) {
+  if (process.platform === 'darwin' && (name === 'powershell_run' || name === 'keyboard_send_keys')) {
     return 'platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现';
   }
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
@@ -166,7 +166,7 @@ function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
 // 2026-10 能力总闸补上桥接面。设置页承诺「关掉之后,对应的工具在所有线程里既不提供给模型、也不会执行」,修前只兑现了上面
 // 两张原生名单 —— 内置桌面 MCP(ACC:serverId 'ai-computer-control',桥接名前缀 ai_computer_control__)的 run_command /
 // screenshot / mouse_click 等在两个开关都关掉之后照常提供、照常执行。下面按 ACC 的【裸工具名】补两族(逐个对过
-// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:108 件里收 55 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
+// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:平台源码注册名并集 109 件里收 56 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
 // 哪怕有同名工具也不受影响(它们的语义由用户接入时自己负责,工作台不替它猜)。判据收在 toolDisabledByPolicy 一个函数里,
 // offer 面(09 目录 / 08 子代理 / 11 MCP 子进程目录 / 07 createToolLoadingState)与分发面(09 / 08 / 12 代理 / 13d CLI 权限桥)
 // 都调它;CLI 直挂 ACC 的那一路(01 addExternalMcpServersToMap / syncMcpServersToClaude)按同一张表算出 ACC_HIDE_TOOLS 交给
@@ -191,7 +191,7 @@ const ACC_POLICY_TOOL_FAMILIES = Object.freeze({
     'screenshot', 'screenshot_region', 'get_screen_info', 'find_on_screen',                                    // screen
     'window_screenshot',                                                                                       // capture
     'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'get_mouse_position',              // mouse
-    'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',                                                  // keyboard
+    'type_text', 'press_key', 'hotkey', 'input_sequence', 'key_down', 'key_up',                                                  // keyboard
     'list_windows', 'get_active_window', 'focus_window', 'resize_window', 'move_window',                       // window
     'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
     'ui_inspect', 'ui_find', 'ui_invoke',                                                                      // uia
@@ -311,7 +311,7 @@ function buildOpenAiTools(config, caps, opts) {
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. orchestrate_agents (exec)
     // is already suppressed for sub-turns via noAgentTools, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
-    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.includes('processSupervisor');
+    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.some(cap => ['processSupervisor', 'desktopCapture'].includes(cap));
     if ((caps || needsRuntime) && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }
@@ -511,7 +511,7 @@ const BRIDGED_READ_TOOLS = new Set([
   // 不弹窗)。它落回默认 'exec':read/edit 子代理拿不到,非 bypass 模式点击前弹窗。纯只读文本定位仍可用 ocr_screen/
   // ocr_image(返回全部词+坐标)或 find_on_screen/find_template(模板匹配,无 click、均无 audit → 仍是 read)。
   'find_template', 'find_all_templates', 'find_on_screen',
-  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail',
+  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail', 'execution_receipt',
   'read_file', 'file_info', 'clipboard_get', 'clipboard_read', 'get_clipboard',
   // 审计 A10:ACC 里其余【纯读、不点不敲不写】的工具(逐个对过 tools/*.py 的签名)。修前它们落到默认 exec,default 模式下
   // 每次调用都弹窗 —— 而 screenshot 不弹,推荐的「一步感知」observe(截图+UIA+OCR)反而每次弹。
@@ -653,7 +653,7 @@ function toolPackForName(name, bridgedRoute) {
   const bridge = resolveBridge(bridgedRoute || {}, name);
   const raw = String(bridge ? bridge.toolName : name || '').toLowerCase();
   if (/(excel|spreadsheet|workbook|worksheet|word|docx|document|ppt|powerpoint|slide|pdf|chart_image)/.test(raw)) return 'office';
-  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|type_text|scroll|drag)/.test(raw)) return 'desktop';
+  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|input_sequence|type_text|scroll|drag)/.test(raw)) return 'desktop';
   if (/(archive|zip|unzip|compress|extract)/.test(raw)) return 'archive';
   if (/(search|fetch|http|url|browser|download|web)/.test(raw)) return 'web';
   if (/^memory_(save|read|list|delete)$/.test(raw)) return 'memory';
@@ -1917,6 +1917,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = async b => {
     const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
+    await DesktopExecutionHooks.beforeModelRequest();
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
   };
@@ -2554,6 +2555,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 子代理，需要经过根服务转发的执行身份。'), { code: 'execution_cli_unavailable' });
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();

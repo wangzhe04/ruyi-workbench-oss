@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+const { shellTool, echo, writeFile } = require('./lib/platform-shell-fixture');
 (async () => {
 'use strict';
 // E2E(127 波 2-quater B2 · 45 号文 §2-quater.2 B2 / §2-quater.4 B2):管家代批 —— 真夹具。
@@ -259,8 +260,16 @@ function mkWorkDir(inst, name) {
 // powershell_run 不传 cwd 时跑在服务进程的家目录里(夹具的自隔离 HOME),不是会话的工作文件夹 —— 显式带上。
 // cwd 这个字符串也会被豁免判据摊平扫到(全文多几十字,仍远低于 1000;不含任何删除目标形状)。
 let currentWork = '';
-const ps = command => ({ name: 'powershell_run', args: { command, cwd: currentWork, timeoutMs: 30000 } });
-const pushCmd = (file) => `Set-Content -LiteralPath ${psQuote(file)} -Value ran # git push origin main`;
+const removeCommand = name => process.platform === 'win32' ? 'Remove-Item .\\' + name + ' -Recurse' : 'rm -rf ./' + name;
+function nativeCommand(command) {
+  if (process.platform === 'win32') return command;
+  const relative = /^Remove-Item \.\\([a-z0-9]+) -Recurse$/i.exec(command);
+  if (relative) return removeCommand(relative[1]);
+  // Risk probes remain harmless comments on both shells, even if a gate regresses.
+  return command.replace(/^Write-Output ([a-z0-9]+)(?= #)/i, (_, marker) => echo(marker));
+}
+const ps = command => ({ name: shellTool, args: { command: nativeCommand(command), cwd: currentWork, timeoutMs: 30000 } });
+const pushCmd = file => writeFile(file) + ' # git push origin main';
 
 let R = null, D = null;
 const latency = [];
@@ -307,7 +316,7 @@ try {
   // ① Remove-Item .\tmp -Recurse → 代批
   const pA = schedSid ? await waitPending(R, schedSid, seenR, 30000) : null;
   const pAInput = pA && pA.input && pA.input.command;
-  ok(!!pA && pA.toolName === 'powershell_run' && /Remove-Item \.\\tmp -Recurse/.test(String(pAInput)),
+  ok(!!pA && pA.toolName === shellTool && String(pAInput) === removeCommand('tmp'),
     `R10 前提:定时线程回合(请求级智能自动)对 Remove-Item .\\tmp -Recurse 停下来问了(实得 ${brief(pA && { tool: pA.toolName, input: pAInput })})`);
   const sA = pA ? await waitSettled(R, schedSid, pA.id, 90000) : null;
   const firstA = pA ? firstRow(R, schedSid, pA.id) : null;
@@ -355,14 +364,14 @@ try {
   const dA = rDecisions.find(row => row.basis.interventionId === (pA && pA.id));
   ok(rDecisions.length === 2 && !!dA && JSON.stringify(Object.keys(dA.basis.delegation)) === JSON.stringify(['categories', 'exemptBy', 'commandExcerpt', 'riskNote', 'tainted', 'taintBy'])
     && JSON.stringify(dA.basis.delegation.categories) === '["delete_data"]' && dA.basis.delegation.exemptBy === 'command_text'
-    && /Remove-Item \.\\tmp -Recurse/.test(dA.basis.delegation.commandExcerpt) && dA.basis.delegation.riskNote === RISK_NOTE
+    && dA.basis.delegation.commandExcerpt.includes(removeCommand('tmp')) && dA.basis.delegation.riskNote === RISK_NOTE
     && dA.basis.delegation.tainted === false && dA.basis.delegation.taintBy === null
     && dA.undoRef && dA.undoRef.kind === 'none' && dA.mayAct === 'auto',
     `R30 ① 决策账本:两条代批各一行 basis.delegation{categories,exemptBy,commandExcerpt,riskNote,tainted:false,taintBy:null}、undoRef.kind:none(实得 ${rDecisions.length} 行,${brief(dA && { basis: dA.basis, undoRef: dA.undoRef, mayAct: dA.mayAct, permissionMode: dA.permissionMode })})`);
   // 审计行:只放元数据
   const audit = await waitFor(() => { const rows = logRows(R, 'steward_exempt_delegated'); return rows.length >= 2 ? rows : null; }, 10000);
   ok(!!audit && audit.length === 2 && audit.every(({ row, line }) => JSON.stringify(row.categories) === '["delete_data"]' && row.riskNoteChars === RISK_NOTE.length
-    && !line.includes('Remove-Item') && !line.includes(RISK_NOTE) && !('commandExcerpt' in row) && !('riskNote' in row)),
+    && !line.includes(removeCommand('tmp')) && !line.includes(RISK_NOTE) && !('commandExcerpt' in row) && !('riskNote' in row)),
     `R31 ① 审计日志 steward_exempt_delegated 两行,只有元数据(无命令摘录、无理由正文)(实得 ${brief(audit && audit.map(a => a.row))})`);
   // 确定性回执:假管家回复的 actions 一直是空数组,say 一个字不提代批
   const stewardSession = await reqJson(R, 'GET', '/api/sessions/steward');
@@ -467,7 +476,8 @@ try {
   //(stewardExemptDelegationRecord 只在十道闸全过之后才记),下面 D95 的「恰好 6 次」前提不受影响。
   // 危险词一律写在 PowerShell 注释里(与 D20 同一条回归机纪律):闸门被摘掉时真跑的也只是前半句 Write-Output。
   {
-    const LONG = 'Write-Output g4 # Remove-Item .\\tmp -Recurse ' + 'x'.repeat(927 - 45);
+    const longPrefix = process.platform === 'win32' ? 'Write-Output g4 # Remove-Item .\\tmp -Recurse ' : echo('g4') + ' # rm -rf ./tmp ';
+    const LONG = longPrefix + 'x'.repeat(927 - longPrefix.length);
     const cmds = [
       "Write-Output g1 # Remove-Item .\\tmp -Recurse; & ('shut' + 'down') /s /t 0",
       'Write-Output g2 # Remove-Item C:\\Users -Recurse -Force',
@@ -513,7 +523,7 @@ try {
     const keys = res ? Object.keys(res) : [];
     const rest = keys.filter(k => k !== 'delegable' && k !== 'blockedBy');
     ok(!!res && res.blockedBy === 'switch_off' && res.delegable === false && JSON.stringify(rest) === JSON.stringify(B1_KEYS)
-      && res.message === '工具 powershell_run 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定'
+      && res.message === '工具 ' + shellTool + ' 这次要执行的命令命中了永久豁免清单的「删数据」类(不可撤销且外溢的动作),任何权限档都必须由用户亲自决定'
       && res.reason === 'permanently_exempt' && res.exemptBy === 'command_text' && res.exemptCategory === 'delete_data' && res.type === 'permission',
       `D42 ④ 开关关:信封除 delegable/blockedBy 两键外与 B1 逐键同序同值(实得键 ${brief(keys)} message=${res && res.message})`);
     ok(fs.existsSync(path.join(D.WORK, 'd4')), 'D43 ④ d4 仍在');

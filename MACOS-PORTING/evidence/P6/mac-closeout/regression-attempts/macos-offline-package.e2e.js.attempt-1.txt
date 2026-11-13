@@ -1,0 +1,3 @@
+SKIP live offline-package acceptance requires macOS and RUYI_OFFLINE_CANDIDATE
+
+MACOS OFFLINE PACKAGE E2E: ALL PASS

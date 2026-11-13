@@ -1,0 +1,31 @@
+PASS ACP prompt keeps the original first text block
+PASS valid PNG/JPEG attachments become ACP image blocks
+PASS ACP image data is the verified file bytes
+PASS accepted images use guard, stat-before/read, and stat-after
+PASS no attachments keeps a raw slash prompt
+PASS no-image prompt performs no filesystem work
+PASS non-image attachment is not re-read or sent remotely
+PASS missing image capability degrades without reading the image
+PASS capability degradation preserves the file reference and emits stderr
+PASS contradictory MIME is rejected before reading
+PASS text disguised as PNG is rejected by the byte header
+PASS single-image limit rejects >5 MiB before read
+PASS 15 MiB total limit keeps only images within the cap
+PASS four-image count limit preserves the fifth reference as a fallback
+PASS out-of-workspace image is rejected by the normal guard
+PASS traversal-resolved outside path is not read
+PASS relative image attachment is rejected without invoking the guard
+PASS read failure degrades without aborting the turn
+PASS normal guard permits a canonical owned upload
+PASS explicit normal-guard denial cannot be overridden by upload path shape
+PASS upload-root junction escaping its canonical root is not read
+PASS file_<id> junction escaping uploads is not read
+PASS junction fixtures have external targets
+PASS prompt-part processing does not mutate config
+PASS 05 entry contains the slash/recovery/prompt policy block
+PASS Kimi slash with summary keeps recovery un-injected metadata accurate
+PASS Kimi slash prompt remains the original message text
+PASS Claude slash recovery behavior remains on its original path
+PASS Claude non-slash recovery history remains available
+PASS 05 Kimi adapter hands the prepared turn to the ACP bridge
+PASS 05 passes attachments and kimiNativeSlashCommand to the ACP bridge

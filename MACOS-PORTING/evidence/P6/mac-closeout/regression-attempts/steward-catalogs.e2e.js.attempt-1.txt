@@ -1,0 +1,56 @@
+── (A) 技能注册表 ──
+PASS A1 列得出技能(稳定信封 {ok,total,skills})
+PASS A2 每条都带 id 与名字(id 就是 steward_skill_toggle 要的那个)
+PASS A3 每条都说得出现在能不能用
+PASS A4 清单里【不出现】技能目录的绝对路径(管家要的是「有哪些」,不是「在哪个文件夹」)
+PASS A5 不夹带技能正文(那是线程该读的东西,不是目录)
+PASS A6 q 能按 id 筛到那一条
+PASS A7 筛不到就是空清单(不是报错)
+PASS A8 坏 sessionId 当场 not_found(不静默回落到默认工作区 —— 那会让模型以为自己问的是那条线程;got not_found)
+PASS A9 带 sessionId 时看得到那条线程目录下的项目技能
+PASS A10 不带 sessionId 时看不到(它本来就只在那个目录里成立)
+PASS A11 回显问的是哪条线程(模型能确认自己问对了)
+── (B) 端点与模型目录(掩码) ──
+PASS B1 两个端点都列出来了
+PASS B2-密钥 一个字都不出现在回包里
+PASS B2-baseUrl 一个字都不出现在回包里
+PASS B2-audioBaseUrl 一个字都不出现在回包里
+PASS B2-自定义请求头 一个字都不出现在回包里
+PASS B3 连【字段名】都不出现(不暗示它存在、也不暗示形状)
+PASS B4 配没配密钥只给布尔(「这个端点还没配」是管家该说得出的一句有用的话)
+PASS B5 模型清单在(这才是它改 model/asrModel 之前要看的那份)
+PASS B6 用户在菜单里删掉的模型(hiddenModels)不列 —— 列了等于把删掉的又还回来
+PASS B7 模型能力标签原样转述(asr:这条能拿来做语音识别)
+PASS B8 回显现在用的是哪个(省一次 steward_config_get 往返)
+PASS B9 端点只给白名单里那几个字段
+PASS B9b 模型只给白名单里那几个字段
+── (C) 预置流程清单 ──
+PASS C1 列得出 playbook
+PASS C2 每条都带 id 与标题
+PASS C3 描述【不是空的】(字段名写错时整列会空,而清单本身仍然「有 16 条」看着像对的)
+PASS C4 每条都说得出现在能不能用
+PASS C5 不夹带模板正文与文件路径(管家只负责建议,执行在用户手里)
+PASS C6 q 能筛
+── (D) 档位 ──
+PASS D1-steward_skills 是 read 档(got read)
+PASS D1-steward_providers 是 read 档(got read)
+PASS D1-steward_playbooks 是 read 档(got read)
+── (E) 按 playbook 办事 ──
+PASS E1 猜一个不存在的 id -> not_found(got playbook_not_found)
+PASS E2 参数没给全 -> 不开线程(got playbook_inputs_missing)
+PASS E2b 回执里点名缺哪一项、带人话标签(管家拿它去问用户,不是自己编;got [{"key":"month","label":"月份","type":"text"}])
+PASS E2c 只填空白也算没给(空串跑进模板 = 在错的地方动手;got playbook_inputs_missing)
+PASS E3 跑不了的 playbook -> 不开线程(got playbook_unavailable)
+PASS E3b 说得出【真】原因,不是兜底那句(字段名是 unavailableReason 不是 reason;got playbook「要视觉模型才能跑的流程」现在跑不了:需要视觉模型(当前引擎未开启视觉) —— 把这句告诉用户,别开线程)
+PASS E3c 结构化地说缺哪个能力(got ["vision"])
+PASS E4 参数齐了 -> 真的开出线程(got sess_4a4060be278717b6)
+PASS E4b 回执说清按的是哪一个、正文多长(got {"id":"pbrun-ok","title":"整理月度报表","chars":50})
+PASS E5 落盘的委托书记着按的是哪一个(got pbrun-ok)
+PASS E6 填好参数的正文真的进了线程的首条消息(占位没留在那儿)
+PASS E6b 占位符一个都没剩下(留着 = 线程会照着 {folder} 去找一个叫这个名字的目录)
+PASS E6c 用户原话仍然在里面(§3.5 铁律)
+PASS E7 行动流水里看得出这一条是【按你存下的那个流程】起的,不是管家自己编的
+PASS E7b 依据栏记着那个 id(got {"memoryIds":[],"playbookId":"pbrun-ok"})
+PASS E7c 被挡下的那三次零决策账本(没开线程就没有决定可记)
+PASS E8 不给 playbook 时回执里没有那一格(既有行为不变;got undefined)
+STEWARD CATALOGS E2E: ALL PASS

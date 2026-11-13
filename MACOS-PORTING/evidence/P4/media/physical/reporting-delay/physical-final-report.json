@@ -1,0 +1,80 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 0,
+  "microphoneCaptureEvents" : [
+    {
+      "state" : 0
+    },
+    {
+      "state" : 1
+    },
+    {
+      "action" : "tracks_released_stop_requested",
+      "elapsedMs" : 1408.8475832249969
+    },
+    {
+      "action" : "tracks_released_stop_completed",
+      "elapsedMs" : 1417.1177498064935
+    },
+    {
+      "observedDurationMs" : 3000.7043331861496,
+      "state" : 0
+    }
+  ],
+  "microphoneCaptureLimitFired" : false,
+  "microphoneCaptureState" : 0,
+  "microphoneCaptureStopping" : false,
+  "nativePID" : 6799,
+  "page" : {
+    "additional" : {
+      "buttonState" : "idle",
+      "input" : "P4 本机短录音验收完成",
+      "passed" : true,
+      "requests" : [
+        {
+          "constraints" : {
+            "audio" : true
+          },
+          "nativeRequested" : true,
+          "releasedAtUnixMs" : 1794078535737,
+          "requestedAtUnixMs" : 1794078305014,
+          "resolvedAtUnixMs" : 1794078534627,
+          "state" : "released",
+          "stops" : [
+            1110
+          ]
+        }
+      ],
+      "sends" : 0,
+      "supportedTypes" : [
+        "audio\/webm;codecs=opus",
+        "audio\/webm",
+        "audio\/mp4"
+      ],
+      "uploads" : [
+        {
+          "ok" : true,
+          "status" : 200
+        }
+      ]
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 0,
+  "profileIdentifier" : "84FFDADF-B933-C773-FFC2-011F6D4BA9CC",
+  "servicePID" : 6802,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

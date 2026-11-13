@@ -1,0 +1,25 @@
+PASS ① workbench started on :53833
+PASS ① 三条会话建起来了(N=sess_4f17d57aae5fce43 R=sess_39fe32ffb9148011 D=sess_747d1094f38dd113)
+PASS ② workbench restarted (fresh projection index)
+PASS ② GET /api/missions -> 200(实 200)
+PASS ③ N 的五态是 needs_you(实 needs_you)
+PASS ③ R 的五态是 running(实 running)
+PASS ③ D 的五态是 done(实 done)
+PASS ③ updatedAt 三个刻度落定且与期望行序完全相反(N=2026-09-01T00:00:00.000Z R=2026-09-02T00:00:00.000Z D=2026-09-03T00:00:00.000Z)
+PASS ④ 在跑的线程排在已收工的线程前面(R 在第 1 行、D 在第 2 行;R 的 updatedAt 比 D 旧一整天)
+PASS ⑤ 等你的线程压过在跑的线程(N 在第 0 行、R 在第 1 行)
+PASS ⑥ 整列行序 = 状态秩(needs_you -> running -> done),与 updatedAt 降序(D -> R -> N)逐条相反
+PASS ⑦ 同一个事项的行是连续的(组序 ["5fce43","148011","8dd113"] 无重复出现)
+PASS ⑦ 组序也是 needs_you -> running -> done
+PASS ⑦ 组的聚合态只经 06i aggregateMissionState,与行上五态不打脸(实 needs_you/running/done)
+PASS ⑧ /api/missions 带 ETag(实 W/"missions-48a2085259c43c32ad5edfcc-b7698291092ed816fedc60f3-9899c104bdb3f4d575ea4ebb-1906bc5f4e262ff32dff0d3a-0-200")
+PASS ⑧ 事实没变时同一个 ETag 拿到 304(实 304)
+PASS ⑨ workbench restarted after a state-only change
+PASS ⑨ R 的 updatedAt 逐字未变(实 2026-09-02T00:00:00.000Z)
+PASS ⑨ R 的五态由 running 落到 done(实 done)
+PASS ⑨ 同秩时仍按 updatedAt 降序(D 第 1 行、R 第 2 行)—— 状态秩只是【第一】排序键,没有吃掉第二键
+PASS ⑩ 状态变了而 updatedAt 没变 -> ETag 变了(旧 W/"missions-48a2085259c43c32ad5edfcc-b7698291092ed816fedc60f3-9899c104bdb3f4d575ea4ebb-1906bc5f4e262ff32dff0d3a-0-200" / 新 W/"missions-69b726970b90d4c34e9ed157-b7698291092ed816fedc60f3-34fb6ffc6115df200eba801f-b070fb333713ad8576a4e1a3-0-200")
+PASS ⑩ 拿旧 ETag 来条件读【不】返回 304(实 200)—— 不会把旧行序留在看板上
+PASS ⑪ 行指纹段不再是「空数组的哈希」(指纹 9899c104bdb3f4d575ea4ebb / 空哈希 b7698291092ed816fedc60f3)—— 本夹具零事项容器,修前这两个必然相等
+PASS ⑪ 只有状态变(updatedAt 与容器字段都没动)时,行指纹段也变了(旧 9899c104bdb3f4d575ea4ebb / 新 34fb6ffc6115df200eba801f)
+STEWARD THREAD ORDER E2E: ALL PASS

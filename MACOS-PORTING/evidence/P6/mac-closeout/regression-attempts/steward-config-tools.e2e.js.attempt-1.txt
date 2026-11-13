@@ -1,0 +1,73 @@
+── (A) config_get ──
+PASS A1 get 正向返回
+PASS A2 free 键有值且标 free
+PASS A3 confirm 键标 confirm
+PASS A4 forbidden 键连掩码值都不回
+PASS A5 forbidden 键只在 omitted[] 里列键名
+PASS A6 不存在的键也进 omitted
+PASS A7 返回体里零真实密钥字符串
+PASS A8 省略 keys 时返回全部可读键
+PASS A9 全量读也不含任何 forbidden 键
+PASS A10 返回的每一个键都不是 forbidden 级(判据与 06i 单点一致)
+── (B) set free ──
+PASS B1 free 键直接写入(got ok)
+PASS B2 applied 回显新值
+PASS B3 tiers 逐键回显分级
+PASS B4 undoRef 内联旧值 {kind:config, before:{key:oldValue}}(不新增持久化面)
+PASS B5 config.json 真的变了
+── (C) set confirm 未按 ──
+PASS C1 confirm 键 -> propose_required(got propose_required)
+PASS C2 附 {reason:confirm_required, keys:[...]}(13h 据此降级成一个按钮)
+PASS C3 零写入(config.json 逐字节不变)
+PASS C4 free 与 confirm 混在一份 patch 里 -> 整份等按钮
+PASS C5 整份零写入(不做半份生效)
+── (H) args.userPressed 被剥掉 ──
+PASS H1 args 里自称 userPressed 无效(门控壳剥字段)
+PASS H2 仍然零写入
+── (D) set confirm 已按 ──
+PASS D1 ctx.userPressed === true 时 confirm 键真的写入(got ok)
+PASS D2 config.json 里是新值
+PASS D3 undoRef 记着旧值
+── (E) set forbidden ──
+PASS E1 密钥 -> steward.forbidden(got steward.forbidden)
+PASS E2 密钥:附上被拒的键名
+PASS E3 密钥:零写入
+PASS E1 数据根/工作区围栏 -> steward.forbidden(got steward.forbidden)
+PASS E2 数据根/工作区围栏:附上被拒的键名
+PASS E3 数据根/工作区围栏:零写入
+PASS E1 命令与桌面工具放行 -> steward.forbidden(got steward.forbidden)
+PASS E2 命令与桌面工具放行:附上被拒的键名
+PASS E3 命令与桌面工具放行:零写入
+PASS E1 提示词注入面 -> steward.forbidden(got steward.forbidden)
+PASS E2 提示词注入面:附上被拒的键名
+PASS E3 提示词注入面:零写入
+PASS E1 与 free 键混在一起 -> steward.forbidden(got steward.forbidden)
+PASS E2 与 free 键混在一起:附上被拒的键名
+PASS E3 与 free 键混在一起:零写入
+── (F) sanitize 同路 ──
+PASS F1 越界值被 normalize 清洗 -> invalid_request(got invalid_request)
+PASS F2 列出没活下来的键名
+PASS F3 零写入(不写进去再让用户发现没生效)
+PASS F4 合法值照常写入
+PASS F5 空 patch -> invalid_request
+PASS F6 patch 不是对象 -> invalid_request
+── (I) externalMcpServers 掩码往返 ──
+PASS I0 夹具:持久 env/args 解密为逐字相同的原值
+PASS I1 externalMcpServers 是 confirm 档、get 能读到
+PASS I2 get 回的 env 值是全遮的掩码(不露末 4 位)、args 显示脱敏(got env="••••")
+PASS I3 get 返回体里零明文
+PASS I4 把掩码原样 set 回去(用户按了)-> ok(got ok;非 invalid_request 说明 sanitize 探针先还原再比)
+PASS I5 磁盘 externalMcpServers 及解密原值逐字节不变(掩码没有落盘、真值没有被抹)
+PASS I6 applied／undoRef 里零明文
+PASS I6b 现值条件接受既有全遮掩码往返，不把掩码与秘密真值误判为冲突
+PASS I7 决策日志(磁盘)记下了这一次,且零明文
+── (G) 同一个落盘函数 ──
+PASS G0 GET /api/steward/arbiter 可用
+PASS G1 上限初值 5(got 5)
+PASS G2 free 级的并发上限直接写入
+PASS G3 服务端仲裁上限即时变成 9(改上限不必重启;got 9)
+PASS G4 源码单点:arbiterRefresh 就挂在 applyConfigPatch 里(路由与管家共用同一条落盘路径)
+PASS G4b 路由层只剩一处经 ConfigPatchHooks 的调用,不另留一份 applyConfigPatch
+PASS G5 源码单点:steward_config_set 走 applyConfigPatch,不另写落盘(13g 族里恰好一处)
+
+STEWARD CONFIG TOOLS E2E: ALL PASS

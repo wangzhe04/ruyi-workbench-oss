@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "at": "2026-11-11T23:17:05.163826+00:00",
+  "status": "passed_explicit_native_capture_Vision_slice_committed_integrated_default_off_full_P5_in_progress",
+  "implementationCommit": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+  "candidateSourceCommit": "56c970cf885de4a249c637fe10d3419115ffa979",
+  "freeze": {
+    "path": "native-capture-freeze-v2.json",
+    "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b",
+    "sources": 125,
+    "artifacts": 4
+  },
+  "sourceReview": {
+    "path": "native-capture-source-review-v2.json",
+    "sha256": "8442608650b46ee7173406bbe61d7dddca4d45b4dd2348a5b987eb1149579e65"
+  },
+  "independentReport": {
+    "path": "independent-native-capture-v1/report.json",
+    "sha256": "91b954b015031630142d4a6d96b256001fb161a6653e81b05809d80e56d76a8d"
+  },
+  "commitBinding": {
+    "path": "independent-native-capture-v1/postqualification-commit-binding.json",
+    "sha256": "f822584be5741e9609b97c78e970d696b20408224dda254651d28cc97c5ea39d"
+  },
+  "sourceArchive": {
+    "path": "native-capture-source-freeze-v2.tar.gz",
+    "sha256": "2422a9f72f5e0ba34964cbb1fac3f3729a1896ec21212e613f62901cced03448",
+    "manifest": "native-capture-source-freeze-v2.archive.json"
+  },
+  "independent": {
+    "commands": 18,
+    "failures": 0,
+    "skips": 0,
+    "retries": 0,
+    "beforeAfterBindings": 36,
+    "allMatched": true,
+    "observedOwnProcessesExited": true,
+    "capture": 87,
+    "nativeProtocol": 51,
+    "adapter": 23,
+    "pureNative": 16,
+    "pureRequired": 12,
+    "journal": 18,
+    "control": 4,
+    "context": 38,
+    "mainImages": 26,
+    "mainDispatch": 32,
+    "foregroundSubagents": 117,
+    "staticChecks": "graph/routes/durable72/facts/process/census/build"
+  },
+  "engineering": {
+    "report": "development/native-final-gates-v2.json",
+    "unitTests": 2644,
+    "unitPass": 2626,
+    "unitExistingSkip": 18,
+    "unitFail": 0,
+    "fastPass": 80,
+    "fastFail": 0,
+    "centralLiveSkip": 13,
+    "syntax": 1179,
+    "syntaxFail": 0,
+    "buildFresh": true,
+    "threeChecks129BeforeAfterMatched": true
+  },
+  "scopeLimits": [
+    "Node serve and named frozen development helper only; no final App or release identity scope.",
+    "Actual rootStop before continue/after continue before native terminal observation proves exact observed cleanup and durable unknown; not nativebody interruption.",
+    "Forced duplicate/old-frame callback and nativeOCR>12<60s watchdog are source-only; actual caller deadline separately tested.",
+    "Activegeneric shares nativeinput lock; contextless legacy one-shot2slots retained.",
+    "Actual smallchild PNG ACK/modelrequest/coldvalid reopen and actual large16MiB snapshot refusal; no complete child restart replay/model consumption/performance claim.",
+    "All original10local+4external retained; background/API0/resume/CLI/manual, reconciliation/retention/global quotas, native input/held/rescue, lock/revoke/hardware/macOS14/finalcandidateWindows/formal release remain."
+  ],
+  "developmentHistory": "native-capture-development-summary-v2.json and all immutable original logs; includes invalid first frozen-gate afterhash because primary modified test while gate still running. Finalv2 gate rerun valid.",
+  "nextDesign": {
+    "path": "root-input-hard-abort-next-stage-design-v1.json",
+    "sha256": "43abeb5604be3bfc66837f495e503294cd113bab5c061be8d082f03fb35fabb5",
+    "status": "readonly_design_only_no_input_or_held_qualification"
+  },
+  "fullP5Accepted": false,
+  "restoreAutoLock": "only_after_full_P5_acceptance"
+}

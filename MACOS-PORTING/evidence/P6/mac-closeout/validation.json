@@ -1,0 +1,357 @@
+{
+  "schemaVersion": 1,
+  "assessedAt": "2026-11-12T15:56:11.448411+00:00",
+  "scope": "Current arm64 Mac, local/internal ad-hoc trial; current administrator account isolated HOME/Applications. Automatable repairs and bounded assessment completed; P6 positive App authorization gates remain unaccepted.",
+  "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "acceptanceFixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+  "sourceFreeze": "source-freeze-package.json",
+  "environment": {
+    "macOS": "27.0.1",
+    "arch": "arm64",
+    "node": "v24.15.0",
+    "uid": 501,
+    "adminGroupMember": true
+  },
+  "implementationCompleted": true,
+  "automatableCloseoutCompleted": true,
+  "currentTrialArtifactsAcceptedInRecordedScope": true,
+  "fullOriginalP6Accepted": false,
+  "phaseStatus": "in_progress",
+  "regression": {
+    "historicalOfficialFull": {
+      "selected": 594,
+      "success": 588,
+      "failure": 6,
+      "retryPass": 1,
+      "internalSkipFiles": 32,
+      "liveExcluded": 14,
+      "exitCode": 1,
+      "evidence": "regression-coverage.json"
+    },
+    "composite": {
+      "covered": 594,
+      "latestProcessSuccess": 592,
+      "remainingUnpassed": 2,
+      "originalInternalSkipFiles": 32,
+      "excludedLive": 14
+    },
+    "compositeEvidence": "regression-composite.json",
+    "notFreshFinalCandidateFullRerun": true,
+    "remainingUnpassedFiles": [
+      "macos-capture-host.e2e.js",
+      "macos-input-host.e2e.js"
+    ],
+    "interpretation": "Process success may contain recorded internal SKIPs. Targeted repairs do not rewrite historical failures or imply every branch/feature ran."
+  },
+  "engineering": {
+    "unit": {
+      "tests": 2671,
+      "pass": 2653,
+      "fail": 0,
+      "existingSkip": 18,
+      "evidence": "unit-native-recheck.txt",
+      "freeze": "source-freeze-final.json"
+    },
+    "syntax": {
+      "files": 1196,
+      "fail": 0,
+      "evidence": "syntax-closeout.txt"
+    },
+    "buildFreshness": "Official native targeted runner passed; app source/manifest unchanged",
+    "static": "Historical79/80 plus corrected facts.static targeted and independent PASS = composite80/80; original failure retained.",
+    "laterTestOnlyDeltas": "8 ChildProcess cleanup fixtures checked directly, representative independent rerun; additional upgrade fixture reviewed and both resource modes actually executed."
+  },
+  "artifacts": [
+    {
+      "variant": "full",
+      "rawPackage": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout-source",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+      "imageBytes": 584388233,
+      "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "sourceFingerprintCount": 492,
+      "currentSourceFingerprintMismatches": [],
+      "rawAppTreeSha256": "c99c8da81d9957e4e2f3fa8bdc6c4b18c2f92beddcfb08c0bf1c16e4cd806a7d",
+      "trialAppTreeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+      "nativeObjectCount": 210,
+      "signatures": {
+        "nativeCount": 210,
+        "changes": [
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/cd.cpython-312-darwin.so",
+            "beforeSha256": "d38c3dff8e119637ff6d41466ec09d079dcce1ad93c705503d003673d68ba48b",
+            "afterSha256": "c7f80e281714d2e895b44e3d2f4e7bb30fe881f8710807a953f31bacdd08efc9",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/md.cpython-312-darwin.so",
+            "beforeSha256": "cd79f238f6b9ae576f19d49eee8ae48af8ef536b881a1b7c4689b0d06681f655",
+            "afterSha256": "583ed4f59537ea3d239db0a1972b776b9db90b8cbcfc4fbdf0c556a6d2abd4f7",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/cu2qu/cu2qu.cpython-312-darwin.so",
+            "beforeSha256": "5171cd7ff8e34795ebcf2dc83133da22c47556549f1d2fe908b34199537489d0",
+            "afterSha256": "ab5a96b895a6e74d519517a00423cc4dc85c5d702495555dc799fefc873cda28",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/feaLib/lexer.cpython-312-darwin.so",
+            "beforeSha256": "ac08b868561e8695171247b67925eb9b8e85a32cddb9d7e19b58643f8159c420",
+            "afterSha256": "858f35a09748ff75bf5aac1906a71c1174d5c91f063c13b78da19e30fe8b1d27",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/misc/bezierTools.cpython-312-darwin.so",
+            "beforeSha256": "cb47c34a71a944f2879b84cfb7f6698e5690768a0462ab1bf3c965c6886ef940",
+            "afterSha256": "1f58044cf4f03c08627e9e40a16521f6303dc641d18489b891ae282c8ca355f5",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/pens/momentsPen.cpython-312-darwin.so",
+            "beforeSha256": "0be644a069fddb629b80880360ec8a91e18fb7923fbaf8d74c1eade0146b29f2",
+            "afterSha256": "b72ed521ea62d7c5b7d5f4775428915d7c8c605c8d59cdae7b16d7e2e0f16749",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/qu2cu/qu2cu.cpython-312-darwin.so",
+            "beforeSha256": "a97ca37501c16cf512d8c9c7552de895bdb8844b07b6ea55eddf94b23b28f224",
+            "afterSha256": "dc5c77c1a7719e6bc4ce5638800d49791ae46374f122c3998e720385e356522e",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/varLib/iup.cpython-312-darwin.so",
+            "beforeSha256": "11f45ddad4e4d2e481369b578c0f222a7456c8a4177523ffeec538ed7ace8dd1",
+            "afterSha256": "b6cdf748027c2f0e700b59e6e882814b5d6530c983b995b6e1207ad8e860cd28",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/_greenlet.cpython-312-darwin.so",
+            "beforeSha256": "cde55af546d635eea57205e8660d011f6e51faf5ec4989384289ca7fe6a255ff",
+            "afterSha256": "1250567cf4eb843ea0633f4a74db6d70ee24e0905939080ae3e059e8e2f2535e",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension.cpython-312-darwin.so",
+            "beforeSha256": "9901f14e584a65f23d46c6d815f7b97752a54c65dc831284b5465c28839e1c17",
+            "afterSha256": "c0511e394a1e10f9683b8c19c958e7f1588146b81ab446c69dede462545decc7",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension_cpp.cpython-312-darwin.so",
+            "beforeSha256": "08c8a3d79718571686c2ee7f79daba22689da7aeeaec24bf102ac76961a0542e",
+            "afterSha256": "be5bc9d4acded360ad13bac6c6b2da2dc9126336748c6bb60c6b937024c1a097",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/_elementpath.cpython-312-darwin.so",
+            "beforeSha256": "ddc77afa536057aef496bcaad7efc1b49306b9d9542486b751acec06f4a9cffc",
+            "afterSha256": "cc3ec1465a10abdf56405462ca67fbbd2720c83d47ad1fcb691213096fbf7935",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/builder.cpython-312-darwin.so",
+            "beforeSha256": "c789e3b9c2803227e7423f3050f67275d6e260464db1531d62610002692c32ce",
+            "afterSha256": "50839043b262cce462ec5f6d0d73299ff3fea70311115453981db1479d46f0bb",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/etree.cpython-312-darwin.so",
+            "beforeSha256": "f63776233dc0df372c80d24c7feb0bd1cc98a4c9fba923e3c4e4b82b0b0c7896",
+            "afterSha256": "d394424b2477244acbdde812bb0fb23747860a35bb2dbb8c830ff9d46371365a",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/_difflib.cpython-312-darwin.so",
+            "beforeSha256": "eef48dc08325bfd721985d9eaa5fbb8668a2dec936025bc1d5a5892f25eb0a3c",
+            "afterSha256": "d7ba2048435a1e394c1710bf566f5851ec0dd8d37b4f5a4e9465206d6586c544",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/diff.cpython-312-darwin.so",
+            "beforeSha256": "7ec9cf2f8c5ce72feb2949e7c087f7c871e5795c7eb88e1b2a736d4ffdd9dd37",
+            "afterSha256": "fa71c8d15e575e8259eadb282019564bb7bcb12d387048ceaa6d659a443d156f",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/objectify.cpython-312-darwin.so",
+            "beforeSha256": "76babcdf313a72383d8c95b7279c12a0a8a4d2755bae4c09b15802cb8e319917",
+            "afterSha256": "3b00ffcbd14174c0d0dd9bb6c3e3c0b600a9e5350b5e57a919e90f6d138ede6d",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/sax.cpython-312-darwin.so",
+            "beforeSha256": "8a59a3e1e36ad4a4c72d02ef80000a93f73fb672d59ee4fc1e22c4c4a463870e",
+            "afterSha256": "844f4b898250ff895df76c6198485992e9e19896cec7be840075fa8518f512ff",
+            "action": "ad-hoc-sign-previously-unsigned"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app",
+            "beforeTreeSha256": "6482d66525fd7c10404e6c6a79c036b02df0b75dbf1d60300c51681abbafc02f",
+            "afterTreeSha256": "e46e670c185504bc3674f9ede48577d7607450a248b73d44c2f2b078ed5793f5",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app",
+            "beforeTreeSha256": "026e5346517e0308840fa77166e56e55cad825c32b6c528197dc5524825c529b",
+            "afterTreeSha256": "b8259f772515ac0f321c1dfcceb131e6069918c12bdf0e309c87b45e40ff22b5",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app",
+            "beforeTreeSha256": "d2cc30ed4ed4772837a7e63d5c647456d3070c4f16eddf635ae60db1c1170fec",
+            "afterTreeSha256": "4468b006d7a1ac25b5db5ed7ec24b8a9872300fd6eb172040322db577e9743c5",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app",
+            "beforeTreeSha256": "3b04f8e94ebd4a15ebbe9e4399e88e798a68692e3c94d7470d51ed07779849f4",
+            "afterTreeSha256": "fed0f4d421b283458b1632c2f101f93dbac351355bbdd97cc9f4c42685af57de",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif).app",
+            "beforeTreeSha256": "934a4694b80ab50b9c4f7370a04dc5c13bb238f667e787a5ec2fc6c891edc7dc",
+            "afterTreeSha256": "b1021b54155a305a85d9b3841cdc80f825790af22035d6129e8a5974c44c2cbc",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app",
+            "beforeTreeSha256": "512db43ff8c4c2b9c3703d8690b034bff96657b5a4c6f584024c62027068e20e",
+            "afterTreeSha256": "7bfdfad0ae9cc449d07f39a9015297a0cb0a018109eec1245aba6c9bcb627ae3",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app",
+            "beforeTreeSha256": "9d9d0b6849329018ab4f42e0f737ba1524dd8e6946ef28a98c6729eb4666f188",
+            "afterTreeSha256": "4758847d2eb5dc94a9503a7234217f7bb1b95158d2fc044b104bc0cb208f3322",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app",
+            "beforeTreeSha256": "6eb47051627bc258fdb72f70deee0454debd2601f26d461da4a9b7fc62c20670",
+            "afterTreeSha256": "5c499b6ce5132ac862d0ce5fb3317bfaab413a9ab0c57693a1f2dba5bf673ca5",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework",
+            "beforeTreeSha256": "ca99df7d805c229916dba38b0ef9f8d1b6d904919573a99d488bb547693ebace",
+            "afterTreeSha256": "cf478e1597229fbbacd7f314b101629a87ad07879175345ad17c1f7c3e9e0491",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          },
+          {
+            "path": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app",
+            "beforeTreeSha256": "812cc5e3dca48a6558138e3303865d49c3f519596a050642943460136be7362a",
+            "afterTreeSha256": "ae37e172bcda4578e7aab7182d248c2e770ee102bbc0a3f4c1ca5456934d9861",
+            "action": "ad-hoc-rebuild-missing-resource-seal"
+          }
+        ],
+        "signing": "ad-hoc-internal-trial",
+        "notarized": false,
+        "developerIdentityVerified": false,
+        "signedDependencyPolicy": "preserve-existing-valid-signatures"
+      }
+    },
+    {
+      "variant": "slim",
+      "rawPackage": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout-source",
+      "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout/Ruyi-macos-arm64-slim-internal-trial.dmg",
+      "imageSha256": "341207021a6c6114dab886ee189b5aa98484911d966193eea0f850fd03cf5918",
+      "imageBytes": 51629071,
+      "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "sourceFingerprintCount": 492,
+      "currentSourceFingerprintMismatches": [],
+      "rawAppTreeSha256": "e2bf51d9e3fed6d424a4c7fd08dce6fd07d8e67185cb6ae52e42f11da1ca06fc",
+      "trialAppTreeSha256": "e2bf51d9e3fed6d424a4c7fd08dce6fd07d8e67185cb6ae52e42f11da1ca06fc",
+      "nativeObjectCount": 7,
+      "signatures": {
+        "nativeCount": 7,
+        "changes": [],
+        "signing": "ad-hoc-internal-trial",
+        "notarized": false,
+        "developerIdentityVerified": false,
+        "signedDependencyPolicy": "preserve-existing-valid-signatures"
+      }
+    }
+  ],
+  "packageAcceptance": {
+    "main": [
+      "package-main/index.json",
+      "package-main-recheck/index.json"
+    ],
+    "independent": "independent-packages/index.json",
+    "independentReview": "independent-packages/review.json",
+    "full": {
+      "install": 13,
+      "offline": 19,
+      "trash": 12,
+      "upgradeRollback": 15,
+      "stagingMode": "apfs-owned-clone-and-checksummed-sync"
+    },
+    "slim": {
+      "install": 13,
+      "offline": 7,
+      "trash": 12,
+      "upgradeRollback": 14,
+      "stagingMode": "normal-ditto-copy"
+    },
+    "fullNormalSecondCopy": "Actual ENOSPC failure retained; old App/data integrity independently checked before releasing only the owned App copy. This is not counted as a normal-copy upgrade pass.",
+    "negativeEvidence": "full-upgrade-enospc-protection.json"
+  },
+  "independentRepresentative": "independent-closeout/review.json",
+  "knownFailuresRetained": [
+    "Original36-case previous run in ../final",
+    "regression-attempts original6 failures",
+    "targeted-recheck SIGTERM race before native fix",
+    "build-closeout-dmg-full.txt internal Code Signing subsystem error; retry succeeded, cause unconfirmed",
+    "package-main/full-upgrade.txt normal Full ditto ENOSPC"
+  ],
+  "manualAuthentication": {
+    "positiveQualified": false,
+    "systemPermissionChanged": false,
+    "credentialsEntered": false,
+    "questionUnanswered": true,
+    "evidence": [
+      "permission-qualification.json",
+      "app-failure-receipts/index.json"
+    ]
+  },
+  "notAccepted": [
+    "Fresh source Ruyi App capture authorization-positive qualification: denied, requires personal authentication",
+    "Fresh source Ruyi App Accessibility/event input authorization-positive qualification: denied, requires personal authentication",
+    "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+    "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+    "real clean standard-user installation or clean second Mac without developer tools",
+    "macOS14 actual runtime",
+    "formal-identity Keychain/TCC upgrade/recovery stability",
+    "arbitrary future-schema direct backward compatibility",
+    "Windows same-candidate full regression",
+    "original unverified P5 environments; no new waiver inferred"
+  ],
+  "storageCleanup": {
+    "regenerableVenvClones": [
+      "generated-dependency-cleanup.json",
+      "generated-dependency-cleanup-early.json"
+    ],
+    "obsoleteDevelopmentDrafts": "pruned-development-candidates/cleanup.json",
+    "originalAcceptedInputs": "archived-input-deduplication.json: original published ZIPs and sidecar SHA retained; redundant unpacked copies removed after archive/disk App-byte/mode/symlink verification.",
+    "oldFinalDmgsRetained": true
+  },
+  "power": {
+    "releaseEvidence": "power-release.json",
+    "sleepEvidence": "sleep-request.json",
+    "status": "restored_and_owned_protection_released_sleep_queued",
+    "screensaverIdleTime": 300,
+    "actualRestored": true,
+    "ownedAssertionReleased": true,
+    "sleepStatus": "queued",
+    "scheduledForUTC": "2026-11-12T16:09:56.689913+00:00",
+    "observedAsleep": false,
+    "independentReleaseReview": "power-release-review.json"
+  }
+}

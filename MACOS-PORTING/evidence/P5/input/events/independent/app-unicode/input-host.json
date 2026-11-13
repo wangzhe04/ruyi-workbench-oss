@@ -1,0 +1,211 @@
+{
+  "nativePID": 55166,
+  "servicePID": 55176,
+  "launch": "LaunchServices",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 1234,
+      "height": 528,
+      "pid": 55161,
+      "process_start": "1794295899:985282",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 1234,
+        "pid": 55161,
+        "process_start": "1794295899:985282",
+        "ref": "5212F30D-DD83-4EB6-BEA7-06E0220403BA"
+      },
+      "title": "Ruyi P5 Input 55161",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 196,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "observedProcesses": [
+    {
+      "pid": 55166,
+      "ppid": 1,
+      "created": "1794295900838553"
+    },
+    {
+      "pid": 55176,
+      "ppid": 55166,
+      "created": "1794295901044276"
+    },
+    {
+      "pid": 55190,
+      "ppid": 55176,
+      "created": "1794295901170385"
+    },
+    {
+      "pid": 55189,
+      "ppid": 55176,
+      "created": "1794295901169439"
+    },
+    {
+      "pid": 55217,
+      "ppid": 55176,
+      "created": "1794295901523364"
+    },
+    {
+      "pid": 55222,
+      "ppid": 55176,
+      "created": "1794295901597651"
+    },
+    {
+      "pid": 55229,
+      "ppid": 55176,
+      "created": "1794295901699706"
+    },
+    {
+      "pid": 55230,
+      "ppid": 55229,
+      "created": "1794295901701489"
+    },
+    {
+      "pid": 55231,
+      "ppid": 55230,
+      "created": "1794295901702284"
+    },
+    {
+      "pid": 55246,
+      "ppid": 55176,
+      "created": "1794295901957983"
+    },
+    {
+      "pid": 55247,
+      "ppid": 55231,
+      "created": "1794295901959403"
+    },
+    {
+      "pid": 55272,
+      "ppid": 55231,
+      "created": "1794295902384943"
+    },
+    {
+      "pid": 55277,
+      "ppid": 55231,
+      "created": "1794295902425684"
+    },
+    {
+      "pid": 55282,
+      "ppid": 55231,
+      "created": "1794295902476863"
+    },
+    {
+      "pid": 55284,
+      "ppid": 55231,
+      "created": "1794295902501606"
+    },
+    {
+      "pid": 55290,
+      "ppid": 55176,
+      "created": "1794295902551831"
+    },
+    {
+      "pid": 55295,
+      "ppid": 55231,
+      "created": "1794295902578123"
+    },
+    {
+      "pid": 55301,
+      "ppid": 55176,
+      "created": "1794295902619573"
+    },
+    {
+      "pid": 55298,
+      "ppid": 55176,
+      "created": "1794295902603010"
+    },
+    {
+      "pid": 55299,
+      "ppid": 55298,
+      "created": "1794295902604518"
+    },
+    {
+      "pid": 55313,
+      "ppid": 55176,
+      "created": "1794295902768557"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {
+      "key_down": 14,
+      "key_up": 14,
+      "left_down": 1,
+      "left_up": 1,
+      "vertical_scroll": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

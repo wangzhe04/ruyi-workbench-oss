@@ -1,0 +1,764 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T08:09:57.079734+00:00",
+  "status": "passed_independent_entry_commit_binding",
+  "implementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "actualParents": [
+    "d42bba09c1b559f434600008666ce1ae20d34192"
+  ],
+  "originalFreezeBase": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+  "mainHead": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "entryWorktreeHead": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "primaryBinding": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/commit-binding.json",
+    "bytes": 7718,
+    "sha256": "500fbf2b161285c66f0c3436ade9fa38eabb0e0a8ee0b7eac065b22f923c9bc7"
+  },
+  "parentAdvance": {
+    "baseIsAncestor": true,
+    "commits": [
+      "d42bba09c1b559f434600008666ce1ae20d34192"
+    ],
+    "changedFileCount": 556,
+    "manualEvidenceFiles": 552,
+    "phaseDocumentationFiles": [
+      "MACOS-PORTING/06-P5-AUTOMATION.md",
+      "MACOS-PORTING/10-TRACKING.md",
+      "MACOS-PORTING/README.md",
+      "MACOS-PORTING/TASKS.json"
+    ],
+    "changedFileListSha256": "b01a2ca9a596b01ee5d07c5d10484236db929ad4613e8964fb384834985c0213",
+    "productionSourceChanges": [],
+    "allFrozenFilesUnchanged": true,
+    "scope": "Documentation and historical manual-acceptance evidence only; evidence directories contain their recorded fixture/support scripts and logs. No production/helper source advance."
+  },
+  "actualChangedFiles": [
+    "README.md",
+    "README_EN.md",
+    "dev-harness/checkpoint-proxy-session.e2e.js",
+    "dev-harness/fixture-home.static.e2e.js",
+    "dev-harness/macos-native-entry.e2e.js",
+    "dev-harness/process-safety.static.e2e.js",
+    "docs/architecture/route-inventory.json",
+    "docs/architecture/route-inventory.md",
+    "facts.json",
+    "ruyi-workbench/app/server.js",
+    "ruyi-workbench/app/src/12-tool-dispatch.js",
+    "ruyi-workbench/app/src/manifest.json"
+  ],
+  "changedFileCount": 12,
+  "sourceFiles": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "freezeSha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "gitBlob": "aec4c8a054c05913be3b2fc61eee09ecc74717ec",
+      "committed": {
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e"
+      },
+      "mainWorking": {
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e"
+      },
+      "entryWorking": {
+        "bytes": 22359,
+        "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/checkpoint-proxy-session.e2e.js",
+      "freezeSha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+      "gitBlob": "132c24d38308246c9205a1ca1c3825e0086ccb15",
+      "committed": {
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66"
+      },
+      "mainWorking": {
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66"
+      },
+      "entryWorking": {
+        "bytes": 7531,
+        "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "freezeSha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+      "gitBlob": "1126002b0cb5c6f3882453fe3579f1eb7da736d0",
+      "committed": {
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5"
+      },
+      "mainWorking": {
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5"
+      },
+      "entryWorking": {
+        "bytes": 1335,
+        "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "freezeSha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "gitBlob": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+      "committed": {
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      "mainWorking": {
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      "entryWorking": {
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "freezeSha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+      "gitBlob": "14e703cb842365d73eb3831c91019d4c4ad59d1d",
+      "committed": {
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c"
+      },
+      "mainWorking": {
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c"
+      },
+      "entryWorking": {
+        "bytes": 23789,
+        "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "freezeSha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "gitBlob": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+      "committed": {
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+      },
+      "mainWorking": {
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+      },
+      "entryWorking": {
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "freezeSha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "gitBlob": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+      "committed": {
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      "mainWorking": {
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      "entryWorking": {
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "freezeSha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "gitBlob": "fc742c77ccb701f1c5762257c185489b82dfbf69",
+      "committed": {
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5"
+      },
+      "mainWorking": {
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5"
+      },
+      "entryWorking": {
+        "bytes": 124245,
+        "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "freezeSha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+      "gitBlob": "e5f4e6474c8a2e57fa925fcacd785114e575b078",
+      "committed": {
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      "mainWorking": {
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      "entryWorking": {
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "freezeSha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+      "gitBlob": "9669ec0cdbc9cee26f428de12ec4b61000fff8e3",
+      "committed": {
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17"
+      },
+      "mainWorking": {
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17"
+      },
+      "entryWorking": {
+        "bytes": 206712,
+        "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "freezeSha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+      "gitBlob": "2dc909fc989ca255484e8d7cab5e65c473a66c88",
+      "committed": {
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6"
+      },
+      "mainWorking": {
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6"
+      },
+      "entryWorking": {
+        "bytes": 34115,
+        "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "freezeSha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+      "gitBlob": "3c3b63d1c79ba010ea5c1bb2a6283ff7be8bd593",
+      "committed": {
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e"
+      },
+      "mainWorking": {
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e"
+      },
+      "entryWorking": {
+        "bytes": 14066,
+        "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "freezeSha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+      "gitBlob": "3cca8ff4a0f23ed38d9acdc1bd40deee7765f6cf",
+      "committed": {
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a"
+      },
+      "mainWorking": {
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a"
+      },
+      "entryWorking": {
+        "bytes": 65808,
+        "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "freezeSha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+      "gitBlob": "9e6310de02de403eef208a8f36a211c64b1fa96e",
+      "committed": {
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6"
+      },
+      "mainWorking": {
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6"
+      },
+      "entryWorking": {
+        "bytes": 72914,
+        "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "freezeSha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+      "gitBlob": "13f8be6e82846897eda153c13c620c675768ab67",
+      "committed": {
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6"
+      },
+      "mainWorking": {
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6"
+      },
+      "entryWorking": {
+        "bytes": 41727,
+        "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6"
+      },
+      "unchangedBetweenFreezeBaseAndParent": true,
+      "matched": true
+    }
+  ],
+  "sourceCount": 15,
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "freezeSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "primarySha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "bytes": 505584,
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "freezeSha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "primarySha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "bytes": 1038,
+      "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "freezeSha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "primarySha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "matched": true
+    }
+  ],
+  "artifactCount": 3,
+  "primaryEvidence": [
+    {
+      "path": "freeze-v4.json",
+      "bytes": 3314,
+      "sha256": "06599f7926bb257b9ba2ed2c20fd2ed5fcba75e043f8adb53ec81b10ba460e73",
+      "expectedSha256": "06599f7926bb257b9ba2ed2c20fd2ed5fcba75e043f8adb53ec81b10ba460e73",
+      "matched": true
+    },
+    {
+      "path": "code-review-v1.json",
+      "bytes": 19637,
+      "sha256": "4d29b020f07e26bcc31faf7da77a46e0855b548bd68c69898abcb9d3acf95177",
+      "expectedSha256": "4d29b020f07e26bcc31faf7da77a46e0855b548bd68c69898abcb9d3acf95177",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/report.json",
+      "bytes": 573853,
+      "sha256": "950593e23ea7fb1228c8b81e0c580cdb6ed797001bf4a79c987d2f44b4284e0b",
+      "expectedSha256": "950593e23ea7fb1228c8b81e0c580cdb6ed797001bf4a79c987d2f44b4284e0b",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/results.json",
+      "bytes": 566978,
+      "sha256": "73f48cf918f7eaa441ce213ce7356737d5af7071469a18447f9ee635cc8bc0b7",
+      "expectedSha256": "73f48cf918f7eaa441ce213ce7356737d5af7071469a18447f9ee635cc8bc0b7",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/source-artifact-checks.json",
+      "bytes": 46816,
+      "sha256": "8b4b3f7524f4c1574a580eba4e95ced04880e86b327acdd2a7ba0b7d6a26f349",
+      "expectedSha256": "8b4b3f7524f4c1574a580eba4e95ced04880e86b327acdd2a7ba0b7d6a26f349",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/artifact-signatures.json",
+      "bytes": 1642,
+      "sha256": "a7b2fb23ef750eb0c2c28bfc5db58695cff035f79aec4e6d22bb8977fb4c149f",
+      "expectedSha256": "a7b2fb23ef750eb0c2c28bfc5db58695cff035f79aec4e6d22bb8977fb4c149f",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/offline/output.txt",
+      "bytes": 1438,
+      "sha256": "634d3cd0b0ce509c1cd3b2b03acc2c90c9d75c3ca653f5c56a796d86de8907da",
+      "expectedSha256": "634d3cd0b0ce509c1cd3b2b03acc2c90c9d75c3ca653f5c56a796d86de8907da",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/native/output.txt",
+      "bytes": 2208,
+      "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+      "expectedSha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/native/results.json",
+      "bytes": 210635,
+      "sha256": "f50d2e737812b1337a53e9425ab24b54d2c5da620a9fc24bdd83258013d91d92",
+      "expectedSha256": "f50d2e737812b1337a53e9425ab24b54d2c5da620a9fc24bdd83258013d91d92",
+      "matched": true
+    },
+    {
+      "path": "independent-v1/fast/output.txt",
+      "bytes": 5741,
+      "sha256": "69a83ea0ffcdf671d2dddc1091c3c89ef5853ca51fb0a62ec1eb97a2ba2fa604",
+      "expectedSha256": "69a83ea0ffcdf671d2dddc1091c3c89ef5853ca51fb0a62ec1eb97a2ba2fa604",
+      "matched": true
+    }
+  ],
+  "primaryEvidenceCount": 10,
+  "additionalReferenceChecks": [
+    {
+      "label": "review.freeze",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/freeze-v4.json",
+      "bytes": 3314,
+      "sha256": "06599f7926bb257b9ba2ed2c20fd2ed5fcba75e043f8adb53ec81b10ba460e73",
+      "matched": true
+    },
+    {
+      "label": "acceptance.freeze",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/freeze-v4.json",
+      "bytes": 3314,
+      "sha256": "06599f7926bb257b9ba2ed2c20fd2ed5fcba75e043f8adb53ec81b10ba460e73",
+      "matched": true
+    },
+    {
+      "label": "acceptance.codeReview",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/code-review-v1.json",
+      "bytes": 19637,
+      "sha256": "4d29b020f07e26bcc31faf7da77a46e0855b548bd68c69898abcb9d3acf95177",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:dev-harness/macos-native-entry.e2e.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-native-entry.e2e.js",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:dev-harness/checkpoint-proxy-session.e2e.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/checkpoint-proxy-session.e2e.js",
+      "bytes": 7531,
+      "sha256": "6eba1aa4019440c706671b30996bc32e20c7f0b41727004dfb7ab6c8a92c3a66",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:facts.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/facts.json",
+      "bytes": 1335,
+      "sha256": "d07ee19a814a67d4bd1478f16aaa57937b12a37aa474924bd54e9664010068c5",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:ruyi-workbench/app/src/12-tool-dispatch.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301569,
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:ruyi-workbench/app/src/manifest.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "sha256": "89a2b9e4280aa091b2ddb094d14c0797cf6ede91dc9a0e6b8e7c4532972ad10c",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:ruyi-workbench/app/server.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js",
+      "bytes": 6777831,
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:dev-harness/fixtures/macos-input-window.m",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:ruyi-workbench/app/src/03-bridge-guard.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/03-bridge-guard.js",
+      "bytes": 124245,
+      "sha256": "54d98b57acbc1adcadab319d5ad0609a9a587dfc5bf9faaa14d3ae5704822ee5",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:ruyi-workbench/app/src/02-session-store.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 411515,
+      "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:docs/architecture/route-inventory.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/docs/architecture/route-inventory.json",
+      "bytes": 206712,
+      "sha256": "7e7f5b65e74a0dc5afb2133a291cbc0c9b9a0fbbbf8fedd05f4aa79159337f17",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:docs/architecture/route-inventory.md",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "9abd006484c75b13ca88c2ad4f283dd6215e58b7473b726a6728d34bac1c50a6",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:dev-harness/process-safety.static.e2e.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/process-safety.static.e2e.js",
+      "bytes": 14066,
+      "sha256": "4faa7b0d9d81b4cbfa376d4612b6e580f6c1024bab838c8343a688808696c42e",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:README.md",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/README.md",
+      "bytes": 65808,
+      "sha256": "19f327ac94075e998a732ab28e1b291dd2816a6b6d6acd5a9a04672d3baafe1a",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:README_EN.md",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/README_EN.md",
+      "bytes": 72914,
+      "sha256": "a3859dbd19800f7b9e87455284c1df654ed74ffff11df04a40815dd4f886a4a6",
+      "matched": true
+    },
+    {
+      "label": "review.frozenSources:dev-harness/fixture-home.static.e2e.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fixture-home.static.e2e.js",
+      "bytes": 41727,
+      "sha256": "fbc7b84c590af8b3882ace0ca0a52a906b8a996528c578bf79188e8d674abca6",
+      "matched": true
+    },
+    {
+      "label": "review.frozenArtifacts:/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matched": true
+    },
+    {
+      "label": "review.frozenArtifacts:/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "bytes": 505584,
+      "sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "matched": true
+    },
+    {
+      "label": "review.frozenArtifacts:/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "bytes": 1038,
+      "sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/fake-mcp.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fake-mcp.js",
+      "bytes": 33699,
+      "sha256": "4125f7c30f6ac86337df98b38bdb96f8e4deb384f3d1ff57be76948d04434950",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/lib/kill-own-tree.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/lib/fixture-home.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/lib/self-isolate-home.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/lib/fake-openai-provider.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/checkpoint-mcpchild.e2e.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/checkpoint-mcpchild.e2e.js",
+      "bytes": 9835,
+      "sha256": "b5f04e03f91586f87bc46b8f024ef8b4fd3a9ed4ccd8b13c4953ba62c5709643",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/tool-loading.e2e.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/tool-loading.e2e.js",
+      "bytes": 12378,
+      "sha256": "6025e17f63706cd8de1c78d3e9b62f2bd1e0383a61da98dac90e077a95d1c2f9",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:ruyi-workbench/app/src/09-workflow.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 356760,
+      "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:ruyi-workbench/app/src/08-agent-runs.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 246586,
+      "sha256": "ffcde3d21347d86f6f5e6cd770e005272636828048e6ba23c173df15ba310d66",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:ruyi-workbench/app/src/13-http-router.js",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "matched": true
+    },
+    {
+      "label": "review.additionalDependenciesRead:dev-harness/fixtures/macos-clipboard-fixture.h",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "matched": true
+    },
+    {
+      "label": "acceptance.processHelper",
+      "path": "/tmp/ruyi-p5-entry-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "c220c8464d56b0b8bf92f264f84681353e247d5c3080c416aa30af427f70b6f1",
+      "matched": true
+    },
+    {
+      "label": "run.log:offline",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/offline/output.txt",
+      "bytes": 1438,
+      "sha256": "634d3cd0b0ce509c1cd3b2b03acc2c90c9d75c3ca653f5c56a796d86de8907da",
+      "matched": true
+    },
+    {
+      "label": "run.log:native",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/native/output.txt",
+      "bytes": 2208,
+      "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880",
+      "matched": true
+    },
+    {
+      "label": "run.nativeEvidence",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/native/results.json",
+      "bytes": 210635,
+      "sha256": "f50d2e737812b1337a53e9425ab24b54d2c5da620a9fc24bdd83258013d91d92",
+      "matched": true
+    },
+    {
+      "label": "run.log:fast",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/entry/independent-v1/fast/output.txt",
+      "bytes": 5741,
+      "sha256": "69a83ea0ffcdf671d2dddc1091c3c89ef5853ca51fb0a62ec1eb97a2ba2fa604",
+      "matched": true
+    }
+  ],
+  "historicalSourceArtifactCheckpoints": {
+    "count": 8,
+    "labels": [
+      "initial",
+      "offline-before",
+      "offline-after",
+      "native-before",
+      "native-after",
+      "fast-before",
+      "fast-after",
+      "final"
+    ],
+    "allEntriesRehashedAndMatched": true
+  },
+  "acceptanceSummary": {
+    "status": "passed_entry_freeze_v4_independent_acceptance",
+    "offlinePass": 13,
+    "nativePass": 31,
+    "fast": {
+      "pass": 80,
+      "fail": 0,
+      "knownFail": 0,
+      "unexpectedPass": 0,
+      "flaky": 0,
+      "ran": 80,
+      "skipped": 7
+    },
+    "unit": {
+      "tests": 2517,
+      "pass": 2499,
+      "fail": 0,
+      "skipped": 18
+    },
+    "recordedSignatureExitCodes": {
+      "before": [
+        0,
+        0,
+        0
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    "GUIReleased": true,
+    "cleanupSafe": true,
+    "inputSourceRestored": true,
+    "clipboardRestored": true,
+    "allObservedOwnedIdentityListsEmpty": true
+  },
+  "unresolvedFindings": [],
+  "actionsThisReview": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "rebuilds": 0,
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/entry/independent-commit-binding.json"
+    ]
+  },
+  "phaseStatus": "in_progress",
+  "scope": "Read-only commit and hash binding of already independently accepted entry freeze-v4. This does not extend original runtime coverage, rebuild/re-sign/launch Ruyi.app, or close remaining P5/application/environment gates."
+}

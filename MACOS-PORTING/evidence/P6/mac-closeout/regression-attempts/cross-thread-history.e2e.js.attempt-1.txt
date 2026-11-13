@@ -1,0 +1,41 @@
+PASS provider directory offers ordinary read tools, excludes steward tools
+PASS history intent loads existing memory pack
+PASS ordinary search works with steward disabled and traceable source
+PASS ordinary search reuses full-content indexing for body-only matches
+PASS page 1 progresses
+PASS page 2 progresses
+PASS page 3 progresses
+PASS page 4 progresses
+PASS page 5 progresses
+PASS page 6 progresses
+PASS page 7 progresses
+PASS pagination reaches old numbered and legacy unnumbered history
+PASS long single row is reconstructed exactly with no lost/duplicated characters
+PASS body and tool inputs use existing redaction
+PASS beforeTurnSeq targets old history
+PASS invalid/missing/private ID rejected ../bad
+PASS invalid/missing/private ID rejected sess_missing
+PASS invalid/missing/private ID rejected steward
+PASS appending a turn preserves the old cursor boundary
+PASS ordinary history reads keep the existing six-call turn quota
+PASS unbound ordinary reads do not share a steward bucket
+PASS existing private steward session is excluded from read and search
+PASS remaining character budget ends with an honest error, never a nonadvancing empty page: {"progress":true,"error":"budget_exceeded","quota":{"callsRemaining":5,"charsRemaining":0}}
+PASS MCP discovers both history tools
+PASS MCP does not expose steward write tools
+PASS MCP reads using WCW_SESSION_ID without steward enabled
+PASS real provider tool loop searches and reads another chat
+PASS real provider prompt contains history read guidance
+PASS steward uses the same older-history reader
+PASS ordinary write tool boundary remains closed
+PASS new thread persists relatedSessionId even with explicit cwd
+PASS quick ask relationship survives session index normalization
+PASS steward_thread_new validates relationship with explicit cwd
+PASS steward_quick_ask validates relationship with explicit cwd
+PASS explicit source outranks weaker same-folder clues
+PASS status explains mission and workspace links
+PASS actual steward prompt includes compact links and continuation/source guidance
+PASS long summaries still leave room for strong relation clues within the existing line budget
+PASS English steward prompt carries the same history/source guidance
+
+CROSS THREAD HISTORY E2E: ALL PASS

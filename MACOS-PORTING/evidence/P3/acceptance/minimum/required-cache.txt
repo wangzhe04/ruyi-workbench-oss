@@ -1,0 +1,1 @@
+{"wheelCount": 64, "arm64BinaryCount": 98, "maxDeclaredMinimum": [14, 0, 0], "staticDeploymentCheckPassed": true, "errors": [], "overTarget": []}

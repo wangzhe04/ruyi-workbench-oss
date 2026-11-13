@@ -1,0 +1,156 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "work_package": "P3-03",
+  "date": "2026-11-07",
+  "scope": [
+    "mcp/ai-computer-control/src/ai_computer_control/server.py",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+    "dev-harness/macos-browser-runtime.e2e.js",
+    "mcp/ai-computer-control/tests/smoke_browser_runtime.py",
+    "mcp/ai-computer-control/tests/run_all.py",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt",
+    "dev-harness/process-safety.static.e2e.js",
+    "facts.json",
+    "README.md",
+    "README_EN.md",
+    ".gitattributes",
+    "dev-harness/fixture-home.static.e2e.js"
+  ],
+  "source_hashes": {
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "32e2db5769cb61910cb5ee91864b4ed166e09a36e0d0e5822488a3fa7291d57e",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f",
+    "dev-harness/macos-browser-runtime.e2e.js": "217eb39a5d7d35a9b45c5c131c805660a31c1b0a9deea4f39e5faad91e87ad4d",
+    "mcp/ai-computer-control/tests/smoke_browser_runtime.py": "3d480327bac60c67d3285e2e7e2b9600420c979b9f9daa72ab20ad916f2b1c51",
+    "mcp/ai-computer-control/tests/run_all.py": "5f2773d997eecb45b9971be13b8ef66cf8761012f92c8de22e9bd55f50f04515",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt": "77c1e804c067a362c9db833e3db362625964756b90d6a65d1475ba4b06ea096f",
+    "dev-harness/process-safety.static.e2e.js": "0b2c7f26ccf93a4f607d433f237b1d781f6303c471ddcb9fbe8c177ce198dd2c",
+    "facts.json": "6caec097236fa2322002ee632ec75224314657b67332e57d8c7aa59ecb6d2081",
+    "README.md": "798a75d59403b9132ca378f162a6616528a5bf69ec532bd9e9775e2364f2fcb2",
+    "README_EN.md": "8d959f04766985bf1cfe0e17adbafa4b431b36a93fd43f5d486daf3c2e2f97fb",
+    ".gitattributes": "bc18d97343bf46ad38bdf8435afbcc897dc48f8392de4e2637915bc875e6c056",
+    "dev-harness/fixture-home.static.e2e.js": "ea62cbaf38d63f5ca663b6782ba68a9efa7815d496710acf803b5c486345e301"
+  },
+  "source_modifications": false,
+  "validation": [
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-03-cancel-review.py (framework DYLD env; isolated home/data and controlled temporary executable)",
+      "result": "During real Playwright chromium.launch, canceling browser_open returns with the owned launcher process still alive, _playwright assigned, _browser unassigned and _backend empty. Explicit shutdown_browser then terminates the process. All fixture processes cleaned."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-03-start-cancel-review.py (framework DYLD env; real PipeTransport allocation gated before start returns)",
+      "result": "After cancellation, the real owned Playwright driver process is alive while global _playwright remains None. Harness-retained context manager __aexit__ kills the driver. All fixture processes cleaned. A bootstrap TargetClosedError future log is retained as fault-injection evidence."
+    },
+    {
+      "command": "Re-run independent launch/pre-start-return cancellation probes after fix",
+      "result": "Both real owned launcher and driver PID are gone after cancelled tool returns; all related globals clear. Logs /tmp/ruyi-p3-03-cancel-review-after.txt and /tmp/ruyi-p3-03-start-cancel-review-after.txt."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-03-start-held-review.py",
+      "result": "Even while transport-connect gate stays held, actual driver PID is gone after cleanup; last_start_error explicitly records cancellation and incomplete timeout cleanup. All fixture processes cleaned."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-03-cdp-page-cancel-review.py",
+      "result": "No additional finding: cancellation at new-page handle handoff followed by browser_close leaves only the original controlled external page, which remains alive. External profile/browser was entirely fixture-owned and then cleaned."
+    },
+    {
+      "command": "Read real MCP/Chromium E2E and smoke_browser_runtime; inspect /tmp/ruyi-p3-03-runtime-third.txt",
+      "result": "ALL PASS log. Tests cover actual prepared-cache resolution, isolated profile args, local Chinese form, screenshot, tabs, offline failures, owned close and EOF, installed Mac browser branch, missing cache/package, CDP owned/unowned pages and original unsaved state. Process observation excludes supervising parent but requires actual browser/driver; CDP ownership counts page targets while preserving browser_ui/service_worker targets."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-03-status-cancel-review.py",
+      "result": "FAILURE REPRODUCED in read-only status SDK probe: cancelling after real driver allocation leaves it alive, with no global _playwright; global shutdown_browser also cannot clean it. Harness-retained manager cleanup kills it. Log /tmp/ruyi-p3-03-status-cancel-review.txt."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-03-status-timeout-review.py",
+      "result": "Same failure reproduced under browser_backend_status own 5-second probe timeout: status reports probeError=TimeoutError while an unowned driver remains alive; harness manager cleanup is required."
+    },
+    {
+      "command": "Independent re-run /tmp/ruyi-p3-03-status-cancel-review.py after status-probe fix",
+      "result": "Actual driver is no longer alive when cancellation returns; global shutdown finds no residual driver. Log /tmp/ruyi-p3-03-status-cancel-review-after.txt; exit 0."
+    },
+    {
+      "command": "Independent re-run /tmp/ruyi-p3-03-status-timeout-review.py after fix with held transport-connect gate",
+      "result": "Actual driver gone after own five-second probe timeout plus bounded cleanup. probeError records TimeoutError and incomplete startup protocol cleanup. Log /tmp/ruyi-p3-03-status-timeout-review-after.txt; exit 0."
+    },
+    {
+      "command": "Review complete final production diff and both new test files; inspect lifecycle-second/runtime-fifth logs",
+      "result": "No additional code findings. Lifecycle smoke log has 8 passed tests. Real MCP E2E fifth attempt fails at independent controlled external page readiness before ACC CDP client startup; parent is investigating. Earlier third attempt was green, but is not substituted for final-candidate validation."
+    },
+    {
+      "command": "git diff --check",
+      "result": "exit 0"
+    },
+    {
+      "command": "Review corrected standalone-CDP fixture flags and runtime-sixth log",
+      "result": "25 PASS, 0 FAIL, 0 SKIP; final real MCP E2E ALL PASS. Private standalone Chrome now uses --password-store=basic/--use-mock-keychain, matching SDK owned-launch behavior and avoiding user keychain prompts, plus disables extensions/background networking. This changes the private fixture only and preserves the same page/unsaved-state ownership assertions. The earlier readiness failure is resolved, not ignored."
+    },
+    {
+      "command": "Review CI subset registration and browser runtime lock",
+      "result": "smoke_browser_runtime joins existing CI_SUBSET; real allocated-driver cases skip only when not macOS/Playwright unavailable, while fake lifecycle/ownership/Windows selection contracts still run. Lock independently checked: 63 unique exact pins including Playwright, greenlet and pyee."
+    },
+    {
+      "command": "node dev-harness/process-safety.static.e2e.js; node --check dev-harness/macos-browser-runtime.e2e.js; git diff --check",
+      "result": "ALL PASS / exit 0. 346 process-cleanup consumers correspond to the new real browser fixture, not a weakened safety predicate. README/facts changes reflect the added E2E/smoke counts."
+    },
+    {
+      "command": "Review PDF binary attribute and bounded Mac browser-fixture cleanup equivalent",
+      "result": "*.pdf binary correctly excludes actual PDF artifacts from text-EOL normalization. fixture-home exception is limited to the exact Mac-only browser runtime file, requires its platform guard, own external-tree kill, observed owned browser/EOF process disappearance and profile removal. Other browser fixtures retain the original stopRuyiTestBrowsers requirement. This replaces a Windows-only no-op on the Mac-specific case with actual runtime cleanup evidence."
+    },
+    {
+      "command": "Independent node dev-harness/fixture-home.static.e2e.js and eol-policy.static.e2e.js",
+      "result": "Both ALL PASS, exit 0. EOL check reports all 3074 tracked text files conform. Logs /tmp/ruyi-p3-03-review-fixture-final.txt and /tmp/ruyi-p3-03-review-eol-final.txt."
+    },
+    {
+      "command": "Inspect /tmp/ruyi-p3-03-offline.txt and independently compare its wheel production sources",
+      "result": "Noneditable no-index replay real MCP E2E: 25 passed, no skip, P3 BROWSER LOCKED OFFLINE REPLAY ALL PASS. server.py and browser.py inside /tmp/ruyi-p3-03-wheelhouse/ai_computer_control-1.9.1-py3-none-any.whl match current source byte-for-byte. Wheel SHA256=a2be2b5da8ae0e1081a10628650927b812fedd7478e03d5f1e761c58b7cd755a."
+    },
+    {
+      "command": "git diff --check",
+      "result": "exit 0"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P303-R1",
+      "priority": "P1",
+      "status": "resolved",
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+      "lines": [
+        211,
+        248
+      ],
+      "title": "Clean up browser startup on cancellation, including pre-assignment driver allocation",
+      "detail": "Driver start occurs outside the startup exception handler, and launch/connect cleanup only catches Exception. asyncio.CancelledError bypasses that handler. Real controlled startup probes confirm live owned driver/launcher processes after the tool has returned cancellation. The allocation-before-start-return window has no global _playwright reference, so later shutdown_browser cannot recover that resource unless the context manager/start task is retained.",
+      "requested_fix": "Retain startup ownership before await, handle BaseException/cancellation with shielded bounded cleanup then rethrow cancellation, and guarantee state reset even if stop is itself interrupted. Cover start allocation, launch/connect cancellation and normal EOF cleanup with isolated fixtures.",
+      "resolution": "Manager/start-task ownership is retained before await, startup is shielded, BaseException triggers cleanup, and nested finally clears state. Independent real launch and pre-start-return cancellation probes now show owned processes gone immediately after cancellation. Held startup gate also kills the actual driver and records cleanup incomplete instead of claiming clean success."
+    },
+    {
+      "id": "P303-R2",
+      "priority": "P1",
+      "status": "resolved",
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py",
+      "lines": [
+        342,
+        346
+      ],
+      "title": "Retain and clean the temporary SDK status-probe manager on cancellation/timeout",
+      "detail": "browser_backend_status starts a separate temporary Playwright context using async with inside asyncio.wait_for. If cancellation occurs after __aenter__ allocates a driver but before it returns, __aexit__ is never called. The context is absent from the global startup ownership added for _ensure_browser. Independent real-driver probes show it remains alive after caller cancellation and after status own five-second timeout; even shutdown_browser cannot recover it. Repeated status polling can accumulate orphan drivers.",
+      "requested_fix": "Give the short-lived status probe retained manager/start-task ownership and bounded cancellation/timeout cleanup equivalent to normal startup, or avoid starting a driver for this read-only probe. Add focused cancellation and natural-timeout coverage.",
+      "resolution": "The temporary SDK status probe now uses the same retained global manager/start-task ownership helper as browser startup and shielded finally cleanup. Independent actual-driver caller-cancellation and natural-own-timeout probes both confirm driver PID gone and globals clear. Held-gate timeout retains an explicit probeError describing timeout/incomplete protocol cleanup instead of claiming success."
+    }
+  ],
+  "limitations": [
+    "Real Windows and minimum macOS version execution remain unverified; pure Windows selection tests do not establish Windows runtime acceptance.",
+    "Parent executed the full locked offline installation/replay and broad unit/fast gates; this reviewer inspected the replay, matched current wheel sources, and independently reran the two changed engineering gates plus focused cleanup probes.",
+    "Browser tests use only local fixtures/private profiles and a prepared cache, not user accounts, real forms or default browser data."
+  ],
+  "conclusion": "approved_with_environment_limitations",
+  "remaining_code_findings": [],
+  "current_revision_notes": [
+    "All two production resource-cleanup findings are resolved and independently retested.",
+    "Final real MCP attempt six passes the same owned/CDP/page-state assertions without skip. Earlier readiness/observation failures remain historical logs, not acceptance waivers.",
+    "The final locked wheel/no-index replay and broad mandatory engineering gates are being completed by the parent; this review covers code, targeted resource probes, fixture corrections and inspected execution evidence.",
+    "Final noneditable locked wheel replay is complete and inspected; two initial broad engineering-gate failures were corrected with narrowly scoped binary/cleanup contracts and independently rerun green. Previously passed 78 groups were not needlessly repeated."
+  ],
+  "final_wheel_sha256": "a2be2b5da8ae0e1081a10628650927b812fedd7478e03d5f1e761c58b7cd755a"
+}

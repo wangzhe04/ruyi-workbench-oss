@@ -1,0 +1,77 @@
+{
+  "scope": "Hash-bound reuse of primary engineering; no unit/static/build/syntax rerun by independent executor.",
+  "results": [
+    {
+      "label": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 26.696269989013672
+    },
+    {
+      "label": "build",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.16561508178710938
+    },
+    {
+      "label": "unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/*.test.js"
+      ],
+      "exitCode": 0,
+      "seconds": 118.01014685630798
+    },
+    {
+      "label": "fast",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "seconds": 126.68208622932434
+    }
+  ],
+  "sourceArtifactCheckpoints": 8,
+  "evidence": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/build.txt",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/fast.txt",
+      "bytes": 5848,
+      "sha256": "89fcaeb4c817c727b0c2b166bc762f30e5cbf917a7baec423900419a7f7b770c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/results.json",
+      "bytes": 677,
+      "sha256": "ef8cfcea661a140e261504761dc14f0a9abadd976e9ba719075164e8d725b316"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/source-artifact-checks.json",
+      "bytes": 25141,
+      "sha256": "4f70f646d888b910f7390c4e2251edf1c55091bb554e364262cb6277b612989b"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/syntax.txt",
+      "bytes": 60,
+      "sha256": "2cbfc47204e92fa6e208b80c4fd8bac4cd9de6e40d18543d94fc24afa3c4a11e"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/engineering-v1/unit.txt",
+      "bytes": 393412,
+      "sha256": "7efc42a99ca378b8309d1d49483267c1a3f35e513199f63c5f8af04832c64273"
+    }
+  ]
+}

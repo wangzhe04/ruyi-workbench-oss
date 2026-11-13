@@ -1,0 +1,11 @@
+PASS A serves the requested port
+PASS same-root B exits with an explicit refusal, replacing the old kill-A contract
+PASS A stays alive and keeps serving its original identity
+PASS another data root uses a fallback port and serves normally
+PASS a different-root workbench never kills the original workbench
+PASS unrelated node service owns its port
+PASS workbench uses a fallback port beside an unrelated service
+PASS the unrelated process is still alive
+PASS the original port still serves the unrelated application
+
+PORT-FALLBACK E2E: ALL PASS

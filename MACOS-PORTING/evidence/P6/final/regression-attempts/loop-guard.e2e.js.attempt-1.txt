@@ -1,0 +1,18 @@
+[fake] [fake-openai] listening on 60762
+PASS workbench up on :60763
+PASS session created
+PASS turn1: 3rd tool_result carries loopWarning (got 检测到连续第 3 次相同调用;若结果不符合预期,请改变参数或换用其它工具,不要原样重试。)
+PASS turn1: 2 loop_recovery events injected (got 2)
+PASS turn1: recovery attempts 1 then 2
+PASS turn1: tool_use count === 15 (got 15)
+PASS turn1: 5th tool_result is the loopAborted refusal (got {"ok":false,"error":"连续 5 次相同工具调用，已停止本轮以避免死循环","loopAborted":true})
+PASS turn1: result errorClass === tool_loop (got tool_loop)
+PASS turn1: 2 recovery notes in assistant text (got 2)
+PASS turn1: assistant text contains hard-stop note (已停止本轮)
+PASS turn1: assistant text does NOT contain iteration-cap message
+PASS turn1: turn_summary emitted despite the loop abort
+PASS turn2: turn_summary emitted (fresh turn works)
+PASS turn2: result event emitted (fresh turn works)
+PASS turn2: 1st tool_result has NO loopWarning (counter reset across turns)
+
+LOOP-GUARD E2E: ALL PASS

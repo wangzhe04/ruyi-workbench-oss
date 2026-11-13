@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "author": "/root",
+  "at": "2026-11-11T12:01:13.663880+00:00",
+  "snapshotImplementation": "7f95d654",
+  "historicalAudit": "remaining-audit.json",
+  "previousHistoricalResolution": "remaining-resolution-2026-11-11.json",
+  "scope": "Updated mapping of every original local/external ID after entry,selected,readiness,transition,neutral-abort,and provider-history slices. Recorded slice scopes remain historical/source bound. This is not full P5 acceptance or a waiver.",
+  "phaseStatus": "in_progress",
+  "phaseCompletionRecommended": false,
+  "localResolution": [
+    {
+      "id": "live_input_recording",
+      "originalRequirement": "P5-05 recording intent",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "closed_user_selected_keyboard_and_standard_mouse_scope",
+      "evidence": [
+        "manual/standard-mouse/",
+        "manual/README.md"
+      ],
+      "scopeAndRemaining": "0d054b04/1500b82b: explicit standard_mouse, user physical demonstration and independent provenance; pressure gestures explicitly excluded by user. No new physical demonstration requested."
+    },
+    {
+      "id": "cancelled_action_audit",
+      "originalRequirement": "P5 stage acceptance preserves audit",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "closed_recorded_cooperative_cancel_scope",
+      "evidence": [
+        "audit/README.md"
+      ],
+      "scopeAndRemaining": "Cooperative cancellation retains typed action state/unknown enclosing macro. This does not establish root-kill terminal audit or held release."
+    },
+    {
+      "id": "approval_and_native_audit",
+      "originalRequirement": "P5 stage acceptance preserves approval/audit and irreversible classification",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "partial_normal_node_entry_proved_hard_abort_open",
+      "evidence": [
+        "entry/README.md",
+        "readiness/README.md",
+        "hard-abort/README.md",
+        "durable-history/README.md"
+      ],
+      "scopeAndRemaining": "Default allow/deny/pending-cancel and real success audit/zero-action refusals independently proved; current7f95 entry31 refreshed. Masters/hidden registry40 bound229a. Root-hard-kill actual dispatch/ACC entry/terminal/held release remain open. Irreversible-classification requirement remains subject to the original per-tool scope; no broad new classification acceptance is inferred."
+    },
+    {
+      "id": "file_checkpoints",
+      "originalRequirement": "P5 new file writers and checkpoint path table",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "closed_normal_node_image_writer_create_overwrite_rollback_scope",
+      "evidence": [
+        "entry/README.md",
+        "durable-history/README.md"
+      ],
+      "scopeAndRemaining": "5e246343 fixes live proxy checkpoint context; current7f95 entry31 again verifies both actual writers create/overwrite, same-turn journals and actual rollback. Internal storage exemptions and App/CLI scopes remain distinct."
+    },
+    {
+      "id": "actual_ime",
+      "originalRequirement": "V11 input methods",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "closed_current_host_abc_pinyin_selected_scope",
+      "evidence": [
+        "manual/README.md",
+        "manual/standard-mouse/"
+      ],
+      "scopeAndRemaining": "User physical pinyin你好/drag saved replay and source provenance accepted previously; current entry fixture again restores original input source. No pressure gesture or exhaustive input-method claim."
+    },
+    {
+      "id": "live_revoke_and_lock",
+      "originalRequirement": "V11 and P5-05 lock/permission revocation",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "open_user_interaction_and_specific_lock_choice_required",
+      "evidence": [
+        "capture/README.md",
+        "hard-abort/plan-review-v1.json"
+      ],
+      "scopeAndRemaining": "Actual permission revoke/regrant and denied-state readiness, action-time OS lock, held/conditional clipboard recovery not accepted. Standing no-lock preference persists; do not intentionally lock without a new specific choice and prepared recovery."
+    },
+    {
+      "id": "layout_transition",
+      "originalRequirement": "P5-01 capture consistency",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "partial_owned_horizontal_refusal_closed_physical_topology_open",
+      "evidence": [
+        "transition/README.md"
+      ],
+      "scopeAndRemaining": "1b03da04 independent18:8 actual moving refusals, stable controls. No resize, moving-success instant origin, physical display change/mixed scale/negative origin."
+    },
+    {
+      "id": "catalog_readiness_and_hidden_tools",
+      "originalRequirement": "Every advertised ready capability has real success/failure evidence and missing functionality is consistently labelled",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "partial_missing_helper_registry_and_node_masters_closed",
+      "evidence": [
+        "readiness/README.md"
+      ],
+      "scopeAndRemaining": "229a9021 independent40 actual missing helper/live registry hidden nested replay/Node master switches. Actual TCC denied/revoked readiness and real CLI runtime remain unproved; generated CLI config is not runtime execution."
+    },
+    {
+      "id": "selected_application_candidate_scope",
+      "originalRequirement": "V12 versioned application scenes and current-candidate claims",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "closed_listed_leaf_scenes_and_versioned_bindings_only",
+      "evidence": [
+        "selected-current/README.md"
+      ],
+      "scopeAndRemaining": "Independent default31/renderer33/Finder10 recorded with exact version/source bindings and bounded native helper equivalence. No rerun or broad reacceptance of all historical350 scenes, no current App candidate inference."
+    },
+    {
+      "id": "status_and_bindings",
+      "originalRequirement": "TASKS/dashboard truthful status, SHA, logs and limits",
+      "originalFindingPreservedAt": "remaining-audit.json",
+      "status": "closed_listed_implementation_and_evidence_bindings",
+      "evidence": [
+        "durable-history/commit-binding.json",
+        "durable-history/independent-commit-binding.json",
+        "hard-abort/commit-binding.json",
+        "transition/README.md"
+      ],
+      "scopeAndRemaining": "Current TASKS and summaries distinguish each source-bound slice from original open gates; historical audit/resolution and failures retained. P5 stays in_progress."
+    }
+  ],
+  "externalResolution": [
+    {
+      "id": "physical_displays",
+      "status": "external_hardware_required",
+      "details": {
+        "id": "physical_displays",
+        "status": "external_hardware_required",
+        "requirement": [
+          "P5-01",
+          "V11"
+        ],
+        "need": "Actual non-Retina display plus dual-display negative-origin/mixed-scale topology.",
+        "partialProof": "Current single built-in Retina host and synthetic coordinate planners remain useful but narrower.",
+        "nextActions": [
+          "Provision the hardware without disrupting user display state; record display IDs, origins, scales and target geometry.",
+          "Run current-candidate capture/input across each display, negative origin and mixed-scale handoff, preserving consistent metadata or bounded refusal."
+        ],
+        "acceptance": "Actual hardware/topology receipts and source-bound runtime outcome, or a separate explicit P5 scope/owner decision."
+      }
+    },
+    {
+      "id": "minimum_os",
+      "status": "external_os_host_required",
+      "details": {
+        "id": "minimum_os",
+        "status": "external_os_host_required",
+        "requirement": [
+          "minimum macOS14 runtime",
+          "documented O2/P6 handoff"
+        ],
+        "need": "A real macOS14 host/VM as permitted by the delivery environment; deployment target14 is not runtime proof.",
+        "nextActions": [
+          "Record exact OS/architecture and same source commit/artifact construction.",
+          "Execute minimum-host supported capability and smoke/application gates; retain TCC/framework availability failures honestly.",
+          "If retained as O2/P6 handoff, name owner, remaining test and acceptance boundary; do not mark actual runtime tested."
+        ]
+      }
+    },
+    {
+      "id": "windows_candidate",
+      "status": "external_windows_host_or_explicit_p5_scope_decision",
+      "details": {
+        "id": "windows_candidate",
+        "status": "external_windows_host_or_explicit_p5_scope_decision",
+        "requirement": [
+          "P5 Windows regression",
+          "V14"
+        ],
+        "need": "Windows host/CI on the same final candidate SHA. Prior P1/P3/P4 choices are phase-specific and do not silently remove the P5 gate.",
+        "nextActions": [
+          "Use a matching candidate checkout for Windows original entry/tools/encryption/package regression; keep Linux static channel where required.",
+          "Triage each new failure and bind logs to the exact SHA.",
+          "Alternatively obtain and record an explicit P5-specific scope/handoff decision; absent that decision the row stays open."
+        ]
+      }
+    },
+    {
+      "id": "release_identity",
+      "status": "external_credentials_release_environment_and_owner_required",
+      "details": {
+        "id": "release_identity",
+        "status": "external_credentials_release_environment_and_owner_required",
+        "requirement": [
+          "formal signing/identity upgrade",
+          "clean-machine release validation",
+          "documented O2/P6 handoff"
+        ],
+        "need": "Developer ID/signing/notarization credentials and clean release-validation environment/owner.",
+        "partialProof": "Current strict ad-hoc signatures and limited Mach-O code/data equivalence are development evidence only.",
+        "nextActions": [
+          "Set the formal bundle/designated requirement/upgrade identity policy and responsible release owner.",
+          "Build/sign/notarize the intended release, validate install/upgrade/TCC identity and clean-machine behavior.",
+          "Retain any agreed O2/P6 deferral as a tracked handoff, not as completed formal validation."
+        ]
+      }
+    }
+  ],
+  "previouslyProvedScopesCarryForward": [
+    {
+      "id": "capture",
+      "status": "historical_bound_acceptance_preserved",
+      "detail": {
+        "id": "capture",
+        "historicalScope": "Current Retina host capture coordinates and image checks, window ambiguity, covered/minimized/missing targets and guarded target identity",
+        "status": "historical_bound_acceptance_preserved",
+        "limits": "Physical non-Retina, dual-display negative-origin/mixed-scale operation and capture during a real layout transition remain open.",
+        "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+      }
+    },
+    {
+      "id": "input",
+      "status": "historical_bound_acceptance_preserved",
+      "detail": {
+        "id": "input",
+        "historicalScope": "Guarded keyboard and pointer input, Unicode/Cmd+V, owned clipboard restoration, focus and identity refusal, bounded replay and cleanup",
+        "status": "historical_bound_acceptance_preserved",
+        "limits": "Unicode injection alone does not establish actual input-method switching or action-time OS lock/TCC revocation.",
+        "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+      }
+    },
+    {
+      "id": "ax",
+      "status": "historical_bound_acceptance_preserved",
+      "detail": {
+        "id": "ax",
+        "historicalScope": "AX query, supported actions, expiry/stale target and resource limits, plus versioned selected TextEdit/Finder/CFT scenes",
+        "status": "historical_bound_acceptance_preserved",
+        "limits": "Selected real-application scenes bind earlier implementation/helper layers. Current record acceptance reruns AX core but does not rerun all those application scenes. Chromium renderer AX mutation remains explicitly blocked by bidirectional membership validation.",
+        "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+      }
+    },
+    {
+      "id": "ocr_and_composition",
+      "status": "historical_bound_acceptance_preserved",
+      "detail": {
+        "id": "ocr_and_composition",
+        "historicalScope": "Bilingual Vision OCR, no/multiple matches, coordinate mapping and guarded click, shared-frame observe, act_and_verify and asynchronous macro waits",
+        "status": "historical_bound_acceptance_preserved",
+        "limits": "Observed screen change may remain unconfirmed, as the result contract states. Approval and native audit-tail roundtrips are separate acceptance gaps.",
+        "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+      }
+    },
+    {
+      "id": "controlled_recording",
+      "status": "historical_bound_acceptance_preserved",
+      "detail": {
+        "id": "controlled_recording",
+        "historicalScope": "Recording successful native requests from the same MCP worker, stop/save/replay, incomplete reasons, moved-window remapping, secure-input refusal, bounded storage and cleanup",
+        "status": "historical_bound_acceptance_preserved",
+        "limits": "Human manual input is outside this recording source.",
+        "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+      }
+    },
+    {
+      "id": "candidate_binding",
+      "status": "historical_bound_acceptance_preserved",
+      "detail": {
+        "id": "candidate_binding",
+        "historicalScope": "21 unique once-only acceptance commands, 303 Node assertions and 127 Python tests, zero unexpected failures/skips/retries. Engineering gates passed with 2499 unit passes/18 existing skips, 80 static passes/7 opt-in live skips and 1149 syntax files. 94 source/document blobs and 3 runtime artifacts bind the delivery candidate.",
+        "status": "historical_bound_acceptance_preserved",
+        "limits": "Legacy suites retain source-defined isolated helper builds where documented. This audit reuses the committed independent validation and adds no test run.",
+        "currentMapping": "See corresponding local/external rows for remaining restrictions; no blanket newest-helper rerun claim."
+      }
+    }
+  ],
+  "nextLocalWork": [
+    "Establish actual ACC/native invocation dispatch/terminal correlation separately from requested model intent",
+    "Qualify an independent out-of-tree bounded rescue before any held-state root fault; do not rerun old recovery scripts",
+    "Reconcile unknown-call continuation/replay behavior beyond GET-only restart",
+    "Prepare and obtain specific interaction choices for actual TCC/OS-lock cases while continuing independent work"
+  ],
+  "doNotRepeatOrInfer": [
+    "Do not request another physical你好/drag demonstration or repeat Finder window setup; accepted evidence exists.",
+    "Do not treat cooperative cancel or zero-input root kill as held-release acceptance.",
+    "Do not call persisted permission/model intent actual ACC dispatch or a terminal outcome.",
+    "Do not transform P3/P4 Windows waivers or O2/P6 handoffs into a new P5 waiver.",
+    "Do not rebuild/re-sign helper/App artifacts merely to refresh these JS-source bindings.",
+    "Original logs and historical status records remain unchanged."
+  ],
+  "coverageCheck": {
+    "originalLocalIDs": 10,
+    "externalIDs": 4,
+    "allOriginalLocalIDsMapped": true
+  },
+  "fullP5Completion": "not_proved_open_gates_remain"
+}

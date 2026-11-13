@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T10:16:50.125599+00:00",
+  "status": "read_only_contract_and_execution_plan_requires_fixture_and_source_review_before_held_run",
+  "head": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+  "scope": "Read-only audit and prospective plan for hard-abort-separate. No GUI, process snapshots, held input, kill, permissions probe, test, build or source edit was executed. Only this JSON plan is written. Not a runtime acceptance, product fix, impossibility finding or reduction of original P5 scope.",
+  "gate": {
+    "source": "MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json",
+    "id": "hard-abort-separate",
+    "acceptance": "Observed native state and durable outcome agree; an unknown enclosing macro remains unknown rather than falsely successful.",
+    "originalScopePreserved": true,
+    "phaseStatus": "in_progress"
+  },
+  "executiveConclusion": "Root-only SIGKILL and cooperative MCP cancellation have different executable paths. Current supervisor EOF cleanup freezes and SIGKILLs owned collected processes; native release/ACC CancelledError logging can race with that cleanup and is not guaranteed by source. This does not prove a stuck button, since actual OS/native state remains unmeasured. Do not start a held-state root-kill case until an independent single-case release watchdog is reviewed, qualified and armed. A neutral prefix/wait root-kill case can first establish process/trace behavior without holding input.",
+  "paths": [
+    {
+      "id": "A",
+      "trigger": "MCP notifications/cancelled with ACC kept alive",
+      "behavior": "input_sequence async cancellation sets cancel_event under its lock, shields until its native-request thread finishes, and the request thread terminates its owned native worker. Native TERM/INT/EOF paths can call RuyiAutomationStopEvents/ReleaseEvents. Python wrapper records typed inner cancellation; enclosing macro generic CancelledError records outcome=unknown and rethrows.",
+      "limits": "Existing macos-audit-cancellation fixture deliberately keeps ACC alive for inspection. It is cooperative cancellation evidence and does not establish root-only hard abort."
+    },
+    {
+      "id": "B",
+      "trigger": "Workbench stop/steer/timeout while Workbench remains alive",
+      "behavior": "McpStdioClient _rpc first sends cancellation notification, then callTool error path invokes kill()/ProcessRuntime stop and waits for cleanup. ProcessRuntime stop closes its private control writer.",
+      "limits": "Notification does not itself imply a sufficient drain interval before supervisor force cleanup. Do not import raw cooperative-cancel guarantees into action-time Workbench stop without measuring it separately."
+    },
+    {
+      "id": "C",
+      "trigger": "SIGKILL to only the exact owned Workbench Node root",
+      "behavior": "Node signal/exit handlers do not run. Node-owned stdio/control descriptors close. Primary supervisor observes private control EOF and enters cleanup_supervised; guardian watches primary and independently cleans its observed set after primary exit. Root ACC stdin EOF may also drive Python cancellation/lifespan concurrently.",
+      "limits": "Do not signal the process group or use killOwnTree(root) as the injected fault; those change the mechanism and may kill the very guardian/rescue required for observation."
+    },
+    {
+      "id": "D",
+      "trigger": "SIGTERM/SIGINT to Workbench or direct native helper",
+      "behavior": "Node serve signal handlers perform best-effort cleanup and exit; native worker TERM/INT has background release handlers.",
+      "limits": "Graceful signal path differs from root SIGKILL and cannot substitute for the hard-abort gate."
+    }
+  ],
+  "sourceMechanics": [
+    {
+      "topic": "Supervisor topology",
+      "evidence": "ProcessRuntime start spawns --supervise-v2 with private FD3. supervise_guarded calls setsid, forks primary; primary forks/execs ACC Python after closing control_fd in target. Private channel is not inherited by target.",
+      "conclusion": "Expected topology: external runner -> Workbench -> guardian(session/group anchor) -> primary -> Python ACC -> native --input-session. External receiver/rescue must be spawned by the external runner, outside that subtree/group."
+    },
+    {
+      "topic": "Native worker ownership",
+      "evidence": "macos_session._session Popen has no start_new_session/setsid/detached option. It inherits Python process group and is Python child. collect_supervised includes current anchor group members or birth-verified descendants, including already-observed escapees.",
+      "conclusion": "The native input worker is normally inside the same supervised group/tree; it is not a protected independent cleanup agent. Actual PID/PPID/PGID/creation stamps must be measured in the future fixture rather than assumed from names."
+    },
+    {
+      "topic": "Force cleanup ordering",
+      "evidence": "macos-process-helper.c cleanup_supervised 271-313 resets interrupted, SIGSTOPs known identities, freezes newly collected identities, then SIGKILLs in reverse order and checks exits. Guardian calls same cleanup routine.",
+      "conclusion": "SIGSTOP/SIGKILL provide no handler/finally execution window. Their successful process-exit receipt proves observed process termination, not CGEvent release."
+    },
+    {
+      "topic": "Native release alternatives",
+      "evidence": "macos-automation-session.m TERM/INT dispatch handlers, independent kqueue EV_EOF monitor, stdin EOF reader and per-frame watchdog call StopEvents. events.m tracks held keys/buttons/private pointer flags and releases through trusted PostEvent/AX checks.",
+      "conclusion": "Direct TERM/EOF can release while native code is runnable; a stopped/killed worker cannot run those paths. Workbench death does not directly close native stdin: Python owns that writer until Python itself closes/exits. Native EOF and supervisor freeze/kill therefore race. OS cleanup of an exiting synthetic source must be observed; source does not prove it either way."
+    },
+    {
+      "topic": "Cancellation audit",
+      "evidence": "server.py tool async wrapper catches asyncio.CancelledError, audits a matching ToolCancelled inner result or generic cancelled/outcome unknown, then rethrows. _run_batch does not swallow CancelledError. input_sequence shields native-thread settlement.",
+      "conclusion": "A runnable cooperative cancellation can produce inner dispatch evidence and an unknown enclosing macro. SIGKILL skips Python handlers/finally/atexit; lack of a macro audit row is not evidence of not-dispatched or success."
+    },
+    {
+      "topic": "Audit persistence scope",
+      "evidence": "ACC log_action appends/closes NDJSON after tool return/cancellation and suppresses logging errors; no pre-effect start record is written by that wrapper. Workbench logEvent uses an async WriteStream.",
+      "conclusion": "Rows actually present on disk survive a process-only restart, but rows not reached/queued at root death are not guaranteed. This plan targets process crash, not power-loss durability; it does not turn absence of fsync into a claim of failed process-crash persistence."
+    },
+    {
+      "topic": "Workbench trace/recovery",
+      "evidence": "Normal provider loop pushes assistant tool_calls into memory, then calls tools; saveSession of growing trace is after the tool batch. turnSegments/liveTail are in-memory; preToolCall hooks are optional, read-only/best-effort and not an unconditional durable journal. Root SIGKILL cannot run end-of-turn saves.",
+      "conclusion": "An in-flight macro may be absent from durable providerHistory, or only a dangling prefix/user turn may remain. Permission allowed/intervention records do not prove dispatch. Existing detectDanglingTurn and pairing repair honestly identify missing results when the corresponding rows survived, but do not reconstruct native effect/cleanup evidence."
+    }
+  ],
+  "potentialSourceGaps": [
+    {
+      "id": "HA-S1",
+      "classification": "Confirmed source-level missing guaranteed release opportunity; runtime outcome unmeasured",
+      "problem": "Generic freeze-then-kill can preempt Python/native cooperative cleanup after owner EOF.",
+      "candidateDirections": [
+        "A bounded authenticated owned-cleanup protocol that freezes new dispatch while permitting a registered release-capable native worker to run and acknowledge before hard kill",
+        "An independent native cleanup owner/guardian retaining only this invocation owned input state",
+        "Preserve generic ownership/fork-barrier safety; do not simply exempt processes based on a command substring or untrusted name"
+      ],
+      "acceptanceNeed": "A real down receipt followed by automatic neutral state before external rescue and truthful durable interrupted/unknown macro outcome. No assumption current code is irreparable or definitely leaves input stuck."
+    },
+    {
+      "id": "HA-S2",
+      "classification": "Durable receipt path needs explicit contract",
+      "problem": "Primary/guardian cleanup frames go to dead Node private socket after root SIGKILL; existing inspected source has no independent persisted supervisor/native terminal receipt. An external monitor can prove observed exits/state, not manufacture product durable cleanup receipts.",
+      "candidateDirections": [
+        "Separate authenticated receipt sink/channel whose lifetime does not hold Node control EOF open",
+        "Private invocation ledger for started/dispatch/release/termination/recovery, with exact lifecycle/source ownership and defined process-crash persistence"
+      ],
+      "acceptanceNeed": "Tie receipts to invocation/session/turn plus actual process birth identities; mark missing/unconfirmed release as unknown/incomplete. Do not duplicate FD3 writer into observer: keeping it open would suppress the owner-death condition."
+    },
+    {
+      "id": "HA-S3",
+      "classification": "Normal-turn durable in-flight intent not guaranteed",
+      "problem": "Current inspected ordinary provider path has no unconditional persisted macro invocation intent before its side effects; tool calls can exist only in memory until post-batch save. Generic dangling-turn recovery may therefore lack tool-specific attribution.",
+      "candidateDirections": [
+        "Persist a bounded invocation ID/tool args digest/session/turn intent before dispatch and reconcile interrupted invocations on next boot",
+        "Do not treat optional trace hooks or the test runner transcript as product durable outcome"
+      ],
+      "acceptanceNeed": "On restart, the same invocation remains interrupted/unknown with no forged success, no automatic replay and no claim all side effects were rolled back."
+    },
+    {
+      "id": "HA-S4",
+      "classification": "Recovery wording and reconciliation review needed",
+      "problem": "Provider pairing filler says result lost/do not replay, but healStalePendingSegments labels running tool cancelled with a generic retry invitation. Neither cancellation label nor process exit proves a dispatched macro had no effects.",
+      "candidateDirections": [
+        "Keep protocol-pairing recovery separate from execution outcome",
+        "Use unknown/interrupted wording and require explicit further action for possibly-effectful macro rather than encouraging blind replay"
+      ],
+      "acceptanceNeed": "UI/read-model/provider history agree with observed completed prefix and incomplete remainder. No false succeeded/completed macro or automatic restart/duplicate input."
+    }
+  ],
+  "minimalOwnedFixture": {
+    "architecture": "One external runner owns a private Cocoa receiver plus independent rescue watchdog, and separately starts an isolated real Workbench ordinary default-provider session using fake offline model replies but actual ACC/native helper. Receiver/rescue are outside the Workbench supervisor session/group. New fixture/source must be reviewed before execution.",
+    "inputChoice": "Only left mouse at a fixed interior point of an owned stationary blank blue pad. No Shift or other modifier/key injection; no drag, clipboard, user document, OS setting, pressure, lock or TCC change. Retain current input source metadata without changing source if supported.",
+    "baselineNeutral": "Require real HID and combined-session left button false, relevant modifiers neutral, receiver down/up counts equal, owned foreground/window/hit/geometry and unchanged process birth identities. Treat unexpected pre-existing held state as a stop condition; do not run old Shift/left recovery scripts or release anything from previous work.",
+    "receiptAttribution": "Arm a fresh case nonce in external receiver/watchdog; accept down only in the owned window after dispatch start, at the planned point/button, with observed native emitter PID/birth correlation where the actual event API exposes it. Record CG event source PID/timestamps where available. Do not invent an event nonce field absent from production input_sequence. If reliable attribution cannot be qualified, do not enter the held fault stage.",
+    "plannedInput": "Real macro_run containing actual production input_sequence with one left down at0us and corresponding planned up at4000000us, exact/source-bound target and zero modifiers, plus a never-reached benign suffix if needed to distinguish enclosing unknown. Whole sequence remains valid/balanced; do not bypass native suffix validation with an illegal single-down request.",
+    "fault": "Only after external receiver durably records actual left-down count +1, up unchanged and real button held, kill the owned Workbench root with SIGKILL while the scheduled native up has not been dispatched. Recheck Popen root and exact creation stamp immediately before signaling. No tree/group kill, API stop or pre-native SIGTERM substitution.",
+    "frozenThresholdProposal": {
+      "scheduledNativeUpMs": 4000,
+      "latestRootKillAfterDownReceiptMs": 100,
+      "productNeutralObservationDeadlineMs": 1000,
+      "independentRescueDeadlineMs": 1500,
+      "observedChildExitDeadlineMs": 5000,
+      "status": "Proposed explicit fixture bounds, not an existing product SLA. Review/freeze them with actual fixture before execution; if arming/measurement cannot meet them, abort before injecting the held fault."
+    },
+    "witnesses": "Receiver down/up/source receipts plus independent HID/combined button state, root close/signal, birth-verified guardian/primary/Python/native disappearance and durable original logs; keep production and rescue release source distinguishable. Native scheduled up must still be pending when fault triggers; a late kill is inconclusive and not a hard-held pass."
+  },
+  "qualificationAndExecutionOrder": [
+    {
+      "step": 1,
+      "name": "No-input preparation",
+      "requirements": "Freeze exact sources/artifacts/signatures/config and case namespace. Prove receiver/watchdog are outside target group; prepare private evidence sink/ownership manifests. Check actual rescue permissions read-only without requesting TCC; arm/disarm heartbeat/deadline and nonce protocol without posting input. Keep receiver alive if runner/control channel fails until its own bounded safety action has settled."
+    },
+    {
+      "step": 2,
+      "name": "Neutral root-death calibration",
+      "requirements": "First use wait-only macro, or an already completed balanced owned click followed by wait. Kill only root while native state is neutral. Determine actual guardian/child shutdown, on-disk trace and restart classification. This does not close the held-state gate; if attribution or durable records are insufficient, resolve those gaps before the held test."
+    },
+    {
+      "step": 3,
+      "name": "Qualify a targeted independent rescue",
+      "requirements": "Review new rescue source, preflight actual event-post permission and own window/source conditions, then separately qualify a short bounded normal balanced pair with the production scheduled up as a secondary safety path and independent watchdog release identifiable in the receiver. Require receiver up and HID neutral; do not assume a release from another private source works. No hard kill in qualification. Preserve all qualification attempts and do not claim rescue qualification is product automatic cleanup acceptance."
+    },
+    {
+      "step": 4,
+      "name": "One held root-only fault",
+      "requirements": "Only with valid baseline, armed independent watchdog and durable case manifest, dispatch valid4s pair. Wait for actual attributed down/held and up=0, confirm unused up deadline remains, then exact-root SIGKILL. Observe without issuing cleanup input during product-release window. Do not retry this scenario automatically."
+    },
+    {
+      "step": 5,
+      "name": "Recover and preserve evidence",
+      "requirements": "If product neutralizes before rescue deadline, disarm rescue and verify no late extra up/replayed suffix. If it does not, watchdog emits only the single-case own-left release and records intervention; classify product gate as failed/incomplete regardless of eventual neutral state. Keep receiver until neutral; no unrelated key/global reset and no old recovery script. Archive before/after receipts and exact identities even on failure."
+    },
+    {
+      "step": 6,
+      "name": "Read-only restart outcome audit",
+      "requirements": "After input neutral and original observed children gone, preserve raw data then start same isolated data root with all auto-resume/background/model activity disabled. Load/query the affected session without replaying input. Compare durable native/ACC/Node outcomes and recovery state; any explicit pairing-repair exercise uses a separately reviewed no-input provider turn and must not redispatch the macro."
+    }
+  ],
+  "recoveryPlan": {
+    "owner": "An independently alive, pre-armed receiver/watchdog process outside the Workbench subtree/group; not a surviving handle inside the group about to be frozen.",
+    "allowedRecovery": "Only this case nonce and attributable left-down, at the still-owned stationary test pad, with guarded own PID/window/geometry. One matching left-up, preserving unowned current physical modifier state; no Shift/key-up sweep or global legacy reset. Use only code that passed separate source/qualification review.",
+    "ifRescueFires": "Record exact source/time/count/state before and after, mark intervention=true and productAutomaticRelease=false. Recovery success prevents residual input but cannot convert the hard-abort gate to pass or supply a fabricated product audit row.",
+    "ifAttributionOrPermissionFailsBeforeDispatch": "Do not start held input. Resolve the independent recovery mechanism first.",
+    "ifUnexpectedStateDuringCase": "Stop further dispatch/restart. Keep receiver/rescue alive, execute only its already-armed bounded one-case release where ownership remains valid, preserve incomplete evidence and hand over explicit observed state. Do not blanket-release arbitrary inputs or attempt unrelated old restoration actions.",
+    "scope": "This is a prospective recovery design, not an implemented or empirically verified capability."
+  },
+  "acceptanceCriteria": {
+    "input": "Actual owned down observed before root kill; scheduled up not dispatched; original root SIGKILL confirmed. Product/OS cleanup must yield receiver release and neutral real state before independent rescue; emitter/source and time preserved. A non-held/not-dispatched/late kill is inconclusive, not pass.",
+    "process": "Original guardian/primary/Python/native observed identities all absent within frozen bound; no hidden blanket name kill. Tree exit is assessed separately from input release. Incomplete/missing sampler state fails the evidence condition.",
+    "durable": "Exact invocation/session/turn association and interrupted/unknown enclosing macro outcome survive restart. Inner prefix/dispatch detail may be confirmed only from real receipts; no whole macro success, no not_dispatched after down, no claim complete rollback, no automatic replay. Missing final Python/Node record is explicitly unknown and is a contract/evidence gap if the gate requires a durable correlated terminal outcome.",
+    "recovery": "If watchdog or any external safety actor releases input, gate cannot be counted as automatic production cleanup pass. Preserve both failing product observation and successful emergency restoration separately.",
+    "negativeAssertions": "No second input step, late planned up after cleanup, duplicate macro on restart, unowned process signal, clipboard mutation or unrelated key release.",
+    "limits": "One current-host left-button scenario is the minimum start of this gate, not waiver of original full P5/environment/lock/TCC/App/Windows or remaining hard-abort cases."
+  },
+  "notExecuted": {
+    "GUIActions": 0,
+    "inputEventsPosted": 0,
+    "heldStateTests": 0,
+    "processKillsOrSignals": 0,
+    "testsStarted": 0,
+    "processSampling": 0,
+    "TCCProbesOrChanges": 0,
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "stagingChanges": 0,
+    "commits": 0
+  },
+  "reviewedSources": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json",
+      "bytes": 51090,
+      "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "bytes": 24619,
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 195200,
+      "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 8641,
+      "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11174,
+      "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 23110,
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 10462,
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 9948,
+      "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 356760,
+      "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 411515,
+      "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "bytes": 18918,
+      "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "bytes": 7061,
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+    },
+    {
+      "path": "dev-harness/macos-audit-cancellation.e2e.js",
+      "bytes": 10208,
+      "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-audit-cancel-server.py",
+      "bytes": 1265,
+      "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+    },
+    {
+      "path": "dev-harness/macos-input-events.e2e.js",
+      "bytes": 23780,
+      "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+    }
+  ],
+  "newFiles": [
+    "MACOS-PORTING/evidence/P5/hard-abort/plan-review-v1.json"
+  ],
+  "phaseStatus": "in_progress"
+}

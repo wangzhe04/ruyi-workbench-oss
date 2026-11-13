@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "stage": "final-implementation-code-review-before-commit",
+  "reviewer": "/root/p6_02_review",
+  "scope": "Local/internal trial, current-account isolated install. Developer ID, notarization, real clean standard-user and downloaded-origin Gatekeeper approval are unverified.",
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "P6-01 Resources-contained native code is not fully sealed by the outer Ruyi deep verification.",
+      "independentEvidence": {
+        "native": 209,
+        "unsigned": 18,
+        "missingResourceSeals": 10,
+        "report": "/tmp/ruyi-p602-review/signature-scan.json"
+      },
+      "resolution": "Current signer verifies every native target, explicitly repairs 18 unsigned native extensions and Chromium missing resource seals inside-out, and seals/verifies outer Ruyi. Final artifact independently pending.",
+      "status": "closed_in_reviewed_code"
+    },
+    {
+      "id": "R2",
+      "finding": "Output reservation before temporary allocation was outside cleanup try.",
+      "before": {
+        "name": "output reservation before try",
+        "error": "injected temporary-directory allocation failure",
+        "outputRemains": true
+      },
+      "after": {
+        "name": "output reservation before try",
+        "error": "injected temporary-directory allocation failure",
+        "outputRemains": false
+      },
+      "status": "closed_in_reviewed_code"
+    },
+    {
+      "id": "R3",
+      "finding": "Post-attach metadata parse failure leaked an owned mounted image.",
+      "before": {
+        "name": "attach plist conversion failure",
+        "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+        "stillMounted": true
+      },
+      "after": {
+        "name": "attach plist conversion failure",
+        "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+        "stillMounted": false
+      },
+      "status": "closed_in_reviewed_code",
+      "binding": "431cdd9632dcc8b3b7ad98cd305e3ad03f7872f244bd8c7cae3932631323a7a5"
+    },
+    {
+      "id": "R4",
+      "finding": "Repeated wrapper provenance fields could disagree while verification passed.",
+      "status": "closed_in_reviewed_code"
+    },
+    {
+      "id": "R5",
+      "finding": "Gatekeeper assessor timeout or spawn error could satisfy status !== 0.",
+      "status": "closed_in_reviewed_code",
+      "resolution": "spctl result is preserved as INFO only; it is no longer a passing Gatekeeper assertion, and actual downloaded-origin approval remains explicitly unverified."
+    },
+    {
+      "id": "R6",
+      "finding": "DMG checksum failure printed FAIL but continued mounting and launching.",
+      "status": "closed_in_reviewed_code",
+      "resolution": "verifyDistribution validates regular metadata/image/sidecar, exact hashes and provenance before mount; checksum FAIL stops immediately."
+    }
+  ],
+  "sourceFreeze": "All 7 bound source files unchanged; ready for implementation commit and final DMG build",
+  "reviewedAt": "2026-11-12T08:59:04.358Z",
+  "sourceBindings": {
+    "ruyi-workbench/tools/package-macos-trial.js": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+    "ruyi-workbench/tools/macos-offline-lib.js": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+    "dev-harness/macos-trial-install.e2e.js": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+    "dev-harness/macos-offline-package.e2e.js": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+    "dev-harness/unit/macos-trial-package.test.js": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97"
+  },
+  "independentChecks": {
+    "unit": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0,
+      "log": "/tmp/ruyi-p602-review/unit-frozen.txt"
+    },
+    "cleanup": {
+      "pass": 2,
+      "fail": 0,
+      "report": "/tmp/ruyi-p602-review/cleanup-probes.json"
+    },
+    "nativeAndAliasPreflight": {
+      "pass": 4,
+      "fail": 0,
+      "codeSignCallsBeforeReject": 0,
+      "report": "/tmp/ruyi-p602-review/native-inventory-probes.json"
+    }
+  },
+  "remainingBlockingCodeFindings": [],
+  "conclusion": "Current P6-02 local/internal implementation code review passed; final frozen Full/Slim DMG and installation validation still pending"
+}

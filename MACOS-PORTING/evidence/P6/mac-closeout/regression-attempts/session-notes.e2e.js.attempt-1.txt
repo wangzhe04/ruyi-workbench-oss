@@ -1,0 +1,29 @@
+── [U] session-notes 白盒契约 ──
+PASS U1 真实历史门通过后默认配置 sessionNotesEnabled=true
+PASS U2 显式 false 时可完整关闭
+PASS U3 sanitize 只认 JSON 布尔(字符串 "true" 洗回 false)
+PASS U4 切出【已确认的决定】内容完整
+PASS U5 切出【未完成事项】
+PASS U6 切出【关键文件与上下文】
+PASS U7 节边界不互串
+PASS U8 缺节全部降级为「无」
+PASS U9 英文别名节标题同样可切(无【未完成事项】→ 无)
+PASS U10 空摘要安全降级
+PASS U11 markdown 头含 schema/session 注释
+PASS U12 markdown 含三个状态节
+PASS U13 写读回环逐字节一致
+PASS U14 整写覆盖(第二版取代第一版)
+PASS U15 落盘路径为 sessions/<id>.session-notes.md
+PASS U16 缺文件读 → null(不抛)
+PASS U17 超 64K 截断并标记
+PASS U18 同会话 10 路并发写不撕裂(最终为末次完整写入)
+PASS U19 开关关闭时挂钩零文件(默认零行为变化)
+PASS U20 开关开启时挂钩落盘三节内容
+PASS U21 目标/执行状态留在摘要叙事,不进 notes
+PASS U22 缺 id/空摘要静默跳过(不建文件不抛错)
+── [H] 真实历史摘要外置 ──
+SKIP H1-H3 realhist fixture 不在当前环境(需要外部数据)
+── [R] 跨进程读回 ──
+PASS R1 子进程(模拟重启后)读回 notes 长度一致
+
+SESSION-NOTES E2E: ALL PASS

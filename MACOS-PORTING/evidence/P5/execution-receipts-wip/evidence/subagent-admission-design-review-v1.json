@@ -1,0 +1,467 @@
+{
+  "schema": 1,
+  "kind": "read_only_subagent_admission_and_durable_history_design",
+  "createdAt": "2026-11-11T20:14:45.536604+00:00",
+  "workspace": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "status": "design_only_no_subagent_support_implemented",
+  "scope": "Minimum authentic workflow/node-attempt admission and durable actual subHistory delivery; no extension of the accepted image slice.",
+  "evidenceBoundary": {
+    "sourceInspection": true,
+    "nativeOrHelperExecution": false,
+    "runtimeTestsExecuted": false,
+    "sourceEdits": false,
+    "onlyNewFile": "/tmp/ruyi-p5-receipts-evidence/subagent-admission-design-review-v1.json",
+    "passedImageSliceUnchanged": true,
+    "fullP5": "open/in_progress",
+    "defaultActivation": "off; existing RUYI_DESKTOP_EXECUTION_RECEIPTS=1 macOS opt-in remains",
+    "lockRestoration": "not authorized by this review; full P5 still required; no lock/TCC/held/rescue changes"
+  },
+  "input": {
+    "plan": "/tmp/ruyi-p5-receipts-evidence/next-implementation-plan-v5.json",
+    "sha256": "5612691f4dcbbce4e29132011335e251ccbadd5963b7c7cca9fa6990920257d1",
+    "section": "subagentDesignInspection"
+  },
+  "sourceManifest": [
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "18fed8dccd9a94e25a56f1179c2362a8ed752d38ba5e15a84916693f5c5a6ef3",
+      "bytes": 363099
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "9cf0d8e7629ec4d4d2879d0d77ac8514771d9d6ec0ee2b366232fc411552a96f",
+      "bytes": 246826
+    },
+    {
+      "file": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+      "bytes": 12031
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "301ba64028ee3c499f9296f9453b63bee099aaf06e39b051e9127714e2152bee",
+      "bytes": 433480
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "429693af6534301bbe3805133d87988b042231231b0943ee90ab2e8ee2b678d8",
+      "bytes": 320122
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "dec468e99c0e33e928dfe73bbca328afdceb356c75e6e37c32f566058b201107",
+      "bytes": 222006
+    },
+    {
+      "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "95049eea61eec401efd65432f44f1831b5092bf180c681c3437ae8b419d1295e",
+      "bytes": 190248
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "sha256": "ab00a6783a33f9a2b81da9c4a05aaca448598d4c1a0cad6bdddb07753bdd5bc1",
+      "bytes": 16139
+    },
+    {
+      "file": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "sha256": "bdaa28601dc6e4e76639b2a62bfd104f8fe8f7a0182ce633a80384502de4b07b",
+      "bytes": 24263
+    },
+    {
+      "file": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "sha256": "d13e8e1273b7b5415431dc2920a6b28bb7becabc96f255f21d06ec06bc16e7be",
+      "bytes": 1017
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "sha256": "dcef62b1ad9b453fa0f74af82d65a9fc4dec644a19c9a3a53d506b18a0601f9d",
+      "bytes": 12053
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "sha256": "7b36d87a1fb6679188b980d6788109a2f9824b46525c929e1b144bf43e41889d",
+      "bytes": 19877
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b",
+      "bytes": 19273
+    }
+  ],
+  "findings": [
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 43,
+      "symbol": "runAgentWorkflow",
+      "finding": "Checks session tombstone before initialization and again immediately before activeAgentRuns registration. Role/route/memory/worktree initialization contains awaits; identity must be captured/revalidated across them."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 68,
+      "symbol": "existingRun + resumeInFlight",
+      "finding": "Synchronous cold-resume guard closes duplicate registration window. Resume keeps existing node objects, resets statuses and invalidates prompt evidence. This is not an execution admission."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 209,
+      "symbol": "new run metadata",
+      "finding": "run.sessionId and run.turnSeq are copied from parentSession after role/route awaits. For a background workflow parentSession can advance later; freeze authentic launch-origin facts before first await rather than reading mutable parentSession.turnSeq when tools execute."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 239,
+      "symbol": "runtime / activeAgentRuns.set",
+      "finding": "Exact runtime owns exact run, localCtrl and nodeControls map. Registration at266 precedes strict first save at271; onRegistered fires before first save success and therefore cannot prove durable admission."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 1105,
+      "symbol": "dispatch loop",
+      "finding": "Real node attempt begins with node.status=running; node.attempts+=1; node.startedAt set. Capture that integer and node identity synchronously here, before runNode awaits memory/worktree preflight."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 846,
+      "symbol": "agentSession worktree projection",
+      "finding": "agentSession={...parentSession,cwd:isolation.path}; it is a cwd projection, not the host session authority. Clone may retain stale copied turnSeq/rewindGen. Preserve original parentSession separately."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 871,
+      "symbol": "nodeCtrl / nodeControls",
+      "finding": "New nodeCtrl is linked to localCtrl, registered by exact identity at880, and removed with an identity comparison in finally919. Mint the opaque node admission only after map registration and complete revalidation; revoke before removing the controller."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 883,
+      "symbol": "runSubAgent call",
+      "finding": "Carries runId and node key but does not carry actual runtime/run/node references, captured attempt, host session authority or opaque execution admission."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 1117,
+      "symbol": "runNode catch/finally",
+      "finding": "Outer scheduler catches failures and marks node failed; automatic retry/loop requeues and mutates the same node. Admission must never survive retry, loop, nodeCtrl replacement or runtime replacement."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 1173,
+      "symbol": "run finalization",
+      "finding": "run_end/event flush and saveAgentRun are best effort. Runtime is removed in finally1178. Closing, abort, pause and node-control liveness must be checked at actual dispatch, not just when admission is minted."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 2618,
+      "symbol": "launchOrchestrateFromTurn background",
+      "finding": "Model background launch uses ctrl:null and a detached event forwarder; real workflow localCtrl owns continuing work after parent turn/SSE ends. Foreground2644 passes the real parent ctrl and awaits workflow."
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "line": 1196,
+      "symbol": "HTTP agent launch",
+      "finding": "API/UI launch can have no active parent registry. Both sync1266 and background1252 call runAgentWorkflow without a parent ctrl. Fresh loaded sessions may have turnSeq0. Do not make these launches impersonate a main turn."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "line": 1304,
+      "symbol": "launchPersistedAgentRun",
+      "finding": "Cold resume loads the real session and stored run; launches asynchronously without an actual parent turn. Restored foreground run still has independent workflow lifetime. background field only controls envelope semantics, not existence of a live main owner."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 618,
+      "symbol": "runSubAgentCore wrapper",
+      "finding": "Owns heartbeat cleanup and closeInbox, but not durable model history. runSubAgent1387 first waits for real resource lease and routes Claude nodes to CLI; receipt support must stay denied on the Claude branch."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 775,
+      "symbol": "subHistory / buildBody",
+      "finding": "Actual subHistory starts as the real delegated user task; buildBody788 projects that exact array via PrivacyGateway and wire protocol. It is not parentSession.providerHistory."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 956,
+      "symbol": "savepoint recovery",
+      "finding": "savepoint deep-copies subHistory into process memory and restores once after network failure. It does not survive process restart or prove durable delivery. Diagnostic writeHistorySnapshot is conditional and best effort."
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "line": 722,
+      "symbol": "writeHistorySnapshot",
+      "finding": "Writes gzip snapshot without strict commit/readback, returns empty on errors, is subject to checkpoint GC and uses parent turn key/content hash. It is not a receipt transcript store."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 1222,
+      "symbol": "bridged ACC branch",
+      "finding": "After resource wait and permission checks calls DesktopExecutionHooks.invoke with session ID only, no opaque context. Candidate ACC correctly refuses; toolCall1252 also lacks desktop context for native proxy paths."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 1283,
+      "symbol": "actual result/image projection",
+      "finding": "Display event precedes image extraction. Model result strips image fields and passes privacy projection/truncation into tool row1291. Vision images enter subToolImages then actual subHistory1298 only after successful batch; abort/denial can exit before image flush. Must stage actual projected rows/images, not display copies or raw result digests."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 46,
+      "symbol": "appendAgentRunEvent / flushAgentRunEvents",
+      "finding": "Events increment eventSeq but append errors are swallowed. Flush can time out. They cannot be delivery authority."
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "line": 258,
+      "symbol": "saveAgentRun",
+      "finding": "Serializes run snapshot and atomically writes; has no actual subHistory. First save errors propagate, most later callers catch. Degraded threshold3/pause8 is useful UI protection but cannot replace per-ACC strict history barrier."
+    },
+    {
+      "file": "ruyi-workbench/app/src/09b-replan-ledger.js",
+      "line": 8,
+      "symbol": "recordNodeContinuation",
+      "finding": "Stores max40 abbreviated display-derived steps, pending max16, results160 chars; deliberately does not replay full subHistory. Existing continuation statement that side effects already occurred is not receipt confirmation."
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "line": 1914,
+      "symbol": "deleteSession",
+      "finding": "Synchronously sets deletion tombstone, aborts main and workflow runs, drains session writes, optionally flushes/deletes run records. sessionAssociatedSaveIsTombstoned is purge-only; new receipt transcript writes must use original session incarnation tombstone even for ordinary deletion."
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "line": 2793,
+      "symbol": "cancelModelRunsOfDiscardedTurns",
+      "finding": "After rewind save, only model-launched runs whose run.turnSeq was discarded are explicitly stopped. User/API runs may continue. A receipt admission must independently fail on captured rewind generation mismatch/high-water before send; no automatic rebinding to new history."
+    },
+    {
+      "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "line": 2611,
+      "symbol": "DELETE agent-runs",
+      "finding": "Rejects currently active run but otherwise deletes run JSON/events. New root-owned receipt transcript evidence cannot be silently deleted with these best-effort files or while execution is unresolved."
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "line": 24,
+      "symbol": "current / admit / context",
+      "finding": "Current admissions keyed by session ID bind exact main session+turnSettlers owner+driverRunId and positive turnSeq. Cannot admit parallel node attempts by reusing this map, fabricated owner or a cloned agentSession."
+    },
+    {
+      "file": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "line": 49,
+      "symbol": "validRow / metadata / prepare / closed",
+      "finding": "Current row shape and metadata require positive turnSeq. Dedup and closed watermarks key main session/turn/generation. Workflow/node scopes need a separate typed namespace; setting turnSeq1 for API0 would fabricate facts and main retirement could incorrectly close workflows."
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "line": 39,
+      "symbol": "parse_metadata",
+      "finding": "Exact schema1 metadata keys and turn_seq>=1 are enforced. Python journal and receipt validator also constrain accepted-row shape and positive turn_seq. A host-only change cannot qualify real API0 support."
+    }
+  ],
+  "recommendedMinimum": {
+    "decision": "Add an independent opaque workflow admission family, per-node-attempt actual subHistory store, and explicit versioned workflow correlation. Keep main-turn admission and v1 semantics intact. Enable only in-process OpenAI workflow nodes after all required paths qualify.",
+    "nonSolutions": [
+      "No fake turnSettlers entry, fake driverRunId, turnSeq=max(1,value), synthetic parent session, or fabricated main owner.",
+      "No use of run snapshots/events, continuation summaries, display attachments, raw ACC result hashes, in-memory savepoint or conditional gzip snapshots as durable model delivery.",
+      "No borrowed main admission for a background run; no durable token restored as live authority after restart.",
+      "No globally relaxing schema1 turn_seq validation to accept0 or changing main retirement watermarks to encompass node workflows."
+    ],
+    "launchOrigin": {
+      "capture": "At real provider launchOrchestrateFromTurn capture exact hostSession, real executionOwner if available, immutable source turnSeq and rewindGen before asynchronous workflow construction; mint private launch descriptor. HTTP endpoint captures authenticated root request origin, loaded session incarnation and its actual turnSeq (including0), not a claimed model owner inferred from envelope/background booleans. Resume captures authentic resume origin plus retained original origin as historical data.",
+      "classes": [
+        "provider_foreground",
+        "provider_background",
+        "api_sync",
+        "api_background",
+        "persisted_resume"
+      ],
+      "authority": "Origin describes provenance; exact live registered workflow/node attempt grants ongoing execution. Persist only sanitized facts; keep descriptor/authority references private and opaque. foreground provider must abort with its real parent ctrl; background/API/resume use actual localCtrl, independent of turnSettlers lifetime.",
+      "rewind": "Capture host session incarnation (at least id+createdAt plus an unambiguous root binding), immutable generation and originating turn before awaits. Check sessionSaveIsTombstoned(originalHostSession), sessionObjectIsStale(originalHostSession), root high-water and captured generation, not cloned/mutable turn fields. Initial ACC version refuses stale generation for every origin; existing user/API workflows can continue other tools but ACC cannot silently re-admit. An explicit new resume/launch under current session is required."
+    },
+    "workflowAdmission": {
+      "proposedHooks": [
+        "admitWorkflow({hostSession,runtime,run,origin}) -> opaqueWorkflowKey",
+        "admitWorkflowNode(opaqueWorkflowKey,{node,attempt,nodeCtrl,subagentId}) -> opaqueNodeKey",
+        "workflowContext(opaqueNodeKey,providerBatchId,toolCallId) -> one-shot opaqueCallKey",
+        "releaseWorkflowNode(opaqueNodeKey)",
+        "releaseWorkflow(opaqueWorkflowKey)"
+      ],
+      "locations": [
+        "09 runtime after exact activeAgentRuns registration AND successful initial durable run save; recheck after that await.",
+        "09 dispatch loop captures attempt synchronously; after memory/worktree awaits and nodeControls.set revalidate exact identity before node admission and runSubAgent.",
+        "Pass opaqueNodeKey and original hostSession separately through runSubAgent/runSubAgentCoreBody. agentSession stays cwd/permission projection.",
+        "Release node admission in 09 nodeCtrl finally before identity-guarded map removal; release workflow before final active map removal; release/cancel paths never mark uncertain invocation delivered."
+      ],
+      "privateIdentity": [
+        "root owner epoch and canonical data-root inode identity",
+        "exact activeAgentRuns.get(run.id)===runtime",
+        "runtime.run===run; captured original hostSession and session incarnation",
+        "run.nodes contains exact node; node.id and captured attempt unchanged",
+        "runtime.nodeControls.get(node.id)===nodeCtrl; exact nodeCtrl and workflow localCtrl nonaborted",
+        "runtime not closing/stopRequested/paused; run active; node running (no send while resource waiting)",
+        "new random workflowEpoch for each real registration/resume and random node-attempt admission nonce; exact captured attempt is factual, nonce prevents reuse across stale restored counters",
+        "immutable authentic origin and captured rewind generation"
+      ],
+      "recheckBoundaries": [
+        "after each initialization/resource/client/permission await",
+        "inside durable prepare/markDispatch commit callbacks",
+        "immediately at existing one-shot actual SDK tools/call send permit",
+        "before model/compaction provider requests, transcript publication and final success"
+      ],
+      "callIdentity": "Hash domain-separated workflowEpoch+node admission ID+provider batch nonce+actual tool call ID. Batch nonce is a new request identity, not a made-up turn number. Preserve actual tool_call_id in transcript and bind invocation to exact row/batch. Same textual call ID in a later batch/node/attempt cannot alias.",
+      "pending": "Separate pendingWorkflow keyed by exact opaque node identity; never pendingMain keyed by projected agentSession. Multiple node admissions can coexist. root session guard must aggregate main and workflow unresolved entries so switching engine/run cannot bypass a hold."
+    },
+    "versionedCorrelation": {
+      "choice": "Workflow-only exact typed schema2 metadata and separately named bounded root-owned workflow execution ledger; main v1 file and wire metadata remain unchanged. Reuse/factor proven immutable argument preparation, actual-client verification, receipt semantics and send permit mechanics without weakening either schema.",
+      "namespace": "Workflow ledger directory proposed desktop-workflow-executions-v1, separate from desktop-executions-v1; root guard checks both. No migration of existing v1 rows necessary; existing pending main records continue to hold workflows and vice versa.",
+      "schema2Fields": "Explicit scope_kind=workflow_node; session_id+session_incarnation_hash+rewind_gen; workflow_run_id+workflow_epoch; node_id+node_attempt; origin_kind+origin_turn_seq (integer>=0, actual0 preserved; resume retains original origin separately); existing invocation_id/tool_name/call_id_hash/argument digest+codec facts. No turn_seq field pretending to be an active main turn.",
+      "bindings": "Ledger rows, ACC accepted receipt row and host semantic verifier all bind exact scope. Extend execution_context.py, execution_journal.py allowed/typed fields, execution_receipt_validation.py required/optional/version rules and JS receipt inspectReceipt together. Keep native frame/journal operation IDs unchanged unless an actual data dependency requires change. Probe/readiness must explicitly advertise workflow schema support before first send.",
+      "closure": "Workflow retirement namespace is exact session incarnation+workflowEpoch+node-attempt admission, never a main turn high-water. Keep unresolved rows and closed-scope anti-reuse markers bounded and fail closed when full. Retention remains unimplemented until separate confirmation protocol qualifies."
+    },
+    "strictTranscript": {
+      "choice": "Dedicated root-owned per-node-attempt transcript store containing actual subHistory, not run JSON. Proposed path desktop-workflow-transcripts-v1/<opaque-scope-hash> with owned0700 dirs/0600 regular files, canonical identity checks, strictRead/no quarantine-to-empty and serialized scope writes. Values never come from caller-controlled file paths.",
+      "scope": "session incarnation + captured rewind generation + workflowEpoch + runId + nodeId + captured attempt + admission ID. Store exact source task/history and relevant model/wire/privacy provenance, plus subagentId. Any persisted run pointer is informational; authoritative store/ledger retains locator independently of deletable run JSON.",
+      "commit": "Copy actual subHistory and exact projected image rows synchronously at barrier; persist immutable JSON snapshot as revision+full SHA256 under a checked root directory; publish monotonic CAS manifest with exact scope/revision/hash/byte-length and invocation-to-row/batch/image bindings via durable atomic commit. Reopen through same strict reader, verify head and body scope/revision/hash/full deep equality. Only then publish delivery proof {scope,revision,historySha256,invocationId,toolCallId,batchId,imageRowDigests} and ledger markDelivered. Preserve prior pinned delivery snapshots if later history changes/compaction; this proves a historical committed snapshot, not a current prefix.",
+      "storageReuse": "Use the strict bounded owned canonical JSON store primitives and existing session commit lessons; do not call saveSession on a fabricated child session or append subHistory into parent providerHistory. Recheck current authority inside serialized write and post-readback. Any stale revision, publication uncertainty, missing/corrupt file, wrong scope or owner loss throws and holds.",
+      "boundsProposedForImplementation": "Explicit constants proposed:32MiB encoded snapshot;128MiB retained snapshots per attempt;256MiB root transcript pool;256 delivery commits per attempt. These are engineering defaults to measure, not qualified limits. Reserve identity/space before dispatch; if a result/image exceeds bounds after execution, preserve unresolved ledger hold, stop automatic requests and report capacity error. Never silently truncate/strip required images to fit or GC pinned/unresolved evidence.",
+      "lifetime": "Strictly create initial scoped transcript before first ACC. Persist actual history at desktop result barrier and before every subsequent provider or compaction request when desktop admission is active, including steers/mail/restores/pruning. Final assistant/terminal transcript commit must succeed before claiming node success. In-memory savepoint can remain a retry aid but restored history must be strictly committed again before any next request; does not roll back already marked delivery proofs."
+    },
+    "toolAndImageBarrier": [
+      "Mint one-shot context from opaque node + actual provider batch/call IDs for both direct bridged ACC invoke and native/proxy toolCall context forwarding; keep all other routes denied without this association.",
+      "Use actual post-PrivacyGateway, truncateToolResult tool row and actual VisualPipeline vision image parts at08:1285-1291. Bind the invocation to these exact model rows. Display onEvent output and attachment files do not prove delivery.",
+      "Resolve current batch-end-only image queue before enabling: use a subHistory helper equivalent in invariants to appendMainTool, inserting each later tool row before already-flushed user image rows. Append the current tool images into actual subHistory immediately per ACC tool, then stage and strict-save/reload/markDelivered before any next ACC or model request. Do not mark a queued subToolImages image as saved.",
+      "Capture assistant batch identity/anchor and include all exact current result rows/images in committed snapshot. Partial tool batches can be stored as partial with explicit unanswered IDs but cannot be sent to provider; ordinary success/cancel fill branches must preserve pairing and the tool-before-image order. Never weaken session guard just to permit returned-undelivered ACC calls in one batch.",
+      "For vision=false, verify the actual image-free projected result including its no-vision indication; do not manufacture image consumption. For vision=true, each extracted required image must be present byte-for-byte in the strict saved/reloaded snapshot or delivery stays unconfirmed.",
+      "Failure/abort between native return, display projection, actual tool insertion, image append, save, readback and markDelivered never permits next model/ACC request. Add an execution-specific fatal/held flag because current catch-to-tool-error and normal subOk handling could otherwise continue. Any generation/deletion invalidation leaves evidence pending; no success inferred from ordinary tool_result."
+    ],
+    "cancelRestartDeletion": {
+      "abort": "Revoking admission prevents new dispatch immediately; already sent calls may still return and must record actual result/unknown facts under root ownership, with no invented not_dispatched claim. If current history authority is lost, keep returned-undelivered/unknown hold; no fake delivery on cleanup.",
+      "pause": "Deny sends while paused; reuse same still-live attempt only after actual runtime resumes. Do not treat pause as completed/retired.",
+      "retryLoopResume": "Fresh node-attempt admission for every actual attempts increment; runtime epoch changes on cold registration. Old opaque keys/contexts fail even when runId/nodeId/controller fields are copied. Resume cannot auto-replay unresolved ACC calls; root aggregate guard runs before scheduler/tools/provider.",
+      "restart": "No in-memory admission survives. Open/validate both ledgers and transcript manifests first. prepared/dispatching/unknown and returned-without-delivery rows hold; a persisted transcript alone does not retrospectively markDelivered or mean provider consumption. Explicit reconciliation required for crash after history commit but before delivery mark. After clean resolved prior attempt, ordinary scheduler resume creates new admission and uses current continuation semantics; full exact transcript replay is a later feature unless separately implemented.",
+      "deletion": "Invalidate receipt admissions synchronously with session tombstone before await; include transcript chains in flush hook. Root execution/transcript evidence lives outside normal run/checkpoint GC. Ordinary delete must prevent late writes/resurrection even when purgeAssociated=false. Run deletion/purge must refuse unresolved evidence or preserve a durable root-owned scope locator and pending gate independent of run files. Do not delete pinned delivery history merely because run is no longer active. New same-id session incarnation must not acquire old admission; unresolved evidence remains conservatively held until retention/reconciliation qualifies."
+    },
+    "minimumChangeSites": [
+      {
+        "file": "ruyi-workbench/app/src/09-workflow.js",
+        "symbols": [
+          "runAgentWorkflow",
+          "dispatch runNode",
+          "launchOrchestrateFromTurn",
+          "launchPersistedAgentRun"
+        ],
+        "change": "Capture real launch origin; root workflow/node admission registration/release; pass original host session and opaque node key; strict delivery failures become fatal/held; do not enable detached replan reviewer lacking exact registered node attempt."
+      },
+      {
+        "file": "ruyi-workbench/app/src/08-agent-runs.js",
+        "symbols": [
+          "runSubAgent",
+          "runSubAgentCore",
+          "runSubAgentCoreBody",
+          "buildBody"
+        ],
+        "change": "Thread opaque key through resource waits; own strict store lifecycle and actual subHistory barriers; forward opaque call context at both branches; insert/flush exact images and results per ACC; persist terminal history; never swallow execution-held failures."
+      },
+      {
+        "file": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+        "symbols": [
+          "initialize",
+          "guard",
+          "current/admit",
+          "invoke",
+          "stageMain/flushMain"
+        ],
+        "change": "Add separate opaque workflow family and pending map; aggregate both ledgers; share send-permit invariants; dedicated stageWorkflow/flushWorkflow against actual scoped subHistory and strict transcript reader."
+      },
+      {
+        "file": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+        "symbols": [
+          "metadata",
+          "inspectReceipt",
+          "create",
+          "held",
+          "closed/retireTurn"
+        ],
+        "change": "Factor proven common mechanics for typed workflow ledger; separate exact workflow scope/dedup/closure keys, require full receipt scope binding. Keep existing main schema valid and unchanged."
+      },
+      {
+        "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+        "symbols": [
+          "parse_metadata",
+          "RequestExecutionContext"
+        ],
+        "change": "Exact workflow schema2 parser plus readiness negotiation and accepted receipt scope propagation; schema1 positive turn contract remains."
+      },
+      {
+        "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+        "symbols": [
+          "_FIELDS"
+        ],
+        "change": "Strictly bounded typed workflow receipt fields; no arbitrary caller metadata."
+      },
+      {
+        "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+        "symbols": [
+          "_REQUIRED",
+          "_shape",
+          "validate_receipt"
+        ],
+        "change": "Version-discriminated workflow accepted-row schema; exact field/identity and >=0 genuine origin validation; bind to host expected scope."
+      },
+      {
+        "file": "ruyi-workbench/app/src/02-session-store.js",
+        "symbols": [
+          "deleteSession",
+          "sessionSaveIsTombstoned",
+          "sessionObjectIsStale",
+          "rewind high-water"
+        ],
+        "change": "Expose narrow root-authentic session incarnation/generation check through lifecycle hooks; invalidate node admissions synchronously and drain/protect transcript writes on delete/rewind."
+      },
+      {
+        "file": "ruyi-workbench/app/src/13-http-router.js",
+        "symbols": [
+          "agent launch route"
+        ],
+        "change": "Capture authentic API origin before workflow awaits; preserve actual turn0 and no-main-controller lifetime; booleans must not fabricate provider origin."
+      },
+      {
+        "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+        "symbols": [
+          "DELETE /api/agent-runs/"
+        ],
+        "change": "Protect referenced root execution/transcript proof from ordinary record deletion and add unresolved-evidence checks."
+      },
+      {
+        "file": "new bounded workflow transcript module + manifest/module contracts/durable inventory",
+        "symbols": [
+          "strict create/save/load scope APIs"
+        ],
+        "change": "Root-owned scoped transcript storage with explicit limits, immutable delivery snapshots, CAS commit, strict reload, deletion protection and failure propagation; include graph/census registration."
+      }
+    ]
+  },
+  "requiredQualificationBeforeAnySupportClaim": [
+    "Actual root workflow chain foreground provider launch; exact owner/call/runtime/controller identity and real parent abort; forged/copied contexts fail before actual SDK send.",
+    "Actual background workflow launches ACC after original turnSettlers entry has ended and while a later parent turn is active; no dependence on original owner and no accidental use of later turn.",
+    "Actual API sync/background fresh session turnSeq0, with no active parent registry: versioned metadata+Python SDK+receipt accepted scope must preserve0; no fake owner entry or turn reservation.",
+    "Cold resume of foreground and background runs with new runtime epoch; node retry/loop attempt increment and stale pending key invalidation; old run/node objects with equal strings cannot pass.",
+    "Worktree clone proves original host identity/rewind/deletion enforcement while real tool workingDir remains isolated.",
+    "Stop/pause/node idle/workflow idle/parent abort/resource wait/delete/rewind/runtime replacement injected at each await and immediately before SDK send; action_sent only from actual observations.",
+    "Strict actual subHistory save+load faults at creation/body write/commit publication/readback/hash/scope/revision; no next ACC/model/compaction request after failure; no threshold3/8 delay.",
+    "Real multi-tool batch with ACC first/middle/last, several calls reusing textual IDs across batches and parallel nodes, vision/no-vision projection, actual image row append ordering and abort before batch end; all expected images in saved snapshot before delivery.",
+    "Network savepoint restore, compaction/pruning, steer/mail and final assistant result: exact current subHistory commit and preserved earlier pinned delivery digest; no claim current prefix/provider consumption.",
+    "Restart at prepared/dispatching/returned/before-image/after-commit-before-markDelivered and after successful mark: unresolved gate survives, no automatic side-effect replay, missing/corrupt transcript does not become empty.",
+    "Run deletion, ordinary session delete, purgeAssociated, same-id session recreation, checkpoint/GC sweep and capacity saturation preserve unresolved proof/closure; no resurrected records or unbounded disk growth.",
+    "Actual helper/native paths and host acceptance remain separate required work after design/implementation; source tests and passed main image slice do not qualify these workflow scenarios."
+  ],
+  "remainingChoicesAndLimits": [
+    "Proposed hook names, workflow schema2 field spelling, module split and byte budgets are design recommendations, not implemented APIs or measured capacity/performance.",
+    "Durable store must pin actual postprivacy model history and required image bytes; privacy retention/encryption policy should match existing host history policy without exposing plaintext to the digest-only execution ledger.",
+    "No automatic retirement/GC of pinned workflow evidence is included: retain bounded proof and fail closed on capacity until actual host+ACC retention confirmation protocol qualifies. This leaves broader retention/P5 gate open.",
+    "Fresh API0 requires coordinated host+Python metadata/receipt support. Merely changing JS metadata or allowing0 in all v1 rows is insufficient.",
+    "Claude CLI nodes, detached replan review runSubAgent calls without registered nodeControls, unrelated ad hoc subagents and child/MCP callers remain rejected. API0 refers to root workflow execution, not permission for arbitrary API caller to mint root context.",
+    "No full restart transcript replay or provider consumption proof is claimed. Strict historical saved/reloaded delivery is narrower.",
+    "No current native/OCR/screenshot, throughput, large-image/long-session performance or full-P5 acceptance claim follows from this read-only design."
+  ]
+}

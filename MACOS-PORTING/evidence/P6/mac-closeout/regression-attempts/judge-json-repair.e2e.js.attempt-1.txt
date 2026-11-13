@@ -1,0 +1,38 @@
+PASS server.js exports parseStructuredAgentOutput + repairJson
+PASS production failure sample parses via hardening (multi-candidate + repairJson)
+PASS parsed verdict === uncertain (got uncertain)
+PASS parsed summary retains the word "fail" (inner quotes repaired, content preserved)
+PASS parsed findings array survives
+PASS repairJson: unescaped inner quotes → content preserved
+PASS repairJson: trailing commas removed (structural only)
+PASS repairJson: bare newline inside string escaped
+PASS repairJson: smart quotes normalized to delimiters
+PASS repairJson idempotent on "{\"summary\":\"未到\"f"
+PASS repairJson idempotent on "{\"a\":1,\"b\":[1,2,"
+PASS repairJson idempotent on "{\"s\":\"l1\nl2\"}"
+PASS repairJson idempotent on "{“k”:“v”}"
+PASS repairJson idempotent on "## 交叉审查报告\n\n| 维度 "
+PASS repairJson is a NO-OP on valid JSON (no false repair)
+PASS valid JSON parses to the exact value (boundary content intact)
+PASS clean fenced JSON parses
+PASS prose with no JSON → not ok
+PASS truncated JSON is NOT parseable by hardening (needs provider repair)
+PASS fake provider and workbench start
+PASS Run A launches synchronously (ok:true)
+PASS Run A: judge reaches a deterministic gate verdict (rejected/uncertain), NOT a JSON parse failure (got rejected/uncertain)
+PASS Run A: judge.structuredResult parsed; summary content ("fail") preserved through repair
+PASS Run A: no provider repair used (jsonRepaired not set — parse hardening was enough)
+PASS Run A: the failure sample no longer drags the run down (run not failed; judge not failed)
+PASS Run A: zero provider JSON-repair calls were issued
+PASS Run B: exactly ONE (bounded) provider JSON-repair call was issued
+PASS Run B: node.jsonRepaired === true (provider fallback kicked in)
+PASS Run B: judge succeeded on the repaired clean JSON (verdict pass)
+PASS Run B: run reaches succeeded (repair unblocked the gate)
+PASS Run B: exactly one kind:aux/note:json-repair ledger row (got 1)
+PASS Run B: aux/json-repair row billed 11/7 CNY, agentKey=judge (cost=0.000024999999999999998)
+PASS Run C: clean-JSON judge succeeds (verdict pass)
+PASS Run C: no provider repair used on clean JSON
+PASS Run C: provider repair-call count unchanged (still 1 — no call for clean output)
+PASS Run C: no new json-repair ledger row (still exactly 1)
+
+JUDGE-JSON-REPAIR E2E: ALL PASS

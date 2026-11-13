@@ -1,0 +1,29 @@
+PASS OpenAI steward turn executes a tool
+PASS same steward session switches to Anthropic and executes tools
+PASS punctuated OpenAI tool ID remains paired in Anthropic request
+PASS Anthropic thinking/tool history switches back to strict OpenAI
+PASS Anthropic tool and result remain paired in OpenAI
+PASS internal Anthropic blocks never leak onto OpenAI wire
+PASS long-term memory is created through normal tool gate
+PASS external read blocks same-turn write through normal tool gate
+PASS tainted write preserves target thread
+PASS old sidecar notes are actually injected before reset
+PASS reset archives even forever retention
+PASS inflight and FIFO old user requests are cancelled
+PASS reset clears UI and model history plus summary
+PASS reset preserves monotonic turnSeq and advances rewind generation
+PASS old chat is readable from archive before truncation
+PASS other sessions are preserved
+PASS reset preserves long-term memory exactly
+PASS old compaction notes sidecar is cleared
+PASS stale pre-reset save cannot restore old chat
+PASS new conversation accepts fresh user turn
+PASS new provider request contains neither old chat nor sidecar notes
+PASS fresh model turn can write through normal gate without userPressed
+PASS malformed executable button is filtered before UI
+PASS malformed executable button is filtered before UI
+PASS malformed executable button is filtered before UI
+PASS malformed executable button is filtered before UI
+PASS malformed executable button is filtered before UI
+
+STEWARD NEW CONVERSATION E2E: ALL PASS

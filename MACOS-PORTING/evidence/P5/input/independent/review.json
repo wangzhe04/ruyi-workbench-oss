@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-02",
+  "slice": "Window and clipboard first slice",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T04:40:09.612Z",
+  "baselineCommit": "0de6d03e1ed6a72835478c9672f12b3b28e85eaf",
+  "candidateBinding": "../source-fingerprint.json",
+  "sourceFilesBound": 37,
+  "proseTasksAndEvidenceExcludedFromFingerprint": true,
+  "productSourceEditedByReviewer": false,
+  "status": "accepted_for_commit_in_current_host_first_slice_scope",
+  "codeReviewScope": [
+    "Native window identity, reference lifecycle, exact AX foreground and minimized restore, close verification and clipboard preservation",
+    "Serialized JSONL worker and Python session cleanup, correlation, no replay and uncertainty metadata",
+    "Public ACC registration and dynamic per-family discovery",
+    "New real desktop fixture and offline Python smoke coverage",
+    "Shared capture encoding and affected P5-01 regression"
+  ],
+  "openActionableFindings": [],
+  "closedFindings": [
+    {
+      "id": "I1",
+      "finding": "Focus verification compared only PID and bounds",
+      "resolution": "Uses CFEqual against the retained AX element plus actual foreground application and bounds",
+      "evidence": "window-clipboard.txt"
+    },
+    {
+      "id": "I2",
+      "finding": "Partial multi-step actions lost side-effect state",
+      "resolution": "WindowFailure returns acted/action_sent/outcome and available actual bounds",
+      "evidence": [
+        "python-input.txt",
+        "../window-clipboard-close-fixed.txt"
+      ]
+    },
+    {
+      "id": "I3",
+      "finding": "Python IPC discarded native failure metadata",
+      "resolution": "Typed _failure_details whitelist preserves side-effect and rollback state through the public MCP envelope",
+      "evidence": "python-input.txt"
+    },
+    {
+      "id": "I4",
+      "finding": "Truncated AX enumeration could claim a unique binding",
+      "resolution": "Rejects enumeration above 64 elements or beyond the deadline before binding",
+      "verification": "Independent static review of frozen source"
+    },
+    {
+      "id": "I5",
+      "finding": "Window handle and PID accepted booleans or fractional identities",
+      "resolution": "Strict finite integral identity validation before mutation",
+      "evidence": "window-clipboard.txt"
+    },
+    {
+      "id": "I6",
+      "finding": "One-shot helper lost AX identity when minimized windows disappeared from CG",
+      "resolution": "One serialized worker retains private UUID references and AX identity, verifies current process start and CFEqual membership before restoring",
+      "evidence": [
+        "window-clipboard.txt",
+        "python-input.txt"
+      ]
+    },
+    {
+      "id": "I7",
+      "finding": "A minimized window could be reported closed despite refusing closure",
+      "resolution": "Closure requires original AX element absence from the complete bounded application window list, a distinct process start or confirmed ESRCH",
+      "evidence": "window-clipboard.txt"
+    },
+    {
+      "id": "I8",
+      "finding": "Identity-change verification failure after an action lost side-effect metadata",
+      "resolution": "Uses WindowFailure then invalidates the old reference",
+      "verification": "Independent static review of frozen source"
+    },
+    {
+      "id": "I9",
+      "finding": "Concurrent session shutdown could close descriptors while a request was reading",
+      "resolution": "Public close serializes with the request lock and internal close avoids recursive locking",
+      "evidence": "python-input.txt"
+    },
+    {
+      "id": "I10",
+      "finding": "Failed process identity lookup could be mistaken for confirmed process exit",
+      "resolution": "Nil identity is considered closed only when kill(pid,0) confirms ESRCH",
+      "verification": "Independent static review of frozen source"
+    }
+  ],
+  "execution": {
+    "runs": [
+      {
+        "name": "python-input",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 7588,
+        "passLines": 0,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": "Ran 16 tests in 7.353s",
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/independent/python-input.txt",
+        "isolationCleaned": true,
+        "processesAfter": []
+      },
+      {
+        "name": "python-capture",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 2472,
+        "passLines": 0,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": "Ran 13 tests in 2.302s",
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/independent/python-capture.txt",
+        "isolationCleaned": true,
+        "processesAfter": []
+      },
+      {
+        "name": "window-clipboard",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 308580,
+        "passLines": 37,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/independent/window-clipboard.txt",
+        "isolationCleaned": true,
+        "processesAfter": []
+      },
+      {
+        "name": "capture-live",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 7474,
+        "passLines": 30,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/independent/capture-live.txt",
+        "isolationCleaned": true,
+        "processesAfter": []
+      },
+      {
+        "name": "capture-contract",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 5343,
+        "passLines": 38,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/independent/capture-contract.txt",
+        "isolationCleaned": true,
+        "processesAfter": []
+      },
+      {
+        "name": "acc-shared",
+        "exitCode": 0,
+        "signal": null,
+        "naturalExit": true,
+        "ms": 699,
+        "passLines": 15,
+        "failLines": 0,
+        "skipLines": 0,
+        "pythonSummary": null,
+        "pythonSkipped": 0,
+        "log": "MACOS-PORTING/evidence/P5/input/independent/acc-shared.txt",
+        "isolationCleaned": true,
+        "processesAfter": []
+      }
+    ],
+    "allNaturalExitZero": true,
+    "nodeAssertions": 120,
+    "pythonTests": 29,
+    "skips": 0,
+    "allPerRunBeforeAfterFingerprintsMatch": true,
+    "finalFingerprintDrift": [],
+    "finalScopedProcessRemainder": [],
+    "realExpiryWaitMs": 302000,
+    "realExpiryTotalCaseMs": 308580,
+    "engineeringEvidenceProvidedByMainAgent": "../engineering.json",
+    "engineeringScope": "Main-agent syntax/build/unit/static evidence is referenced separately from these six independent runs"
+  },
+  "provenCurrentHost": [
+    "Real ACC MCP window listing, active-window query, exact foreground selection between same-process equal-bounds distinct-title windows",
+    "Window move/resize/maximize/minimize and retained-reference restore, stale geometry and malformed identities refused",
+    "Private references refused across live workers and after real idle expiry, fresh observation creates a new ref",
+    "Refused close while minimized remains a failure, then explicit allowed close is confirmed",
+    "Unicode text and image clipboard round-trips, full-resolution atomic PNG save and protected output rejection",
+    "Test fixture reports restoration of prior all-type clipboard snapshot retained in native memory, without logging prior content",
+    "P5-01 real region/monitor/window/covered/minimized capture and native geometry/IPC regression remain passing"
+  ],
+  "remainingUnverified": [
+    "Real TextEdit, Finder and Chromium selected application scenarios for window actions and clipboard use",
+    "Ruyi LaunchServices App Accessibility authorization and window action chain for this first slice",
+    "Physical multi-display and non-Retina window geometry",
+    "Actual Accessibility revocation, lock/unlock during an in-flight window action, and concurrent user focus changes",
+    "Windows same-candidate execution",
+    "macOS14 actual runtime and formal signing/TCC upgrade identity under O2/P6",
+    "Native AX-capacity/time-limit and process-identity-query failure injections have static review but no new dedicated live fixture evidence"
+  ],
+  "pendingDevelopment": [
+    "P5-02 keyboard, Cmd paste, Chinese text input, mouse, wheel and application launch",
+    "P5-03 AX element tools",
+    "P5-04 OCR and visual combinations",
+    "P5-05 recording and composite verification"
+  ],
+  "completionStatement": "The frozen window/clipboard first slice is accepted for commit within the verified current-host scope. P5-02 and P5 overall remain in progress.",
+  "docCloseoutReviewed": true,
+  "docCloseoutReview": {
+    "reviewedAt": "2026-11-10T04:42:49.117Z",
+    "conclusion": "Accurate within the current-host window and clipboard first-slice acceptance scope. P5 and P5-02 phase/task status remain in_progress, firstSlice is accepted_for_commit, and pending development/environment acceptance remain explicit. Counts agree with independent runs and main engineering evidence.",
+    "counts": {
+      "independentNodeAssertions": 120,
+      "independentPythonTests": 29,
+      "independentSkips": 0,
+      "sourceFiles": 37,
+      "unitPassed": 2491,
+      "unitSkipped": 18,
+      "unitFailed": 0,
+      "staticPassed": 80,
+      "syntaxFiles": 1140
+    },
+    "documentHashes": {
+      "MACOS-PORTING/evidence/P5/input/README.md": "a610668f6b05f370a2cadfce3c4829ff4f8c28b7f4bea4de0e70891e48ebd08c",
+      "MACOS-PORTING/06-P5-AUTOMATION.md": "5e0d60cc1fe09891fcb17d85ba527d77902dc52ae98e446dc6ee5f9e9883eb83",
+      "MACOS-PORTING/10-TRACKING.md": "0bf19ed76ef09f57f85501d4bdc129080193b854231c47b7b0e98bdd4a7d141a",
+      "MACOS-PORTING/TASKS.json": "140c0aa483fedb44ac07ed47703a386e12b296aa09d00257b850d96ad94ea92d"
+    },
+    "productSourceChanged": false
+  }
+}

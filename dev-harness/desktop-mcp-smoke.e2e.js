@@ -40,10 +40,12 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
   });
   ok(fullPreferred && fullPreferred.command === 'full-ocr-python' && fullPreferred.capability === 'full',
     'pickPython prefers a later Full WinSDK runtime over an earlier core-only Python');
-  const offlineCandidate = desktopPythonCandidates(REPO).find(candidate => candidate.source === 'offline-embedded-runtime');
-  ok(offlineCandidate && offlineCandidate.command === path.join(REPO, 'python_embed', 'python.exe'), 'repo detection includes the verified offline python_embed runtime');
+  const bundledSource = process.platform === 'win32' ? 'offline-embedded-runtime' : 'bundled-runtime';
+  const offlineCandidate = desktopPythonCandidates(REPO).find(candidate => candidate.source === bundledSource);
+  const bundledRelative = process.platform === 'win32' ? ['python_embed', 'python.exe'] : ['runtime', 'python', 'bin', 'python3'];
+  ok(offlineCandidate && offlineCandidate.command === path.join(REPO, ...bundledRelative), 'repo detection includes the platform bundled Python runtime');
   const distributionCandidates = desktopPythonCandidates('C:\\portable-full\\mcp\\ai-computer-control');
-  const bundledIndex = distributionCandidates.findIndex(candidate => candidate.source === 'offline-embedded-runtime');
+  const bundledIndex = distributionCandidates.findIndex(candidate => candidate.source === bundledSource);
   const machineIndex = distributionCandidates.findIndex(candidate => candidate.source === 'installed-full-runtime');
   ok(bundledIndex >= 0 && (machineIndex < 0 || bundledIndex < machineIndex),
     'portable Full package Python is ordered before machine-local installed runtimes');
@@ -113,9 +115,11 @@ const { McpStdioClient, detectDesktopMcp, desktopMcpFromInstalledRoot, desktopPy
       // Safe production-path calls: the invalid key is rejected before any keyboard action, while
       // OCR only observes the screen (click=false). These catch schema binding and nested-loop bugs
       // that tools/list alone cannot detect.
-      const badHotkey = await client.callTool('hotkey', { keys: 'ctrl+definitely_not_a_key' });
-      ok(!/unexpected keyword argument/.test(String(badHotkey.error || '')) &&
-         /unknown key/.test(String(badHotkey.error || '')),
+      const badHotkey = await client.callTool('hotkey', process.platform === 'darwin'
+        ? { keys: [], target: {} } : { keys: 'ctrl+definitely_not_a_key' });
+      ok(!/unexpected keyword argument/.test(String(badHotkey.error || '')) && (process.platform === 'darwin'
+        ? badHotkey.ok === false && badHotkey.code === 'invalid_args' && /key list/i.test(String(badHotkey.error || ''))
+        : /unknown key/.test(String(badHotkey.error || ''))),
          'hotkey accepts the MCP `keys` keyword and validates its value');
       const ocrProbe = await client.callTool('ocr_find_text', {
         text: '__ruyi_mcp_async_probe_that_cannot_exist__', click: false,

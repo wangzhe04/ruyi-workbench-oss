@@ -1,0 +1,19 @@
+PASS spawn → /health 200 ≤ 2500 ms（实得 138 ms）
+PASS runtime token available
+PASS 探针在飞时 /health 仍然秒答(实得 1 ms ≤ 800；同一时刻 /api/status 用了 189 ms)
+PASS /api/status 在 15000 ms 内返回（实得 189 ms）
+PASS /api/status 的 desktopMcp 字段形状：探完是原样三键、在飞是三键＋probing（detected,enabled,resolved）
+PASS /api/status 仍带 mcpConfigPath（探完现算；在飞时只回路径、不重新生成）
+PASS s 定位到 boot 段与 listenWithFallback
+PASS s boot 段 listen 之前不再调 syncMcpServersToClaude(config)，挪到了 listen 之后
+PASS s boot 段 listen 之前不再调 syncAgentCliMcpManifests(config)，挪到了 listen 之后
+PASS s boot 段 listen 之前不再调 getCapabilities(config)，挪到了 listen 之后
+PASS s MCP 配置预热也在 listen 之后（原来 autoImportClaudeCodeMcp 内那一发已摘除）
+PASS s 探针段用「listen 之后再让一小段起跑延迟」的形状（同步 spawnSync 会占住事件循环，只 setImmediate 不够）
+PASS s autoImportClaudeCodeMcp 仍留在 listen 之前（它只读 ~/.claude.json，不碰探针）
+PASS s detectDesktopMcp 保持同步签名（39 号文 §2 的拍板：它的调用方 resolveExternalMcpServers 一族散在 8 个模块，改 async 是跨模块大手术）
+PASS s 异步孪生 detectDesktopMcpAsync／pickPythonAsync 都在
+PASS s 异步探针走 cp.execFile（不过 shell，与 spawnSync 那支同口径）
+PASS s boot 段先 ensureDesktopMcpWarm()，三处 fire-and-forget 排在它的 .then 里（预热之后它们的同步前缀全部吃缓存）
+
+BOOT LISTEN BUDGET E2E: ALL PASS

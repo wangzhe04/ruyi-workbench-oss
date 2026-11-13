@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "createdAt": "2026-11-12T00:19:59.037254+00:00",
+  "verdict": "passed_one_frozen_independent_controlled_balanced_root_input_runtime",
+  "phaseStatus": "in_progress",
+  "fullP5Accepted": false,
+  "scope": "Exactly one run of frozen macos-execution-input.e2e.js:ordinary positive-turn root/provider default permission -> realACC -> production native input.sequence,one permitted self-owned40,000us-planned middle pair,permission deny and predispatch pending-permission cancel,cold ACK/no replay/effect audit.No held-state fault/rescue/body-interruption or wholeP5 acceptance.",
+  "freeze": {
+    "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-freeze-v4.json",
+    "bytes": 24629,
+    "sha256": "94bc1e70850f2146fdb5ea6edd2c8187b79051b6532088204ceead56d4de0a02"
+  },
+  "worktree": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "harness": {
+    "path": "dev-harness/macos-execution-input.e2e.js",
+    "bytes": 34692,
+    "sha256": "95c3801ba7656cd523aaf0e003c2244bd428f842e5232717c4e943a04410fa2f"
+  },
+  "fixtureSource": {
+    "path": "dev-harness/fixtures/macos-balanced-input-window.m",
+    "bytes": 14521,
+    "sha256": "8bec0d3dd566b7fabffe77085fd71b8b9fc8c841ae6271db2bac0323b7bf6575"
+  },
+  "planHistory": [
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-plan-v1.json",
+      "bytes": 6812,
+      "sha256": "e695afe61e1b195a2644d935057076e32b903f843d0e904afdc240c16e43e1fa"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-plan-v2.json",
+      "bytes": 8579,
+      "sha256": "b9ebc05159c18920920d919627de0330a7eef85e5e122bf2475ab54bfc9653df"
+    }
+  ],
+  "sourceReviews": [
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/root-input-harness-source-review-v3.json",
+      "bytes": 41818,
+      "sha256": "e10f44baf417a9dc8a84bf776391d92739fb28ef1ee46296ef388979210a6d3b"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-window-source-review-v3.json",
+      "bytes": 4567,
+      "sha256": "3387a89ae4e3b367e9d8125f82a2b86e9508e10b34ae411c1ef00508244e223c"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-census-source-review-v1.json",
+      "bytes": 2095,
+      "sha256": "4b4323cc3cc711ead4e6e16aea2f291fc08ad1065328c9c0b5929d70d8e1f2c8"
+    }
+  ],
+  "commandResult": {
+    "argv": [
+      "/Users/jiming/.local/bin/node",
+      "dev-harness/macos-execution-input.e2e.js"
+    ],
+    "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+    "startedAt": "2026-11-12T00:12:57.229399+00:00",
+    "endedAt": "2026-11-12T00:13:02.235436+00:00",
+    "elapsedSeconds": 5.006037582992576,
+    "exitCode": 0,
+    "executions": 1,
+    "automaticRetries": 0,
+    "logPassCount": 51,
+    "allPassSentinel": true,
+    "rawRoots": [
+      "/tmp/rei-HxJJZa"
+    ],
+    "beforeAllMatched": true,
+    "afterAllMatched": true,
+    "resultExists": true,
+    "countMeaning": "51assertions in one suite execution;three permission scenarios,only allow posts one2-event pair.No count of unique broad capabilities.",
+    "failed": 0,
+    "skipped": 0,
+    "retries": 0,
+    "sourceEdits": 0,
+    "additionalTestCommands": 0
+  },
+  "bindingSummary": {
+    "sources": 127,
+    "namedArtifacts": 4,
+    "rowsPerCheckpoint": 131,
+    "checkpointCount": 2,
+    "totalRowComparisons": 262,
+    "beforeAllMatch": true,
+    "afterAllMatch": true,
+    "before": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/before-binding.json",
+      "bytes": 30774,
+      "sha256": "a8e227f29efac14415375446af764e6f5560d13899ec77e7e5a4e620f2e17570"
+    },
+    "after": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/after-binding.json",
+      "bytes": 30774,
+      "sha256": "a2b0f90f3f8cafdbb5ae43fc5a03243ad67f2fd9669bf5d359030820f0ecbaa7"
+    },
+    "sourceArchive": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-source-freeze-v4.tar.gz",
+      "bytes": 4454556,
+      "sha256": "9aeac2a6bd1f8b95d33054dcc9f3b214779d76d02011126e26d223717ea33085"
+    },
+    "archiveCheck": "All127 source+4artifact payload members independently read/hashmatched during preparation,plus byte-identical freeze.json;132regular files.Integration changes Git metadata only and receives a separate postqualification binder."
+  },
+  "namedArtifactRoles": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-helper",
+      "bytes": 309344,
+      "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18",
+      "role": "Old955input-receipt-only helper,hash-preservation only in this suite;no generic or legacy fallback invoked."
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e",
+      "role": "Frozen OS process helper used by existing ownership/snapshot/cleanup infrastructure."
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "role": "Unchanged original main1cc automation helper,hash-preservation only;not rebuilt/re-signed or substituted."
+    },
+    {
+      "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+      "bytes": 309968,
+      "sha256": "ec6b11c1e4ff7cb4bbeb1bc4ee138b0e1e49c6b003327937669e240fccdc7ff0",
+      "role": "Currentec6named helper used by actual status and admitted native input-session requests."
+    }
+  ],
+  "compiledReceiver": {
+    "actual": {
+      "path": "/private/tmp/rei-HxJJZa/receiver",
+      "bytes": 77480,
+      "sha256": "6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da"
+    },
+    "proofHashMatchesActualFile": true,
+    "sourceFrozenBeforeRun": true,
+    "separateFrom4NamedArtifacts": true,
+    "compiledBy": "Single reviewed harness compiles only its passive owned receiver using xcrun clang ARC/blocks/Wall/Wextra/Werror/minmacOS14,AppKit/ApplicationServices/Carbon and frozen source.",
+    "sameBuildArgumentsAsPrimaryExceptFreshOutputPath": true,
+    "sameSHA256AsDevelopment": "6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da",
+    "actualBytesEqualDevelopmentArtifact": true,
+    "runtimeProof": {
+      "sha256": "6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da"
+    },
+    "preservedInRawArchive": true,
+    "productionOrAppRecompileResign": false
+  },
+  "actualEvidence": {
+    "rawRoot": "/tmp/rei-HxJJZa",
+    "differentFromPrimaryRoot": true,
+    "rawRootRetained": true,
+    "readiness": "Existing status exact ok:true,ready/inputReady true-or1,authorization/eventAuthorization granted,locked:false,permissionRequestsMade:false recorded by harness;no permission request/revoke or lock change.",
+    "permissionAllow": {
+      "realDefaultPermissionDecisions": 1,
+      "target": "Actual admitted provider list_windows returns retained native target.ref/handle/PID/process_start/bounds matching independent receiver;input uses same actual worker incarnation.",
+      "sessionId": "sess_cdc7bca86be90545",
+      "macroCallId": "macro_allow",
+      "macroInvocationId": "e8fc04ae69da5e8c616b089cc8789900",
+      "actualNativeWorker": {
+        "pgid": 89005,
+        "sid": 89005,
+        "birth": "1794442380:17537",
+        "pid": 89021,
+        "ppid": 89007,
+        "created": "1794442380017537",
+        "name": ""
+      },
+      "nativePrepared": {
+        "acc_pid": 89007,
+        "acc_worker_id": "ccdf0a647c5949e68a0149f043570dff",
+        "args_bytes": 815,
+        "args_codec": "exact-native-frame",
+        "args_ref": "args-6bea3efbc4f949af99c7573f8b7ebc94.json",
+        "args_sha256": "0789c694fb0323242c65d65773e2f39e28089458ab0c203c854f7fbceebaedac",
+        "at": "2026-11-12T00:13:00.269428+00:00",
+        "frame_id": 3,
+        "frame_sha256": "0789c694fb0323242c65d65773e2f39e28089458ab0c203c854f7fbceebaedac",
+        "helper_identity": [
+          "16777234",
+          "82610951",
+          "309968",
+          "1794434536964390635"
+        ],
+        "invocation_id": "e8fc04ae69da5e8c616b089cc8789900",
+        "op": "input.sequence",
+        "operation_id": "6bea3efbc4f949af99c7573f8b7ebc94",
+        "parent_operation_id": "a9c33a68eced421f8297b9a900d499d2",
+        "schema": 1,
+        "sequence": 4,
+        "stage": "native_prepared",
+        "worker_id": "f38f087287ed4d02b9e933444fc0cb56",
+        "worker_pid": 89021
+      },
+      "nativeTerminal": {
+        "acc_pid": 89007,
+        "acc_worker_id": "ccdf0a647c5949e68a0149f043570dff",
+        "acted": true,
+        "action_sent": true,
+        "at": "2026-11-12T00:13:00.378631+00:00",
+        "frame_id": 3,
+        "invocation_id": "e8fc04ae69da5e8c616b089cc8789900",
+        "ok": true,
+        "operation_id": "6bea3efbc4f949af99c7573f8b7ebc94",
+        "parent_operation_id": "a9c33a68eced421f8297b9a900d499d2",
+        "schema": 1,
+        "sequence": 9,
+        "stage": "native_terminal",
+        "worker_id": "f38f087287ed4d02b9e933444fc0cb56"
+      },
+      "realConsumedEvents": 2,
+      "receiverMatchedEvents": 2,
+      "button": 2,
+      "flags": 0,
+      "extraOwnInputNoise": 0,
+      "nativeResult": "Actual saved macro completes2steps (input_sequence event_count2 and wait),native/ACC terminal plus root delivered ACK before actual next provider request.",
+      "receiptAudit": "Independent offline check verifies9 committed ACC prefix bytes/SHA/sequence and all referenced args snapshots,plus exact native request raw frame hash/target/events,operation chain and actual worker association."
+    },
+    "receiverWitness": {
+      "journal": {
+        "path": "/private/tmp/rei-HxJJZa/receiver.ndjson",
+        "bytes": 32877,
+        "sha256": "34e50d49b244023cb4ce9ac357501f8807b2521be6066aaae32cea9dfe4c198c"
+      },
+      "mode": "0600",
+      "records": 23,
+      "exactlyMatchesAllStdoutACKs": true,
+      "healthyFinalQuitFsyncSeal": true,
+      "freshNonceIntervals": 3,
+      "inputEventsOnlyInAllow": true,
+      "stability": "Every input report keeps exact frozenpoint,zero flags,frame/frontmost/hit/TIS,arm interval and nativePID/birth;all cases finish actual HID/combined neutral.",
+      "nonceLimit": "Nonce is observer bookkeeping,not production CGEvent authenticity or hardware-ownership token."
+    },
+    "timing": {
+      "plannedEventOffsetsUs": [
+        0,
+        40000
+      ],
+      "observedCGTimestampsNs": [
+        162657641346458,
+        162657669568166
+      ],
+      "observedIntervalNs": 28221708,
+      "observedIntervalMs": 28.221708,
+      "meaning": "40ms is the requested relative event schedule.Actual down/up interval28.221708ms measured from CG timestamps is separately recorded.Guard overhead before first post can shorten dwell.No40ms latency/dwell SLA or performance acceptance."
+    },
+    "permissionDenyAndPendingCancel": [
+      {
+        "action": "deny",
+        "realPermissionRequests": 1,
+        "macroPreparedOrNativeInput": false,
+        "receiverEvents": 0,
+        "irreversibleEffects": 0,
+        "readInvocations": 3,
+        "allReadResultsDurablyACKed": true,
+        "cancelBoundary": "Default permission denial;no business input dispatch."
+      },
+      {
+        "action": "cancel",
+        "realPermissionRequests": 1,
+        "macroPreparedOrNativeInput": false,
+        "receiverEvents": 0,
+        "irreversibleEffects": 0,
+        "readInvocations": 2,
+        "allReadResultsDurablyACKed": true,
+        "cancelBoundary": "Only pending permission before macro/native preparation;not a postdispatch inputStop or heldrelease."
+      }
+    ],
+    "historyAndEffects": {
+      "all9LedgerEntriesReturnedWithACK": true,
+      "all9HistoricalSavedProviderPrefixDigestsIndependentlyRehashed": true,
+      "actualAllowEffect": {
+        "total": 1,
+        "byKind": {
+          "desktop": 1
+        },
+        "items": [
+          {
+            "turnSeq": 1,
+            "kind": "desktop",
+            "name": "ai_computer_control__input_sequence",
+            "detail": "",
+            "ok": true,
+            "effectStatus": "reported",
+            "callId": "macro_allow",
+            "parentTool": "ai_computer_control__macro_run",
+            "step": 0
+          }
+        ],
+        "legacyCommands": 0
+      },
+      "crossTurnColdEffect": {
+        "total": 1,
+        "byKind": {
+          "desktop": 1
+        },
+        "items": [
+          {
+            "turnSeq": 1,
+            "kind": "desktop",
+            "name": "ai_computer_control__input_sequence",
+            "detail": "",
+            "ok": true,
+            "effectStatus": "reported",
+            "callId": "macro_allow",
+            "parentTool": "ai_computer_control__macro_run",
+            "step": 0
+          }
+        ],
+        "legacyCommands": 0
+      },
+      "reportedVersusObserved": "Effect ledger reports returned input_sequence at actual macro step0/callId;receiver separately proves consumed pair.No rollback or all-purpose consumption claim."
+    },
+    "coldReopen": {
+      "sameInvocationIDsPhasesAndDeliveryDigests": true,
+      "newExplicitProviderRequests": 1,
+      "newInputEvents": 0,
+      "duplicateEffect": false,
+      "boundary": "Explicit new ordinary provider turn with same valid historical ACK;not persisted workflow/subagent resume,replay_safe or reconciliation/retention acceptance."
+    }
+  },
+  "ownershipRelease": {
+    "released": true,
+    "releasedBeforeReporting": true,
+    "allObservedOwnedIdentitiesExited": true,
+    "observedIdentityCount": 11,
+    "verification": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/owned-process-exit-check.json",
+      "bytes": 549,
+      "sha256": "214f57edbc76fd2988af8e0849cf78c98bf06694d63dd784fc31abfa10df84af"
+    },
+    "cleanupSafe": true,
+    "caughtErrors": [],
+    "harnessCleanup": "Root cleanup occurs only after all actual drivers/native receipts settle and independent neutral state;receiver exits normally after healthyquit.No external timeout/forcekill/rescue performed.",
+    "extraReadonlyProcessChecks": 2,
+    "method": "Only /bin/ps exact own PID set after suite;no signals or process mutations.",
+    "limit": "Observed-owned scope only;not an assertion of unobserved escape completeness."
+  },
+  "rawPreservation": {
+    "manifest": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/raw-root-manifest.json",
+      "bytes": 16929,
+      "sha256": "ccb5519e6ddf6f19620ebb7f1817ab0b501e6ec50a9277908d10f906629803b7"
+    },
+    "archive": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/raw-root.tar.gz",
+      "bytes": 45436,
+      "sha256": "98ba175b4a74af077009534069d6efb5584589e9883b5e497464eecd3f183e0a"
+    },
+    "files": 81,
+    "originalBytes": 260919,
+    "all81ArchivedMembersBytesShaVerified": true,
+    "originalRootRetained": true,
+    "includes": "Actual compile artifact,receiverjournal,ACC args/native snapshots+strict committed prefixes+audit,Node ledger/private provider history/config used by isolated fixture."
+  },
+  "primaryEngineeringReadOnlyReuse": {
+    "report": {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-gates-v2.json",
+      "bytes": 1136,
+      "sha256": "6f0144281b39156397e19eb6ddc5c255d5b44a27107dc04cd248662dd4084d0c"
+    },
+    "results": [
+      {
+        "label": "syntax",
+        "command": [
+          "node",
+          "dev-harness/syntax-gate.js"
+        ],
+        "exitCode": 0,
+        "beforeMismatches": [],
+        "afterMismatches": [],
+        "at": "2026-11-12T00:07:36.330196+00:00"
+      },
+      {
+        "label": "build",
+        "command": [
+          "node",
+          "ruyi-workbench/app/build.js",
+          "--check"
+        ],
+        "exitCode": 0,
+        "beforeMismatches": [],
+        "afterMismatches": [],
+        "at": "2026-11-12T00:07:36.491739+00:00"
+      },
+      {
+        "label": "unit",
+        "command": [
+          "node",
+          "--test",
+          "dev-harness/unit/*.test.js"
+        ],
+        "exitCode": 0,
+        "beforeMismatches": [],
+        "afterMismatches": [],
+        "at": "2026-11-12T00:09:34.159899+00:00"
+      },
+      {
+        "label": "fast",
+        "command": [
+          "node",
+          "dev-harness/run-all.js",
+          "--fast"
+        ],
+        "exitCode": 0,
+        "beforeMismatches": [],
+        "afterMismatches": [],
+        "at": "2026-11-12T00:11:44.440477+00:00"
+      }
+    ],
+    "logs": [
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-syntax-v2.log",
+        "bytes": 60,
+        "sha256": "e111fda0925b40058d73abab36ebe4957c383b905172f38ea7b14249f0ad6dea"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-build-v2.log",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-unit-v2.log",
+        "bytes": 407343,
+        "sha256": "d792e9c4bd176b6a2e4058f9a1842d66f29f55518a715dc0f940a51bef1a6e54"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-fast-v2.log",
+        "bytes": 5852,
+        "sha256": "a5bae777a32f51581cb4c405fee2c29b20fa03fbff3fa406ccc7e3647de1df3f"
+      }
+    ],
+    "syntaxFiles": 1180,
+    "syntaxFailed": 0,
+    "buildFresh": true,
+    "unitTests": 2644,
+    "unitPassed": 2626,
+    "unitExistingSkipped": 18,
+    "unitFailed": 0,
+    "fastPassed": 80,
+    "fastFailed": 0,
+    "explicitLiveSkipped": 14,
+    "flaky": 0,
+    "boundary": "Logs and primary mismatch-free before/after summaries read only;no engineering command rerun by independent reviewer.Primary gateJSON stores mismatch lists,not full131-row snapshots.Independent suite has its own two full131-row snapshots."
+  },
+  "failureHistoryPreserved": {
+    "firstDevelopmentReadinessFailure": [
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v1.json",
+        "bytes": 2233,
+        "sha256": "1f3d4acf704e5703ad2985be81db34c59adb318b9fe29d979c44b3973cc078c0"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v1.log",
+        "bytes": 1044,
+        "sha256": "f21784e02a1eee9abca2c67060ecce038c89d2517eaf44afb1186a21f8855475"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/development-balanced-input-v1-binding.json",
+        "bytes": 127,
+        "sha256": "8ed178e4095a9b8ce92e7abf0c82f6d8bacf60208ea676012a0219d2454c9a53"
+      }
+    ],
+    "primaryFirstFastCensusFailure": [
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-gates-v1.json",
+        "bytes": 1137,
+        "sha256": "e38ba1df270c40407b754d650342cc835133f40dc4b8eeeb547c8a40b15e6322"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-receipts-evidence/balanced-input-final-fast-v1.log",
+        "bytes": 7700,
+        "sha256": "06690a5bb2bb9e51da666a431d8191a7b3f39550673c8d175629a6eb26163ca3"
+      }
+    ],
+    "interpretation": "First development run failed before GUI/input due strictboolean assumption for native readiness1;records/attempts/proof empty and preserved.Fixture explicitbool and harness narrowtrue-or1/metadata guard source reviewed.Primaryfast first run expected377vs actual378 and its automatic runner retry preserved;fixed only inventorycount/comment in freezev4.No cleanup behavior failure inferred.Independent run had no failures/skips/retries."
+  },
+  "postqualificationCommitScope": {
+    "parentReportedCandidateCommit": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+    "parentReportedMainCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
+    "separateIndependentBinder": "postqualification-commit-binding.json",
+    "runtimeRerunsAfterCommits": 0,
+    "meaning": "Qualification binds frozen bytes;Git metadata-only commits do not justify extra input/testing."
+  },
+  "limitations": [
+    "Selected Node serve currentMac owned-window middle-button normal chain only;not App/release identity or all native input types.",
+    "No held-state rootSIGKILL,postallowStop,body-interruption,automatic heldrelease or rescue qualification.Independent cross-source release hardware noninterference remains unproved.",
+    "No intentional TCCdeny/revoke/regrant/lock,keyboard/modifier/clipboard/TISchange,pressure/drag/Finder or physicaldemonstration.",
+    "Default-off retained.All original10local+4external mapping,background/API0/actualturn0/persistedresume/schema2,authenticatedCLI/manual admission,reconciliation/trustedlocator/retentionACK/globalbytefilequota/delete/rewind remain separately open.",
+    "No minimumOS/displaytopology/finalcandidateWindows/formalsigning/releasecredentials/cleaninstall acceptance.",
+    "18existing unit skips and14explicit live skips remain unverified by this one suite;counts are overlapping assertions,not unique broad capability claims."
+  ],
+  "actions": "Executed exactly one authorized frozen balanced suite,which performs its own readonlystatus,newpassivereceivercompile,normalinput+permissionnegativecases and neutral-ownedcleanup.Then only hashes,original raw evidence reads,archive,read-only own ps and Gitmetadata verification/report writes.No source edits,retry,additional test/nativeautomation/GUI,productionhelper/App rebuild/resign or lock/TCC/keepawake changes.",
+  "automaticLockRestoration": "not_done_only_after_fullP5_acceptance",
+  "evidenceManifest": [
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/invocation.json",
+      "bytes": 1699,
+      "sha256": "b8817721ea84431b4d797c511d3856f1eb50e6486bfb3be2c0b5a89fc03b3352"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/spawn.json",
+      "bytes": 82,
+      "sha256": "81d8891f0c8b80c25c96507f4c978fd0ae93657bcc5a6bc3c619010bac773b87"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/run.log",
+      "bytes": 4493,
+      "sha256": "1fe1408ab437895ec59af05b266cd82ad3d9693c08d8ec05b7481bc7fb6c0892"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/execution.json",
+      "bytes": 374,
+      "sha256": "d63472596d33d4bb3dc4687c57b2f26fac1f3973349a3e42cd5cb3e12ba27e7a"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/result.json",
+      "bytes": 1784187,
+      "sha256": "19a795cb1f576a56bb2f6760ac1d8c1388a3bdfa5d5c239a59a1af6e0c44e7db"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/before-binding.json",
+      "bytes": 30774,
+      "sha256": "a8e227f29efac14415375446af764e6f5560d13899ec77e7e5a4e620f2e17570"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/after-binding.json",
+      "bytes": 30774,
+      "sha256": "a2b0f90f3f8cafdbb5ae43fc5a03243ad67f2fd9669bf5d359030820f0ecbaa7"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/readonly-evidence-audit.json",
+      "bytes": 6914,
+      "sha256": "a6f03cb5313a95f317359a13532708b8f0b4c4ea68b949ff0ca55b2fc1976c4e"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/owned-process-exit-check.json",
+      "bytes": 549,
+      "sha256": "214f57edbc76fd2988af8e0849cf78c98bf06694d63dd784fc31abfa10df84af"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/raw-root.tar.gz",
+      "bytes": 45436,
+      "sha256": "98ba175b4a74af077009534069d6efb5584589e9883b5e497464eecd3f183e0a"
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-receipts-evidence/independent-balanced-input-v1/raw-root-manifest.json",
+      "bytes": 16929,
+      "sha256": "ccb5519e6ddf6f19620ebb7f1817ab0b501e6ec50a9277908d10f906629803b7"
+    }
+  ]
+}

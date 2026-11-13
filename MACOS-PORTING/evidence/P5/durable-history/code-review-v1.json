@@ -1,0 +1,386 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T11:25:20.619Z",
+  "verdict": "passed_source_review_after_DHC1_DHC2_closure",
+  "scope": "独立只读code review：首版产品修复与两份新增测试，以及DHC1/DHC2修正、新增10-context-governance native图片数组分支和两项实际效果/PNG测试的闭合复核。历史首版绑定与发现保留。未启动GUI、测试、构建、签名、process采样、PNG解码或root kill；只写本报告。已有主执行日志不替代独立运行验收。",
+  "worktree": "/tmp/ruyi-p5-durable-history-worktree",
+  "baseCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+  "reviewedV1Files": [
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 412191,
+      "sha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 358987,
+      "sha256": "000d981b55f7bedf24f5c5998f82015aef7b1dc4ec4959ebc94e43ef2f0dc438"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6780734,
+      "sha256": "817ae75eb847e7af3f68d171f39735eb89ef5f61bb62e85107b93586ad97bd35"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "sha256": "2d85de66f92cc077868213ad95a193b61fe3cf44a1a4c70af0167a0a50d9657e"
+    },
+    {
+      "path": "dev-harness/provider-tool-history.e2e.js",
+      "bytes": 12551,
+      "sha256": "c5f851f035902a9cbafd275f7bad1b64ac10d4de829c009b5624a51277dfc309"
+    },
+    {
+      "path": "dev-harness/unit/session-required-persistence.test.js",
+      "bytes": 8302,
+      "sha256": "f58f33e7d480ea512a6f87e09fb5e369d979596b2b301fdb5c729f81f029fba7"
+    }
+  ],
+  "snapshotNote": "reviewedV1Files保留首版历史字节；currentReviewedFiles及closureReview绑定本次已闭合的修后字节。后续最终冻结、工程门和独立验收仍需单独绑定。",
+  "findings": [
+    {
+      "id": "DHC1",
+      "priority": 2,
+      "status": "closed_by_source_review",
+      "title": "恢复并行结果时保留既有展示大小和图片附件边界",
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "start": 3644,
+      "end": 3645,
+      "relatedLocations": [
+        "3226–3233",
+        "3578–3580"
+      ],
+      "trigger": "两个已预执行的安全read中，第二个file_read返回图片（可达4MB）或超120000字符结果；首个结果后收到steer，进入剩余批次填充。",
+      "issue": "新增returned分支直接把parallelReadResults中的真实skip放入tool_result SSE和toolCalls。普通结果路径先调用boundToolResultForDisplay；该helper把大正文缩小、图片落附件，且messages使用同一展示副本。新的恢复路径绕过它，会把图片base64/大正文重新写入SSE和session.messages，恢复本来由N3消除的无界记录/显示负担。loop填充的同类代码也需一致处理，即使当前loop预扫描通常阻止其与parallel同时发生。",
+      "correction": "对返回的真实结果建立shown=await boundToolResultForDisplay(rem.name,skip,{sessionId:session.id})；SSE/toolCalls用shown，history/hook仍按原真实skip与既有PrivacyGateway/model截断链处理。不要把保护显示副本误当成执行结果去覆盖真实已接收结果。",
+      "validation": "用大文本或图片作为第二个并行结果，首结果后触发steer；断言SSE和落盘messages遵守既有上限/附件规则，同时provider结果仍为真实已接收结果，不被改写成未执行。当前Stop小文本用例未覆盖此路径。",
+      "originalStatus": "open_in_reviewed_v1",
+      "resolution": "两处loop/steer恢复分支均生成boundToolResultForDisplay展示副本供SSE/toolCalls；真实结果保留给hook，provider history先stripToolImageFields('interrupted-batch')再过modelToolResult/截断，不插虚构的后续user image。10 helper新增仅images:[{mimeType,data}]的受限识别，使真实native image得到完整附件而非截断base64。新增实际PNG+steer测试检查大小、附件字节和SSE/messages/history无原base64。"
+    },
+    {
+      "id": "DHC2",
+      "priority": 2,
+      "status": "closed_by_source_review",
+      "title": "配对修复的系统说明也必须保留执行状态未知",
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "start": 1633,
+      "end": 1633,
+      "trigger": "assistant.tool_calls提前提交后，进程在审批待决或真正dispatch之前退出；下一回合repair补缺失结果。",
+      "issue": "02的合成tool回复已经改为‘是否派发/执行未确认’，但09同步写入messages的system说明仍称‘在工具执行中中断’，并暴露strict provider400修复细节。提前持久化仅证明记录过意图；该系统说明对相同恢复事件作出了更强、可能错误的执行断言。",
+      "correction": "同时改为用户可读的‘上次调用结果未保存，是否执行及影响仍待确认；已补结果未知占位，不会据此自动重放’等准确措辞；不在产品用户流程里展示provider协议修复细节。",
+      "validation": "构造仅保存调用意图、没有目标进入证据的dangling历史，进入下一回合；检查tool占位与system说明均为unknown，保留原callID/已知结果，不声称执行过或未执行。",
+      "originalStatus": "open_in_reviewed_v1",
+      "resolution": "09配套system消息改为‘有工具调用未保存结果；是否执行及影响未确认，请先核实，避免重复操作’，不再断言进入执行，也不向用户暴露strict-provider400修复细节。02已有unknown工具占位保持不变。"
+    }
+  ],
+  "unresolvedFindings": [],
+  "assessment": {
+    "persistenceGuards": {
+      "status": "source_logic_accepted_for_opt_in_barrier",
+      "evidence": "02:3869–3877在统一dropped分支首先处理requirePersisted。owner superseded、deleted、rewind high-water、newer turn及ifUnwrittenSince等所有现有dropped对象均会进入SESSION_SAVE_NOT_COMMITTED；默认行为保留；真实write异常仍从原catch传播。",
+      "limits": "普通save仍可静默丢弃，这是有意兼容。严格成功表示既有session存储提交完成，不是fsync/断电事务保证，也不是目标dispatch确认。"
+    },
+    "intentOrdering": {
+      "status": "source_logic_accepted_for_normal_local_provider_batch",
+      "evidence": "09:3095先写assistant行，3098初始化本批turn-local状态，3099–3103严格保存并assertExecutionOwner，之后才隐私执行副本准备、并行read、permission和普通dispatch。parent/repair/server-side provider工具不被误称此屏障覆盖。",
+      "cancellation": "assertExecutionOwner会拒绝owner.cancelRequested或owner替换；正常Stop后仍可让当前owner保存真实结果，再停止后续。awaitProviderTool既有ctrl/abort语义保留。"
+    },
+    "resultPersistence": {
+      "status": "source_logic_accepted_after_display_fix",
+      "evidence": "09每个外层本地tool迭代都有try/finally，3652–3654严格保存，覆盖普通结果、control/agent、参数拒绝及continue/break，且不包在普通toolCall catch内；保存失败逃出整个工具循环，不开始后续正常调用。",
+      "limits": "批内loop/steer恢复多个已接收结果时，在该外层迭代finally统一提交；不是每个并行worker完成即落盘。动作完成到相应结果成功提交之间仍可能丢结果。"
+    },
+    "truthfulFinalization": {
+      "status": "source_logic_accepted",
+      "evidence": "turn-local pendingProviderCalls默认intent/未processing；进入串行或并行处理前标processing；parallel记录hasResult/result。最外层收尾优先已接收toolCalls/parallel结果，processing或状态不明填outcome=unknown/action_sent=null，仅本批确实尚未处理的intent填not_dispatched/action_sent=false；结果经过modelToolResult、图片字段剥离和provider截断。",
+      "limits": "processing刻意比实际dispatch范围更宽，故unknown是保守分类，不能据此声称已进入ACC。runOpenAiTurn已有claimUniqueToolCallIds在计划/本地历史之前统一修正跨迭代及同批重用ID，toolCalls.find不会由本改动重新引入全局同ID误配对。"
+    },
+    "privacy": {
+      "status": "no_new_model_or_log_plaintext_leak_identified",
+      "evidence": "预保存仍位于PrivacyGateway.prepareCall之前，保留model/protocol参数及隐私引用。修后恢复分支分别处理bounded展示副本、剥图后的history副本及raw hook副本；所有history结果经过modelToolResult。10 helper只处理指定images数组及image MIME，不把任意data正文转成附件。",
+      "limits": "providerHistory意图参数不是approval updatedInput/隐私还原/dispatcher归一后的actual args；未作actual参数收据验收。"
+    },
+    "processOwnership": {
+      "status": "source_context_improvement_only",
+      "evidence": "09三个native toolCall ctx均新增tc.id，12的既有ProcessRuntime.withOwner可读取此字段；不改变bridge client.callTool或共享MCP进程的server级owner。",
+      "limits": "不提供ACC单调用ACK、持久dispatch/terminal或出生/退出归属收据。"
+    },
+    "buildAndMetadata": {
+      "status": "authored_metadata_refreshed_final_engineering_and_freeze_pending",
+      "evidence": "修后generated server/manifest、facts/README及home/process/route元数据已生成并记录currentReviewedFiles hash；只读目录盘点为594 E2E和280 unit文件。未运行元数据测试或最终build --check。",
+      "reviewerChecks": "三个产品源git diff --check退出0；未运行任何测试、构建或生成器。"
+    }
+  },
+  "testSourceReview": {
+    "newE2E": {
+      "path": "dev-harness/provider-tool-history.e2e.js",
+      "usefulCoverage": [
+        "真实隔离HTTP服务与file_write实际效果；同批第二个request_user_input在ask_user待决。",
+        "待决时读取实际磁盘，断言两个callId/参数、第一tool结果与head计数，第二结果尚不存在。",
+        "只对已核对出生身份的原服务root发SIGKILL，保留重启GET观察和模型请求计数。",
+        "default pending已持久intent且无文件效果，再实际deny并读取持久失败结果。",
+        "保留实际故障前后快照、观察身份、清理收据及失败临时根；无GUI/ACC调用。"
+      ],
+      "limits": [
+        "GET-only无重放仅限记录的重启观察区间，不证明用户继续/模型下一轮/steward自动续跑的确定性防重放。",
+        "本测试实际副作用是file_write，pending是本地request_user_input；不证明ACC收到macro、进入wait或存在held state。",
+        "磁盘比较检查结构与头计数，不是断电/fsync或任意跨文件崩溃一致性证明。"
+      ]
+    },
+    "newUnit": {
+      "path": "dev-harness/unit/session-required-persistence.test.js",
+      "usefulCoverage": [
+        "真实loadServerInternals加载生成server，既有session存储与真实临时文件。",
+        "pending tool identity/args roundtrip；deleted默认兼容；rewind、newer turn和排队期间owner替换。",
+        "真正注入atomicWriteJson的intent head提交EIO；断言实际result事件ok=false、文件效果不存在、收尾not_dispatched。",
+        "Stop在第一并行小文本结果后触发；断言第二个已接收结果被保留且不写未执行。",
+        "新增实际prefix file_write结果head提交失败：第一文件真实存在，第二文件不存在，第一结果保留、第二not_dispatched，且注入实际触发。",
+        "新增实际静态PNG file_read作为第二个并行结果，首结果后推入steer：断言显示长度不超cap、原base64不进SSE/messages/providerHistory、附件字节等于PNG源文件。"
+      ],
+      "remainingCoverage": [
+        "当前修后source review关闭DHC1/DHC2，并已阅读新增prefix结果提交失败与PNG+steer测试源码及主执行24项日志；不是审查者独立运行验收。",
+        "ifUnwrittenSince严格分支、更大read pool/混合岛、隐私引用/approval updatedInput及owner取消窗口按声明的最终验收范围保留相关回归边界。",
+        "UI/模型/自动driver未知调用处置仍另门，不能由GET-onlyrestart推导确定性防重放。"
+      ]
+    }
+  },
+  "primaryDevelopmentEvidence": {
+    "files": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/offline-v1/output.txt",
+        "bytes": 343,
+        "sha256": "a5493adb49b8d203e6a1f6caa7edf7e63798fafe57338dd6022e62fb43dcadfb"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/offline-before/output.txt",
+        "bytes": 584,
+        "sha256": "fc0614b08d3f2edc4400c1db8c7732fb3e8897d762bee98eca20f6cbc2c67948"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/offline-v2/output.txt",
+        "bytes": 825,
+        "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/offline-v2/results.json",
+        "bytes": 39720,
+        "sha256": "86b99f855da603f3d8f94b8d3fa3395f3cc4865d7302ca9c06cb57b7b78544b5"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-v1/required-persistence.txt",
+        "bytes": 1556,
+        "sha256": "1876f10cc0bdaf4919ef6728d90222105bae43ecb6f7f459a77741c9dc43b846"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-v2/required-persistence.txt",
+        "bytes": 822,
+        "sha256": "ebc0accf9d45b75cd4eb99833ce4db10fdb9563aae239b133a972dd354eb0dc2"
+      }
+    ],
+    "offlineV2": {
+      "pass": 11,
+      "fail": 0,
+      "skip": 0,
+      "status": "author_execution_only_not_independent_acceptance"
+    },
+    "negativeControl": "同E2E指向旧主仓server：实际fileeffect完成后，pending batch持久意图断言失败；日志保留。t.ok失败与随后的异常catch各记FAIL，不解读成两次产品反例运行。",
+    "historicalFixtureFailures": [
+      "offline-v1等待question_request而真实事件为ask_user，属夹具事件名错误；后续修正不能删除原失败。",
+      "targeted-v1读runSessionTurn wrapper.ok，6/7；targeted-v2改检查实际result事件后7/7。已阅读日志，审查者未重跑。"
+    ],
+    "targetedV2": {
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skip": 0,
+      "independentRerun": false
+    },
+    "relatedSuites": "作者报告相关e2e串行运行中；本报告不把未审核的进行中结果计作通过。"
+  },
+  "requiredBeforeAcceptance": [
+    "冻结本报告currentReviewedFiles对应修后字节，完成必要工程门及最终相关E2E；新增10 helper使最终工程绑定范围包含该产品源。",
+    "保留历史首败、开发修正和重跑范围，不能把修前相关E2E或旧离线11项自动称为修后独立验收。",
+    "独立在冻结修后字节执行受限离线实际文件效果/故障恢复验收并绑定实施提交；actual dispatch/ACC/held/自动续跑门仍开放。"
+  ],
+  "claimLimits": [
+    "只补normal provider local调用协议意图及已接收结果的持久化屏障，保存未提交时阻断后续调用。",
+    "不得称actual dispatch、actual execution args、ACC-entry/await ACK或独立terminal receipt。",
+    "未验held输入/监督释放/qualified rescue，也未修改helper。",
+    "未关闭模型/用户继续/steward/until-done自动重发门，不承诺exactly-once。",
+    "未关闭完整hard-abort/P5门，P5仍in_progress。"
+  ],
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "builds": 0,
+    "signatures": 0,
+    "processSampling": 0,
+    "inputs": 0,
+    "rootKills": 0,
+    "sourceEdits": 0,
+    "fixtureEdits": 0,
+    "rawEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/durable-history/code-review-v1.json"
+    ]
+  },
+  "hardAbortGateStatus": "open",
+  "phaseStatus": "in_progress",
+  "currentReviewedFiles": [
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 412191,
+      "sha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 359471,
+      "sha256": "3c3a7b7b209c4d48bbd75d96b0622e0958eae48ab279e8541cccf377ccaf2a4c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 319691,
+      "sha256": "08f1e010fc652dd00de2e3aecf9e4a8365b48d13e53fd0c20e9c042aae19449c"
+    },
+    {
+      "path": "dev-harness/unit/session-required-persistence.test.js",
+      "bytes": 12517,
+      "sha256": "939e1b4571185fa120e9460bf5d047f783e229cc3ef1773bb2f8a10c2216ca49"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6782007,
+      "sha256": "208e7503913ae34e17a8cfc0ec657d8eedef4917b16762a0fc2c8b5548a201a2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "sha256": "55111d26951f02fefe813bad957f60fd1dbfe31987c01b2123e8cf86f841053a"
+    },
+    {
+      "path": "dev-harness/provider-tool-history.e2e.js",
+      "bytes": 12551,
+      "sha256": "c5f851f035902a9cbafd275f7bad1b64ac10d4de829c009b5624a51277dfc309"
+    },
+    {
+      "path": "dev-harness/unit/tool-result-shrink.test.js",
+      "bytes": 18111,
+      "sha256": "b44a6249f622de3892faa5374e6f499f4747e01255cc3e40e010c6ff1b68ae67"
+    },
+    {
+      "path": "dev-harness/visual-baselines/workbench-shell-v2-light.png",
+      "bytes": 138353,
+      "sha256": "9acce5e53558a08037e6e65e4bdbd23e5c98b51592915866819045b92ca74d1f"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "d93c755d6cb1740b0c2864812a6c6cf555682fa7d1f0c0e8fd86f7863ac1ad44"
+    },
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "sha256": "e2d3d8e006d0e3f5dcaefa092f6d83dc63388c48195fdb46d9cd9b6d3d15189c"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "sha256": "9633ace42b286f6166e1976df629754c8c9204257b74ae2007436edf59e9be8e"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "bytes": 41944,
+      "sha256": "83f9d3b0faef8924f2eb0ea0a513dfdf0de1c42b490f596b35bf80364998d414"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14360,
+      "sha256": "b3fcbb93255adc63de299a28655a7ce228856a72dae93814a48f8febdce1eb75"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 209033,
+      "sha256": "eb6c76c06eb67ee9694fc19fb52e8b8d85185bc70c19fe31081a8f80d78bdd84"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "7e3564a5d91cb04bdd06d37babe23ca97010412df21ac4e64f09274ff039fdea"
+    }
+  ],
+  "closureReview": {
+    "at": "2026-11-11T11:32:25.250Z",
+    "verdict": "all_two_findings_closed_no_new_blocking_findings",
+    "sourceHashesMatchedParentRequest": true,
+    "unchangedPersistenceSourceSha256": "202bb0b083aa34bc38435e74b124d6c96f58837cd3fbda49964e3623ddcb7f41",
+    "workflowSha256": "3c3a7b7b209c4d48bbd75d96b0622e0958eae48ab279e8541cccf377ccaf2a4c",
+    "contextGovernanceSha256": "08f1e010fc652dd00de2e3aecf9e4a8365b48d13e53fd0c20e9c042aae19449c",
+    "unitSha256": "939e1b4571185fa120e9460bf5d047f783e229cc3ef1773bb2f8a10c2216ca49",
+    "helperAssessment": {
+      "nativeShape": "FileVisualIo.image现有真实输出为images:[{name,mimeType,data}]；新分支只检查images数组、image/* MIME、8000至4000000字符及base64语法。",
+      "copyOnWrite": "cowToolResultParent已有数组slice与索引路径复制；新path为images/index/data，复制root/数组/item，不修改供模型视觉/hook使用的raw原对象。",
+      "boundaries": "沿用既有helper深度与大小边界、会话标签附件目录、临时写入后rename及后续显示收缩；没有泛化任意data字段。超出现有附件识别长度等范围仍走既有展示收缩，未增加全格式/全尺寸附件支持声明。"
+    },
+    "newFixtureAssessment": {
+      "width": 1440,
+      "height": 1000,
+      "base64Characters": 184472,
+      "staticCommittedRepositoryFixture": true,
+      "newDecodePerformed": false,
+      "path": "dev-harness/visual-baselines/workbench-shell-v2-light.png",
+      "bytes": 138353,
+      "sha256": "9acce5e53558a08037e6e65e4bdbd23e5c98b51592915866819045b92ca74d1f",
+      "meaning": "复制仓库静态PNG到隔离home后经真实file_read产生native image结果；不是当前桌面截图，也没有GUI测试。184472个base64字符超过120000显示上限。",
+      "assertions": "实际附件字节、显示长度、SSE/messages/history无完整原base64及真实结果非错误均有断言；不由该fixture声称视觉GUI/ACC/held验收。"
+    },
+    "primaryPostFixEvidence": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-v3/required-persistence.txt",
+        "bytes": 1740,
+        "sha256": "571badda6b4aff2ae2ccb83c2bb4e9a503073bbb57879e812a6d48131f56ae31"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-v4/required-persistence.txt",
+        "bytes": 1743,
+        "sha256": "a45c37d3effbd9189433fb2688bbccf51944819bda92bbb8196380efa58e7389"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/development/targeted-v5/persistence-and-bounds.txt",
+        "bytes": 2493,
+        "sha256": "71e2ac4ede499da43e8880441dabc76cad632ecb5c4179b264eb2feaf56a9b62"
+      }
+    ],
+    "primaryTargetedV5": {
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "skip": 0,
+      "persistenceUnitCases": 9,
+      "existingShrinkCases": 15,
+      "reviewerReruns": 0
+    },
+    "historicalV3V4": "两个8/9失败均保留；v3测试期附件字段判断以及v4真实native images数组未被既有helper识别的历史，不改写成首次全绿。修后增加受限识别后v5的24/24日志已阅读并按原字节绑定。",
+    "relatedE2E": "原三组相关E2E在DHC修正前通过属于作者报告的旧字节结果；最终字节复跑尚待，不自动继承为修后通过。",
+    "metadataReadOnlyCensus": {
+      "e2eFiles": 594,
+      "unitFiles": 280
+    },
+    "authoredSourceWhitespaceCheckExitCode": 0,
+    "reviewerActions": {
+      "testsStarted": 0,
+      "GUIActions": 0,
+      "builds": 0,
+      "generators": 0,
+      "processSampling": 0,
+      "pngDecodes": 0,
+      "sourceEdits": 0,
+      "rawEvidenceEdits": 0,
+      "reportEdits": 1
+    },
+    "remainingAcceptance": "最终候选冻结及相应工程/相关E2E，随后冻结字节的独立离线验收与实施commit binding；本报告关闭source findings，不关闭runtime/fullgate。"
+  }
+}

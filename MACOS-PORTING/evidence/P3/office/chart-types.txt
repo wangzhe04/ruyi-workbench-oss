@@ -1,0 +1,92 @@
+[11/07/26 02:51:31] WARNING  Matplotlib is building the     font_manager.py:1249
+                             font cache; this may take a                        
+                             moment.                                            
+[11/07/26 02:51:37] INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/PrivateFramewo                     
+                             rks/FontServices.framework/Res                     
+                             ources/Reserved/PingFangUI.ttc                     
+                             : FT_Open_Face (ft2font.cpp                        
+                             line 200) failed with error                        
+                             0x02: unknown file format                          
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/Apple                        
+                             Color Emoji.ttc: Non-scalable                      
+                             fonts are not supported                            
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/Suppleme                     
+                             ntal/NISC18030.ttf:                                
+                             Non-scalable fonts are not                         
+                             supported                                          
+                    INFO     Failed to extract font         font_manager.py:1263
+                             properties from                                    
+                             /System/Library/Fonts/LastReso                     
+                             rt.otf: tuple indices must be                      
+                             integers or slices, not str                        
+                    INFO     generated new fontManager      font_manager.py:1848
+                    WARNING  Ignoring fixed y limits to fulfill    _base.py:2134
+                             fixed data aspect with adjustable                  
+                             data limits.                                       
+                    WARNING  findfont: Failed to find font  font_manager.py:1666
+                             weight bold for Heiti TC, now                      
+                             using 400.                                         
+                    WARNING  Ignoring fixed y limits to fulfill    _base.py:2134
+                             fixed data aspect with adjustable                  
+                             data limits.                                       
+# 109c smoke: chart_image 补型 (hbar/stacked_bar/area) + excel_chart scatter
+
+== ① chart_image: 7 型全部可渲染出非空 PNG (CJK 数据集) ==
+  [ok  ] bar: success (got error=None)
+  [ok  ] bar: bytes > 1000 (got 29685)
+  [ok  ] bar: chart_type 回显一致 (got 'bar')
+  [ok  ] bar: PNG 文件落盘且非空
+  [ok  ] line: success (got error=None)
+  [ok  ] line: bytes > 1000 (got 62177)
+  [ok  ] line: chart_type 回显一致 (got 'line')
+  [ok  ] line: PNG 文件落盘且非空
+  [ok  ] pie: success (got error=None)
+  [ok  ] pie: bytes > 1000 (got 48917)
+  [ok  ] pie: chart_type 回显一致 (got 'pie')
+  [ok  ] pie: PNG 文件落盘且非空
+  [ok  ] scatter: success (got error=None)
+  [ok  ] scatter: bytes > 1000 (got 31658)
+  [ok  ] scatter: chart_type 回显一致 (got 'scatter')
+  [ok  ] scatter: PNG 文件落盘且非空
+  [ok  ] hbar: success (got error=None)
+  [ok  ] hbar: bytes > 1000 (got 28123)
+  [ok  ] hbar: chart_type 回显一致 (got 'hbar')
+  [ok  ] hbar: PNG 文件落盘且非空
+  [ok  ] stacked_bar: success (got error=None)
+  [ok  ] stacked_bar: bytes > 1000 (got 27184)
+  [ok  ] stacked_bar: chart_type 回显一致 (got 'stacked_bar')
+  [ok  ] stacked_bar: PNG 文件落盘且非空
+  [ok  ] area: success (got error=None)
+  [ok  ] area: bytes > 1000 (got 44738)
+  [ok  ] area: chart_type 回显一致 (got 'area')
+  [ok  ] area: PNG 文件落盘且非空
+
+== ② chart_image: 未知 chart_type 失败且错误信息列出 7 个合法型名 ==
+  [ok  ] 未知型不返回 success (got {'error': "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area", 'ok': False})
+  [ok  ] 未知型返回 error 说明
+  [ok  ] 错误信息含合法型名 'bar' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+  [ok  ] 错误信息含合法型名 'line' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+  [ok  ] 错误信息含合法型名 'pie' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+  [ok  ] 错误信息含合法型名 'scatter' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+  [ok  ] 错误信息含合法型名 'hbar' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+  [ok  ] 错误信息含合法型名 'stacked_bar' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+  [ok  ] 错误信息含合法型名 'area' (got "chart_type 非法：'donut'，仅支持 bar | line | pie | scatter | hbar | stacked_bar | area")
+
+== ③ excel_chart: scatter (ScatterChart, 首列 X + 每列一条 Y 系列) ==
+  [ok  ] scatter: success (got error=None)
+  [ok  ] scatter: chart_type 回显 (got 'scatter')
+  [ok  ] scatter: 恰有一个 scatterChart (got 1)
+  [ok  ] scatter: 2 条 Y 系列 (data_range 3 列 = 1 列 X + 2 列 Y) (got 2)
+
+== ④ excel_chart: bar 型不受影响 (向后兼容对照) ==
+  [ok  ] bar: success (got error=None)
+  [ok  ] bar: 恰有一个 barChart (got 1)
+
+============================================================
+OK: all 109c chart-type assertions passed.

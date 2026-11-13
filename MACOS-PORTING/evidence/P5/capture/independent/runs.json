@@ -1,0 +1,2792 @@
+{
+  "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+  "branch": "codex/p5-macos-automation",
+  "reviewer": "/root/p5_acceptance",
+  "runs": [
+    {
+      "name": "contract",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/macos-capture-contract.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 6623,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 38,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/contract.txt"
+    },
+    {
+      "name": "live",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/macos-capture.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 7625,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 30,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/live.txt"
+    },
+    {
+      "name": "host",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/macos-capture-host.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 2463,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 5,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/host.txt"
+    },
+    {
+      "name": "python-capture",
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "args": [
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 3696,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 0,
+      "failLines": 0,
+      "pythonSummary": "Ran 13 tests in 3.437s",
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/python-capture.txt"
+    },
+    {
+      "name": "python-shared",
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+      "args": [
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 2828,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 0,
+      "failLines": 0,
+      "pythonSummary": "Ran 8 tests in 2.697s",
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/python-shared.txt"
+    },
+    {
+      "name": "capabilities",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/macos-capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 8514,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 25,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/capabilities.txt"
+    },
+    {
+      "name": "mcp-capabilities",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/macos-mcp-capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 1050,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 12,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/mcp-capabilities.txt"
+    },
+    {
+      "name": "acc-shared",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/macos-acc-shared.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 749,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 15,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/acc-shared.txt"
+    },
+    {
+      "name": "checkpoint",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+      "args": [
+        "dev-harness/checkpoint-coverage.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "ms": 2455,
+      "before": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "after": {
+        "MACOS-PORTING/TASKS.json": {
+          "expected": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "actual": "7fa2c16791abb8c0a45b7a0d2474af8d15a41fcb51426ba6a257b5f3198cd1a3",
+          "match": true
+        },
+        "dev-harness/macos-acc-shared.e2e.js": {
+          "expected": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "actual": "9faaf981aa0c100c23f588181623fcb79cede219907911e469092ff16340214b",
+          "match": true
+        },
+        "dev-harness/macos-capabilities.e2e.js": {
+          "expected": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "actual": "e5560ca8c4b210f4314afd530c433e067ebed1e07dbef5972c823acee79ca953",
+          "match": true
+        },
+        "dev-harness/macos-mcp-capabilities.e2e.js": {
+          "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+          "match": true
+        },
+        "dev-harness/unit/tool-dispatch-hardening.test.js": {
+          "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+          "match": true
+        },
+        "docs/architecture/module-dependency-graph.json": {
+          "expected": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "actual": "ab40420838b5f757517a06ae31b93edf92717b2599fd6c0389351b78d56b852b",
+          "match": true
+        },
+        "facts.json": {
+          "expected": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "actual": "1c82e9e0b63769381ac761e2a6278ec9d53bb783b6f6aa434ded11863ff06517",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+          "expected": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "actual": "ef3f5582bb0007bb5e33b641c64c8a7a463708c1de36a4b9fad4887d7220327c",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+          "expected": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "actual": "aa8ee3843796aa8eccf3b35a5b76251a39623e6b294961c597ce3b940cf2d09a",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+          "expected": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "actual": "adbd791c355d097899e47589c189f9bdf006d9443bda05c1e9b4a2a5c4ecb81a",
+          "match": true
+        },
+        "ruyi-workbench/app/server.js": {
+          "expected": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "actual": "5e7b53f107d06f8ff4e7222d7043a8490b4331455a25f0e3e754030aee766ce7",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01h-process-runtime.js": {
+          "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+          "match": true
+        },
+        "ruyi-workbench/app/src/06-provider-engine.js": {
+          "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+          "match": true
+        },
+        "ruyi-workbench/app/src/07-autonomy.js": {
+          "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+          "match": true
+        },
+        "ruyi-workbench/app/src/12-tool-dispatch.js": {
+          "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13-http-router.js": {
+          "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+          "match": true
+        },
+        "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+          "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+          "match": true
+        },
+        "ruyi-workbench/app/src/manifest.json": {
+          "expected": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "actual": "4484bedb81ab7804932a50e6b22a1b3dc7646600dcdfb1acd128eba04f07cd88",
+          "match": true
+        },
+        "ruyi-workbench/app/src/module-contracts.json": {
+          "expected": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "actual": "f56c5e9a94f2b77b754399933eb7da279cb0303ec2cb4a71867eb4f1143af2fc",
+          "match": true
+        },
+        "dev-harness/fixtures/macos-capture-window.m": {
+          "expected": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "actual": "d69b2921788a848ace600f87ae8aaae15443a6889f9f5d61bbe74bbbee87f415",
+          "match": true
+        },
+        "dev-harness/macos-capture-contract.e2e.js": {
+          "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+          "match": true
+        },
+        "dev-harness/macos-capture-host.e2e.js": {
+          "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+          "match": true
+        },
+        "dev-harness/macos-capture.e2e.js": {
+          "expected": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "actual": "2b49762d9417a4a0b46f88cb66cb14299e6e905d5c91d1f545db90771c5d915a",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+          "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+          "match": true
+        },
+        "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+          "expected": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "actual": "0cf068633d05f7ae9c938157d56b8bacddc32ad79c9eec4b66395da3274fa4fc",
+          "match": true
+        },
+        "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+          "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+          "match": true
+        },
+        "ruyi-workbench/app/src/01n-desktop-automation.js": {
+          "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+          "match": true
+        },
+        "ruyi-workbench/resources/macos-automation-helper.m": {
+          "expected": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "actual": "85d24e718211c027b8ae4d9c3ca141db7c18f5708344b62480e82c3d24d21cfb",
+          "match": true
+        },
+        "ruyi-workbench/tools/build-macos-automation-helper.js": {
+          "expected": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "actual": "9d36bc67d3be766b465e23d40919b2d5a377f569f6cd4a2222cc8acbd681d575",
+          "match": true
+        }
+      },
+      "passLines": 41,
+      "failLines": 0,
+      "pythonSummary": null,
+      "log": "MACOS-PORTING/evidence/P5/capture/independent/checkpoint.txt"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T09:14:03.251355+00:00",
+  "verdict": "passed_source_review_freeze_v5_click_observation_delta",
+  "scope": "Only archived freeze-v4 to freeze-v5 readiness fixture balanced-click observation delta. Prior full source and target-refresh reviews remain separate. No GUI, test, build, runtime/process/signature invocation, source edits, original-evidence edits, staging or commit; only this report written.",
+  "baseCommit": "dc59e365fc598f0f0c9ff6de6bda01d24bcabdac",
+  "worktree": "/tmp/ruyi-p5-readiness-worktree",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/freeze-v5.json",
+    "bytes": 2888,
+    "sha256": "5e60e15d4c3e1c21c614e8fbd9eeb44cfc5e21983dcfafaf904b36a550778b28"
+  },
+  "previousFreeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/freeze-v4.json",
+    "bytes": 2930,
+    "sha256": "962e81a027668a100dfb70499e181b72102f01d05aa33046c6994af738e7cbf8"
+  },
+  "priorReviews": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/code-review-v1.json",
+      "bytes": 18912,
+      "sha256": "3bd8f0ec2902efe39850b46e033137d830bbcff66cd095aa21b0610e6e0e1a82"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/code-review-v2.json",
+      "bytes": 9064,
+      "sha256": "c9ad25affda616cfee56a1682e8bf539e1f3a28ab3201ee6d405a78ed65b7a03"
+    }
+  ],
+  "sourceCount": 14,
+  "allFrozenHashesMatched": true,
+  "frozenSources": [
+    {
+      "path": "dev-harness/macos-native-readiness.e2e.js",
+      "bytes": 27179,
+      "sha256": "938f740633bcbfea0ef8d4dca37dc8925e334ecff8f7e62eff5ffd266b5a50de",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "bytes": 41805,
+      "sha256": "7f642fe3c8328baef1655114e97849cc3c6584efdd4274590cbd8d2147fdbb45",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14136,
+      "sha256": "012364d502b02c79c6d4d71a3eca0b7b406e1d9665a8a69083e169be7bf7f7d1",
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "bec6efae537d74caeba801c94f9d19f12d187c4810b91ae2567f9ffbbb48e8fa",
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "sha256": "80d48bb148e909807dc0e5f14f840c524cbdc71b6fbe251a801e18b0edd7117d",
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "sha256": "d1e07ec8c36fea02c112fc0ccb446e1572bb6ee0d947fda0eaa5f199796d5088",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 207630,
+      "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6777831,
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301569,
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 23110,
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 10462,
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "bytes": 11734,
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31",
+      "matched": true
+    }
+  ],
+  "nativeHelper": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "bytes": 291712,
+    "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+  },
+  "delta": {
+    "file": "dev-harness/macos-native-readiness.e2e.js",
+    "archivedV4": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/development/source-v4.js",
+      "bytes": 26307,
+      "sha256": "f71354694066cb187661594c40b5e4fa1ac1d10ac9be2e681d51795264f71f44"
+    },
+    "workingV5": {
+      "bytes": 27179,
+      "sha256": "938f740633bcbfea0ef8d4dca37dc8925e334ecff8f7e62eff5ffd266b5a50de"
+    },
+    "otherThirteenRowsUnchanged": true,
+    "nativeHelperUnchanged": true,
+    "diff": "--- freeze-v4 archived\n+++ freeze-v5 working\n@@ -251,15 +251,21 @@\n     const listed = await invoke('list_windows'); baselineTarget = listed.windows.find(row => row.pid === receiver.pid && row.handle === receiverReady.id)?.target;\n     if (!baselineTarget) throw new Error('Cannot bind owned fixture');\n     const source = { id: originalSource.inputSource, type: 'TISTypeKeyboardLayout' };\n-    const sequence = { target: baselineTarget, input_source: source, events: [{ type: 'move', at_us: 0,\n-      x: Math.round(receiverReady.pad.x + 100), y: Math.round(receiverReady.pad.y + 60), flags: 0, button: 0, click_state: 0,\n-      pressure: 0, delta_x: 0, delta_y: 0 }] };\n+    const point = { x: Math.round(receiverReady.pad.x + 100), y: Math.round(receiverReady.pad.y + 60) };\n+    const sequence = { target: baselineTarget, input_source: source, events: [\n+      { type: 'mouse_down', at_us: 0, ...point, flags: 0, button: 0, click_state: 1, pressure: 0, delta_x: 0, delta_y: 0 },\n+      { type: 'mouse_up', at_us: 40000, ...point, flags: 0, button: 0, click_state: 1, pressure: 0, delta_x: 0, delta_y: 0 }] };\n     const focused = await invoke('focus_window', { target: baselineTarget }, 'exec');\n     check(focused.ok === true, 'baseline confirms owned foreground focus before starting a recording');\n     const started = await invoke('record_start', { target: baselineTarget }, 'exec');\n     check(started.ok === true && started.source === 'controlled_native_requests', 'baseline confirms controlled recording before dispatching its one input');\n+    const beforeSequence = await command('state');\n     const moved = await invoke('input_sequence', sequence, 'exec');\n-    check(moved.ok === true, 'baseline confirms the actual unpressed pointer sequence before collection');\n+    check(moved.ok === true, 'baseline confirms the actual balanced click sequence before collection');\n+    const afterSequence = await command('state');\n+    check(afterSequence.counts.left_down === (beforeSequence.counts.left_down || 0) + 1\n+      && afterSequence.counts.left_up === (beforeSequence.counts.left_up || 0) + 1 && !afterSequence.leftHeld && !afterSequence.modifierFlags,\n+      'baseline counted down/up receipts make any later erroneous replay observable');\n     const stopped = await invoke('record_stop', { save_as: 'registry-gate-owned' }, 'exec');\n     check(stopped.ok === true && stopped.complete === true && typeof stopped.path === 'string' && fs.existsSync(stopped.path),\n       'baseline confirms complete collection and actual saved file before replay scenarios');\n@@ -268,13 +274,17 @@\n     check(focused.ok && started.ok && moved.ok && stopped.ok && stopped.complete && savedRecording?.actions.length === 1\n       && savedRecording.actions[0].op === 'input.sequence' && savedRecording.schema === 1\n       && JSON.stringify(JSON.parse(recordingFileBytes)) === JSON.stringify(savedRecording),\n-      'baseline actually records and saves one owned unpressed pointer sequence for later hidden replay');\n+      'baseline actually records and saves one owned balanced click sequence for later hidden replay');\n     if (!savedRecording) throw new Error('No actual captured macro');\n     check(['input_sequence', 'record_start', 'window_screenshot', 'ui_find', 'ocr_screen', 'observe', 'act_and_verify']\n       .every(name => baseline.names.includes('ai_computer_control__' + name)), 'ready baseline advertises actual loaded native capability families');\n     const positive = { label: 'READINESS_BASELINE', tool: 'macro_run', args: { recording: savedRecording, target: baselineTarget } }; specs.push(positive);\n+    const beforeReplay = await command('state');\n     const positiveEvents = await turn(positive, 'allow');\n-    check(toolResult(positiveEvents).result?.completed === 1 && toolResult(positiveEvents).result?.failed === 0,\n+    const afterReplay = await command('state');\n+    check(toolResult(positiveEvents).result?.completed === 1 && toolResult(positiveEvents).result?.failed === 0\n+      && afterReplay.counts.left_down === beforeReplay.counts.left_down + 1 && afterReplay.counts.left_up === beforeReplay.counts.left_up + 1\n+      && !afterReplay.leftHeld && !afterReplay.modifierFlags,\n       'same captured macro replays successfully through ordinary default-mode session before refusal controls');\n     const missing = await startService('missing-helper', { missing: true });\n     const status = await request('GET', '/api/status'); scenarios.at(-1).workbenchCapture = status.json.runtime?.capabilities?.['desktop.capture'];\n"
+  },
+  "assessment": {
+    "problemAddressed": "Parent identified that pure mouse move does not change receiver.counts; a repeat at the same coordinates would evade that count comparison. v5 changes the captured input to one balanced click and proves that the same saved recording actually increments count receipts when dispatched/replayed.",
+    "sequenceValidity": "Two left-button events at0 and40000 microseconds, same interior point (pad origin+100,+60), click_state1, flags0, pressure0 and zero deltas. The default exact profile allows that bounded down/up pair; no unmatched held key/button, pressure stage, drag or scroll is added. This is the same shape as the already-reviewed native-entry click.",
+    "targetScope": "Remains same receiver child/window and the known720x170 blue pad. InputPad.mouseDown only makes the owned pad first responder, and mouseUp has no product action. No arbitrary window, clipboard operation, key chord or external application is added. Native FocusGuard/target/occlusion and release guards remain product responsibilities.",
+    "directDispatchOracle": "After focus and recording-start success, reads before state, dispatches sequence, checks native ok, reads after state, then requires left_down and left_up each exactly previous-or0 plus1 with no held left button or modifiers. Fails into finally before collection and later scenarios if these prerequisites fail.",
+    "savedReplayOracle": "Saved recording must still be schema1/one input.sequence with exact file JSON equality. Actual normal-session replay must return completed1/failed0 and receiver down/up each increase exactly1, finishing neutral. Previous successful direct-count assertion guarantees finite numeric baseline counts before this replay comparison.",
+    "refusalOracle": "Later negative tests use that same recording/sequence; existing entire counts equality and input/focus audit rejection now independently observe an erroneous delivery of the actual click pair to the owned receiver. Hidden-service current target from v4 is preserved for both macro and nested batch. Expected error codes have not been relaxed.",
+    "unchangedLogic": [
+      "Five isolated service configurations and environments",
+      "Source/recording fail-fast sequence",
+      "Current hidden-worker target observation",
+      "Node master-off/catalog and product-generated CLI policy-mask distinctions",
+      "Refusal audit/error checks",
+      "Owned process cleanup and source restoration"
+    ],
+    "runtimeLimit": "No counted event, refusal, cleanup or successful runtime result is established by this source-only review. Native dispatch reports events_posted; actual delivery must be demonstrated by the new receiver assertions when executed. The once-read state observations deliberately fail if the required receipt is missing; no scenario retry is added."
+  },
+  "fixedObservationLimitation": {
+    "origin": "Parent source/log inspection after live-v1",
+    "oldEvidence": "Original live-v1 used pure unpressed move and empty receiver.counts. Its audit/errors and original target_stale failure are retained unchanged.",
+    "sourceResolution": "Balanced click and positive exact-count assertions make the later no-count-change checks sensitive to erroneous replay.",
+    "status": "resolved_by_source_delta",
+    "isProductFix": false
+  },
+  "retainedHistory": {
+    "freezeV4WasNotExecuted": true,
+    "liveV1RemainsFailedDevelopment": true,
+    "masterOffCasesNotReachedInLiveV1": true,
+    "oldReportsOrRawLogsEditedByReviewer": false,
+    "codeReviewV2DigestUnchanged": true
+  },
+  "additionalSourcesRead": [
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+    },
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "bytes": 7972,
+      "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+    }
+  ],
+  "findings": [],
+  "unresolvedFindings": [],
+  "runtimeClaims": {
+    "freezeV5ExecutedByReviewer": false,
+    "freezeV5RuntimePassInferred": false,
+    "actualTCCRevocation": false,
+    "OSLock": false,
+    "AppLaunchServicesOrWindowsAcceptance": false,
+    "wholeP5Acceptance": false
+  },
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "builds": 0,
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "stagingChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/readiness/code-review-v3.json"
+    ]
+  },
+  "phaseStatus": "in_progress"
+}

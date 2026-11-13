@@ -1,0 +1,52 @@
+PASS 工作台启动
+── (A) 活回合:full / tools / iterations,且零工具参数与结果 ──
+PASS A0 线程建起来了(got sess_754d41ef6c5763dd)
+PASS A1 活回合时 GET /api/sessions/:id 带 liveTail(got yes)
+PASS A2 liveTail.full 是这一回合真流出来的正文(got 第一段:我先看一眼这件事的现场。第二段:看完了,现在我把结论写下来。)
+PASS A3 liveTail.tools 里有工具名(got [{"name":"file_read","status":"done","startedAt":"2026-11-12T10:55:44.468Z","endedAt":"2026-11-12T10:55:44.473Z"}])
+PASS A4 每条工具行都带状态与起点
+PASS A4b 工具跑完后那一行按 id 配对收尾(status=done + endedAt;got [{"name":"file_read","status":"done","startedAt":"2026-11-12T10:55:44.468Z","endedAt":"2026-11-12T10:55:44.473Z"}])
+PASS A5 iterations 记到了这一轮工具(got 1)
+PASS A6 startedAt 是回合起点(got 2026-11-12T10:55:43.232Z)
+PASS A7a 前提:工具参数与工具结果确实在这一回合里流过(会话自己的 providerHistory 里有)
+PASS A7 liveTail 不含任何工具【参数】(SECRET-ARG-MARKER 在 liveTail 里出现 0 次)
+PASS A8 liveTail 不含任何工具【结果】(SECRET-RESULT-MARKER 在 liveTail 里出现 0 次)
+PASS A9 tools 的每一行只有 name/status/startedAt/endedAt 四个键(连工具调用 id 都不下发)
+PASS A10 text 仍然 ≤600 字(got 34)
+PASS A11 text 就是 full 的尾巴(两份文本同源)
+── (B) 回合结束:liveTail 消失、正文落盘 ──
+PASS B0 回合还活着时盘上没有助手消息(实测 1 行,角色 user)
+PASS B1 回合结束后 liveTail 不再下发(始终不落盘)
+PASS B2 回合结束后正文落盘(实测 1 条助手消息)
+PASS B3 回合结束后 resumable.live 不是 true(got {"dangling":false,"kind":null,"turnSeq":1,"historyLength":4})
+── (C) full 超顶时从【头部】丢弃 ──
+PASS C1 拿到了超顶的活文本(got 12000 字)
+PASS C2 full 硬顶 12000 字(实测 12000)
+PASS C3 超顶时 truncated:true(got true)
+PASS C4 砍掉的是【开头】那一段
+PASS C5 留下的是【刚说的】那一段
+PASS C6 companion:没超顶的回合 truncated 是 false(got false)
+── (E) liveTurn:段序、工具行、零工具结果 ──
+PASS E1 活回合时信封上有【新键】liveTurn(got yes)
+PASS E2 段序与真实事件顺序一致(文字→工具→文字;实测 ["text","tool","text"])
+PASS E2b 两段文字就是这一回合真流出来的话
+PASS E3 工具段带 name 与 status(got {"id":"segment-2","type":"tool","toolCallId":"call_live_1","name":"file_read","batchId":"openai-batch-1","status":"done"})
+PASS E4 toolCalls 与段一一对应(got [{"id":"call_live_1","name":"file_read","inputPreview":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-live-full-t6cLio/ws/w1/SECRET-ARG-MARKER.txt","status":"done"}])
+PASS E5 每行恰好 {id,name,inputPreview,status} 四个键(got [["id","inputPreview","name","status"]])
+PASS E6 inputPreview 是这一回合真正传给工具的那个参数(got ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-live-full-t6cLio/ws/w1/SECRET-ARG-MARKER.txt"])
+PASS E7 liveTurn 不含任何工具【结果】(SECRET-RESULT-MARKER 在 liveTurn 里出现 0 次)
+PASS E7a 前提:这一份信封里【别处】确实有那个结果记号(会话自己的 providerHistory),所以 E7 不是空断言
+PASS E8 liveTurn 里没有任何叫 result/content/output 的字段(got clean)
+PASS E9 startedAt/iterations 与 liveTail 同源(got {"s":"2026-11-12T10:55:43.232Z","i":1})
+PASS E10 没超顶时 truncated 是 false(got false)
+PASS E11 liveTail 那几个老键仍然原样在(新键是加不是改)
+PASS E12 落盘消息的段序与在途看到的一致(同一份账本;实测 ["text","tool","text"])
+PASS E13 落盘的段上【没有】inputPreview —— 参数摘要只旁挂在内存,落盘形状一个字节没变
+PASS E14 回合结束后 liveTurn 这个键也消失(与 liveTail 同进同出,始终不落盘)
+── (F) liveTurn 超顶时从【头部】丢弃 ──
+PASS F1 超长回合也带回了 liveTurn(got yes)
+PASS F2 单段硬顶 12000 字(实测 12000)
+PASS F3 超顶时 truncated:true(got true)
+PASS F4 砍掉的是【开头】那一段
+PASS F5 留下的是【刚说的】那一段
+LIVE FULL TEXT E2E: ALL PASS

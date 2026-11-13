@@ -1,0 +1,26 @@
+PASS A0 工作台启动
+── (A) 管家起的回合在跑时,经典壳发一句话 ──
+PASS A1 管家起了一个回合(channel=turn status=200)
+PASS A2 那个回合真的在跑(信封 resumable.live === true)
+PASS A3 回 409 而不是开跑(got 409)
+PASS A4 稳定错误码 session.turn_busy_elsewhere(got session.turn_busy_elsewhere)
+PASS A5 信封说清「这个回合是谁起的」(turnSource=steward)
+PASS A6 带一句人话
+PASS A7 零 turn_kill —— 那个回合一根汗毛没动(before=0 after=0)
+PASS A8 上游 provider 请求【没有】被中止(aborted 0 → 0)
+PASS A9 第一个回合自己跑到收尾
+PASS A10 会话里只有管家那一条 user 消息(被拒的那句一个字都没落盘;got 1)
+PASS A11 那个回合的正文【完整】落盘(got "慢慢来-第一段-第二段-收尾";live 翻 false 那一刻助手消息 1 条,1 ms 时读到 1 条)
+PASS A12 全程零 turn_kill(got [])
+── (B) GET /api/sessions/:id 的 relay 键 ──
+PASS B1 空闲会话的信封里【没有】relay 键(存量消费者逐字节不受影响;got undefined)
+PASS B2 活回合在跑时 relay.channel === 'steer'(13h stewardRelayChannelFor 的原判,不是第二套判据;got {"channel":"steer"})
+PASS B3 回合收尾保存完成后 relay 键消失(got undefined)
+── (C) 经典壳自己连发两次:既有 supersede 语义一字不动 ──
+PASS C1 第一个回合在跑
+PASS C1b 第一回合引擎已注册、可接收插话，再验证运行中 supersede 审计
+PASS C2 同一个发起面(source 都是 'http')照旧 supersede —— 这条既有语义没被动过(got superseded)
+PASS C3 第二个回合跑完
+PASS C4 第二句的正文落盘(顶替是成功的,不是双双失败;live 翻 false 那一刻 1 条,0 ms 时助手消息 ["好的,记下了。"])
+
+FOREIGN TURN BUSY GUARD E2E: ALL PASS

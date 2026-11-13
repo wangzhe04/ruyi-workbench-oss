@@ -1,0 +1,19 @@
+PASS candidate declares its development identity and unverified minimum-system boundary
+PASS child sandbox actually refuses source reads and outbound public-network connections
+PASS relocated bundled Node starts the actual workbench in a separate writable data root
+PASS Node and ripgrep come from the moved package under denied developer directories
+PASS autodetection selects the bundled non-editable Python/ACC without a source override
+PASS 报告.docx round-trips Chinese through the actual packaged workbench MCP
+PASS 演示.pptx round-trips Chinese through the actual packaged workbench MCP
+PASS XLSX retains numeric sample data
+PASS PDF retains readable Chinese text
+PASS chart tool produces an actual PNG offline
+PASS all five packaged writers retain real session checkpoints
+PASS bundled Chromium navigates and reads the local Chinese page with public network denied
+PASS actual running browser version matches the locked payload
+FAIL Error: Timed out waiting for offline candidate
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-offline-package.e2e.js:22:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-offline-package.e2e.js:150:33
+Failed fixture preserved: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-Yu7Pat
+
+MACOS OFFLINE PACKAGE E2E: FAIL (1)

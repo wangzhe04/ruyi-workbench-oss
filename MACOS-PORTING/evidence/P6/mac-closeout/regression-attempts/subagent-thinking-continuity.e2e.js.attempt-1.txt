@@ -1,0 +1,30 @@
+PASS A1 同步 orchestrate: 回合成功收尾
+PASS A1 同步 orchestrate: 事件流里确有子代理起头(前台)
+PASS A1 同步 orchestrate: 落盘的 thinking 段恰两段 = 父回合的两次模型调用各一段(实得 2;形状 thinking | tool | workflow | subagent | subagent | thinking | text)
+PASS A1 同步 orchestrate: 第一段思考完整
+PASS A1 同步 orchestrate: 第二段思考是一整段连续文本(未被子代理的卡 / 事件切开),实得 130 字
+PASS A1 同步 orchestrate: 子代理自己的思考不串进父回合的 segments / thinking
+PASS A1 同步 orchestrate: 向后兼容字段 message.thinking 仍是两段按序拼接
+PASS A1 同步 orchestrate: providerHistory 每个父迭代恰一条 assistant 带完整 reasoning_content(2 条)
+PASS A1 同步 orchestrate: providerHistory 里没有子代理的思考
+PASS A1 同步 orchestrate: 下一发请求把第一迭代的 reasoning_content 原样带回
+PASS A2 后台 orchestrate: 回合成功收尾
+PASS A2 后台 orchestrate: 事件流里确有子代理起头(后台)
+PASS A2 后台 orchestrate: 夹具成立 —— 后台节点 n2 的起头事件落在父回合第二段思考的中途
+PASS A2 后台 orchestrate: 且思考期间还有子代理自己的工具事件穿插进来
+PASS A2 后台 orchestrate: 落盘的 thinking 段恰两段 = 父回合的两次模型调用各一段(实得 2;形状 thinking | tool | workflow* | thinking | subagent* | subagent* | text)
+PASS A2 后台 orchestrate: 第一段思考完整
+PASS A2 后台 orchestrate: 第二段思考是一整段连续文本(未被子代理的卡 / 事件切开),实得 130 字
+PASS A2 后台 orchestrate: 子代理自己的思考不串进父回合的 segments / thinking
+PASS A2 后台 orchestrate: 向后兼容字段 message.thinking 仍是两段按序拼接
+PASS A2 后台 orchestrate: providerHistory 每个父迭代恰一条 assistant 带完整 reasoning_content(2 条)
+PASS A2 后台 orchestrate: providerHistory 里没有子代理的思考
+PASS A2 后台 orchestrate: 下一发请求把第一迭代的 reasoning_content 原样带回
+PASS B2 anthropic: 回合成功收尾
+PASS B2 anthropic: 父回合两发 Messages 请求(2)
+PASS B2 anthropic: 第二发请求里 thinking 块 + 签名逐字节回放(在 tool_use 之前)
+PASS B2 anthropic: 子代理的 thinking 块不进父回合的请求
+PASS B2 anthropic: providerHistory 每个父迭代各一条 providerBlocks,签名都在(2)
+PASS B2 anthropic: 落盘 thinking 段两段、不含子代理的思考(形状 thinking | tool | workflow | subagent | thinking | text)
+
+SUBAGENT THINKING CONTINUITY E2E: ALL PASS

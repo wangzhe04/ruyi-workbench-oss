@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-07",
+  "baselineAudit": "content-audit.json",
+  "findings": [
+    {
+      "id": "A01",
+      "status": "resolved",
+      "resolution": "folder-inventory/scheduled-digest/clean-downloads retain Windows commands and add Mac Python metadata paths. Mac cleanup is suggestions-only; no rm/file_delete/.Trash substitute."
+    },
+    {
+      "id": "A02",
+      "status": "resolved",
+      "resolution": "batch-rename distinguishes real Mac volume case/Unicode identity from Windows naming policy, preserves preview/confirmation/nonoverwrite."
+    },
+    {
+      "id": "A03",
+      "status": "resolved",
+      "resolution": "archive/compare/translate and document/spreadsheet/Office skills reflect native file_read Office/PDF fallback, while recommending structured readers where useful."
+    },
+    {
+      "id": "A04",
+      "status": "resolved",
+      "resolution": "PDF default no longer described as failing short documents; remaining range only when total_pages>1."
+    },
+    {
+      "id": "A05",
+      "status": "resolved",
+      "resolution": "Separate desktopAutomation/ocr/browserControl requirements; Mac unsupported backends disabled. System URL handoff does not enable Mac forms; prepared but unattached DOM status remains unknown."
+    },
+    {
+      "id": "A06",
+      "status": "resolved",
+      "resolution": "Browser/frontend skill, standalone frontend-audit command and frontend-offline agent have independent platform boundaries, verified DOM targets, CDP ownership/URL checks and honest viewport checks."
+    },
+    {
+      "id": "A07",
+      "status": "resolved",
+      "resolution": "API/development/LSP/test commands distinguish Windows and Mac shells/executable paths. Mac source doctor command documented."
+    },
+    {
+      "id": "A08",
+      "status": "resolved",
+      "resolution": "Windows-control skill and windows-operator remain explicitly Windows-only with Mac stop boundaries; no invented plugin platform schema."
+    },
+    {
+      "id": "A09",
+      "status": "resolved",
+      "resolution": "Offline packaging/release-packager/doctor remain conditional Windows release paths; Mac source development distinguished from pending P4/P6 signed distribution. COM is Windows-only."
+    },
+    {
+      "id": "A10",
+      "status": "resolved",
+      "resolution": "Mac enumeration checks input-root identity; directory/file symlinks are recorded without traversing, reading content or hashing their targets. Digest requires offset-aware dates."
+    },
+    {
+      "id": "A11",
+      "status": "documented_prerequisite",
+      "resolution": "Reviewed all10 roles/all8 workflows: no literal Windows execution assumptions; existing network/tool/format prerequisites remain authoritative. Research requires network evidence; data_profile supports text-table paths, structured XLSX uses Office readers. No workflow engine redesign."
+    },
+    {
+      "id": "A12",
+      "status": "resolved",
+      "resolution": "Native PDF preview is distinguished from exported file paths for ocr_image. Mac OCR remains unavailable; image-capable model is separate."
+    }
+  ]
+}

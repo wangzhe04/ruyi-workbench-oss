@@ -1,0 +1,35 @@
+PASS 0 工作台起来了
+PASS 0b 拿到 token
+PASS A1 GET 没带 token → 403
+PASS A2 POST 没带 token → 403
+PASS A3 缺省视图:个人词空、原厂表开、≥ 400 条、不附全文(实得 200 count=0 base={"e":true,"n":472})
+PASS A4 ?base=1 附原厂表全文(只读展示用)
+PASS A5 只读不落盘
+PASS B1 存个人词:3 条、认不出的行计入 skipped(实得 200 {"ok":true,"text":"HB360 = 爱趣比三六零\n如意 = 如艺, 如一\n张伟","count":3,"learned":0,"typed":0,"pending":0,"learn":true,"base":{"enabled":true,"count":472},"limits":{"maxT)
+PASS B2 落盘 <data>/voice-lexicon.json:schema 1、键是小写词、来源 manual(实得 {"schema":1,"base":true,"learn":true,"terms":{"hb360":{"term":"HB360","heard":["爱趣比三六零"],"src":"manual","n":0,"at":"2026-11-12T14:21:06.084Z","off":false},"如意":{"term":"如意","heard":["如艺","如一"],"src":")
+PASS B3 读回同一份
+PASS B4 text/base 都没给 → 400 voice.lexicon_bad_request(实得 400)
+PASS B5 文本超长 → 413(实得 413)
+PASS B6 超过 500 条 → 400 voice.lexicon_too_many(实得 400 {"ok":false,"error":{"code":"voice.lexicon_too_many","params":{"count":501,"maxTerms":500},"message":"词条超过上限"}})
+PASS B7 整份拒收:盘上一个字节都没变
+PASS B8 只开关原厂表:个人词不动
+PASS B9 原厂表开回来
+PASS C1 句尾改错照常:重听 + 改字都用上了(实得 200 {"ok":true,"text":"把日志级别调成 debug，再问问如意那边。","used":{"audio":true,"llm":true},"durationMs":26})
+PASS C2 重听那一发带 prompt:命中的(如意、debug)在前、其余个人词随后、不列错听样子(实得 "如意, debug, HB360, 张伟")
+PASS C3 改字那一发带 <glossary>:个人词全在、命中的原厂词 debug 带着错听样子(实得 "<glossary>\n如意 ← 如艺、如一\nHB360 ← 爱趣比三六零\n张伟\ndebug ← 低报、低暴、低爆、滴爆\n</glossary>\n<transcript>A：把日志级别调成低报再问问如艺那边\nB：把日志级别调成低报，再问问如艺那边。</transcript>")
+PASS C4 词表在转写之前,转写仍是 A/B 两版
+PASS D1 原厂表关掉:词表里只剩个人词(实得 "<glossary>\n如意 ← 如艺、如一\nHB360 ← 爱趣比三六零\n张伟\n</glossary>\n<transcript>A：把日志级别调成低报再问问如艺那边\nB：把日志级别调成低报，再问问如艺那边。</transcript>")
+PASS E0 清空个人词
+PASS E1 没有词:改字提示词里没有 <glossary>
+PASS E2 没有词:重听那一发不带 prompt 字段(实得 {"prompt":null,"model":"whisper-1"})
+PASS F1 前端不给热词 → 上游收到个人词(只个人词、不含原厂词)(实得 200 ["HB360","如意","张伟"])
+PASS F2 前端给了热词 → 用前端的
+PASS G1 没给 prompt → 带个人词(实得 200 {"prompt":"HB360, 如意, 张伟","model":"whisper-1"})
+PASS G2 给了 ?prompt= → 用调用方的
+PASS H0 切到对话型识别(chat-audio)
+PASS H1 chat-audio:只有音频一段,没有词表那段文字(实得 200 ["input_audio"])
+PASS I1 审计有 voice_lexicon_save(只记条数与开关;实得 6 条)
+PASS I2 asr_fix 记了词表行数(实得 [4,3,0])
+PASS I3 日志里一个词都不落(实得 0 行含词条)
+
+VOICE LEXICON E2E: ALL PASS

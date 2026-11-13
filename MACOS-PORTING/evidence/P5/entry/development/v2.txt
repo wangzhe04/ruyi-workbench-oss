@@ -1,0 +1,22 @@
+FAIL allow crosses actual default-mode permission entry exactly once
+FAIL allowed session macro performs one actual balanced native click
+FAIL normal allowed session preserves actual enclosing and native ACC audit rows
+PASS allow leaves the receiver input state neutral
+FAIL deny crosses actual default-mode permission entry exactly once
+PASS deny has no receiver side effect or dispatched ACC mutation
+PASS deny leaves no live permission request after the actual session settles
+PASS deny leaves the receiver input state neutral
+FAIL cancel crosses actual default-mode permission entry exactly once
+PASS cancel has no receiver side effect or dispatched ACC mutation
+PASS cancel leaves no live permission request after the actual session settles
+PASS cancel leaves the receiver input state neutral
+FAIL window_screenshot saves an actual PNG through an ordinary session turn
+FAIL Error: ENOENT: no such file or directory, open '/tmp/ruyi-p5-entry-GvW5dN/work/window_screenshot-new.png'
+    at Object.openSync (node:fs:561:18)
+    at Object.readFileSync (node:fs:445:35)
+    at /private/tmp/ruyi-p5-entry-worktree/dev-harness/macos-native-entry.e2e.js:227:24
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS native entry fixture restores the original input source
+PASS native entry fixture restores the original clipboard
+
+MACOS NATIVE ENTRY E2E: FAIL (7)

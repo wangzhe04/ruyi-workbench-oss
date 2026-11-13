@@ -1,0 +1,60 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS A1 假冷启动组件被如意自动拉起
+PASS A2 假流式组件被如意自动拉起
+PASS A3 两个组件都被自动配上(asr=toolbox-fake-cold/fake-auto stream=toolbox-fake-stream)
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A4 首屏就绪,页面里的 config 带着两个 toolbox 端点(实得 {"asr":"toolbox-fake-cold","stream":"toolbox-fake-stream"})
+PASS A5 麦克风起步是空闲态
+PASS B0 组件是冷的(/health loaded:false;起来之后没人用过它)
+PASS B1 点麦克风 → 模型没装 → 进「加载中」态
+PASS B1b 加载态是【超过一小会儿才亮出来】的(自点击 420 ms;≥ 400 ms 阈值附近、且早于装好)
+PASS B2 按钮上是计时 + 人话「加载模型 m:ss」(实得 "加载模型 0:00")
+PASS B3 悬停提示说清「装好自动开始、再点／Esc 取消」、aria-pressed=true(实得 "正在把本地语音识别模型装进显存，装好会自动开始录音；再点一下或按 Esc 取消" true)
+PASS B4 转圈在动(::before 的动画 compact-spin、宽 11px)
+PASS B5 加载期间【没碰麦克风】(getUserMedia 0→0)、没开流式会话、只多了一发 warmup、输入框没动(实得 fetch ["/api/audio/warmup"])
+PASS B6 读屏播报了「正在加载」,屏上有一句 toast 说明白(实得播报 ["正在加载语音识别模型，请稍等，加载好会自动开始录音"])
+PASS B7 装好后自动进录音态(不用再点)
+PASS B7b 是【等到装好才】开录的(自点击 2662 ms ≥ 加载 2500 ms)
+PASS B8 状态序列 starting → warming → starting → recording(实得 starting>warming>starting>recording)
+PASS B9 装好之后才拿麦克风(getUserMedia 0→1)、才开流式会话
+PASS B10 说了「已就绪,请说话」(播报 + toast),随后是「正在听」(实得 ["正在加载语音识别模型，请稍等，加载好会自动开始录音","语音识别已就绪，请说话","正在听，说话就会出字；再按一次结束，Esc 取消"])
+PASS B11 第一句的第二遍随即落地:自开录起 793 ms < 加载耗时 2500 ms(没有闸时这一句要多等一整个加载;实得 "[fake-cold] model=fake-small bytes=21884 p21840")
+PASS B12 再点一下结束回到空闲
+PASS B13 整个过程模型只装了一次(loads=1)
+PASS C1 模型已装 → 直接进录音态
+PASS C2 一次「加载中」都没出现(状态 starting>recording),43 ms 就开录
+PASS C3 热的时候一句话都不多说(没有加载／就绪的 toast)
+PASS D0 卸载,回到冷
+PASS D1 加载中再点一下 → 取消,回到空闲
+PASS D2 装好之后也不会自己开录(getUserMedia 2→2、没有流式会话;状态 starting>warming>idle)
+PASS D3 取消说了一句「已取消」
+PASS D4 取消掐的是这一发请求,不是服务端的装载:模型照装、只装一次(loads 1→2)
+PASS D5 取消之后再点 → 已经是热的,直接开录
+PASS D5b 这一次没有加载态
+PASS E0 卸载,回到冷
+PASS E1 加载中按 Esc → 取消
+PASS E2 Esc 之后同样不会自己开录(getUserMedia 3→3)
+PASS F0 卸载,回到冷
+PASS F1 预热失败 → 流式路照样开录(第一遍不依赖它)
+PASS F2 说了一句「更准的本地识别模型没能加载好…」(状态 starting>recording)
+PASS F3 第一遍的字照样实时出现
+PASS H0 卸载,回到冷
+PASS H1 装好了,但人不在前台 → 不替他开麦克风,回到空闲
+PASS H2 说了一句「已就绪,点一下麦克风开始说话」(getUserMedia 4→4)
+PASS H3 回来点一下 → 已经是热的,直接开录
+PASS G0 关掉实时识别(只剩按停顿切段)
+PASS G0b 卸载,回到冷
+PASS G1 没有第一遍的,预热失败 → 当场说清原因(error 态)
+PASS G2 提示是「转写服务报错」那一句、没碰麦克风(getUserMedia 5→5;title "语音转文字的服务报错了，多半是模型名不对，或服务")
+PASS I0 卸载,回到冷
+PASS I1 冷点 → 加载中
+PASS I2 装好后进录音态(按停顿切段那条路)
+PASS I2b 装好之后才拿麦克风
+PASS I3 停止后第一句转写就是热的(自停止起 43 ms < 加载耗时 2500 ms;实得 "[fake-cold] model=fake-small bytes=57644")
+PASS I4 走的是 /api/audio/transcribe(按停顿切段)
+PASS J1 零未捕获异常(CDP [])
+
+COMPOSER VOICE WARMUP BROWSER E2E: ALL PASS

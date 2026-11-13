@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "reviewerAndRuntimeExecutor": "/root/p5_acceptance",
+  "at": "2026-11-11T08:35:08.067787+00:00",
+  "status": "passed_independent_selected_app_refresh_current_host",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "productionImplementation": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "sourceCount": 106,
+  "allCurrentFrozenSourcesMatch": true,
+  "cases": [
+    {
+      "case": "default",
+      "pass": 31,
+      "fail": 0,
+      "skip": 0,
+      "independentInvocations": 1
+    },
+    {
+      "case": "renderer",
+      "pass": 33,
+      "fail": 0,
+      "skip": 0,
+      "independentInvocations": 1
+    },
+    {
+      "case": "finder",
+      "pass": 10,
+      "fail": 0,
+      "skip": 0,
+      "independentInvocations": 1,
+      "preconditionChangedByUser": true
+    }
+  ],
+  "totalIndependentAssertions": 74,
+  "manualRetries": 0,
+  "automaticRetries": 0,
+  "GUIReleased": true,
+  "reports": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+      "bytes": 14970,
+      "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/finder-acceptance-review.json",
+      "bytes": 10103,
+      "sha256": "43e5894c8b3e9f571a0875d0612583c429e27757c5ee48a9be4908949d189fe5"
+    }
+  ],
+  "historicalFailurePreserved": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/report.json",
+    "bytes": 916,
+    "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77",
+    "status": "failed_before_controlled_folder_open_and_automation_helper_build",
+    "pass": 0,
+    "fail": 1,
+    "cause": "Existing Finder AXWindow expanded beyond1000-node bounded verifier. Subsequent shallow diagnosis confirmed an existing content window.",
+    "originalLog": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/output.txt",
+      "bytes": 993,
+      "sha256": "68e695496d35e1c64b8225da1cc7012fd81c9731ceba14740895a050bd427018"
+    }
+  },
+  "provenance": "All three independent positive cases were actually executed by /root/p5_acceptance in separate private short TMPDIRs, serially. Finder was separately authorized only after the user closed existing content windows. Earlier default/renderer reports remain untouched with their original point-in-time Finder-not-run scope.",
+  "helperScope": "Three private rebuilt helpers executed; actual bytes retained outside Git. Each strict signature and full-file comparison against default1cc passed after excluding onlyUUID16/signature848 bytes. Raw identities differ.",
+  "limits": [
+    "Selected TextEdit1.21/CFT148.0.7778.96/Finder27.0 scenes only; no historical350 core/full engineering/manual or App-origin AX acceptance added.",
+    "Default CFT lacks WebArea; renderer exposes it but page AXValue/AXPress remains honestly refused element_stale without DOM mutation.",
+    "Sampler proves only sampled birth-verified identity absence; fixture cleanup evidence is separate.",
+    "Original real TCC revoke/lock, catalogue/master-switch/hard-abort/layout and external environment gates remain tracked."
+  ],
+  "phaseStatus": "in_progress"
+}

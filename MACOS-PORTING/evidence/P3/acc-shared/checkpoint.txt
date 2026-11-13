@@ -1,0 +1,48 @@
+PASS (A) 固化清单 = 99 工具(got 99)
+PASS (A) 固化 ACC 清单:auditBridgedWriteCoverage uncovered 为空
+PASS (A) write_document 在快照表
+PASS (A) write_file 在快照表
+PASS (A) write_excel 在快照表
+PASS (A) write_pdf 在快照表
+PASS (A) write_pptx 在快照表
+PASS (A) delete_file 在快照表
+PASS (A) move_file 在快照表
+PASS (A) copy_file 在快照表
+PASS (C) 像写族但没进表 → 全进 uncovered(去重排序)
+PASS (C) 已入表写族 → uncovered 为空
+PASS (C) 豁免表里的逻辑性名字 → 不误报
+PASS (C) 名字不含写族前缀 → 命名审计不误报(靠人工盘点)
+PASS (C) 带前缀桥接名去前缀后同样判定
+PASS (C) 带前缀的已入表工具 → 不误报
+PASS (C) 空数组 → 空 uncovered
+PASS (C) null 输入 → 空 uncovered(不炸)
+PASS (C) 垃圾元素 → 忽略不炸
+PASS (C ★控制组) 虚构 write_newformat 漏表 → 审计确实报红(证明机制有效)
+PASS (D) move_file → 2 条目标(got 2)
+PASS (D) move 第 1 条 = source delete
+PASS (D) move 第 2 条 = destination write
+PASS (D) copy_file → 1 条 destination write
+PASS (D) move 缺 destination → 只剩 source 一条
+PASS (D) move 源为相对路径 → 跳过源、只剩 dest 一条
+PASS (D) window_screenshot 无 output_path → 不快照
+PASS (D) window_screenshot 有 output_path → 1 条
+PASS (D) get_clipboard_image save_path → 1 条
+PASS (D2) workbench up on :61719
+PASS (D2) session created
+PASS (D2) provider 调用 fake__move_file(got 1)
+PASS (D2) move 执行后 orig 消失、moved 出现
+PASS (D2) moved.txt 内容 = 原内容
+PASS (D2) 源条目 op:delete 且存了 before 字节(回滚=写回)
+PASS (D2) 目的条目 op:create(此前不存在,回滚=删除)
+PASS (D2) 两条同 turnSeq(同一回合)
+PASS (D2) source 条目 entrySeq < destination(rollback 逆序:先撤 dest、后撤 src)
+PASS (D2) rollback 整回合 ok
+PASS (D2) rollback 后 orig.txt 写回原处且内容恢复(source delete 条逆向)
+PASS (D2) rollback 后 moved.txt 被删除(destination create 条逆向)—— 净效果=移动前状态
+SKIP (B) real ACC audit — could not start (needs python/deps): handshake failed: mcp child exited (code 1) | stderr: Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/src/ai_computer_control/server.py", line 48, in <module>
+    from mcp.server.fastmcp 
+
+CHECKPOINT-COVERAGE E2E: ALL PASS  [(B) real-ACC-audit SKIPPED → 回落静态清单 (A)]

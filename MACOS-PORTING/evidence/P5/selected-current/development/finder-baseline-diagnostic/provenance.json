@@ -1,0 +1,25 @@
+{
+  "scope": "Read-only diagnostic early return reports only top-level role/child count rather than traversing ownership content. Not the selected Finder acceptance verifier. No AX actions/window closes.",
+  "source": "shallow-only.m",
+  "sha256": "a565b3c22fe7191469d8c2d97f7add36d0dbbf287d0ce60be804c7b137e9b2f0",
+  "originalFixtureSha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+  "environment": {
+    "RUYI_FINDER_SHALLOW_DIAGNOSTIC": "1"
+  },
+  "compileArgs": [
+    "clang",
+    "-fobjc-arc",
+    "-fblocks",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-mmacosx-version-min=14.0",
+    "-framework",
+    "AppKit",
+    "-framework",
+    "ApplicationServices"
+  ],
+  "diagnosticBinaryOutsideGit": "/tmp/p5fd-b19frffz/probe",
+  "rawMetadata": "only sanitized metadata was retained; titles/documents/URLs were omitted",
+  "phaseStatus": "in_progress"
+}

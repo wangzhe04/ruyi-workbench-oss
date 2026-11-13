@@ -1,0 +1,28 @@
+PASS estimateHistoryTokens is exported
+PASS pure-CJK estimate ≈ len/1.5 (got 200, expected ~200, ratio 1.000)
+PASS tool_calls arguments counted (delta 280 ≈ 280)
+PASS image part adds fixed 1100 tokens (delta 1100)
+[fake] [fake-openai] listening on 57469
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 97279626676d)
+[wb] UI: http://127.0.0.1:57470/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-autocompact-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :57470
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-autocompact-e2e/generated/workbench.mcp.json
+PASS session id captured
+PASS at least one compact event (1)
+PASS compact event with mode "evaporate" present (evaporate)
+PASS compact events carry beforeTokens>afterTokens
+PASS every compact started is closed by completed/failed (evaporate:)
+PASS turn 1 result ok:true ({"type":"result","ok":true,"aborted":false,"traceId":"trace_0163bef8892c0321","ts":"2026-11-12T10:50:34.351Z"})
+PASS pairing intact: all 3 tool_call ids have a role:'tool' answer
+PASS 20-C1 emits reduction telemetry with smaller visible size and rawRef
+PASS checkpoints/<sid>/history-*.json.gz snapshot exists (history-1-d8f871606b650d7b.json.gz)
+PASS snapshot gunzips to a valid JSON array
+PASS 20-C1 rawRef resolves to canonical snapshot observation with matching hash
+PASS 20-C1 exported internal rehydrate primitive returns the canonical bytes
+PASS 🗜 system compact message present (1)
+PASS post-compaction follow-up turn result ok:true
+PASS post-compaction follow-up streamed a reply ("工具返回：lorem ipsum dolor sit ame")
+
+AUTOCOMPACT E2E: ALL PASS

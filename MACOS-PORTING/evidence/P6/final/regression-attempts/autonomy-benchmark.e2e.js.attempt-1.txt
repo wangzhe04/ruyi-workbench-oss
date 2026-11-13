@@ -1,0 +1,25 @@
+PASS workbench up on :57776
+PASS 任务1 REFACTOR 无人值守跑完(mission_complete)
+PASS 任务1 全部 4 里程碑 done
+FAIL 任务1 四个重构文件都已写出
+PASS 任务1 预算内 autoTurns=3
+PASS 任务1 token 不破预算
+PASS 任务2 DIGEST 无人值守跑完(mission_complete)
+FAIL 任务2 三份汇编片段都已写出
+PASS 任务2 预算内 autoTurns=2
+PASS 任务2 token 不破预算
+PASS 任务3 无进展 -> 收到 state:stuck(自动暂停触发)
+PASS 任务3 停滞后 autoMode=supervised(降级待人)
+PASS 任务3 m1 已推进(停滞发生在 m2,非起步即卡)
+PASS 任务3 未误报 complete(确实卡住)
+
+── §5 产品侧验收 ──
+PASS ① 无人值守完成率 ≥2/3(实 2/3=67%)
+PASS ② 人工干预 ≤1 次/任务(实最大 0)
+PASS ③ 无进展自动暂停触发率 100%(实 1/1)
+PASS ④ token/回合不破预算(各任务 autoTurns ≤ 12)
+  任务明细: REFACTOR[完成,干预0,turns3] | DIGEST[完成,干预0,turns2] | BUILDFAIL[暂停,干预0,turns3]
+
+AUTONOMY-BENCHMARK E2E: FAIL (2)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-pVBrtu

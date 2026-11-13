@@ -1,0 +1,25 @@
+{
+  "name": "offline",
+  "executor": "/root/p5_acceptance",
+  "exitCode": 0,
+  "counts": {
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  "seconds": 1.498341333004646,
+  "rootBirth": 1794397728176421,
+  "observedOuterIdentities": 10,
+  "remainingOuterIdentities": [],
+  "remainingRecordedIdentities": [],
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/offline/output.txt",
+  "logDigest": {
+    "bytes": 825,
+    "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+  },
+  "runtimeEvidenceDigest": {
+    "bytes": 38992,
+    "sha256": "69859cf86da463b26a10c3171d401a5508474f4c2002344f18b94a138620190e"
+  },
+  "passed": true
+}

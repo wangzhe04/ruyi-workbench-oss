@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-07",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_local",
+  "remainingCodeFindings": 0,
+  "independent": {
+    "passed": 48,
+    "failed": 0,
+    "exitCode": 0,
+    "log": "independent-final.txt"
+  },
+  "findings": [
+    {
+      "issue": "stale client could recreate a restricted favorite with permissive defaults",
+      "resolution": "resolver returns authoritative favorite row and client retains its permissions",
+      "status": "closed"
+    },
+    {
+      "issue": "late resolve or patch response could change a different thread or overwrite a newer selection",
+      "resolution": "capture target session and selection generation, serialize commits and recheck after awaits",
+      "status": "closed"
+    },
+    {
+      "issue": "unresponsive configured favorite could stall directory selection",
+      "resolution": "bounded target realpath and existing bounded stat for dev/ino identity comparison",
+      "status": "closed"
+    }
+  ],
+  "finalEquivalentEdit": "default row append followed by authoritative row replacement; original UI static guard passes",
+  "legacyComparison": {
+    "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "passed": 37,
+    "failed": 1,
+    "sameFailureOnBaseAndCurrent": true,
+    "log": "legacy-baseline.txt"
+  },
+  "checks": {
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "syntaxFiles": 1134,
+    "backendFresh": true,
+    "sourceFingerprintsMatch": true
+  },
+  "legacyCorrection": {
+    "reviewer": "/root/p4_host_review",
+    "status": "passed",
+    "passed": 38,
+    "failed": 0,
+    "exitCode": 0,
+    "log": "legacy-corrected-independent.txt",
+    "scope": "Windows original case-insensitive assertion; POSIX exact ordered case-sensitive array"
+  }
+}

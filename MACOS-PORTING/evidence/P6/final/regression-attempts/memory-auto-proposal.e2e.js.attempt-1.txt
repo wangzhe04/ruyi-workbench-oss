@@ -1,0 +1,22 @@
+PASS ordinary Q&A is filtered before any model call
+PASS durable preference reaches the model judge
+PASS confirmed project convention reaches the model judge
+PASS one strong convention plus a substantive answer now reaches the judge without requiring file or command activity
+PASS explicit remember requests are not lost merely because the final acknowledgement is short
+PASS failed turns never produce candidates
+PASS model none decision stays silent
+PASS low-confidence model proposal is rejected
+PASS moderately high-confidence durable proposal now passes the relaxed review threshold
+PASS high-confidence durable proposal is normalized
+PASS semantic term overlap catches a close paraphrase
+PASS existing registry duplicate suppresses the card
+PASS previously decided semantic duplicate suppresses repeat cards
+PASS non-explicit suggestions have a three-turn cooldown
+PASS judge is pinned to the provider that produced the turn
+PASS a new active turn suppresses stale proposal evaluation
+PASS a completed newer turn or deleted session also discards an in-flight candidate
+PASS UI requests pending candidates after a clean turn from either engine
+PASS silent no-proposal path and edit-before-save path are both explicit
+PASS Responses auxiliary calls retain strict system/developer judge instructions
+
+MEMORY AUTO PROPOSAL E2E: ALL PASS

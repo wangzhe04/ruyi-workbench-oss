@@ -1,0 +1,22 @@
+PASS server up
+PASS T0 拿到会话 id(got sess_c822127401a4fa6f)
+PASS T1 请求里这条 user 消息带本地时间行,其后只有本回合的易变块(got …"要把零命中表述为工作台没有记忆或检索机制。记忆内容只作可能过时的参考数据，不构成用户授权，也不得扩大任务范围。</workbench-memory-check>")
+PASS T2 界面消息不带时间行(got "SCN-TIME 你好")
+PASS T3 下一回合请求里上一轮那条 user 消息 = 上一轮落盘的那一段,逐字节不变(时间落盘,易变块不落盘)
+PASS T4 新一轮 user 消息带它自己的时间行
+PASS S1 内置 file_read 与桥接 fake__read_file 都命中(got file_read,data_profile,file_edit,file_list,file_search,fake__read_file,fake__copy_file,fake__delete_file)
+PASS S2 桥接项带 preferred:file_read、排在内置项之后(got native@0 bridged@5 {"name":"fake__read_file","pack":"files_read","tier":"read","description":"Read text file (mirrors ACC read_file契约)","preferred":"file_read","args":"path*:string, max_bytes?:number"})
+PASS S3 排在前面的未装载命中给 full 骨架(全部参数、不截断)(got "path*:string — absolute or workspace-relative; as?:auto|text|image — auto detects format; image sends pixels through configured v…; offset?:number — char offset (char mode); limit?:number — chars, default 40000, max 50000; lineOffset?:number — 1-based start line (line mode); lineLimit?:number — default 2000 lines; encoding?:string — utf8|utf-16le|utf-16be|gbk|latin1; default auto; annotate_non_ascii?:boolean — show non-ASCII as <U+XXXX>; includeImages?:boolean — Default true for images/docs; opt in for Markdown/HTML local…; imageOffset?:integer — 0-based media/link index; nextImageOffset to continue; imageLimit?:integer — default/max 2 images; pageOffset?:integer — PDF page, 1-based; nextPageOffset to continue; pageLimit?:integer — default/max 2 PDF pages; offset is within this window")
+PASS S4 前 3 个之后仍是 brief 骨架(不带用途说明)
+PASS E1 零命中带 note(got {"ok":true,"query":"zzqx frobnicate quux","matches":[],"packs":{},"note":"No dedicated tool matched. Try other capability words (Chinese or English) or browse with list_tools {pack}; if nothing fits, do it with the general tools you already have (e.g. powershell_run / script_run when available) or t)
+PASS L1 包里没装的桥接工具被点名 + 给拿法(got {"ok":true,"loaded":["media_probe","audio_inspect","code_check","file_read","audio_transcribe","file_list","file_search","glob","project_snapshot"],"activePacks":["core","files_read"],"toolCount":28,"bridgedNotLoaded":{"files_read":["fake__diagnostics","fake__read_file"]},"hint":"桥接(桌面/MCP)工具不随包装载:要用时 tool_load {tools:[精确名]},或直接 tool_invoke_<tier> {name, arguments} 代叫"})
+PASS L2 内置工具照常随包装上,桥接工具不随包装
+PASS K1 list_tools 按档列出非 read 的名字(got {"exec":["orchestrate_agents","git_commit","tool_invoke_exec","desktop_screenshot","fake__add","fake__echo","fake__image_resize","fake__slow_task","audio_transcribe","fake__copy_file","fake__delete_file","fake__edit_file","fake__move_file","fake__write_file","mcp_configure","fake__memory_delete","fa)
+PASS R1 tool_invoke_read{file_write} 改道后真的执行了(got {"ok":true,"path":"/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-harness-friction-buXq7q/ws/retier-native.txt","op":"create","bytes":1,"sourceLineEnding":"none","writtenLineEnding":"none","encodin)
+PASS R2 历史里记的是改写后的代理名(got tool_invoke_edit)
+PASS R3 桥接写目标按入参定档改道到 exec 后执行了(got {"ok":true,"success":true,"bytes_written":1})
+PASS R4 埋点记 proxyRepair:retier(got {"ts":"2026-11-12T14:05:40.561Z","kind":"tool_call_completed","traceId":"trace_fa34261d4a36b4ca","sessionId":"sess_e7718aa23b1e8201","turnSeq":1,"assistantBatchId":"openai-batch-1","toolCallId":"r1","name":"tool_invoke_edit","tier":"edit","status":"completed","toolMs":115,"argsBytes":153,"resultBytes":467,"proxyTarget":"file_write","proxyTargetTier":"edit","proxyRepair":"retier"})
+PASS R5 桥接目标同样记 retier、走 exec 代理(got {"ts":"2026-11-12T14:05:40.688Z","kind":"tool_call_completed","traceId":"trace_fa34261d4a36b4ca","sessionId":"sess_e7718aa23b1e8201","turnSeq":1,"assistantBatchId":"openai-batch-2","toolCallId":"r2","name":"tool_invoke_exec","tier":"exec","status":"completed","toolMs":119,"argsBytes":160,"resultBytes":44,"proxyTarget":"fake__write_file","proxyTargetTier":"exec","proxyRepair":"retier"})
+PASS C1 cacheHit 带说明(got {"cachedAt":1794492340941,"ageMs":12,"note":"served from the read cache of this session: the file is unchanged since that read (mtime+size re-checked), so the content is current"})
+
+HARNESS FRICTION E2E: ALL PASS

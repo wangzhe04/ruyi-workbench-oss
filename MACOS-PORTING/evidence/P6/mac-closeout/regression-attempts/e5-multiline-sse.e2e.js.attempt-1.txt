@@ -1,0 +1,15 @@
+[fake] [fake-openai] listening on 65199 (tool path set)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 3b25b1a5de3a)
+[wb] UI: http://127.0.0.1:65200/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e5-multiline-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :65200
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-e5-multiline-e2e/generated/workbench.mcp.json
+PASS multi-line tool_call reassembled — file_read tool_use emitted
+PASS tool_call arguments intact across the multi-line split (path correct)
+PASS tool_result ok
+PASS final answer (multi-line frames) echoes real file content intact — "工具返回：MULTILINE_SSE_TOOL_OK_88"
+PASS real usage frame (multi-line) parsed: contextTokens=57, not estimated
+PASS result ok=true
+
+E5-MULTILINE-SSE E2E: ALL PASS

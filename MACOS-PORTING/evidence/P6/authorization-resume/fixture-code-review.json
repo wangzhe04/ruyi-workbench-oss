@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-13T02:33:22.042583+00:00",
+  "kind": "Read-only source review of fixed installed App acceptance fixture corrections; no execution during authorization handoff",
+  "result": "pass_code_review",
+  "findings": [],
+  "reviewedFiles": [
+    {
+      "path": "dev-harness/macos-capture-host.e2e.js",
+      "sha256": "f4206c282199d80928c45354238369305a9d96a4dc1276df29dbef08bbb1c3a0"
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "e8878d9dbc80c974c1cc521abee2d7c5db6cf6002586dbb9d281fc1b07bc8632"
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "AUTH-FIXTURE-1",
+      "status": "closed_in_source",
+      "basis": "Capture observer now matches exact binary prefix plus independent unique --acceptance-report argument, runs before checking report and again for ready nativePID, accumulates root/descendant birth identities. New assertion requires reported nativePID plus directly owned Node child; explicit observed-tree absence checks retained on normal exit and cleanup."
+    },
+    {
+      "id": "AUTH-FIXTURE-2",
+      "status": "closed_in_source",
+      "basis": "prepareMacHost runs before helper selection. Bundled runtime chooses its runtime/macos/ruyi-automation-helper without fallback; source mode builds fresh fixture helper. Package path must be executable. Receipt records real path/origin/SHA; manual/record/visual explicit overrides are labeled explicit-test-override rather than exact bundled acceptance."
+    }
+  ],
+  "checks": [
+    {
+      "area": "Scope and ordering",
+      "basis": "runtime remains in existing outer scope for process observation; helper/nativeHelper are defined in enclosing try before all consumers and receipts. Fixed RUYI_DESKTOP_TEST_APP prevents target build/re-sign; source path retains fresh build behavior. No production App files changed."
+    },
+    {
+      "area": "BigInt",
+      "basis": "Observed created birth values remain BigInt for exact comparisons. Capture receipt converts created via String inside each spread row; input receipt retains existing toString conversion. No new unconverted BigInt enters JSON.stringify."
+    },
+    {
+      "area": "Owned cleanup",
+      "basis": "Capture cleanup only signals accumulated pid+birth identities that still match a new snapshot, root first, TERM then KILL. Remaining-owned reads throw on unavailable table; final inability to confirm absent records failure and retains fixture. It does not use process-name kill or infer permission success from cleanup. Unique report path/executable bind initial ownership. Existing launcher cleanup remains scoped to its ChildProcess."
+    },
+    {
+      "area": "Package path",
+      "basis": "Fixed Full packaged workbenchRoot supplies helper path. Expected installed helper SHA3131822a76d80674dc3183a3a98e969140f0957aecd1ed76a1d57d61798a0b69 matches the independently verified installed manifest; new receipt permits future execution to bind that exact artifact. No current runtime success inferred before execution."
+    },
+    {
+      "area": "Preserved business assertions",
+      "basis": "All original capture readiness/directory/real PNG/LaunchServices predicates remain. All existing input focus/Unicode/pointer/wheel/receiver/cleanup predicates and explicit scenario override behavior remain; only helper selection/receipt and capture ownership checks added."
+    }
+  ],
+  "limits": [
+    "This review closes source findings only. User authorization remains a pending handoff; neither positive capture nor input has been rerun by reviewer.",
+    "Current denial receipts retain their original failure status; no historical result rewritten.",
+    "Final controlled default Full input run should assert receipt nativeHelper.origin installed-app-bundle and SHA3131822a..., with no explicit test overrides.",
+    "Preserve fixed installed App tree/signature across authorization and independent acceptance.",
+    "Passing two local App probes does not waive original formal identity/notarization, clean standard-user/macOS14/Windows or retained P5 gates."
+  ],
+  "noExecution": {
+    "testsRun": 0,
+    "nativeToolsInvoked": 0,
+    "appsLaunched": 0,
+    "UIActions": 0,
+    "settingsChanged": 0,
+    "sourceEdits": 0
+  }
+}

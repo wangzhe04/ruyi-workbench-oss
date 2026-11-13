@@ -1,0 +1,49 @@
+PASS structured output parser accepts fenced JSON
+PASS structured output accepts an exact primitive JSON value
+PASS quality output validates against JSON Schema
+PASS schema validator reports enum/range/required failures
+PASS quality output with optional coverage field validates
+PASS quality output without coverage still validates (legacy verify compat)
+PASS coverage without required subfields (total/handled/unhandled) is rejected
+PASS C1: findings[].evidenceRefs accepts a unique string array
+PASS C1: evidenceRefs rejects duplicate or non-string IDs
+PASS C1: evidenceRefs remains optional for legacy findings
+PASS Reviewer and Verifier automatically become quality gates
+PASS vote gate applies approval and confidence thresholds
+PASS vote gate rejects a malformed vote contract instead of reporting a false quality rejection
+PASS M2: abstainThreshold=0 preserves low-confidence rejection behavior
+PASS M2: low-confidence rejection becomes an auditable abstention
+PASS M2: normalizeAgentGate preserves and bounds deterministic gate configuration
+PASS M2: coverage computes deterministic unique handled and unhandled sets
+PASS M2: empty coverage universe is vacuously complete
+PASS M2: propagate inherits by key then follows dependency edges
+PASS M2: propagate detects dependency cycles
+PASS finding dedupe keeps strongest confidence and source provenance
+PASS loop normalization preserves a semantic progress path
+PASS semantic loop fingerprint ignores unrelated prose changes
+PASS structured loop fingerprint is stable across JSON key order
+PASS tool evidence counts only successful calls from the current attempt
+PASS R1: normalizeAgentGate preserves requireEvidence/allowPartialCoverage (were dropped before fix)
+PASS R1: gate switches default false (legacy nodes unchanged)
+PASS R1: indexNodeEvidence mints stable eventIds (runId+nodeId+attemptId+stepIdx)
+PASS R1: evidence carries a redacted sha256 digest and a workspace tag
+PASS R1: indexNodeEvidence is idempotent (re-indexing a node does not duplicate evidence)
+PASS C1: catalog contains only the deterministic dependency closure (no sibling/current node leakage)
+PASS C1: prompt snapshot exposes legal eventIds and requireEvidence rules
+PASS C1 adversarial: prompt omits raw result/args and neutralizes tool-name injection
+PASS C1: empty catalog explicitly forbids fabricated evidence IDs
+PASS C1: catalog applies deterministic item/byte bounds and reports truncation
+PASS C1: explicit zero-item catalog bound is honored
+PASS C1 adversarial: workspace mismatch hides every evidence event
+PASS C1 adversarial: malformed records are skipped and duplicate eventIds are catalogued once
+PASS R1: verifyNodeClaims classifies verified (existing ref) vs unverified (missing ref / no refs)
+PASS R1: claim status set by machine verification, not model self-report
+PASS C1 adversarial: duplicate eventIds fail closed instead of last-write-wins
+PASS C1 adversarial: duplicate and non-string evidenceRefs cannot verify claims
+PASS R1: cross-workspace evidenceRef rejected as unverified (prevents project-memory leakage)
+PASS R1 hardening: dedup set is NOT serialized onto run (was a Set -> {} crash on resume)
+PASS R1 hardening: indexNodeEvidence survives a JSON round-trip (resume) without crash or duplicate
+PASS R1 hardening: eventId includes attemptId (retry step 0 does not collide with attempt 0)
+PASS R1 hardening: purgeNodeEvidence removes all attempts of a node evidence before retry
+
+AGENT QUALITY GATES E2E: ALL PASS

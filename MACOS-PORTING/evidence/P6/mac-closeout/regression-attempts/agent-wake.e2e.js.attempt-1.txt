@@ -1,0 +1,69 @@
+PASS workbench starts
+PASS W1 background orchestrate_agents returned a runId
+PASS W1 parent turn ended before the agent finished
+PASS W1 no wake while the agent is still running
+PASS W1 the workbench started a wake turn on its own and the model replied
+PASS W1 wake message carries meta.origin agent_wake + the runId
+PASS W1 wake message names the finished run for the model
+PASS W1 the wake turn request carries exactly one completion notice for the run
+PASS W1 woken exactly once (no repeat wake after the wake turn)
+PASS W2 parent turn ended
+PASS W2 the agent finished during the parent turn's last model call
+PASS W2 precondition: the envelope missed the parent turn's iteration boundaries
+PASS W2 the turn end re-checked the ledger and woke the session
+PASS W2 the wake turn carries exactly one notice for the run
+PASS W3 agentAutoWake can be switched off via /api/config
+PASS W3 switched off: no wake turn after the agent finished
+PASS W3 the next user turn completes
+PASS W3 the envelope still arrives with the next user turn (old path)
+PASS W4 long background run started
+PASS W4 the user stops the background run from the tray
+PASS W4 run reaches a stopped terminal state (stopped)
+PASS W4 a user-stopped run does not wake the session
+PASS W5 background run started, then the client dropped the connection
+PASS W5 the turn finished server-side after the disconnect and still woke the session
+PASS W5 precondition: the parent turn really ran to its final reply after the disconnect
+PASS W6 a wake → launch → wake loop stops at the chain cap of 6 (got 6)
+PASS W7 a hanging background run is in flight before the restart
+PASS W7 workbench restarted
+PASS W7a an envelope left un-woken by the restart wakes the session at boot
+PASS W7a the boot wake turn carries that run's envelope to the model
+PASS W7b the hanging background run was marked interrupted at boot
+PASS W7b an interrupted run does not wake the session
+PASS W7b the next user turn completes
+PASS W7b the next user turn tells the model the background run was interrupted
+PASS W8 the panel / HTTP async launch is accepted as a background run
+PASS W8 the panel-launched run finishes
+PASS W8 a UI-launched async run does not wake the thread (no model is waiting for it)
+PASS W8 and no model request carried a wake notice for it
+PASS W8 the next user turn completes
+PASS W8 the envelope is still delivered with the next user message (exactly once)
+PASS W9 background run started inside the turn
+PASS W9 /api/stop stopped the live parent turn
+PASS W9 the parent turn ended as stopped
+PASS W9 the decoupled background run still finishes after the stop
+PASS W9 a run that finishes after the user pressed Stop does not wake the thread
+PASS W9 the next user turn completes
+PASS W9 the envelope arrives with the user's next message (exactly once)
+PASS W10 background run started in turn 1
+PASS W10 the thread is rewound to before the turn that launched the run
+PASS W10 the still-running model-launched run was cancelled by the rewind (got stopped)
+PASS W10 nothing woke the rewound thread and nothing reappeared in it (messages=0)
+PASS W10 no model request carried a wake notice for the rewound run
+PASS W10 the next user turn completes
+PASS W10 the rewound run does not deliver an envelope into the new timeline
+PASS W11 turn 2 completes
+PASS W11 only turn 2 is rewound (turn 1 launched the run and stays)
+PASS W11 the run launched by the surviving turn is not cancelled and finishes
+PASS W11 but it does not wake the rewritten thread
+PASS W11 the next user turn completes
+PASS W11 the envelope arrives with the user's next message (exactly once)
+PASS W12 background run started
+PASS W12 the session is deleted while the run is in flight
+PASS W12 no session appeared (or came back) after the run finished
+PASS W12 no model request carried a wake notice for the deleted thread's run
+PASS W13 the first turn was stopped (/api/stop -> {"ok":true,"stopped":true,"queuedStopped":false,"execution":{"serverInstanceId":"5194e154edce","driverRunId":"drun_b9fabfe419c338a4","phase":"stopping"}})
+PASS W13 the resent turn completes
+PASS W13 the run finishing after the user spoke again wakes the thread as usual
+
+AGENT WAKE E2E: ALL PASS

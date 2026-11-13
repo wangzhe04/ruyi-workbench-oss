@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-01",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T03:47:04.859Z",
+  "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+  "candidateBinding": "../source-fingerprint-final-fixed.json",
+  "filesChecked": 31,
+  "productSourceEditedByReviewer": false,
+  "status": "passed_current_host_scope_with_open_acceptance_items",
+  "scope": [
+    "Read-only integration review against 4e83cec4 and earlier independent findings",
+    "Final sequential rerun of contract, live capture, LaunchServices host, capability, MCP capability, ACC shared, checkpoint and two Python smoke groups",
+    "Manifest order, generated contracts/inventories and documented counts",
+    "Asynchronous capability fixture preserves 150ms delay, 6-way concurrency, responsiveness, one probe and replacement rejection while production probe deadline remains 1000ms"
+  ],
+  "findings": [],
+  "integration": {
+    "newMacDesktopEdges": "both backward",
+    "forwardEdges": 67,
+    "stronglyConnectedComponents": 1,
+    "killOwnTreeOwners": 353,
+    "e2eCount": 577,
+    "accSmokes": 28,
+    "backendModules": 90,
+    "finalFingerprintDrift": []
+  },
+  "execution": {
+    "finalRuns": [
+      {
+        "name": "contract",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 4776,
+        "passLines": 38,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/contract.txt"
+      },
+      {
+        "name": "capabilities",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 8654,
+        "passLines": 25,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/capabilities.txt"
+      },
+      {
+        "name": "mcp-capabilities",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 627,
+        "passLines": 12,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/mcp-capabilities.txt"
+      },
+      {
+        "name": "acc-shared",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 1173,
+        "passLines": 15,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/acc-shared.txt"
+      },
+      {
+        "name": "checkpoint",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 2260,
+        "passLines": 41,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/checkpoint.txt"
+      },
+      {
+        "name": "python-capture",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 2071,
+        "passLines": 0,
+        "failLines": 0,
+        "pythonSummary": "Ran 13 tests in 1.949s",
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/python-capture.txt"
+      },
+      {
+        "name": "python-shared",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 2366,
+        "passLines": 0,
+        "failLines": 0,
+        "pythonSummary": "Ran 8 tests in 2.277s",
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/python-shared.txt"
+      },
+      {
+        "name": "live-retry",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 6896,
+        "passLines": 30,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/live-retry.txt"
+      },
+      {
+        "name": "host",
+        "exitCode": 0,
+        "signal": null,
+        "ms": 2221,
+        "passLines": 5,
+        "failLines": 0,
+        "pythonSummary": null,
+        "log": "MACOS-PORTING/evidence/P5/capture/independent-final-fixed/host.txt"
+      }
+    ],
+    "allFinalExitCodesZero": true,
+    "naturalExits": true,
+    "nodeAssertions": 166,
+    "pythonTests": 21,
+    "allPerRunBeforeAfterFingerprintsMatch": true,
+    "scopedProcessRemainder": [],
+    "hostProcessEvidence": "host-process-cleanup.json",
+    "helperIdentity": "helper-identity.json",
+    "engineeringEvidence": "../resumed-2026-11-10/engineering-runs.json"
+  },
+  "historicalFailuresRetained": [
+    {
+      "run": "live",
+      "log": "live.txt",
+      "state": "locked-capture.json",
+      "exitCode": 1,
+      "passLines": 2,
+      "failLines": 1,
+      "explanation": "Real session was locked with Screen Recording granted. Native capture was refused explicitly. Required-success live gate failed and remained recorded. Later current unlocked state produced the full success path."
+    },
+    "Earlier Node and shell fake-helper startup failures are retained in independent-final. Root cause of startup timing variation remains undetermined."
+  ],
+  "v11Increment": {
+    "lockedState": {
+      "supported": true,
+      "installed": true,
+      "authorization": "granted",
+      "ready": false,
+      "reasonCode": "session_locked",
+      "coordinate_space": "macos_global_points"
+    },
+    "recoveredState": {
+      "supported": true,
+      "installed": true,
+      "authorization": "granted",
+      "ready": true,
+      "reasonCode": "",
+      "coordinate_space": "macos_global_points"
+    },
+    "lockedActualCaptureRefused": true,
+    "subsequentUnlockedCaptureSucceeded": true,
+    "limit": "The session was observed locked and later observed unlocked. No system unlock was performed by the reviewer. Input actions while locked were not exercised."
+  },
+  "remainingUnverified": [
+    "Physical multi-display, negative-origin layout and non-Retina capture hardware",
+    "Actual TCC permission revocation and recovery during capture",
+    "Physical display-layout change or window disappearance in flight",
+    "Same-candidate Windows CI or physical regression",
+    "macOS14 runtime and formal signing/TCC upgrade identity under O2/P6",
+    "Foreground application identity independently sampled before and after minimized capture",
+    "P5-02 input/clipboard/window actions, P5-03 AX, P5-04 OCR and P5-05 recording/composite verification remain unimplemented"
+  ],
+  "phaseCompletion": "Current-host P5-01 acceptance scope passed. P5-01 retains open environment acceptance items and P5 overall remains in progress."
+}

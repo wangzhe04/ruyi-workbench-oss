@@ -1,0 +1,17 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS C0 经典壳就绪
+PASS C1 回合结束后对话里出现一张批量卡、三行(got {"cards":1,"rows":["构建产物不手改","测试收尾只杀自己的进程树","路径按 Windows 形取文件名"],"checked":[true,true,true],"save":"保存选中（3）"})
+PASS C1b 默认全勾,「保存选中」带着 3
+PASS C2 窄屏(420px)不横向溢出,勾选框与名称同一行(got {"overflow":0,"rows":[{"sameLine":true,"boxW":13},{"sameLine":true,"boxW":13},{"sameLine":true,"boxW":13}]})
+PASS C3 取消第 2 条后「保存选中」变成 2(got "保存选中（2）")
+PASS C3b 点「保存选中」后卡片收起
+PASS C3c 提示说存了 2 条(got "已保存 2 条记忆")
+PASS C4 盘上正好落了勾上的两条,第 2 条没写(实得 2 个)
+PASS C4b 候选状态里三条各自的结论如实(saved/dismissed/saved)
+PASS X 页面没有未捕获异常()
+
+MEMORY BATCH CARD BROWSER E2E: ALL PASS

@@ -1,0 +1,21 @@
+PASS LaunchServices Ruyi App owns the actual workbench service
+PASS the authorized App launches the server from this exact candidate worktree
+PASS App and service process identities were observed before shutdown
+PASS App-launched ACC has its own actual Accessibility and event authorization
+PASS normal App HTTP tool route focuses the exact owned receiver
+PASS the real App identity has listening and input readiness for manual recording
+PASS the normal App HTTP route captures and saves a complete schema3 standard projection
+PASS the App clears and replays raw Pinyin events to the same committed Chinese text
+PASS the App macro catalog reads its saved manual recording
+PASS App-origin recording, collection and native sequence replay keep their actual audit rows
+PASS App schema3 explicitly marks standard projection scope and excluded pressure gestures
+PASS App standard projection captures and replays a real balanced pointer drag
+PASS App input leaves actual button and modifier state released
+PASS LaunchServices waiter exits normally after App self-termination
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS independent App demonstrator and its native worker are reaped
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+PASS App manual fixture restores its original keyboard source
+
+MACOS INPUT HOST E2E: ALL PASS

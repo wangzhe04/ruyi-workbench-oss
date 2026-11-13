@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T09:20:21.637212+00:00",
+  "status": "prepared_awaiting_engineering_and_explicit_gui_handoff",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/freeze-v5.json",
+    "bytes": 2888,
+    "sha256": "5e60e15d4c3e1c21c614e8fbd9eeb44cfc5e21983dcfafaf904b36a550778b28"
+  },
+  "reviews": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/code-review-v1.json",
+      "bytes": 18912,
+      "sha256": "3bd8f0ec2902efe39850b46e033137d830bbcff66cd095aa21b0610e6e0e1a82"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/code-review-v2.json",
+      "bytes": 9064,
+      "sha256": "c9ad25affda616cfee56a1682e8bf539e1f3a28ab3201ee6d405a78ed65b7a03"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/readiness/code-review-v3.json",
+      "bytes": 14916,
+      "sha256": "f2029b00c051ab964dd1173d073f008a700293bee5cdb2c497ce2ac537672c0c"
+    }
+  ],
+  "additionalReviewedDependencies": [
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+    },
+    {
+      "path": "dev-harness/free-port.js",
+      "bytes": 2370,
+      "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+    },
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 195200,
+      "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "bytes": 290489,
+      "sha256": "6170dc98fa1f90bf2f14d7700f02d749603d135e8a154ad05f0753a62e8ef147"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "bytes": 24619,
+      "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "bytes": 5148,
+      "sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "bytes": 166256,
+      "sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234136,
+      "sha256": "20fac590b9608b19dd445520ad886bee2b11a659c6524d2da16fd3676427dbf1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 356760,
+      "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "bytes": 410013,
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 11463,
+      "sha256": "1306ba48906a8095637dabd608afd8199844e1eca65a75b994d7d5a9dd9dfbd2"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "bytes": 7462,
+      "sha256": "1e4203ed4f08256a5a94d97e8d72b066e3068e7b42c224c716a49e0cf8551e44"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11174,
+      "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 9948,
+      "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13332,
+      "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_sequence.py",
+      "bytes": 7972,
+      "sha256": "9e27d25343443cb01aa7579a4f6edd1ad01c39282d3bf3eb1a118ab76c13c56f"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "bytes": 1539,
+      "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "bytes": 5512,
+      "sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "bytes": 11734,
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 10462,
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49128,
+      "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+    }
+  ],
+  "runtimeArtifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-readiness-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "3ebd47102e66ffda9b9d877b033f6235bdf15aa360912766f1f16739aad0eff2"
+    }
+  ],
+  "expectedAssertions": 40,
+  "executionPerformed": false,
+  "GUIUsed": false,
+  "testsStarted": 0,
+  "engineeringReuse": "Await final primary syntax/build/unit/fast results and hash checkpoints; no full engineering rerun.",
+  "phaseStatus": "in_progress"
+}

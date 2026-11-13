@@ -497,7 +497,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'desktop_screenshot',
-    description: 'Capture the primary Windows screen to a PNG file',
+    description: 'Capture the primary screen to a PNG file. On macOS, requires Screen Recording permission and returns global logical-point origin with image scale and scale_y.',
     inputSchema: {
       type: 'object',
       properties: { outputPath: { type: 'string', description: 'PNG path; default: app generated folder' }, timeoutMs: { type: 'number', description: 'ms' } },

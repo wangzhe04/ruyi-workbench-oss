@@ -1,0 +1,24 @@
+PASS composer exposes an accessible Agent team toggle
+PASS toggle is declared once, remains turn-local, and resets when sent
+PASS composer sends a structured agentTeam field without changing user text
+PASS active Agent team state has a visible pressed style
+PASS language-policy compatibility wrapper keeps sub-agent prompts within the 8K cap
+PASS Agent team policy requires Orchestrate Agent and declares the validated preference -> current conversation routing order
+PASS fake OpenAI provider starts
+PASS workbench starts
+PASS available configured preferred endpoint/model wins after a live model probe
+PASS unavailable preferred model falls back to the current conversation endpoint/model
+PASS missing preferred endpoint falls back to the current Claude conversation model
+PASS browser token available
+PASS OpenAI-compatible driver receives Agent team policy in the volatile user prefix
+PASS OpenAI-compatible Agent team turn receives the mandatory Orchestrate Agent contract
+PASS Agent team policy prefixes the business user message without dropping its content
+PASS OpenAI-compatible driver omits the policy on a normal turn
+PASS Claude CLI driver receives Agent team through --append-system-prompt
+PASS Claude CLI receives the mandatory Orchestrate Agent contract
+PASS Claude CLI keeps the response-language policy alongside Agent team mode
+PASS Claude CLI driver omits the policy on a normal turn
+PASS server ignores agentTeam when sub-agents are disabled
+PASS server.js guards agentTeam behind !driverAuto to protect autonomous turns
+
+AGENT TEAM MODE E2E: ALL PASS

@@ -1,0 +1,759 @@
+{
+  "scope": "Recomputed from actual owner-bound CGWindow records during each external process request interval; this encloses process launch/observation/completion, not instrumented exact internal ScreenCaptureKit execution.",
+  "requests": [
+    {
+      "label": "moving-0",
+      "externalEnclosingIntervalMs": [
+        1794391776903,
+        1794391777192
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          101,
+          492,
+          640,
+          448
+        ],
+        [
+          102,
+          492,
+          640,
+          448
+        ],
+        [
+          103,
+          492,
+          640,
+          448
+        ],
+        [
+          104,
+          492,
+          640,
+          448
+        ],
+        [
+          105,
+          492,
+          640,
+          448
+        ],
+        [
+          106,
+          492,
+          640,
+          448
+        ],
+        [
+          107,
+          492,
+          640,
+          448
+        ],
+        [
+          108,
+          492,
+          640,
+          448
+        ],
+        [
+          109,
+          492,
+          640,
+          448
+        ],
+        [
+          110,
+          492,
+          640,
+          448
+        ],
+        [
+          111,
+          492,
+          640,
+          448
+        ],
+        [
+          112,
+          492,
+          640,
+          448
+        ],
+        [
+          113,
+          492,
+          640,
+          448
+        ],
+        [
+          114,
+          492,
+          640,
+          448
+        ],
+        [
+          115,
+          492,
+          640,
+          448
+        ],
+        [
+          116,
+          492,
+          640,
+          448
+        ],
+        [
+          117,
+          492,
+          640,
+          448
+        ],
+        [
+          118,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 18,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-1",
+      "externalEnclosingIntervalMs": [
+        1794391777215,
+        1794391777414
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          120,
+          492,
+          640,
+          448
+        ],
+        [
+          121,
+          492,
+          640,
+          448
+        ],
+        [
+          122,
+          492,
+          640,
+          448
+        ],
+        [
+          123,
+          492,
+          640,
+          448
+        ],
+        [
+          124,
+          492,
+          640,
+          448
+        ],
+        [
+          125,
+          492,
+          640,
+          448
+        ],
+        [
+          126,
+          492,
+          640,
+          448
+        ],
+        [
+          127,
+          492,
+          640,
+          448
+        ],
+        [
+          128,
+          492,
+          640,
+          448
+        ],
+        [
+          129,
+          492,
+          640,
+          448
+        ],
+        [
+          130,
+          492,
+          640,
+          448
+        ],
+        [
+          131,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 12,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-2",
+      "externalEnclosingIntervalMs": [
+        1794391777435,
+        1794391777589
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          134,
+          492,
+          640,
+          448
+        ],
+        [
+          135,
+          492,
+          640,
+          448
+        ],
+        [
+          136,
+          492,
+          640,
+          448
+        ],
+        [
+          137,
+          492,
+          640,
+          448
+        ],
+        [
+          138,
+          492,
+          640,
+          448
+        ],
+        [
+          139,
+          492,
+          640,
+          448
+        ],
+        [
+          140,
+          492,
+          640,
+          448
+        ],
+        [
+          141,
+          492,
+          640,
+          448
+        ],
+        [
+          142,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 9,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-3",
+      "externalEnclosingIntervalMs": [
+        1794391777610,
+        1794391777769
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          144,
+          492,
+          640,
+          448
+        ],
+        [
+          145,
+          492,
+          640,
+          448
+        ],
+        [
+          146,
+          492,
+          640,
+          448
+        ],
+        [
+          147,
+          492,
+          640,
+          448
+        ],
+        [
+          148,
+          492,
+          640,
+          448
+        ],
+        [
+          149,
+          492,
+          640,
+          448
+        ],
+        [
+          150,
+          492,
+          640,
+          448
+        ],
+        [
+          151,
+          492,
+          640,
+          448
+        ],
+        [
+          152,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 9,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-4",
+      "externalEnclosingIntervalMs": [
+        1794391777791,
+        1794391778025
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          155,
+          492,
+          640,
+          448
+        ],
+        [
+          156,
+          492,
+          640,
+          448
+        ],
+        [
+          157,
+          492,
+          640,
+          448
+        ],
+        [
+          158,
+          492,
+          640,
+          448
+        ],
+        [
+          159,
+          492,
+          640,
+          448
+        ],
+        [
+          160,
+          492,
+          640,
+          448
+        ],
+        [
+          161,
+          492,
+          640,
+          448
+        ],
+        [
+          162,
+          492,
+          640,
+          448
+        ],
+        [
+          163,
+          492,
+          640,
+          448
+        ],
+        [
+          164,
+          492,
+          640,
+          448
+        ],
+        [
+          165,
+          492,
+          640,
+          448
+        ],
+        [
+          166,
+          492,
+          640,
+          448
+        ],
+        [
+          167,
+          492,
+          640,
+          448
+        ],
+        [
+          168,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 14,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-5",
+      "externalEnclosingIntervalMs": [
+        1794391778045,
+        1794391778328
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          170,
+          492,
+          640,
+          448
+        ],
+        [
+          171,
+          492,
+          640,
+          448
+        ],
+        [
+          172,
+          492,
+          640,
+          448
+        ],
+        [
+          173,
+          492,
+          640,
+          448
+        ],
+        [
+          174,
+          492,
+          640,
+          448
+        ],
+        [
+          175,
+          492,
+          640,
+          448
+        ],
+        [
+          176,
+          492,
+          640,
+          448
+        ],
+        [
+          177,
+          492,
+          640,
+          448
+        ],
+        [
+          178,
+          492,
+          640,
+          448
+        ],
+        [
+          179,
+          492,
+          640,
+          448
+        ],
+        [
+          180,
+          492,
+          640,
+          448
+        ],
+        [
+          181,
+          492,
+          640,
+          448
+        ],
+        [
+          182,
+          492,
+          640,
+          448
+        ],
+        [
+          183,
+          492,
+          640,
+          448
+        ],
+        [
+          184,
+          492,
+          640,
+          448
+        ],
+        [
+          185,
+          492,
+          640,
+          448
+        ],
+        [
+          186,
+          492,
+          640,
+          448
+        ],
+        [
+          187,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 18,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-6",
+      "externalEnclosingIntervalMs": [
+        1794391778353,
+        1794391778531
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          188,
+          492,
+          640,
+          448
+        ],
+        [
+          189,
+          492,
+          640,
+          448
+        ],
+        [
+          190,
+          492,
+          640,
+          448
+        ],
+        [
+          191,
+          492,
+          640,
+          448
+        ],
+        [
+          192,
+          492,
+          640,
+          448
+        ],
+        [
+          193,
+          492,
+          640,
+          448
+        ],
+        [
+          194,
+          492,
+          640,
+          448
+        ],
+        [
+          195,
+          492,
+          640,
+          448
+        ],
+        [
+          196,
+          492,
+          640,
+          448
+        ],
+        [
+          197,
+          492,
+          640,
+          448
+        ],
+        [
+          198,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 11,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    },
+    {
+      "label": "moving-7",
+      "externalEnclosingIntervalMs": [
+        1794391778553,
+        1794391778702
+      ],
+      "ownerPid": 43741,
+      "ownerWindowId": 5217,
+      "distinctActualOwnCGTuples": [
+        [
+          201,
+          492,
+          640,
+          448
+        ],
+        [
+          202,
+          492,
+          640,
+          448
+        ],
+        [
+          203,
+          492,
+          640,
+          448
+        ],
+        [
+          204,
+          492,
+          640,
+          448
+        ],
+        [
+          205,
+          492,
+          640,
+          448
+        ],
+        [
+          206,
+          492,
+          640,
+          448
+        ],
+        [
+          207,
+          492,
+          640,
+          448
+        ],
+        [
+          208,
+          492,
+          640,
+          448
+        ]
+      ],
+      "witnessCount": 8,
+      "result": {
+        "code": "window_changed",
+        "error": "Window identity, visibility or geometry changed during capture",
+        "ok": false
+      },
+      "naturalExitCode": 1,
+      "signal": null,
+      "imagePresent": false
+    }
+  ]
+}

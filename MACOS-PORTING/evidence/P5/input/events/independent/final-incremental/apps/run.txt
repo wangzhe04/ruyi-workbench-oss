@@ -1,0 +1,9 @@
+PASS TextEdit document belongs to a newly created fixture process
+FAIL Error: type_text {"ok":false,"error":"DesktopError: Focus the observed target window before sending input","code":"focus_changed"}
+    at call (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:36:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:149:19
+PASS all early-registered TextEdit process identities are absent on final cleanup
+PASS selected-app input MCP and native worker cleanup is confirmed
+
+MACOS INPUT APPS E2E: FAIL (1)

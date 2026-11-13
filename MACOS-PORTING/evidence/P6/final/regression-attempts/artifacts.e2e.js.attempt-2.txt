@@ -1,0 +1,30 @@
+PASS (unit) kindForPath classifies by suffix
+FAIL (unit) pathWithinRoot: nested → true
+PASS (unit) pathWithinRoot: root itself → true
+PASS (unit) pathWithinRoot: prefix-sibling (C:\ws-evil) → false (no substring bug)
+PASS (unit) pathWithinRoot: elsewhere → false
+FAIL (unit) pathWithinAnyRoot: any root matches
+PASS (S4 unit) modify xlsx → 入产物
+PASS (S4 unit) modify md/png → 入产物
+PASS (S4 unit) modify txt/log(非已知产物类型)→ 不入
+PASS (S4 unit) create csv → 入产物(原行为保留)
+PASS (S4 unit) create+modify 同 path → 去重(1 条, got 1)
+PASS (T1 unit) bridged write_docx {success,path} → 入产物
+PASS (T1 unit) bridged read_document 回 path → NOT 入产物(名字非写族)
+PASS (T1 unit) 新版 ACC(path+output_path)→ 去重只一条
+PASS (T1 unit) 无 success 字段 → 不收(写失败无产物)
+PASS (T1 unit) 前缀写族 export_report → 入产物
+FAIL (T3 unit) write_docx {path} → {write, abs}
+FAIL (T3 unit) write_document 识别
+/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/artifacts.e2e.js:168
+    ok(srv.collectBridgedWriteTarget('srv__delete_file', { path: abs }).mode === 'delete', '(T3 unit) delete_file → mode delete');
+                                                                       ^
+
+TypeError: Cannot read properties of null (reading 'mode')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/artifacts.e2e.js:168:72
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/artifacts.e2e.js:422:3
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Node.js v24.15.0
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-4NVwfQ

@@ -1,0 +1,75 @@
+{
+  "recordedAt": "2026-11-12T15:00:56.325649+00:00",
+  "status": "complete",
+  "roots": [
+    {
+      "root": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-FhPHTv",
+      "removedOnly": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-FhPHTv/ai-computer-control/.venv",
+      "identity": {
+        "dev": 16777234,
+        "ino": 87054995,
+        "uid": 501
+      },
+      "accRuntimeSource": {
+        "repo": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-FhPHTv/ai-computer-control",
+        "redirects": [
+          "__editable__.ai_computer_control-1.9.1.pth"
+        ],
+        "interpreter": "/Users/jiming/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12"
+      },
+      "reason": "Regenerable task-created development venv clone only; all failed App/source/report diagnostics and immutable distribution inputs retained.",
+      "removed": true,
+      "inventoryCount": 10342,
+      "inventorySha256": "499272332505f6140841eab4b8c7576a7b90b14fad62f2ec4c817cce98cdc11d"
+    },
+    {
+      "root": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO",
+      "removedOnly": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO/ai-computer-control/.venv",
+      "identity": {
+        "dev": 16777234,
+        "ino": 87068747,
+        "uid": 501
+      },
+      "accRuntimeSource": {
+        "repo": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-p5-input-host-lkLdfO/ai-computer-control",
+        "redirects": [
+          "__editable__.ai_computer_control-1.9.1.pth"
+        ],
+        "interpreter": "/Users/jiming/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12"
+      },
+      "reason": "Regenerable task-created development venv clone only; all failed App/source/report diagnostics and immutable distribution inputs retained.",
+      "removed": true,
+      "inventoryCount": 10342,
+      "inventorySha256": "ce0159279ebc954e83b19a2b24cc6ecbe9eba9a5164412d5e5e96a3c7896bab6"
+    },
+    {
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-bynNLF",
+      "removedOnly": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-bynNLF/ai-computer-control/.venv",
+      "identity": {
+        "dev": 16777234,
+        "ino": 86662345,
+        "uid": 501
+      },
+      "accRuntimeSource": {
+        "repo": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-bynNLF/ai-computer-control",
+        "redirects": [
+          "__editable__.ai_computer_control-1.9.1.pth"
+        ],
+        "interpreter": "/Users/jiming/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12"
+      },
+      "reason": "Regenerable task-created development venv clone only; all failed App/source/report diagnostics and immutable distribution inputs retained.",
+      "removed": true,
+      "inventoryCount": 10342,
+      "inventorySha256": "af23b2cb47058b66ea4bead2b02e0ebfe395cd4f70a1dc03541a2c0df99fc8e8"
+    }
+  ],
+  "attemptedRootCount": 4,
+  "removedRootCount": 3,
+  "unmodifiedRemainingRoot": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-input-host-aOxE4v",
+  "remainingGuard": "No acc-runtime-source.json in fourth early fixture; guard stopped without modifying that venv.",
+  "fullInventoryArchive": {
+    "path": "/private/tmp/ruyi-p6-closeout-final-79ido2bq/removed-generated-venv-inventory.json",
+    "bytes": 6933042,
+    "sha256": "32c6d3f285a2d37e999c673e597091466a83ab3651fbabc267b519756026a847"
+  }
+}

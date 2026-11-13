@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_reviewed_local_scope",
+  "phaseStatus": "in_progress",
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "deliveryState": "uncommitted_worktree",
+  "remainingCodeFindings": 0,
+  "remainingDocumentationFindings": 0,
+  "candidateBinding": {
+    "sourceSnapshot": "source-fingerprint.json",
+    "snapshotFilesVerified": 39,
+    "snapshotMismatches": 0,
+    "nativeBuild": "native-build.json",
+    "nativeInputFingerprintsVerified": 6,
+    "nativeSignatureStrictVerification": "passed",
+    "scope": "The source snapshot was recorded during evidence organization after the test logs. Native build inputs matched before and after independent native regressions. Later host-ui probe edits changed only isolated HOME and Code fixture settings and received separate static review."
+  },
+  "independentNativeRuns": [
+    { "name": "macos-desktop-host", "passed": 31, "failed": 0, "exitCode": 0, "log": "host-independent.txt" },
+    { "name": "macos-desktop-media", "passed": 36, "failed": 0, "exitCode": 0, "log": "media-independent.txt", "input": "synthetic oscillator" },
+    { "name": "macos-desktop-lifecycle", "passed": 23, "failed": 0, "exitCode": 0, "log": "lifecycle-independent.txt", "scope": "simulated NSWorkspace callbacks, real backend SIGSTOP/SIGCONT, scheduler reconciliation and owned MCP/CLI tree cleanup" },
+    { "name": "macos-desktop-bridge", "passed": 47, "failed": 0, "exitCode": 0, "log": "bridge-independent.txt", "conditionalBranchesNotExecuted": 3, "reason": "OS notification permission was granted. Two denied-permission assertions and one ungranted-delivery assertion did not execute. Earlier 50-assertion results retain their original candidate scope." }
+  ],
+  "nativeLogVerification": "All four archived logs are byte-identical to the reviewer's independent run logs. Every run completed naturally with exit code 0.",
+  "independentBrowserRuns": {
+    "browser": "Google Chrome for Testing 148.0.7778.96",
+    "selection": "single-command RUYI_E2E_BROWSER override to the existing installed binary",
+    "fixturePolicy": "Existing fake-device and fake-UI flags retained. The reviewer did not alter assertions or replace getUserMedia.",
+    "results": [
+      { "name": "composer-voice.browser", "passed": 98, "failed": 0, "exitCode": 0 },
+      { "name": "composer-voice-stream.browser", "passed": 39, "failed": 0, "exitCode": 0 },
+      { "name": "composer-voice-warmup.browser", "passed": 58, "failed": 0, "exitCode": 0 }
+    ],
+    "evidence": "../media/native-gum-stages/browser-regression.json",
+    "limitation": "Ordinary Chrome 156 pending native fake-media requests and earlier failures remain recorded. The version/build difference has no confirmed root cause."
+  },
+  "implementationAgentChecksReviewed": {
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "staticFailed": 0,
+    "syntaxFiles": 1134,
+    "scope": "Reviewed archived implementation-agent results. These complete engineering gates were not independently rerun by this reviewer."
+  },
+  "findingsClosed": [
+    "Voice cancellation now releases acquired tracks during stream initialization and discards pending transcription.",
+    "Late stream initialization and recorder-stop callbacks retain their own session ownership and cannot tear down a newer recording.",
+    "Workspace aliases retain the server's authoritative favorite permissions, including stale-client cases.",
+    "Workspace selection generations and serialized commits isolate thread changes and late resolve or patch responses.",
+    "Workspace identity lookup uses bounded I/O and exact BigInt device/inode comparisons.",
+    "Darwin absolute workspace and session paths preserve literal trailing backslashes and whitespace.",
+    "Physical probe completion, native capture-state observation, deadline reporting and detached-process cleanup received static review. Missing process ownership is recorded as unverified.",
+    "UI lifecycle monitoring uses host-wake and a Response.clone side reader while retaining the original SSE response.",
+    "Current candidate fingerprint coverage, historical pending lists and physical microphone progress descriptions were corrected and rechecked."
+  ],
+  "editorDiffReview": {
+    "evidence": "../bridge/editor-diff/README.md",
+    "independentlyViewed": ["../bridge/editor-diff/visible-diff.png", "../bridge/editor-diff/visible-diff-ax.txt"],
+    "observed": "A real Code two-column comparison shows red answer = 41 on the left and green answer = 42 on the right. AX paths match the fixture.",
+    "normalApiInvocation": "Performed and recorded by the implementation agent through the visible Ruyi fixture button and normal checkpoints/open-external API.",
+    "fixtureDiagnosis": "Code's long IPC socket failed with EINVAL. A shorter symlink path to the same actual directory bound successfully. The final fixture uses a short isolated HOME and Code accessibilitySupport off.",
+    "limitation": "The earlier accessibility-on timeout and later accessibility-off success remain an observed association with an unconfirmed causal mechanism."
+  },
+  "physicalSystemReview": {
+    "evidence": "../lifecycle/physical-system/validation.json",
+    "independentlyVerified": "Powerd willSleep, Software Sleep to DarkWake and HID FullWake sequence, unchanged App and Node creation identities, unchanged healthy service overlay, and native/probe/script hashes.",
+    "durationSeconds": 2.816,
+    "uiEvidenceSource": "Implementation-agent CUA observations of successful wake SSE response, a new thread.created frame, automatic page update, login registration and removal, user-assisted menu action and Safari external handoff.",
+    "limitations": ["Deep or long sleep was not exercised.", "The physical fixture had scheduling disabled.", "Precise pre-sleep SSE cursor continuity was not measured."]
+  },
+  "physicalMicrophone": {
+    "status": "pending_system_authorization",
+    "evidence": "../media/physical/README.md",
+    "earlierSample": "Independently parsed 1.01-second, 16000-Hz mono 16-bit WAV with matching upload hash. Page track release, upload, transcription and zero sends were recorded, but the strict native end-state check failed at 3000.271 ms with the deadline fired.",
+    "currentLaunchServicesAttempt": "The normal microphone button was clicked, getUserMedia remains requesting, native capture state remains none and no audio upload has occurred. Manual system-prompt handling is pending according to the implementation agent's latest observation.",
+    "reviewerActions": "Static probe and artifact review only. The reviewer did not initiate physical capture."
+  },
+  "externalUnverified": [
+    "Formal bundle/Team/Developer ID Keychain and TCC upgrade identity acceptance remains deferred by the user.",
+    "Actual macOS 14 execution remains unverified and handed to the existing minimum-system/P6 gate.",
+    "Related Windows same-candidate acceptance remains unverified."
+  ],
+  "overallConclusion": "The reviewed local code and documented evidence scopes have no remaining review findings. P4 remains in progress while the LaunchServices physical microphone acceptance and stated external items remain unresolved."
+}

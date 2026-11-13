@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/tmp/ruyi-p3-02-render-check.py", line 9, in <module>
+    assert '上海' in text,(name,text[:300])
+           ^^^^^^^^^^^^^^
+AssertionError: ('report', '如如 Mac 如如如如 / Ruyi Mac\n中中中 English\n本本本本本本本本本本本本本本本本本本本本本本本本本本\n验验验验\n城城 城城城城 城城城城\n上上 12 18\n上上 15 21\n上上 9 16\n\uf0b7 本本本本本本\n\uf0b7 本本本本本本本\n\uf0b7 本本本本本本本本\n说说说 本本本本本本本本本本本本\n第 1 第')
+Traceback (most recent call last):
+  File "/tmp/ruyi-p3-02-render-check.py", line 9, in <module>
+    assert '上海' in text,(name,text[:300])
+           ^^^^^^^^^^^^^^
+AssertionError: ('report', '如如 Mac 如如如如 / Ruyi Mac\n中中中 English\n本本本本本本本本本本本本本本本本本本本本本本本本本本\n验验验验\n城城 城城城城 城城城城\n上上 12 18\n上上 15 21\n上上 9 16\n\uf0b7 本本本本本本\n\uf0b7 本本本本本本本\n\uf0b7 本本本本本本本本\n说说说 本本本本本本本本本本本本\n第 1 第')

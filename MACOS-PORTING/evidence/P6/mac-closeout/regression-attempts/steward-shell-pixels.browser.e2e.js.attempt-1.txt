@@ -1,0 +1,16 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS P0 线程「整理下载文件夹」已建
+PASS P0 线程「写周报初稿」已建
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS P0b 管家视角
+PASS P1 dark 截到了、画面已静止(90827 字节,藏掉相对时间 5 处,静止=true)
+PASS P1 light 截到了、画面已静止(90048 字节,藏掉相对时间 5 处,静止=true)
+PASS P2 深浅两张确实不同(平均差 217.3)—— 尺子分得出两主题
+NOTE 基线拍自 Edg/153.0.4234.48,本机是 Chrome/157.0.8103.79 —— 若只有这一件红,先看是不是浏览器版本造成的渲染差(人眼比对后可 --update)
+PASS P3 dark 与基线一致(平均差 0.58 ≤ 2;变了的格子 2/360 ≤ 3;变得最多的格子(行,列) (1,16)Δ23 (1,14)Δ22)
+PASS P3 light 与基线一致(平均差 0.42 ≤ 2;变了的格子 0/360 ≤ 3)
+PASS P4 全程页面上没有未捕获异常(实 0)
+STEWARD SHELL PIXELS BROWSER E2E: ALL PASS

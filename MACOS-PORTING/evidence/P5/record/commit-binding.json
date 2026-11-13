@@ -1,0 +1,779 @@
+{
+  "created_utc": "2026-11-10T15:49:27.816127+00:00",
+  "implementation_commit": "0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6",
+  "manifest": "MACOS-PORTING/evidence/P5/record/source-fingerprint-final-delivery.json",
+  "method": "Complete raw git show blobs read by Python subprocess, with no fixed output buffer or text conversion.",
+  "checks": [
+    {
+      "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 6520,
+      "expected_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d",
+      "commit_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d",
+      "disk_sha256": "3433a8a7a8a152b4993d60ed319bed550fe810c869399a3147f52df048bdee7d",
+      "match": true
+    },
+    {
+      "path": "MACOS-PORTING/10-TRACKING.md",
+      "bytes": 34412,
+      "expected_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2",
+      "commit_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2",
+      "disk_sha256": "7f9369070d4c1ace3f22697cee57daedaa259c2604a0cfc52905cdc7daf8c6b2",
+      "match": true
+    },
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "bytes": 85875,
+      "expected_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171",
+      "commit_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171",
+      "disk_sha256": "368191d0746bddef503bb2b149a4190a7085483d98b3e1963c4f2e86f3edc171",
+      "match": true
+    },
+    {
+      "path": "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-vision.lock.txt",
+      "bytes": 1533,
+      "expected_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+      "commit_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+      "disk_sha256": "364d188eba8a73fac161a7b2bbfda372322a0c1eebfb2caff91f7ad1f970e538",
+      "match": true
+    },
+    {
+      "path": "README.md",
+      "bytes": 65808,
+      "expected_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66",
+      "commit_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66",
+      "disk_sha256": "7c38ad59556431463185a07c94117c5cf9348380450e7fe32a5b97d130943b66",
+      "match": true
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72914,
+      "expected_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6",
+      "commit_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6",
+      "disk_sha256": "43ab3452f31a19f132f54505747a094a0681603c4fc0dbfb429bd6f6bf6d7cc6",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "bytes": 41655,
+      "expected_sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "commit_sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "disk_sha256": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ax-window.m",
+      "bytes": 11136,
+      "expected_sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "commit_sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "disk_sha256": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-capture-window.m",
+      "bytes": 6245,
+      "expected_sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+      "commit_sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+      "disk_sha256": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "expected_sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "commit_sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "disk_sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-finder-identity.m",
+      "bytes": 7537,
+      "expected_sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "commit_sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "disk_sha256": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 14194,
+      "expected_sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+      "commit_sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+      "disk_sha256": "35374418cbda8d0c9d6661cb9ed2160f27056fcc9d4ab3b7bc8723367a935954",
+      "match": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ocr-window.m",
+      "bytes": 7227,
+      "expected_sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+      "commit_sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+      "disk_sha256": "34db7f507f0c3c9c3fb727c748cbf2f60fc85c279c48cf0bd4382c6b6af984c1",
+      "match": true
+    },
+    {
+      "path": "dev-harness/lib/browser-fixture.js",
+      "bytes": 21509,
+      "expected_sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "commit_sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "disk_sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-acc-shared.e2e.js",
+      "bytes": 7191,
+      "expected_sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+      "commit_sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+      "disk_sha256": "a8ff421dec6d41902d6693361ad1701585953da67e9f59b772df96524baccdda",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-ax-finder.e2e.js",
+      "bytes": 11628,
+      "expected_sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "commit_sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "disk_sha256": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-ax.e2e.js",
+      "bytes": 18492,
+      "expected_sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "commit_sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "disk_sha256": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-capabilities.e2e.js",
+      "bytes": 8091,
+      "expected_sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "commit_sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "disk_sha256": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-capture-contract.e2e.js",
+      "bytes": 12752,
+      "expected_sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "commit_sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "disk_sha256": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-capture-host.e2e.js",
+      "bytes": 5558,
+      "expected_sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "commit_sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "disk_sha256": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-capture.e2e.js",
+      "bytes": 13434,
+      "expected_sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+      "commit_sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+      "disk_sha256": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-input-apps.e2e.js",
+      "bytes": 29397,
+      "expected_sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+      "commit_sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+      "disk_sha256": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-input-events.e2e.js",
+      "bytes": 23780,
+      "expected_sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "commit_sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "disk_sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "bytes": 21492,
+      "expected_sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+      "commit_sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+      "disk_sha256": "5b50d74b11c869b23cd6812c484a13b6594fa96b3e2657ed4e5a06feffb4c9f5",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-mcp-capabilities.e2e.js",
+      "bytes": 5447,
+      "expected_sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "commit_sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "disk_sha256": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-observe.e2e.js",
+      "bytes": 10944,
+      "expected_sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+      "commit_sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+      "disk_sha256": "0d5a6e43c293f6624980c5454ab9f95970b3dd4ca1cfade79f70ca8ede2a8d51",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-ocr.e2e.js",
+      "bytes": 14279,
+      "expected_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+      "commit_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+      "disk_sha256": "bdba72cb8f61748f72930e1d6ca37130482d9d134dad1b61d9b63a063ccb3937",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-record.e2e.js",
+      "bytes": 14122,
+      "expected_sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+      "commit_sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+      "disk_sha256": "75a9f2a60b83fd6ab092b545445f31942193034505c351c8324bda539947056a",
+      "match": true
+    },
+    {
+      "path": "dev-harness/macos-window-clipboard.e2e.js",
+      "bytes": 16038,
+      "expected_sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "commit_sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "disk_sha256": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "match": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 13918,
+      "expected_sha256": "fdac38ad1957a96c75b6cd5bc36903ec204cab7bdff775f4a4ed6a6a3d87c621",
+      "commit_sha256": "fdac38ad1957a96c75b6cd5bc36903ec204cab7bdff775f4a4ed6a6a3d87c621",
+      "disk_sha256": "fdac38ad1957a96c75b6cd5bc36903ec204cab7bdff775f4a4ed6a6a3d87c621",
+      "match": true
+    },
+    {
+      "path": "dev-harness/theme-default.browser.e2e.js",
+      "bytes": 3282,
+      "expected_sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+      "commit_sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+      "disk_sha256": "6a8741a063d42759a1f3a865386e6f56cccf47e766b310549842cb74d4859ad4",
+      "match": true
+    },
+    {
+      "path": "dev-harness/unit/browser-fixture-deadline.test.js",
+      "bytes": 6256,
+      "expected_sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+      "commit_sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+      "disk_sha256": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+      "match": true
+    },
+    {
+      "path": "dev-harness/unit/tool-dispatch-hardening.test.js",
+      "bytes": 26441,
+      "expected_sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "commit_sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "disk_sha256": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "match": true
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 923751,
+      "expected_sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "commit_sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "disk_sha256": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "match": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 205532,
+      "expected_sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "commit_sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "disk_sha256": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "match": true
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "expected_sha256": "cd442fbb7b02386e183a036891cfdd4466f2ddcc220362040a61552a2d98b482",
+      "commit_sha256": "cd442fbb7b02386e183a036891cfdd4466f2ddcc220362040a61552a2d98b482",
+      "disk_sha256": "cd442fbb7b02386e183a036891cfdd4466f2ddcc220362040a61552a2d98b482",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 22556,
+      "expected_sha256": "eb071cddf42b8768ec9c050bb97a93f015e60e9150fe4da11e8cbf1f79f0bf8f",
+      "commit_sha256": "eb071cddf42b8768ec9c050bb97a93f015e60e9150fe4da11e8cbf1f79f0bf8f",
+      "disk_sha256": "eb071cddf42b8768ec9c050bb97a93f015e60e9150fe4da11e8cbf1f79f0bf8f",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/act_and_verify.py",
+      "bytes": 11509,
+      "expected_sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+      "commit_sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+      "disk_sha256": "867147feb89f56964f611b948ac86864c8745703561df38f5b0dcb1f5fd85826",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 10402,
+      "expected_sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+      "commit_sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+      "disk_sha256": "e0cb756342fd2878dfa8c019c3a187c267fe6a590f84e6619d09a78f90248157",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 10638,
+      "expected_sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+      "commit_sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+      "disk_sha256": "e69bf6f0142393b03d3b4b8a9807d5e75dd9c312db84ce968fd1892f21630d55",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py",
+      "bytes": 9275,
+      "expected_sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "commit_sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "disk_sha256": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_act_and_verify.py",
+      "bytes": 11294,
+      "expected_sha256": "6f0bfc7ad150555fbff288ab5a7b4a4d30167e955e664f38017df1aebd60e446",
+      "commit_sha256": "6f0bfc7ad150555fbff288ab5a7b4a4d30167e955e664f38017df1aebd60e446",
+      "disk_sha256": "6f0bfc7ad150555fbff288ab5a7b4a4d30167e955e664f38017df1aebd60e446",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py",
+      "bytes": 1685,
+      "expected_sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "commit_sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "disk_sha256": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py",
+      "bytes": 3163,
+      "expected_sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "commit_sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "disk_sha256": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "bytes": 5201,
+      "expected_sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "commit_sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "disk_sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 6043,
+      "expected_sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+      "commit_sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+      "disk_sha256": "22334b621918e402917f67e18c2a2cfcf449767aee80a32193f4ffee96a7b61d",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py",
+      "bytes": 5512,
+      "expected_sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "commit_sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "disk_sha256": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_observe.py",
+      "bytes": 9182,
+      "expected_sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+      "commit_sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+      "disk_sha256": "27e9a9966e0dc9b483df1021c6ad536ae26a20d7691d05db31430c7af1c9df1a",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "bytes": 6119,
+      "expected_sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "commit_sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "disk_sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_record.py",
+      "bytes": 5634,
+      "expected_sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+      "commit_sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+      "disk_sha256": "1b43a3d58a95c18cdedc8851843a7a57889be41e1ba0e83423916eac700f16ab",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_vision.py",
+      "bytes": 6903,
+      "expected_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+      "commit_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+      "disk_sha256": "bf985bcbcc519535c2543cd2a4c5c545d75fd602b57dbe1e9fd018e00eeb467c",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/ocr.py",
+      "bytes": 32996,
+      "expected_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+      "commit_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+      "disk_sha256": "7350e2c1425b43e7ce7179c4cae98276327379fddeea0a76e90f4bd3b2903654",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/record.py",
+      "bytes": 14860,
+      "expected_sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+      "commit_sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+      "disk_sha256": "18f16da728855c868729fd03028d1939bd61558aa9f1fc5c2f415d7868d30f31",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/vision.py",
+      "bytes": 11015,
+      "expected_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+      "commit_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+      "disk_sha256": "6f123679734688898aef9fdc087501b5363b1a23239028cb7c2ca6cc12812da5",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 12450,
+      "expected_sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+      "commit_sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+      "disk_sha256": "2ffeb0c68b22e8369322b7779a4961500ec08ec56e6d3d05a869b322f3652292",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "bytes": 4493,
+      "expected_sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "commit_sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "disk_sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "bytes": 7775,
+      "expected_sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+      "commit_sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+      "disk_sha256": "17d87397a4445c02d3d0c236a9672c253f29404df52d256051f94947e24b23f3",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 6057,
+      "expected_sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "commit_sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "disk_sha256": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision.py",
+      "bytes": 4104,
+      "expected_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+      "commit_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+      "disk_sha256": "5df95b20bf45de6a6b3b92c30b6a3ff4c370687d3c66027f88307ae06abee4fb",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_vision_worker.py",
+      "bytes": 3620,
+      "expected_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+      "commit_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+      "disk_sha256": "921116c923e910c6ca685005a0434373c8e57527faab576938ab150675c9a6c1",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "bytes": 8532,
+      "expected_sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "commit_sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "disk_sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/ocr_match.py",
+      "bytes": 8643,
+      "expected_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "commit_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "disk_sha256": "a0d20a93df1d6e84755c62dc6b548a7e7341bf691f3cb30207e568fde773f345",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/template_match.py",
+      "bytes": 3820,
+      "expected_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "commit_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "disk_sha256": "7d3930be11564055dda2c2c764b8e6215727c8685402b8474c2cc9f6475c3bc6",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "bytes": 2589,
+      "expected_sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+      "commit_sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+      "disk_sha256": "529dfe7e9cb857adf5ea32bee32a6d43b5fddc444979fcfbb7c41fb85c761d61",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/visual_diff.py",
+      "bytes": 5321,
+      "expected_sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+      "commit_sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+      "disk_sha256": "6a35c06ac123e1941a283c2ea4cad61b5a9c47629eb7a459589af420d3075e12",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_ax.py",
+      "bytes": 6311,
+      "expected_sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "commit_sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "disk_sha256": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_capture.py",
+      "bytes": 9976,
+      "expected_sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "commit_sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "disk_sha256": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_composed.py",
+      "bytes": 15520,
+      "expected_sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+      "commit_sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+      "disk_sha256": "476fb75f4ec6929f124f6077bfb9515d1d97f791630488ad976022a71cb6bcc8",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_events.py",
+      "bytes": 8420,
+      "expected_sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "commit_sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "disk_sha256": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_input.py",
+      "bytes": 13646,
+      "expected_sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+      "commit_sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+      "disk_sha256": "0b1c949e6606c62c9a9f166643dadecf79450d5db386a729e5222810003cbacc",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_record.py",
+      "bytes": 17336,
+      "expected_sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+      "commit_sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+      "disk_sha256": "c69eb01e9f9f9fa94e588debe1af9f66c32cfc612a335e7545b7b2d4f8c046c6",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_shared.py",
+      "bytes": 10579,
+      "expected_sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+      "commit_sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+      "disk_sha256": "ea6008b9caf8ba34e16f984d97900a9aacfb3cc528a582fa965d4a4a8a989d50",
+      "match": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_visual.py",
+      "bytes": 18044,
+      "expected_sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+      "commit_sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+      "disk_sha256": "24fe760e52269e381a60bf311e499d5861d8fe4be712bf33dd9bac2ed6935dce",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6777632,
+      "expected_sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "commit_sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "disk_sha256": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "bytes": 24619,
+      "expected_sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "commit_sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "disk_sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01n-desktop-automation.js",
+      "bytes": 5148,
+      "expected_sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "commit_sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "disk_sha256": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "bytes": 166256,
+      "expected_sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "commit_sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "disk_sha256": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234075,
+      "expected_sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "commit_sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "disk_sha256": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 301464,
+      "expected_sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "commit_sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "disk_sha256": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 221621,
+      "expected_sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "commit_sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "disk_sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "bytes": 150843,
+      "expected_sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "commit_sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "disk_sha256": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 23789,
+      "expected_sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "commit_sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "disk_sha256": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 697478,
+      "expected_sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "commit_sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "disk_sha256": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/desktop-macos/RuyiDesktop.swift",
+      "bytes": 35428,
+      "expected_sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "commit_sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "disk_sha256": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "bytes": 36819,
+      "expected_sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "commit_sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "disk_sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 31746,
+      "expected_sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+      "commit_sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+      "disk_sha256": "785f6abbcccb5237dc53c1ab2fb66af33b56ee6df9774870a16357a87677536d",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 22388,
+      "expected_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+      "commit_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+      "disk_sha256": "fe492dbb3fb2d05eb650397cf7d74bbb34f6c035c95e5e542859020bd5563d35",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 47155,
+      "expected_sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+      "commit_sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+      "disk_sha256": "62c536e6407268168ac9d586e4b0610848f0d406104d6cac593912c5e5a715e3",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "bytes": 11356,
+      "expected_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "commit_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "disk_sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 7671,
+      "expected_sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+      "commit_sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+      "disk_sha256": "dbd430693723eb7c952e8d703baaae11cec655d7d0b7b923addd4458b9d9c31c",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 5315,
+      "expected_sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+      "commit_sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+      "disk_sha256": "9ca49f0a615cf763846140b0fbb83636800f93cdde8c721e0d6d5f563283928e",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 2908,
+      "expected_sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+      "commit_sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+      "disk_sha256": "ba027735d00e4c610aa3698d941c4bfd9e0ef3cb5a48d4579cadcf2e4f947a54",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "bytes": 2589,
+      "expected_sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+      "commit_sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+      "disk_sha256": "e5c370eb7789783c1c4b8f8a86ce0e7506bf4962aa534bc54ca318d4828b3c6a",
+      "match": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-desktop.js",
+      "bytes": 6489,
+      "expected_sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "commit_sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "disk_sha256": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "match": true
+    }
+  ],
+  "all_match": true,
+  "raw_blob_bytes": 10935192,
+  "binaries": [
+    {
+      "path": "ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "expected_sha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+      "disk_sha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809"
+    },
+    {
+      "path": "ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop",
+      "expected_sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0",
+      "disk_sha256": "1d23227c688eb1f974bd3f9730005049f4845f457cf68fd46db4c84cd0569dd0"
+    },
+    {
+      "path": "ruyi-workbench/dist/Ruyi.app/Contents/Resources/build.json",
+      "expected_sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4",
+      "disk_sha256": "1e7348d44644a61e1c44e7c9de6c89baa47900c5fc08438ff2873a1e043056a4"
+    }
+  ]
+}

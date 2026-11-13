@@ -217,12 +217,17 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
     const cfg1 = (await getJson(WB_PORT, '/api/status')).json;
     const rw1 = cfg1 && cfg1.config && cfg1.config.recentWorkspaces;
     ok(Array.isArray(rw1) && rw1[0] === newWs && rw1.length === 4, '④ front-inserted path leads, prior kept (4 total)');
-    // De-dupe: re-post with a duplicate (different case) of newWs → still 4, still leads.
+    // Windows treats case variants as duplicates. POSIX stores them as distinct paths.
     const rc2 = await reqJson(WB_PORT, 'POST', '/api/config', { recentWorkspaces: [newWs, newWs.toUpperCase(), myproj, repA, repB] }, hdr);
     ok(rc2.status === 200, '④ POST duplicate-laden list ok');
     const cfg2 = (await getJson(WB_PORT, '/api/status')).json;
     const rw2 = cfg2.config.recentWorkspaces;
-    ok(rw2.length === 4 && rw2[0] === newWs, '④ case-insensitive de-dupe keeps the first (length 4)');
+    if (process.platform === 'win32') {
+      ok(rw2.length === 4 && rw2[0] === newWs, '④ case-insensitive de-dupe keeps the first (length 4)');
+    } else {
+      ok(JSON.stringify(rw2) === JSON.stringify([newWs, newWs.toUpperCase(), myproj, repA, repB]),
+        '④ POSIX recent paths preserve case distinctions and insertion order');
+    }
     // The picker persists recent + favorite arrays in one POST. Assert both reach the same on-disk snapshot,
     // which is what the next process boot will read.
     const atomic = await reqJson(WB_PORT, 'POST', '/api/config', {

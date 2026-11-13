@@ -1,0 +1,54 @@
+PASS 源抽取 computeSchedulerStep
+PASS 1 并发上限 2 → 派发前两个(数组序)
+PASS 1 有派发 → 非环非全终态
+PASS 2 依赖 running → 下游不派发
+PASS 2 有在飞(a)→ 不判环
+PASS 3 悬空依赖 + 无在飞 + 未全终态 → cycleDead
+PASS 3 全终态 → allTerminal 且【不】判环(交外壳收尾)
+PASS 3 有在飞 → 即使零派发也不判环(同步节点 fast-settle 防误诊)
+PASS 4 已在飞的节点不再派发
+PASS 4 其它就绪节点正常派发
+PASS 4 并发 2 - 在飞 1 = 1 个空位
+PASS 5 失败依赖 → 下游 toBlock(附 blockers)
+PASS 5 被阻塞节点不派发
+PASS 5 本轮产生 block 状态迁移 → 不误判依赖环
+PASS 5 多层失败链第一轮只传播一层 block，不误判深层节点为环
+PASS 5 多层失败链下一轮继续诚实传播 block
+PASS 5 依赖未全终态(running)→ 暂不阻塞(等它终态)
+PASS 6 前序 rejected 不阻塞 → 下游就绪派发
+PASS 6 前序 skipped 不阻塞 → 下游就绪派发
+PASS 6 前序 succeeded 不阻塞 → 下游就绪派发
+PASS 7 failureContinues=true → 失败依赖不阻塞
+PASS 7 all_settled 容错汇总节点在失败依赖终态后仍可运行
+PASS 8 条件 false → toSkip
+PASS 8 被跳过节点不派发
+PASS 8 条件 true → 不跳过,正常派发
+PASS 9 retry 重排节点旧 flight 未 settle → 本步不双派发
+PASS 9 有在飞(旧 flight)→ 不误判环
+PASS 9 旧 flight settle 后 → 重排节点派发
+PASS 10 loop 重排节点 + 独立节点 → 并发内都派发
+PASS 11 gate 节点依赖全终态 → 就绪派发(gate 语义在执行体,不在 reducer)
+PASS 12 全在飞 → 零派发、不判环、非全终态(外壳去 race)
+PASS 13 崩溃恢复重排为 queued 的节点 → 依赖满足即就绪派发
+PASS 14 线性链首步仅 a 就绪
+PASS 14 a 完成 → b 就绪
+PASS 14 b 完成 → c 就绪
+PASS 14 全完成 → allTerminal 无环无派发
+PASS 15 reducer 不 mutate nodes(纯函数)
+PASS 16 就绪 wait 节点 → toArm
+PASS 16 wait 不占并发槽:并发 1 仍派发普通节点 a
+PASS 16 wait 节点不进 toDispatch
+PASS 16 有 waiting 节点 → 不判环(anyWaiting 兜底,防误诊整批 failed)
+PASS 16 已 waiting 的节点本步不再武装/派发
+PASS 16 wait 节点失败依赖 → toBlock
+PASS 16 wait 节点条件 false → toSkip
+PASS 16 下游依赖 waiting 前序 → 本步不就绪
+PASS 16 waiting 前序未终态 → 不误判下游为死环
+PASS 16 wait 节点终态后 → allTerminal 无环
+PASS 17 extract computeWaveSeq
+PASS 17 concurrency splits same-layer nodes into stable dispatch waves
+PASS 17 wait arms in the same wave without consuming a worker slot
+PASS 17 invalid concurrency clamps to one without empty waves
+PASS 17 computeWaveSeq remains pure
+
+SCHEDULER-REDUCER E2E: ALL PASS

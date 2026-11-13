@@ -1,0 +1,23 @@
+{
+  "scope": "ordinary balanced-only root default-permission input chain; no held faults/rescue/fullP5 acceptance",
+  "root": "/tmp/rei-15TZ8i",
+  "cleanupSafe": true,
+  "proof": [],
+  "specs": [],
+  "reports": [],
+  "attempts": [],
+  "decisions": [],
+  "cleanups": [],
+  "caughtErrors": [
+    {
+      "at": 1794441349480,
+      "error": "Error: Stopped after authorized unlocked real desktop available without changing TCC or lock\n    at check (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:26:31)\n    at /private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:227:5\n    at Object.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:416:3)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47"
+    },
+    {
+      "at": 1794441349480,
+      "error": "Error: Stopped after authorized unlocked real desktop available without changing TCC or lock\n    at check (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:26:31)\n    at /private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:227:5\n    at Object.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-input.e2e.js:416:3)\n    at Module._compile (node:internal/modules/cjs/loader:1830:14)\n    at Object..js (node:internal/modules/cjs/loader:1961:10)\n    at Module.load (node:internal/modules/cjs/loader:1553:32)\n    at Module._load (node:internal/modules/cjs/loader:1355:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47"
+    }
+  ],
+  "output": "",
+  "fixtureOutput": ""
+}

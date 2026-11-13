@@ -84,9 +84,9 @@
 
 | | |
 |---|---|
-| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（由 `app/src/` 的 77 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 70 个原生 ES 模块，无框架、无构建。 |
+| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（由 `app/src/` 的 93 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 70 个原生 ES 模块，无框架、无构建。 |
 | **121 个原生工具 · 108 个 ACC 工具** | 包含文件、终端、搜索、Git、联网、Office 交接、跨线程回读、子代理编排及管家工具；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 566 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 566 项 e2e（默认回归 559 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 278 组 unit suite 与 25 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
+| **8 套模板 · 10 种角色 · 608 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 608 项 e2e（默认回归选取 594 项，14 项需要真实 API、桌面或指定 Mac 运行环境的 live probe 按需启用；测试清册数量不代表本机全部通过），另含 294 组 unit suite 与 44 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -300,7 +300,7 @@ Kimi Code 经官方 ACP（JSON-RPC / NDJSON）驱动：原生工具事件、如�
 
 ### 6. 桌面与 Office（ACC，可选）
 
-`mcp/ai-computer-control/` 是随 Full 发布包捆绑的桌面控制 MCP（**ACC v1.9.1**，108 个工具，源码安装需 Python ≥ 3.12），装好后工作台自动探测并同时供给两种引擎。
+`mcp/ai-computer-control/` 是随 Full 发布包捆绑的桌面控制 MCP（**ACC v1.9.1**，108 个工具，源码安装需 Python ≥ 3.12），装好后工作台自动探测并同时供给两种引擎。 108 是 Windows 工具清册口径；macOS 注册表按当前后端实现与权限动态提供工具，以实时能力检查为准。
 
 - **看**：全屏 / 区域 / 窗口截图，OCR 文字识别与定位，UIA 控件树，模板匹配。
 - **动**：鼠标、键盘、窗口管理、应用启停、剪贴板、对话框处理、宏录制回放。
@@ -524,7 +524,11 @@ node .\app\server.js serve --open        # 只监听 127.0.0.1（`--host` 绑非
 
 <details><summary><b>在 Linux / macOS 上能跑吗？</b></summary>
 
-Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源码在 Linux 上可以启动用于开发与测试（CI 的静态检查就在 Linux 上跑），但 PowerShell、资源管理器、`C:\` 路径相关的功能不适用。
+Windows 10/11 继续作为一等目标，现有发布包与完整桌面控制面向 Windows。Mac arm64 源码开发版已验证受控 bash/脚本、文件、共享 ACC 文档与图表，以及准备好运行时的 Playwright 浏览器；使用 `ruyi-workbench/start-macos.command`，或在该目录运行 `node app/server.js serve --open`。应用运行要求 Node.js ≥20；开发检查使用 Node.js 24，ACC 使用 Python 3.12 与事先准备的本平台依赖。
+
+Mac 的 system 浏览器只交接网址，不验证导航、不提供 DOM 操控。填表需要用户明确配置 managed/custom/CDP/bundled 并准备匹配的 Playwright/Chromium；`installed` 或文件存在不等于 `ready`。Mac 已接入原生截图、受控键鼠与窗口操作、AX 元素查询和动作。当前主机已验证 Vision 中英 OCR、OpenCV 模板定位与受控点击，以及如意 App 的普通 HTTP 工具调用闭环。能力目录按实际授权和依赖就绪状态开放，组合观察、像素变化验证与宏重放已接入 P5-05 当前主机切片，受控原生录制及当前窗口重绑重放已通过当前主机独立验收。共享 Office 可独立使用。[P5 证据](MACOS-PORTING/evidence/P5/ocr/README.md) 目录清点/定时摘要有 Python 路径，清理下载在 Mac 只生成建议，不执行删除或承诺废纸篓恢复。
+
+Mac 本地／内部试用 Full/Slim DMG 已提供自包含运行时，安装、整包升级、回退与凭据迁移见[Mac 部署说明](ruyi-workbench/docs/MACOS-RELEASE_CN.md)。正式发行门继续保留：macOS 14、正式签名与干净机离线发行仍未验证，当前开发验证环境为 macOS 27.0.1 arm64。Windows 同候选回归未执行的阶段关口仍保留。详见 [Mac 移植计划](MACOS-PORTING/README.md)与 [P3 逐包证据](MACOS-PORTING/evidence/P3/README.md)。Linux 源码可用于开发测试，PowerShell、资源管理器和 Windows 路径功能不能直接使用。
 </details>
 
 ---
@@ -534,7 +538,7 @@ Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源�
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            后端源码：77 个有序模块（改这里，再跑 build.js）
+│   ├── app/src/            后端源码：93 个有序模块（改这里，再跑 build.js）
 │   ├── app/server.js       后端运行产物（由 app/build.js 拼接，零 npm 运行时依赖）
 │   ├── app/public/         前端：index.html + 70 个原生 ES 模块 + 分层 CSS + 中英语言包
 │   ├── desktop/            WinForms + WebView2 桌面壳

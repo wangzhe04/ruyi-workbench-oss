@@ -1,0 +1,119 @@
+{
+  "date": "2026-11-07",
+  "status": "passed_in_user_approved_Mac_scope",
+  "userDecision": "继续完成P3最终验收，只需要Mac端",
+  "candidateCommit": "aa2d78464ac117dea547a247676022964066feb6",
+  "baselineValidationCommit": "6717378f",
+  "scope": "P3-01 through P3-04, current macOS27.0.1 arm64 development environment, including real Workbench/ACC combined workflow",
+  "requirements": [
+    {
+      "id": "P3-01",
+      "result": "passed",
+      "evidence": [
+        "checks/macos-acc-shared.txt",
+        "checks/smoke_macos_shared.txt",
+        "../acc-shared/validation.json"
+      ]
+    },
+    {
+      "id": "P3-02",
+      "result": "passed",
+      "evidence": [
+        "checks/macos-office-artifacts.txt",
+        "checks/office-independent.txt",
+        "samples/renders-4x5Not/verification.json",
+        "../office/validation.json"
+      ]
+    },
+    {
+      "id": "P3-03",
+      "result": "passed",
+      "evidence": [
+        "checks/macos-browser-runtime.txt",
+        "checks/smoke_browser_runtime.txt",
+        "workflow-headed/summary.json",
+        "workflow-headless/summary.json",
+        "../browser/validation.json"
+      ]
+    },
+    {
+      "id": "P3-04",
+      "result": "passed",
+      "evidence": [
+        "checks/macos-platform-templates.txt",
+        "checks/macos-capability-popover.browser.txt",
+        "../templates/content-audit.json",
+        "../templates/validation.json"
+      ]
+    },
+    {
+      "id": "V01",
+      "result": "passed",
+      "evidence": [
+        "checks/build.txt",
+        "checks/syntax-final.txt",
+        "checks/fast.txt"
+      ]
+    },
+    {
+      "id": "tracking-review",
+      "result": "passed",
+      "evidence": [
+        "review.json",
+        "source-audit.json",
+        "source-fingerprint.json",
+        "validation.json"
+      ]
+    }
+  ],
+  "excludedByUser": [
+    {
+      "id": "Windows",
+      "status": "excluded_from_this_acceptance_not_passed",
+      "evidence": "../acceptance/windows-e844/summary.json"
+    }
+  ],
+  "laterPhaseCarryover": [
+    {
+      "id": "O2",
+      "requirement": "Actual macOS14 arm64 execution and system-symbol/runtime closure",
+      "phase": "P6",
+      "status": "pending",
+      "staticEvidence": "../acceptance/minimum/README.md"
+    },
+    {
+      "id": "P4",
+      "requirement": "Mac App host lifecycle, Finder visibility, notification, voice and signed identity revalidation",
+      "status": "planned"
+    },
+    {
+      "id": "P5",
+      "requirement": "Mac desktop input, AX and OCR",
+      "status": "planned"
+    },
+    {
+      "id": "P6",
+      "requirement": "Signing/notarization, clean-machine offline release, upgrade/rollback and Trash",
+      "status": "planned"
+    }
+  ],
+  "otherUnverified": [
+    "Existing P2 real-account/model-quality/login-Keychain deferred groups",
+    "Human visible interaction with tested Chromium156; automatic headed real-tool flow passed"
+  ],
+  "validationSummary": {
+    "selectedCommandsFinalPassed": 59,
+    "initialFailuresResolved": 2,
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "headedWorkflowAssertions": 27,
+    "headlessWorkflowAssertions": 27,
+    "officeIndependentAssertions": 24,
+    "officeVisualPages": 6,
+    "unresolvedCodeFindings": 0
+  },
+  "remainingRequiredWorkInApprovedScope": [],
+  "independentReview": "review.json",
+  "scopedP3AcceptanceComplete": true
+}

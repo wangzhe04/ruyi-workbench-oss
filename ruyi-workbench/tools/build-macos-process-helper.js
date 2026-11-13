@@ -4,13 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
 
-function buildMacProcessHelper() {
+function buildMacProcessHelper(output) {
   if (process.platform !== 'darwin') throw new Error('macOS process helper requires the macOS SDK');
   const architecture = { arm64: 'arm64', x64: 'x86_64' }[process.arch];
   if (!architecture) throw new Error('Unsupported macOS architecture: ' + process.arch);
   const root = path.resolve(__dirname, '..');
-  const directory = path.join(root, 'runtime', 'macos');
-  const output = path.join(directory, 'ruyi-process-helper');
+  output = output || path.join(root, 'runtime', 'macos', 'ruyi-process-helper');
+  const directory = path.dirname(output);
   const temporary = output + '.' + process.pid + '.tmp';
   fs.mkdirSync(directory, { recursive: true });
   try {

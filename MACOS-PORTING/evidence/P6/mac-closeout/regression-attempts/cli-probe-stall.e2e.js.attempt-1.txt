@@ -1,0 +1,7 @@
+PASS C0 服务起来了
+PASS C1 首探照旧:/api/status 报出两支合成 CLI(claude /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-128f13-MFjw4g/bin/claude-slow / kimi /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-128f13-MFjw4g/bin/kimi-slow)
+PASS C2 过期之后那一发 /api/status 秒回(121 ms;修前 ≥ 3000 ms)
+PASS C2b 同一时段 /health 也没被钉住(75 发,最慢 1 ms)
+PASS C3 过期期间答旧值,不是空串(claude /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-128f13-MFjw4g/bin/claude-slow / kimi /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-128f13-MFjw4g/bin/kimi-slow)
+PASS C4 后台那一轮换上了新结果:kimi 不可用之后 detectedKimiPath 变空、claude 照旧(kimi「」)
+CLI PROBE STALL E2E: ALL PASS

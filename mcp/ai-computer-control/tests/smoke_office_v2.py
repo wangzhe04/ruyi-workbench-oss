@@ -287,16 +287,19 @@ for ext, fn in writers.items():
           Path(target).read_bytes() == b"ORIGINAL" and not [f for f in os.listdir(root) if f.startswith(".ruyi-")])
 
 for mod, fn, label in (("docx", writers["docx"], "python-docx"), ("openpyxl", writers["xlsx"], "openpyxl"),
-                       ("pptx", writers["pptx"], "python-pptx")):
-    saved = sys.modules.get(mod)
+                       ("pptx", writers["pptx"], "python-pptx"), ("reportlab", writers["pdf"], "reportlab")):
+    saved_modules = {name: value for name, value in sys.modules.items()
+                     if name == mod or name.startswith(mod + ".")}
+    for name in saved_modules:
+        sys.modules.pop(name, None)
     sys.modules[mod] = None       # makes `import mod` raise ImportError
     try:
-        r = fn(str(root / f"nodep.{mod}"))
+        r = fn(str(root / ("nodep.pdf" if mod == "reportlab" else f"nodep.{mod}")))
     finally:
-        if saved is None:
-            sys.modules.pop(mod, None)
-        else:
-            sys.modules[mod] = saved
+        for name in list(sys.modules):
+            if name == mod or name.startswith(mod + "."):
+                sys.modules.pop(name, None)
+        sys.modules.update(saved_modules)
     check(f"missing {mod}: install-hint envelope", r.get("ok") is False and f"pip install {label}" in r.get("error", ""), r)
 saved_plt = office_chart._PLT
 office_chart._PLT = None

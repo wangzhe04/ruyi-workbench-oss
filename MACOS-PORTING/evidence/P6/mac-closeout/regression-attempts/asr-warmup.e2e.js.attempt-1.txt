@@ -1,0 +1,74 @@
+PASS 0 工作台起来了
+PASS 0b 拿到 token
+PASS 0c 假冷启动组件被如意拉起(登记经 RUYI_TOOLBOX_HOME)
+PASS 0d 语音识别自动选中假组件(toolbox-fake-cold / fake-auto)
+PASS 0e 起来时模型没装(/health 不触发加载;实得 {"loaded":false,"loads":0,"calls":0})
+PASS A1 没带 token → 403(token 级路由;实得 403)
+PASS A2a 暂时清空语音识别配置(实得 200)
+PASS A2 没配语音识别 → 409 asr.not_configured(实得 409 {
+  "ok": false,
+  "error": {
+    "code": "asr.not_configured",
+    "params": {},
+    "message": "语音识别未配置(asrProviderId/)
+PASS A2b 配回(实得 200)
+PASS B1 冷:200 ready:true warm:false(实得 200 {
+  "ok": true,
+  "ready": true,
+  "warm": false,
+  "durationMs": 1509
+})
+PASS B2 等它装好才回(耗时 1509 ms ≥ 加载 1500 ms)
+PASS B3 组件那头恰好多一次装载、一发转写(loads 0→1 calls 0→1)
+PASS B4 探针是 1 秒 16 kHz 单声道静音(文件段 32044 字节 = 44+32000)、带的是配置里的模型名(fake-auto)
+PASS C1 热:warm:true(实得 {
+  "ok": true,
+  "ready": true,
+  "warm": true,
+  "durationMs": 2
+})
+PASS C2 秒回(3 ms)且没打扰组件(calls 1→1 loads 1→1)
+PASS D1 审计里有 asr_warmup(冷 ok + 热;实得 2 条)
+PASS D2 预热不记 asr_transcribe_ok、不进账本(ok=0 ledger=0)
+PASS D3a 自带尺子:一发真转写成功(实得 200)
+PASS D3 真转写才记:审计 1 条、账本 1 行(读法有效)
+PASS E1 三发并发都成功、都是冷(实得 200:false 200:false 200:false)
+PASS E2 组件那头只装一次、只多一发转写(loads 1→2 calls 2→3)
+PASS F0 配置改要 fake-big(实得 200)
+PASS F1 如意确实打了 unload(被组件忽略)
+PASS F2 此刻组件仍装着 fake-small(实得 loaded=true resolved=fake-small)
+PASS F3 装的不是要的那份 → 不当作已装、换载(warm=false resolved=fake-big loads 2→3)
+PASS F4 换载之后再问才是热的(warm=true)
+PASS G0 配一个非 toolbox 的语音识别服务商(实得 200)
+PASS G1 云端服务商 → skipped:'remote' 秒回、组件那头一发没打(实得 {
+  "ok": true,
+  "ready": true,
+  "skipped": "remote",
+  "durationMs": 0
+} calls 4→4)
+PASS G2 配回假组件(实得 200)
+PASS H1 组件回 500 → 502 asr.upstream 信封(实得 502 {
+  "ok": false,
+  "error": {
+    "code": "asr.upstream",
+    "params": {
+      "status": 500,
+      "protocol": "transcriptions"
+    },
+   )
+PASS H2 组件恢复后再问就成(失败没有留下脏状态;实得 200 {
+  "ok": true,
+  "ready": true,
+  "warm": false,
+  "durationMs": 1506
+})
+PASS I1 假组件进程被杀,端口不再应答
+PASS I2 就地把它拉起来再装模型(实得 200 {
+  "ok": true,
+  "ready": true,
+  "warm": false,
+  "durationMs": 1917
+})
+PASS I3 是新进程(pid 65285→65354)且模型已装
+
+ASR WARMUP E2E: ALL PASS

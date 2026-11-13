@@ -405,9 +405,12 @@ try {
     const wholeData = [...globalFiles(HOME_H), ...projectFiles(HOME_H)].map(readText).join('\n');
     ok(!/SuperSecret998877/.test(wholeData), 'H12c 整个记忆库里没有那个口令');
   } finally {
-    const exited = new Promise(resolve => { if (wb.exitCode !== null) resolve(); else wb.once('exit', resolve); });
-    try { killOwnTree(wb.pid); } catch { /* gone */ }
+    const exited = new Promise(resolve => { if (wb.exitCode !== null || wb.signalCode !== null) resolve(); else wb.once('exit', resolve); });
+    const cleanup = killOwnTree(wb);
     await Promise.race([exited, sleep(5000)]);
+    ok((wb.exitCode !== null || wb.signalCode !== null) && !cleanup.skipped
+      && (process.platform !== 'darwin' || (cleanup.incomplete === false && cleanup.scope === 'observed-tree')),
+      'owned workbench and observed MCP process tree cleanup is confirmed');
     await fake.close();
     try { fs.rmSync(HOME_H, { recursive: true, force: true }); } catch { /* windows 句柄 */ }
   }

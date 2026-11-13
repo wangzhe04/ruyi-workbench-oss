@@ -1,0 +1,34 @@
+[fake] [fake-openai] listening on 60676
+PASS workbench up
+PASS scraped UI token from index.html
+PASS (a) at least 2 tool_result events (got 2)
+PASS (a) shell_start ok with shellId s1
+PASS (a) 107-S0 cwd-less shell_start reports the turn working folder as cwd (got "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (a) shell_send ok
+FAIL (a) 107-S0 (Get-Location).Path prints the turn working folder, not home (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'", home "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK")
+PASS (a) session still running after send
+PASS (b) shell_poll after turn: running:true (cross-turn survival)
+PASS (b) shell_send echoes NEW marker (session alive across turn + UI-token通路)
+PASS (c) start s2 ok
+PASS (c) start s3 ok
+PASS (c) start s4 rejected: error contains 上限 (got: 本会话的 shell 已达上限 3(运行中 3 个))
+PASS (c) duplicate/at-cap start rejected
+PASS (d) shell_kill s1 ok
+PASS (d) shell_list no longer contains s1 (got: ["s2","s3"])
+PASS (d) shell_list still contains s2, s3
+PASS (e) start s5 after kill succeeds (cap counts live sessions only)
+PASS (f) session created with cwd SESS_CWD (got "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+PASS (f1) shell_start without cwd → cwd is the session cwd (got "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (f1) (Get-Location).Path prints the session cwd (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'", home "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK")
+FAIL (f2) shell_start with explicit cwd prints that cwd (got: "/bin/bash: eval: line 8: syntax error near unexpected token `.Path'\n/bin/bash: eval: line 8: `(Get-Location).Path'")
+FAIL (f3) powershell_run without cwd runs in the session cwd (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+FAIL (f4) script_run without cwd runs in the session cwd (got: "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-shell-session-e2e/sess-cwd")
+FAIL (f5) powershell_run with explicit cwd runs there (got: "tool 'powershell_run' is unavailable (platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现)")
+PASS (f6) shell_start in a session whose cwd is an execute:false workspace → denied (got {"ok":false,"error":"该工作区未授权执行命令(execute=false),已拒绝;如需执行请在工作区权限中开启","code":"not-allowed"})
+FAIL (f6) powershell_run without cwd in that session → denied
+PASS (f6) the denied shell s8 was never started
+PASS (f7) explicit cwd inside the execute:false workspace → denied
+
+SHELL-SESSION E2E: FAIL (8)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fuJVoK

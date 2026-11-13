@@ -1,0 +1,7 @@
+{
+  "exit": null,
+  "signal": "SIGABRT",
+  "stdout": "",
+  "stderr": "*** Terminating app due to uncaught exception 'NSInternalInconsistencyException', reason: 'Invalid message sent to event \"NSEvent: type=MouseMoved loc=(25,1072) time=0.0 flags=0 win=0x0 winNum=0 ctxt=0x0 evNum=0 click=2 buttonNumber=0 pressure=0.498039 deltaX=7.000000 deltaY=-4.000000 deviceID:0x0 subtype=0\"'\n*** First throw call stack:\n(\n\t0   CoreFoundation                      0x000000018907e8c0 __exceptionPreprocess + 176\n\t1   libobjc.A.dylib                     0x0000000188adc60c objc_exception_throw + 88\n\t2   Foundation                          0x000000018a7c54d8 -[NSCalendarDate initWithCoder:] + 0\n\t3   AppKit                              0x000000018d75f6d8 -[NSEvent associatedEventsMask] + 444\n\t4   ruyi-p5-pointer-guard-testing-helpe 0x000000010211c7d8 RuyiAutomationSequenceEvent + 2880\n\t5   ruyi-p5-pointer-guard-testing-helpe 0x000000010211b8a0 RuyiAutomationTestPointerSubtypes + 756\n\t6   ruyi-p5-pointer-guard-testing-helpe 0x00000001020fda30 main + 1824\n\t7   dyld                                0x0000000188b77e80 start + 6688\n)\nlibc++abi: terminating due to uncaught exception of type NSException\n",
+  "note": "Explicit diagnostic rerun after initial runner JSON.parse lost child stderr; no input dispatched"
+}

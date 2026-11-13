@@ -1,0 +1,69 @@
+PASS ① 找到 .tool-tabs 块
+PASS ① 存在 data-tab="usage" 且使用本地化文案「用量」
+PASS ① 用量页签属于 7 个用户工作区入口
+PASS ① 用量位于活动记录之前
+PASS ① 存在面板 section#tab-usage
+PASS ① 面板内含 #usagePanel 渲染宿主
+PASS ② 找到 DEV_TABS 声明
+PASS ② usage 不在 DEV_TABS（简易模式不被改写隐藏）
+PASS ② v3 §B2: simple 模式隐藏 usage 页签(6->4,改 mini 链接进入)
+PASS ② v3 §B2: simple 模式隐藏 audit 页签(与 usage 同批)
+PASS ③ switchTab 通过领域入口懒加载 usage
+PASS ③ loadUsage 命中 GET /api/usage/summary?range=
+PASS ③ 默认范围为本月(month)
+PASS ③ 范围段控含 data-range="today"
+PASS ③ 范围段控含 data-range="week"
+PASS ③ 范围段控含 data-range="month"
+PASS ③ 范围段控含 data-range="all"
+PASS ③ 默认段控高亮「本月」
+PASS ③ 面板含刷新按钮 #usageRefreshBtn
+PASS ③ 段控按钮 wire 到 setUsageRange
+PASS ④ 定义 usageAggHead
+PASS ④ 聚合头读取 inTok / outTok
+PASS ④ estimatedTurns>0 时标注估算回合
+PASS ④ 渲染 costsByCurrency（按币种分组，不换算）
+PASS ④ 成本用「估算/非实际扣费」诚实措辞
+PASS ④ 金额带「约」前缀（fmtCostsByCurrency prefix，代码与中文 locale 双向锁）
+PASS ⑤ 定义 usageGroup（按引擎/服务商/会话）
+PASS ⑤ 三种分组标题齐备
+PASS ⑤ usageBarSvg 用 createElementNS 手绘（离线，不引图表库）
+PASS ⑤ 构建条填充 .usage-bar-fill
+PASS ⑤ 引擎条复用 --wf-claude / --wf-provider 双色
+PASS ⑤ 会话条可点击跳转（openSession）
+PASS ⑥ 定义 usageTrendSvg（手绘迷你柱状）
+PASS ⑥ 构建趋势柱 .usage-trend-bar
+PASS ⑦ 定义 usageBudgetBanner
+PASS ⑦ 读取 budget.spentThisMonth / monthly
+PASS ⑦ 超支文案已接入资源
+PASS ⑦ 超支加 .over 修饰类
+PASS ⑦ 超支 role=alert（软告警，不阻断）
+PASS ⑧ 定义 entryPlanBased（诚实判定）
+PASS ⑧ 按后端 planBased / costTrusted 区分
+PASS ⑧ 计划内条目标注「计划内计费」
+PASS ⑧ 显示来源名(sourceLabel/source)
+PASS ⑧ 计划内不伪造金额（订阅计费说明）
+PASS ⑧ 聚合诚实脚注由后端 totals.planBasedTurns 驱动（对齐真实契约）
+PASS ⑨ providerCard 写 p.pricing
+PASS ⑨ 单价含 inputPerM / outputPerM（每百万 token）
+PASS ⑨ Provider 单价支持缓存命中与精确模型覆盖
+PASS ⑨ 单价含币种选择(PRICING_CURRENCIES)
+PASS ⑨ 单价说明使用 provider.pricing.help 本地化文案
+PASS ⑨ 单价块并入 provider 卡片
+PASS ⑩ 月度预算配置在「用量与限额」tab（所有界面模式可见）
+PASS ⑩ Claude 第三方端点单价在「Claude CLI」tab
+PASS ⑩ 设置页（W6 起逐项即存）提交 usageBudget / claudePricing
+PASS ⑩ fillSettings 回填 usageBudget / claudePricing
+PASS ⑪ 空状态引导文案
+PASS ⑪ 图表加 sr-only 概述（无障碍）
+PASS ⑪ SVG 数值自算 round（round2）
+PASS ⑪ #usagePanel 为 aria-live 区域
+PASS ⑫ .usage-panel 样式存在
+PASS ⑫ 范围段控 + active 态样式
+PASS ⑫ 预算横幅 + over 态样式
+PASS ⑫ 超支态用 --warn（琥珀）
+PASS ⑫ 条填充 + 趋势柱样式
+PASS ⑫ .sr-only 视觉隐藏样式存在
+PASS ⑫ 用量数字用 tabular-nums
+PASS ⑫ 用量 CSS 走 token（无硬编码十六进制色）
+
+USAGE-DASHBOARD E2E: ALL PASS

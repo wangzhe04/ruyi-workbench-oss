@@ -1,0 +1,128 @@
+[
+  {
+    "file": "artifacts.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 3.774,
+    "log": "artifacts.e2e.js.txt"
+  },
+  {
+    "file": "autonomy-benchmark.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 3.642,
+    "log": "autonomy-benchmark.e2e.js.txt"
+  },
+  {
+    "file": "bridge-cancel-timeout.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 3.237,
+    "log": "bridge-cancel-timeout.e2e.js.txt"
+  },
+  {
+    "file": "desktop-mcp-smoke.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 56.875,
+    "log": "desktop-mcp-smoke.e2e.js.txt"
+  },
+  {
+    "file": "engine-env-runtime.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 5.741,
+    "log": "engine-env-runtime.e2e.js.txt"
+  },
+  {
+    "file": "mcp-import-origin.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 11.338,
+    "log": "mcp-import-origin.e2e.js.txt"
+  },
+  {
+    "file": "shell-session.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 2.489,
+    "log": "shell-session.e2e.js.txt"
+  },
+  {
+    "file": "privacy-gateway.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 19.169,
+    "log": "privacy-gateway.e2e.js.txt"
+  },
+  {
+    "file": "steward-exempt-no-swap.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 5.316,
+    "log": "steward-exempt-no-swap.e2e.js.txt"
+  },
+  {
+    "file": "steward-exempt-shell-send.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 3.185,
+    "log": "steward-exempt-shell-send.e2e.js.txt"
+  },
+  {
+    "file": "steward-guardrails.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 13.562,
+    "log": "steward-guardrails.e2e.js.txt"
+  },
+  {
+    "file": "tool-audit-fixes.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 1.397,
+    "log": "tool-audit-fixes.e2e.js.txt"
+  },
+  {
+    "file": "tool-audit-r2-meta.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 3.478,
+    "log": "tool-audit-r2-meta.e2e.js.txt"
+  },
+  {
+    "file": "tool-audit-r2-netexec.e2e.js",
+    "exitCode": 1,
+    "timedOut": false,
+    "seconds": 5.083,
+    "log": "tool-audit-r2-netexec.e2e.js.txt"
+  },
+  {
+    "file": "vision-loop.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 4.536,
+    "log": "vision-loop.e2e.js.txt"
+  },
+  {
+    "file": "overlay-update-core.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 0.417,
+    "log": "overlay-update-core.e2e.js.txt"
+  },
+  {
+    "file": "settings-wave1.browser.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 17.154,
+    "log": "settings-wave1.browser.e2e.js.txt"
+  },
+  {
+    "file": "steward-exempt-delegation.e2e.js",
+    "exitCode": 0,
+    "timedOut": false,
+    "seconds": 14.81,
+    "log": "steward-exempt-delegation.e2e.js.txt"
+  }
+]

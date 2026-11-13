@@ -1,0 +1,41 @@
+PASS renderAgentRuns 函数存在且边界可定位
+PASS ① 聚合头容器 + 状态 chip(.ar-agg-chip.st-<status>)+ 节点计数
+PASS ① 已运行时长 chip + runElapsedMs/fmtDuration 计时工具
+PASS ① 累计 token/成本 chip(runCostLabel;字段缺失时返回空不显示——defensive)
+PASS ② 状态徽标 .wf-status-badge.st-<status> + 图标映射
+PASS ② CSS 定义状态色标 .st-running
+PASS ② CSS 定义状态色标 .st-succeeded
+PASS ② CSS 定义状态色标 .st-failed
+PASS ② CSS 定义状态色标 .st-rejected
+PASS ② CSS 定义状态色标 .st-skipped
+PASS ② CSS 定义状态色标 .st-waiting_resource
+PASS ② CSS 定义状态色标 .st-degraded
+PASS ② running 徽标脉冲动画(受全局 reduced-motion 收敛)
+PASS ③ 引擎徽标构建器 agentEngineBadge 被节点卡调用
+PASS ③ 双引擎徽标类 eng-claude / eng-provider
+PASS ③ 引擎徽标 token 别名(Claude=--accent 青花蓝 / Provider=--eng-claude 釉里红,主题感知)
+PASS ③ 引擎徽标以 token 着色(不硬编码)
+PASS ④ nodeDisplayStatus 展示态状态派生存在
+PASS ④ defensive:后端直发 rejected 用之;仍发 failed+gateVerdict/verdict==="fail" 时派生为 rejected
+PASS ④ rejected 在 run/node 两级都有琥珀色标(≠failed 的红)
+PASS ④ 三态分色:rejected=--warn(琥珀)、failed=--danger(红)、skipped=--muted(灰,已有 an-skipped)
+PASS ④ skipped 灰色标存在
+PASS ⑤ 工具箱调用共享运行故障判据，持久化/空闲中止/资源阻塞均保留
+PASS ⑤ 并存故障逐条显示双语文案
+PASS ⑤ 共享故障提供查看成员，紧随的运行控制保留停止动作与单一文案登记
+PASS ⑤ 共享横幅以 --warn 琥珀着色
+PASS ⑥ 迭代/预算 mini 进度(loop 显 loopIteration,否则 iters/maxIters)
+PASS ⑥ 节点计时 now-startedAt
+PASS ⑥ 质量门 verdict + 置信度环
+PASS ⑥ 资源锁 chip 高亮 blocker(.blocking)
+PASS ⑥ blocker chip 以 --warn 高亮
+PASS ⑦ 运行中 run:暂停/继续/停止 wire 到 pause/resume/stop
+PASS ⑦ 失败/结束节点:重试此节点/及下游 wire 到 retry_node
+PASS ⑦ 失败/判否节点另给「查看错误」
+PASS ⑧ 处置按钮带 aria-label(无障碍)
+PASS ⑧ renderAgentRuns 不使用 innerHTML(结果/错误经 el()/textContent,XSS 安全)
+PASS ⑨ 核心函数仍在(renderAgentRuns/loadAgentRuns/agentRunAction)
+PASS ⑨ 保留 .agent-run-card/.agent-node 基类 + data-run-id/data-node-id(展开态保存不回归)
+PASS ⑨ 2s 轮询协议未改
+
+AGENT WORKFLOW MONITOR UI E2E: ALL PASS

@@ -1,0 +1,24 @@
+✔ Mac Trash uses one literal path argument and requires confirmed native success (1.923125ms)
+✔ missing helper, symbolic target and failed/malformed/timeout results fail closed (1.64475ms)
+✔ Mac App logical package maps to the whole bundle; incomplete layouts are refused (1.152042ms)
+✔ physical App aliases cannot bypass references or running registry entries (85.097666ms)
+✔ staging copy retains payload inventory and cannot mutate the frozen source (4.225458ms)
+✔ payload checks detect byte changes, unexpected files, executable mode changes and missing files (2.285875ms)
+✔ relative internal framework links remain movable; absolute, broken and external links are refused (2.02625ms)
+✔ an App root replaced with a symlink to an external copy is refused (0.798291ms)
+✔ asset lock rejects changed components and missing provenance before building (1.969333ms)
+✔ manifest paths cannot escape their payload root (0.333167ms)
+✔ native audit handles parenthesis paths and rejects a real missing loader-relative dylib (697.202292ms)
+✔ trial integrity binds guides, payload, policy, provenance and the one explicit Applications shortcut (5.742291ms)
+✔ new-location installation refuses existing directories and dangling links without changing them (3.469625ms)
+✔ resource-bearing code targets resolve to the correct nearest app/framework container (0.222292ms)
+✔ distribution verification refuses corrupt images, sidecars and provenance before mounting (4.127166ms)
+✔ trial build refuses source overlap and cleans its exclusively reserved output on early failure (2.510958ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 751.276708

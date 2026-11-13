@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "stage": "implementation code review before final builds and direct E2E",
+  "reviewedAt": "2026-11-12T09:50:34.294Z",
+  "baseline": "20346fba4dcbdcf068b469421236d356dbfae129",
+  "scope": "P6-03 manual same-version build-to-build whole-App upgrade/rollback and Mac native Trash, P6-04 related evidence. No formal signing, notarization, clean-user, macOS14 or Windows acceptance.",
+  "sourceBindings": {
+    "ruyi-workbench/app/src/00-boot.js": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25",
+    "ruyi-workbench/app/src/13u-migration-center.js": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0",
+    "ruyi-workbench/app/src/manifest.json": "2383aac6f575afd414fb7ee306591e48d87998813f20faad3e602415dfff5b75",
+    "ruyi-workbench/app/server.js": "dfe60965b15bb925ea669a06cc0f3dbf0c91ff43f4ad445f0cdd701f6e483f38",
+    "ruyi-workbench/app/public/locales/zh-CN.json": "ed5ffc7027ff4fb264dc9bbecc76c32438a83002d39b26b6068f702905379a4e",
+    "ruyi-workbench/app/public/locales/en-US.json": "8ca7bc3c0e27d41735c84496d6511e76b61b89107f720699e4b5b13f338d92ee",
+    "ruyi-workbench/resources/macos-trash-helper.m": "8b7cf348e803ef98d66624d96586a016fd36b652dc74d22a680e3eab8f88d53d",
+    "ruyi-workbench/tools/build-macos-trash-helper.js": "e3ec0b78424a79f2d477fe9bbaa520f9478fede9eb1be6c4b32eaff7b1d22d0d",
+    "ruyi-workbench/tools/package-macos-offline.js": "d7927c9374e5bca6d9e5188825f81dbb9d1a843b8dcfe0c5eea11b8c5f486ac0",
+    "dev-harness/unit/macos-migration-trash.test.js": "9b946d5d6fecb462e54c348385e32da584fd2604e5c4ced9575f1b0bfb24fb83",
+    "dev-harness/macos-migration-trash.e2e.js": "ae1a2bffcd6c49530a0e4d49769336dca02c705df6ae292b67db311dee2273e5",
+    "dev-harness/macos-upgrade-rollback.e2e.js": "5c8d76169b39dc8a614dd7d7dc71d9e96331829cc111e43427ac76e11a80a443"
+  },
+  "findings": [
+    {
+      "id": "R1",
+      "priority": "blocking",
+      "finding": "Same physical App registered through ancestor aliases could bypass reference/running guards keyed by lexical path.",
+      "evidence": "/tmp/ruyi-p603-review/alias-ref-probe-before.json",
+      "resolution": "Before invoking Trash, aggregate all same canonical App targets and enforce all related running states and reference IDs. Also recognize host paths outside workbench as the logical App package.",
+      "status": "closed",
+      "validation": [
+        "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+        "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+        "unit permanent alias/ref/running test"
+      ]
+    },
+    {
+      "id": "R2",
+      "priority": "blocking",
+      "finding": "Case-sensitive .app/layout detection could fall back to trashing only the signed Resources workbench subtree.",
+      "resolution": "Resolve native canonical root; identify .app extension without case sensitivity; allow only exact complete workbench layout within an App and refuse other App subtrees.",
+      "status": "closed",
+      "validation": "/tmp/ruyi-p603-review/guards-probe.json"
+    },
+    {
+      "id": "R3",
+      "priority": "blocking",
+      "finding": "Expanded outer-App target needed lexical and parent-entry protection for data/home symlink entries which resolve outside the App.",
+      "resolution": "Guard target against lexical protected paths, native canonical paths, and canonical parent plus final entry before Trash.",
+      "status": "closed",
+      "validation": "/tmp/ruyi-p603-review/guards-probe.json"
+    },
+    {
+      "id": "R4",
+      "priority": "test correctness",
+      "finding": "Running E2E fixture used own process PID, which migrationPidAlive explicitly excludes.",
+      "resolution": "Use an actual owned live child and killOwnTree cleanup; no earlier direct execution or real Trash side effect occurred.",
+      "status": "closed_in_code_pending_direct_e2e"
+    },
+    {
+      "id": "R5",
+      "priority": "user-facing failure handling",
+      "finding": "New Mac failure codes lacked localized messages and unsupported-platform text still claimed only Windows.",
+      "resolution": "Added three actionable failure messages in Chinese and English and generalized unsupported-platform text.",
+      "status": "closed"
+    },
+    {
+      "id": "R6",
+      "priority": "test correctness",
+      "finding": "New permanent alias unit called nonexistent invalidateConfigCache and did not reach running-guard assertions.",
+      "resolution": "Use existing mutateConfig write chain; all four focused units pass including both reference and running cases.",
+      "status": "closed",
+      "evidence": "/tmp/ruyi-p603-review/unit-current.txt"
+    }
+  ],
+  "clarifications": [
+    {
+      "issue": "Initial concern that case alias strings defeat canonical guards",
+      "result": "Retracted after independently establishing fs.promises.realpath and fs.realpathSync.native normalize filesystem casing; pure case alias reference and current-App protection both refuse before helper invocation."
+    }
+  ],
+  "independentChecks": {
+    "focusedUnit": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/ruyi-p603-review/unit-fixed.txt"
+    },
+    "relatedMigrationAndNativePackageUnit": {
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/ruyi-p603-review/related-unit.txt"
+    },
+    "pureProtectedPathProbes": {
+      "passed": 5,
+      "failed": 0,
+      "nativeHelperInvocations": 0,
+      "report": "/tmp/ruyi-p603-review/guards-probe.json"
+    },
+    "ancestorAliasRefusal": {
+      "passed": true,
+      "nativeHelperInvocations": 0,
+      "report": "/tmp/ruyi-p603-review/alias-ref-probe-after.json"
+    },
+    "caseAliasRefusal": {
+      "passed": true,
+      "nativeHelperInvocations": 0,
+      "report": "/tmp/ruyi-p603-review/case-alias-ref-probe.json"
+    },
+    "diffWhitespace": "git diff --check passed"
+  },
+  "upgradeReview": "Manual drill keeps old App and newer data separately, validates staged App and all original distributions, snapshots complete data before forward config normalization, restores snapshot into a fresh data root, and explicitly limits rollback to same product version3.0.1 differing builds. No automatic updater, atomic replacement or arbitrary future-schema compatibility claimed.",
+  "remainingBlockingCodeFindings": [],
+  "remainingAcceptance": [
+    "serial actual native Trash and restoration of only owned complete App",
+    "final new Full/Slim source/fingerprint/native signatures and offline/install acceptance",
+    "serial real old/new DMG upgrade and selected snapshot rollback",
+    "final user/admin/offline deployment docs and complete applicable regression results"
+  ],
+  "conclusion": "Code review passed for current bounded implementation; final direct E2E/artifact/documentation acceptance remains pending."
+}

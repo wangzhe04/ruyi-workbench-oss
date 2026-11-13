@@ -9,12 +9,14 @@ description: 读取、摘要、对比与转换已有的 Word、PDF、Markdown �
 
 ## 工具
 
-- 纯文本、Markdown 用 `file_read`；它按扩展名拒读 Office 和 PDF。
-- .docx/.pptx 用桌面控制 MCP 的 `read_document`（长文按 `offset`/`next_offset` 续读）；PDF 用 `pdf_read_pages`（按页读，可先看 `outline` 再选页）；.xlsx 用 `excel_read`。老 .doc/.xls/.ppt 请用户先另存为新版格式。
+- 纯文本、Markdown 用 `file_read`；它也支持原生 Office/PDF 读取。需要结构、分页或多工作表时优先使用下面专用工具，按实际截断/依赖提示续读。
+- .docx/.pptx 用共享 ACC 的 `read_document`（长文按 `offset`/`next_offset` 续读）；PDF 用 `pdf_read_pages`（按页读，可先看 `outline` 再选页）；.xlsx 用 `excel_read`。老 .doc/.xls/.ppt 请用户先另存为新版格式。
 - 写 Word 用 `write_document`，写 PDF 用 `write_pdf`；两者都是创建或覆盖。`script_run` 会拦下手写 docx/pdf 的脚本。
-- 工具清单里没直接看到上述桌面控制 MCP 工具时，先用 `tool_search` 找（自适应装载下它们可能要经 `tool_invoke_read` / `tool_invoke_edit` 调用）；搜也搜不到才停下来，说明缺少桌面控制组件，不要硬写解析或生成脚本。
+- 工具清单里没直接看到上述共享 ACC 工具时，先用 `tool_search` 找（自适应装载下它们可能要经 `tool_invoke_read` / `tool_invoke_edit` 调用）；专用读取工具不可用时可按 file_read 原生读取的实际结果继续，检查截断与依赖错误；两条读取路径都失败才停下说明。生成工具缺失时说明缺少共享 ACC 组件，不要硬写生成脚本。
 
 ## 工作流程
+
+Mac 尚未实现 OCR；扫描件不能因此转去系统桌面识别，需如实列为未识别。
 
 1. 先列出输入文件，确认格式、数量、大小和目标输出路径；原文件默认只读。
 2. 对文本型文件优先直接读取；扫描 PDF（`pdf_read_pages` 报告无文字层）或图片只有在普通提取失败后才走 OCR，并标出 OCR 可能误识别的位置。
@@ -32,4 +34,4 @@ description: 读取、摘要、对比与转换已有的 Word、PDF、Markdown �
 
 ## 停止条件
 
-输入缺失、文件受密码保护、格式无法解析、缺少桌面控制 MCP，或要求会覆盖大量原文件时，停止并说明可执行的下一步，不伪造处理结果。
+输入缺失、文件受密码保护、格式无法解析、专用工具及原生读取均不可用，或要求会覆盖大量原文件时，停止并说明可执行的下一步，不伪造处理结果。

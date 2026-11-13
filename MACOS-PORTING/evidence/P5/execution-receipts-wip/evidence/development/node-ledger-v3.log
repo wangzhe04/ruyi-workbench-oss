@@ -1,0 +1,27 @@
+✔ preparation commits only hashes/identities before returning an immutable dispatchable value (6.950958ms)
+✔ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (8.02425ms)
+✔ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (10.92625ms)
+✔ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (6.154667ms)
+✔ ordinary returned results require matching actual worker/tool/argument and terminal facts (19.296958ms)
+✔ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (5.014084ms)
+✔ client replacement or lost ownership prevents a preparation being used for dispatch (3.424917ms)
+✔ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (2.175667ms)
+✔ corrupt, missing and replaced storage is refused rather than reinitialized as empty (3.762458ms)
+✔ capacity refuses without pruning any unresolved row (14.309209ms)
+✔ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (4.580834ms)
+✔ unknown records cannot be retired even if a caller confirms closure (3.224542ms)
+✔ client facts and receipt content are snapshotted before asynchronous ledger IO (2.288875ms)
+✔ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (3.663375ms)
+✔ two live authorities for the same canonical directory cannot create independent write chains (2.401ms)
+✔ strict root record validation rejects contradictory returned-unknown state without resetting the file (2.694459ms)
+✔ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (6.048125ms)
+✔ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (4.096125ms)
+✔ loss of authority during the actual write cannot return a dispatchable preparation (1.472917ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 208.029084

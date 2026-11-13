@@ -1,0 +1,7 @@
+PASS workbench starts
+  node status: succeeded | subHits: 2 | error: 
+PASS transient 503 on a sub-agent node is retried and the node succeeds (parent-turn parity)
+PASS the sub-agent actually retried the transient request (not just died on first 503)
+PASS a no-tool conclusion still records the successful provider iteration (iters=1)
+
+AGENT WORKFLOW TRANSIENT REPRO E2E: ALL PASS

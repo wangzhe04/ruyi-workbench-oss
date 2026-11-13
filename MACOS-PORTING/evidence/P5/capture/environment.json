@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-08",
+  "platform": "darwin",
+  "arch": "arm64",
+  "os": "27.0.1",
+  "build": "26A434",
+  "node": "v24.15.0",
+  "sdk": "15.2",
+  "deploymentTarget": "14.0",
+  "identity": "ad-hoc-development",
+  "helperSHA256": "e343d646ee550d756ae4be32379003ba2f1122013cc97cf9217892fb7edb72bb",
+  "signatureVerified": true,
+  "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+  "minimumOSActualRun": "pending O2/P6"
+}

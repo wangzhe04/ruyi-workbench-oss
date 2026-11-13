@@ -1,0 +1,38 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS G0 production mission card carries both bounded historical fault facts
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS G0b classic startup completes both shared rail reads without entering Steward
+PASS G0c classic initialization reads arbiter exactly once
+PASS G1 real board and drawer both render the same two run faults
+PASS G2 real pending decision is visible before failures
+PASS G3 actual acceptance snapshot is visible
+PASS G4 observe the original process epoch through the actual SSE connection
+PASS G5 top-level and per-resource read failures are visible
+PASS G6 failed pending/snapshot reads preserve known decisions and acceptance
+PASS G6b failed-read redraw preserves the answer draft, focus and text selection
+PASS G7 malformed HTTP 200 is not authoritative empty data
+PASS G8@1440 visible warnings stay within the viewport
+PASS G8@768 visible warnings stay within the viewport
+PASS G8@390 visible warnings stay within the viewport
+PASS G9 valid successful reads clear read quality and retain real fault facts
+PASS G9b successful reads preserve the unsent draft and its selection
+PASS G10 hold an actual old-process pending response before crash
+PASS G11 process B starts on the exact same port and data root
+PASS G12 unchanged page reconnects and sees the new server epoch
+PASS G13 no reload: expired token refreshes automatically
+PASS G14 new process is explicitly marked unverified while authoritative reads are held
+PASS G14b epoch warning preserves the current unsent answer, focus and selection
+PASS G15 new epoch forces an unconditional mission snapshot
+PASS G16 authoritative B snapshot replaces A acceptance and clears quality
+PASS G17 new server clears recovered faults and restart-cancelled pending decisions
+PASS G18 late old-process response cannot resurrect a pending decision or overwrite current quality
+PASS G19 reconnect refresh covers arbiter and drawer authority, not just rows
+PASS G20 no uncaught browser exceptions: 
+PASS G21 explicitly disable Steward through production configuration
+PASS G22 disabled classic startup has no inapplicable arbiter loading/failure notice
+PASS G23 disabled classic startup does not request the disabled arbiter endpoint
+
+STEWARD GLOBAL HEALTH BROWSER E2E: ALL PASS

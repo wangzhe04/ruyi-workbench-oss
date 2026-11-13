@@ -1,0 +1,17 @@
+PASS after barrier is reached with the exact expected native receiver count
+PASS after cooperative cancellation persists exact dispatch state without a success claim
+PASS after cancellation retains duration, error and bounded audit arguments
+PASS after workbench audit timeline preserves the actual ACC cancellation metadata
+PASS after retained observer gate refuses a second input while cancellation cleanup is pending
+PASS after cancelled invocation is audited exactly once after its observer completes
+PASS a completed cancellation observer releases the gate for a subsequent real action
+PASS before barrier is reached with the exact expected native receiver count
+PASS before cooperative cancellation persists exact dispatch state without a success claim
+PASS before cancellation retains duration, error and bounded audit arguments
+PASS before workbench audit timeline preserves the actual ACC cancellation metadata
+PASS before retained observer gate refuses a second input while cancellation cleanup is pending
+PASS before cancelled invocation is audited exactly once after its observer completes
+PASS cancellation before capture never posts a late click after the observation barrier is released
+PASS owned cancellation MCP and native helper cleanup is confirmed
+
+MACOS AUDIT CANCELLATION E2E: ALL PASS

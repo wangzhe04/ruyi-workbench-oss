@@ -1,0 +1,16 @@
+[fake] [fake-openai] listening on 51802 (tool path set)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay fc3280df86e9)
+[wb] UI: http://127.0.0.1:51803/
+[wb] Data: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-tools-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :51803
+PASS version === package.json (got 3.0.1)
+[wb] MCP config: /private/tmp/ruyi-p6-closeout-final-79ido2bq/wcw-tools-e2e/generated/workbench.mcp.json
+PASS tool_use file_read emitted (input.path=set)
+PASS tool_result ok (not error)
+PASS final answer echoes real file content: "工具返回：HELLO_FROM_TOOL_LOOP_42 (workbench native tool loop works)"
+PASS result ok=true
+PASS O1: bridged schemas not auto-injected in auto mode (bridged=0)
+PASS O1: native file_read still injected by pack
+
+OPENAI-TOOLS E2E: ALL PASS

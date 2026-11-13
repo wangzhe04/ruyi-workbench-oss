@@ -1,0 +1,928 @@
+{
+  "candidate": "6717378f4b136414839da0ab0ef754eef5804ff1",
+  "node": "v24.15.0",
+  "arch": "arm64",
+  "platform": "darwin",
+  "started": "2026-11-07T04:43:24.686Z",
+  "scope": "Current Mac development environment, P0-P3; Windows excluded this round; existing real-account/login-Keychain and P4-P6 gates retained",
+  "checks": [
+    {
+      "name": "syntax",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 25.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-vdFKU8",
+      "log": "checks/syntax.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "build",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7u3IhW",
+      "log": "checks/build.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "fast",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 132.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-Pfe7bd",
+      "log": "checks/fast.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-runtime-start",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-runtime-start.e2e.js"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 20.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-9ykrjt",
+      "log": "checks/macos-runtime-start.txt",
+      "initialExitCode": 1,
+      "finalExitCode": 0,
+      "recheckLog": "checks/runtime-final.txt",
+      "resolution": "Re-executed through standard self-isolating direct entry. Initial runner overrode fixture HOME or WCW_DATA_DIR. No production changes."
+    },
+    {
+      "name": "macos-process-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-process-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 8.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-6rvr5b",
+      "log": "checks/macos-process-runtime.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-shell-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-shell-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-VDyGtA",
+      "log": "checks/macos-shell-runtime.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-file-policy",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-file-policy.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-HcJCUi",
+      "log": "checks/macos-file-policy.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-sync-supervisor",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-sync-supervisor.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 3.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zO36rX",
+      "log": "checks/macos-sync-supervisor.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-git-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-git-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-isynxf",
+      "log": "checks/macos-git-runtime.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-rg-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-rg-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-mGe6P6",
+      "log": "checks/macos-rg-runtime.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-mcp-capabilities",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-mcp-capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-6VHiWK",
+      "log": "checks/macos-mcp-capabilities.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "openai-engine",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/openai-engine.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-tm5tsn",
+      "log": "checks/openai-engine.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "openai-tools",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/openai-tools.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zhohUS",
+      "log": "checks/openai-tools.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "responses-fake",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/responses-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ZZVMA2",
+      "log": "checks/responses-fake.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "anthropic-fake",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/anthropic-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-8ew9iX",
+      "log": "checks/anthropic-fake.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "session-storage-v2",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/session-storage-v2.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-UNK2qx",
+      "log": "checks/session-storage-v2.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "checkpoint",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/checkpoint.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-mePlFs",
+      "log": "checks/checkpoint.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "steward-runner",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/steward-runner.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-H4PnG3",
+      "log": "checks/steward-runner.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "steward-delivery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/steward-delivery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-jtOsJt",
+      "log": "checks/steward-delivery.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "autonomy-resume",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/autonomy-resume.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6.4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-SbDAn5",
+      "log": "checks/autonomy-resume.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "agent-workflow-templates",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/agent-workflow-templates.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-utvDkj",
+      "log": "checks/agent-workflow-templates.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "agent-workflow-replan",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/agent-workflow-replan.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-mDthm4",
+      "log": "checks/agent-workflow-replan.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "workbench-memory-core",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/workbench-memory-core.e2e.js"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-1Buw7Q",
+      "log": "checks/workbench-memory-core.txt",
+      "initialExitCode": 1,
+      "finalExitCode": 0,
+      "recheckLog": "checks/memory-final.txt",
+      "resolution": "Re-executed through standard self-isolating direct entry. Initial runner overrode fixture HOME or WCW_DATA_DIR. No production changes."
+    },
+    {
+      "name": "workbench-memory",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/workbench-memory.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-kr5AOG",
+      "log": "checks/workbench-memory.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "memory-recall-injection",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/memory-recall-injection.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-OdQSHs",
+      "log": "checks/memory-recall-injection.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "usage-ledger",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/usage-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e1GMRt",
+      "log": "checks/usage-ledger.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "usage-subagent-ledger",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/usage-subagent-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-O8QjeA",
+      "log": "checks/usage-subagent-ledger.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "usage-accum",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/usage-accum.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7v13Yi",
+      "log": "checks/usage-accum.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "scheduler",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/scheduler.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 9.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-M65pYT",
+      "log": "checks/scheduler.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "scheduler-crash",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/scheduler-crash.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 14.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zUyE2Y",
+      "log": "checks/scheduler-crash.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "scheduler-ready-queue",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/scheduler-ready-queue.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 7.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-P2WtOn",
+      "log": "checks/scheduler-ready-queue.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-agent-cli-discovery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-agent-cli-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-igG9wD",
+      "log": "checks/macos-agent-cli-discovery.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "kimi-agent-cli",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/kimi-agent-cli.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 27.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-XKzVdn",
+      "log": "checks/kimi-agent-cli.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "claude-resume-recovery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/claude-resume-recovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-T9CvK3",
+      "log": "checks/claude-resume-recovery.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "claude-permission-bridge-mode",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/claude-permission-bridge-mode.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ugZ6Hh",
+      "log": "checks/claude-permission-bridge-mode.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-keychain",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-keychain.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 18.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-hwz0vu",
+      "log": "checks/macos-keychain.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "external-bot-setup",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bot-setup.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-g3A0ea",
+      "log": "checks/external-bot-setup.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "external-bots",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bots.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 5.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ERh8pT",
+      "log": "checks/external-bots.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "route-inventory",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-gZs1VP",
+      "log": "checks/route-inventory.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "fixture-home",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/fixture-home.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-hj5olM",
+      "log": "checks/fixture-home.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "external-bots-control",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bots-control.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-YILbBV",
+      "log": "checks/external-bots-control.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "external-bot-discovery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bot-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7lRR9w",
+      "log": "checks/external-bot-discovery.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "external-channel-delivery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-channel-delivery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 5.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QG81a2",
+      "log": "checks/external-channel-delivery.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "external-bot-gateway",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bot-gateway.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ikRIeW",
+      "log": "checks/external-bot-gateway.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-acc-shared",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-acc-shared.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DREh9o",
+      "log": "checks/macos-acc-shared.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-office-artifacts",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-office-artifacts.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 13.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fHRQMZ",
+      "log": "checks/macos-office-artifacts.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-browser-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-browser-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 10.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-IOFw9g",
+      "log": "checks/macos-browser-runtime.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-platform-templates",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-platform-templates.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-w8Hl2Q",
+      "log": "checks/macos-platform-templates.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "macos-capability-popover.browser",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-capability-popover.browser.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-HP3l3n",
+      "log": "checks/macos-capability-popover.browser.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "playbooks",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/playbooks.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-8aPET2",
+      "log": "checks/playbooks.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "capabilities",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 5.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DxZK3k",
+      "log": "checks/capabilities.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "acc-capability-gates",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/acc-capability-gates.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-otw7X8",
+      "log": "checks/acc-capability-gates.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "playbook-skill-tools",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/playbook-skill-tools.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-dsevIW",
+      "log": "checks/playbook-skill-tools.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "checkpoint-coverage",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/checkpoint-coverage.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-l0iQjA",
+      "log": "checks/checkpoint-coverage.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "smoke_macos_shared",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e2Nu6a",
+      "log": "checks/smoke_macos_shared.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "smoke_office_v2",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_office_v2.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 14.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-EAT6tq",
+      "log": "checks/smoke_office_v2.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "smoke_office_read_v2",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_office_read_v2.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-iaoZCj",
+      "log": "checks/smoke_office_read_v2.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "smoke_v192_chart_types",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_v192_chart_types.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 11.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-MN1NMP",
+      "log": "checks/smoke_v192_chart_types.txt",
+      "finalExitCode": 0
+    },
+    {
+      "name": "smoke_browser_runtime",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_browser_runtime.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 21.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-dcepp7",
+      "log": "checks/smoke_browser_runtime.txt",
+      "finalExitCode": 0
+    }
+  ],
+  "finished": "2026-11-07T04:50:59.195Z",
+  "firstValidation": "validation-first.json",
+  "finalCandidateCommit": "aa2d78464ac117dea547a247676022964066feb6",
+  "candidateRelation": "6717378f production and existing harness checked. aa2d7846 adds only the independently reviewed acceptance probe. All previously recorded production fingerprints remain matched.",
+  "supplemental": [
+    {
+      "name": "workflow-headed",
+      "exitCode": 0,
+      "passAssertions": 27,
+      "log": "checks/workflow-headed.txt",
+      "summary": "workflow-headed/summary.json"
+    },
+    {
+      "name": "workflow-headless",
+      "exitCode": 0,
+      "passAssertions": 27,
+      "log": "checks/workflow-headless.txt",
+      "summary": "workflow-headless/summary.json"
+    },
+    {
+      "name": "Office independent verification",
+      "exitCode": 0,
+      "passAssertions": 24,
+      "log": "checks/office-independent.txt"
+    },
+    {
+      "name": "Office render and visual verification",
+      "exitCode": 0,
+      "pages": 6,
+      "evidence": "samples/renders-4x5Not/verification.json"
+    },
+    {
+      "name": "final syntax",
+      "exitCode": 0,
+      "files": 1128,
+      "log": "checks/syntax-final.txt"
+    }
+  ],
+  "finalResults": {
+    "checks": 59,
+    "finalPassed": 59,
+    "initialPassed": 57,
+    "initialFailed": 2,
+    "unresolvedFailures": 0,
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "staticFailed": 0
+  },
+  "skips": {
+    "unit": [
+      "﹣ configured batch launcher waits for actual async executable verification and keeps original disk spelling (0.080084ms) # SKIP",
+      "﹣ failed shim verification preserves the configured fallback and missing discoveries remain empty (0.192292ms) # SKIP",
+      "﹣ [E5] 源头编码:powershell_run / script_run / shell_start 的中文输出与中文文件名不再变成 ? (0.037041ms) # 仅 Windows 且有 powershell.exe",
+      "﹣ compiled desktop isolates explicit data roots and retains default desktop compatibility (0.321042ms) # SKIP",
+      "﹣ [W1] Windows:真 powershell.exe 解析整段脚本、Add-Type 编译其中的 C#(不弹窗) (0.0305ms) # 需要 Windows PowerShell 5.1(.NET Framework 的 C# 编译器)",
+      "﹣ [P1] dry:撞号的陌生人不算子孙,conhost 不杀,根最先、深的先杀 (0.295167ms) # SKIP",
+      "﹣ [P2] dry:根不在表里 ⇒ 什么都不杀 (0.04225ms) # SKIP",
+      "﹣ [R1] 真进程 killOwnProcessTree:根与 detached 孙子都收掉 (0.033792ms) # SKIP",
+      "﹣ [R2] 真进程 killChildTree(发出去就算):几秒内根与 detached 孙子都没了 (0.030708ms) # SKIP",
+      "﹣ [R3] Linux 真进程 killChildTree:根与 detached 孙子都没了 (0.038709ms) # SKIP",
+      "﹣ real FFmpeg WAV inspection measures tone/silence locally; never claims listening (72.147542ms) # FFmpeg unavailable; parser covered separately",
+      "﹣ PDF text + rendered scan/chart pages and page continuation (0.073875ms) # SKIP",
+      "﹣ BMP/TIFF/ICO convert to provider-compatible PNG without desktop tools (0.04ms) # SKIP",
+      "﹣ [G] 安装脚本经 Invoke-NativeExact 把 JSON 原样交给原生程序(Windows PowerShell 5.1) (0.054541ms) # 需要 Windows PowerShell",
+      "﹣ 离线包只携带独立回调网关并能用随包 Node 运行帮助 (0.363291ms) # SKIP",
+      "﹣ 离线打包在依赖、EXE 或桌面编译失败时拒绝旧产物 (0.045375ms) # SKIP",
+      "  ﹣ 端到端:file_read / file_write 对 UNC 路径返回 not-allowed,不抛、不落盘 (0.1755ms) # UNC absolute paths exist only on Windows hosts",
+      "﹣ [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等 (0.055709ms) # SKIP"
+    ],
+    "livePiecesExcludedByFastRunner": 7,
+    "checkpointCoverage": "(B) real-ACC-audit skipped by existing old99-tools path. Real43-tool registration/write guard separately checked in macos-acc-shared and real Office write/rollback.",
+    "additionalOptionalBranch": "marked.parse() unavailable branch reported by test suite because marked package is not installed"
+  }
+}

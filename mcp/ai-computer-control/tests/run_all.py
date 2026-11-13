@@ -33,7 +33,7 @@ PYTHON = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
 # desktop_edges 末尾的真 PowerShell / 真大小写不敏感卷断言只在 Windows 上跑。
 CI_SUBSET = ("smoke_registry", "smoke_stdio", "smoke_async_contracts", "smoke_toolsets", "smoke_descriptions",
              "smoke_envelope", "smoke_action_tools", "smoke_fetch_transport", "smoke_office_read_v2",
-             "smoke_desktop_edges", "smoke_fetch_pinning")
+             "smoke_desktop_edges", "smoke_fetch_pinning", "smoke_browser_runtime")
 
 TIMEOUT_S = 300
 

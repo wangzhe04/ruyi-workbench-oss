@@ -1,0 +1,20 @@
+── [U] 105h 开关与消息构造 ──
+PASS U1 总门无净收益,默认关闭
+PASS U2 显式 true 生效
+PASS U3 字符串 true 不误开启
+PASS U4 refine 消息边界与事实表顺序确定
+── [A] 105h 内核路径与逐字节回退 ──
+PASS A1 开关关走现有 map-reduce
+PASS A1a 开关关请求体零 refine 标记
+PASS A2 <=4 块走顺序 refine(3 块)
+PASS A2a refine 每块一次调用,第 2 步起携带累计摘要与新增块边界
+PASS A2b refine 不再发 reduce 汇总调用
+PASS A3 refine+事实表组合元数据齐全
+PASS A3a 全局事实表进入每一步 refine
+PASS A4 >4 块不启用 refine
+PASS A4a >4 块请求体保持现有 map-reduce
+PASS A5 refine 第 2 步空响应 → 整条降级现有 map-reduce
+PASS A5a 失败前 2 次尝试 + 完整 map/reduce 均实际发出
+PASS A5b 聚合 usage 包含降级前成功 refine 尝试
+
+SUMMARY-REFINE E2E: ALL PASS

@@ -1,0 +1,48 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A0 设置页画出了服务商卡片
+PASS A1 「自定义」卡粘 …/anthropic 地址即是 Anthropic 协议({"added":true,"style":"anthropic","apiStyle":"anthropic","baseUrl":"https://api.deepseek.com/anthropic"})
+PASS A2 协议下拉在 Base URL 那一块里、不在折叠组([false,true])
+PASS A2 提示与占位符按 Anthropic 写(["Anthropic：官方填 https://api.anthropic.com；","https://api.anthropic.com 或 https://…/anthropic"])
+PASS A2 「思考」在主区且是唯一的思考开关([true,false,true,false])
+PASS A2 语音转写两项在 Anthropic 卡片上隐藏
+PASS A2 认证方式收进「连接细节」;非官方地址不显示拒答改派([true,false])
+PASS A3 粘 …/anthropic/v1/messages:协议自动切到 Anthropic 并提示({"style":"anthropic","apiStyle":"anthropic","note":"已按地址切到「Anthropic Messages」协议（不对的话在上面改回）","noteShown":true})
+PASS A3 失焦后剥掉端点后缀({"value":"http://127.0.0.1:57853/anthropic","baseUrl":"http://127.0.0.1:57853/anthropic","note":"已去掉地址末尾的端点路径（工作台会自己补上）"})
+PASS A4 手动选过协议后不再被地址改掉({"style":"chat","apiStyle":""})
+PASS A5 没有模型清单的网关用填好的模型测通({"text":"✓ 连接成功（用「gw-model」发了一句试探；这个端点不提供模型清单，模型名请手动填写）","good":true})
+PASS A5 试探请求打到 /anthropic/v1/messages、带 x-api-key
+PASS A3b 敲到 …/anthropic 先切到 Anthropic({"style":"anthropic","apiStyle":"anthropic","note":{"text":"已按地址切到「Anthropic Messages」协议（不对的话在上面改回）","hidden":false}})
+PASS A3b 继续敲成 …/anthropic-proxy/v1:切回 chat、提示收掉({"style":"chat","apiStyle":"","note":{"text":"","hidden":true},"baseUrl":"https://x.example/openai/anthropic-proxy/v1"})
+PASS A3b 粘 /anthropic 切过去,改粘 chat 地址切回([{"style":"anthropic","apiStyle":"anthropic"},{"style":"chat","apiStyle":"","noteHidden":true}])
+PASS A3b 切换前是 responses:切回 responses,且「服务端搜索」没丢(["responses",{"style":"anthropic","sws":false},{"style":"responses","apiStyle":"responses","sws":true,"swsChecked":true}])
+PASS A4b 手动选过 Anthropic:地址落空也不切回({"style":"anthropic","apiStyle":"anthropic"})
+PASS A4b 存量就是 Anthropic 的卡:地址改成别的不被切走({"style":"anthropic","apiStyle":"anthropic"})
+PASS A3c 粘 …/v1/messages 失焦:协议是 Anthropic、后缀剥掉了({"style":"anthropic","baseUrl":"https://gw.example","apiStyle":"anthropic"})
+PASS A3c 剥完之后接着编辑地址:不因为推断落空被切回({"style":"anthropic","apiStyle":"anthropic"})
+PASS A6 OpenAI 兼容预设 + /anthropic 地址 → 补协议、剥后缀({"id":"openai-compatible","baseUrl":"https://api.deepseek.com/anthropic","apiStyle":"anthropic"})
+PASS A6 草稿已写了协议就不改
+PASS A7 全程零未捕获异常([])
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A8 英文向导打开了
+PASS A8 没填模型 → 英文的「先填模型名」({"text":"This endpoint does not list its models: enter one of this provider's model names under \"Model\" first, then test again. What to do: Open Settings → Models & Services → Model providers and check the URL and API key","cls":"onboard-wiz-status err"})
+PASS A8 错 key → 英文的「密钥无效」({"text":"The API key is invalid or has no access: check the key and your remaining quota (HTTP 401: {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}) What to do: Open Settings → Models & Services → Model providers and check the URL and API key","cls":"onboard-wiz-status err"})
+PASS A8 模型名写错(404 正文点名模型)→ 英文的「模型名可能不对」,不是「地址不对」({"text":"The model name may be wrong: make sure \"Model\" holds one of this provider's model names (HTTP 404: {\"type\":\"error\",\"error\":{\"type\":\"not_found_error\",\"message\":\"model: no-such-model\"}}) What to do: Open Settings → Models & Services → Model providers and check the URL and API key","cls":"onboard-wiz-status err"})
+PASS A8 填对之后测通({"text":"Connected. The endpoint returned no model list, so type a model name under Advanced.","cls":"onboard-wiz-status ok"})
+PASS A8 英文向导零未捕获异常([])
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A9 向导打开了
+PASS A9 粘完整端点、没重填 key:复用已存的 openai-compatible(沿用它的 key),测试连接发的是它({"text":"Connected. The endpoint returned no model list, so type a model name under Advanced.","cls":"onboard-wiz-status ok","sentIds":["openai-compatible"],"sentKeyMasked":[true]})
+
+ANTHROPIC PROVIDER SETUP BROWSER E2E: ALL PASS

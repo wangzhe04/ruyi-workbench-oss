@@ -1,0 +1,17 @@
+PASS workbench up on :53177
+PASS UI token scraped
+PASS session created
+PASS session turnSeq baseline captured (got 0)
+PASS child: initialize ok
+PASS child: file_write ok (got: {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-checkpoint-mcpchild-e2e/child-made.txt","op":"cr)
+PASS child: file actually written
+PASS serve: GET /api/checkpoints ok
+PASS serve: journal has an entry for the child-written path (child wrote journal successfully)
+PASS serve: entry is file_write op:create (new file)
+PASS serve: entry turnSeq === the session baseline the child read (got 0 vs 0)
+PASS bare child: file_write still succeeds (journal is a safety net, not a gate)
+PASS bare child: file actually written
+PASS serve: bare-child write added NO new journal entry (graceful skip) (1 vs 1)
+PASS serve: no journal entry for the bare-child path
+
+CHECKPOINT-MCPCHILD E2E: ALL PASS

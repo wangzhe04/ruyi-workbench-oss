@@ -1,0 +1,813 @@
+{
+  "name": "events",
+  "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+  "args": [
+    "dev-harness/macos-input-events.e2e.js"
+  ],
+  "extraEnvironment": {},
+  "expectedExit": 0,
+  "startTime": "2026-11-10T10:51:16.176694+00:00",
+  "before": {
+    "dev-harness/fixture-home.static.e2e.js": {
+      "expected": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "actual": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-ax-window.m": {
+      "expected": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "actual": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-capture-window.m": {
+      "expected": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "actual": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-clipboard-fixture.h": {
+      "expected": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "actual": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-finder-identity.m": {
+      "expected": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "actual": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-input-window.m": {
+      "expected": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "actual": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "match": true
+    },
+    "dev-harness/macos-acc-shared.e2e.js": {
+      "expected": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "actual": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "match": true
+    },
+    "dev-harness/macos-ax-finder.e2e.js": {
+      "expected": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "actual": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "match": true
+    },
+    "dev-harness/macos-ax.e2e.js": {
+      "expected": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "actual": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "match": true
+    },
+    "dev-harness/macos-capabilities.e2e.js": {
+      "expected": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "actual": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "match": true
+    },
+    "dev-harness/macos-capture-contract.e2e.js": {
+      "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "match": true
+    },
+    "dev-harness/macos-capture-host.e2e.js": {
+      "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "match": true
+    },
+    "dev-harness/macos-capture.e2e.js": {
+      "expected": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "actual": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "match": true
+    },
+    "dev-harness/macos-input-apps.e2e.js": {
+      "expected": "df35ec7ab25013c28b74e40042e6ccb61b908b8b16be1c32d9abb53c16748087",
+      "actual": "df35ec7ab25013c28b74e40042e6ccb61b908b8b16be1c32d9abb53c16748087",
+      "match": true
+    },
+    "dev-harness/macos-input-events.e2e.js": {
+      "expected": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "actual": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "match": true
+    },
+    "dev-harness/macos-input-host.e2e.js": {
+      "expected": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "actual": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "match": true
+    },
+    "dev-harness/macos-mcp-capabilities.e2e.js": {
+      "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "match": true
+    },
+    "dev-harness/macos-window-clipboard.e2e.js": {
+      "expected": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "actual": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "match": true
+    },
+    "dev-harness/process-safety.static.e2e.js": {
+      "expected": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "actual": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "match": true
+    },
+    "dev-harness/unit/tool-dispatch-hardening.test.js": {
+      "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "match": true
+    },
+    "docs/architecture/module-dependency-graph.json": {
+      "expected": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "actual": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "match": true
+    },
+    "docs/architecture/route-inventory.json": {
+      "expected": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "actual": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "match": true
+    },
+    "facts.json": {
+      "expected": "5a0cae5cb46186f7052f1e8c4c4817d094da35c6fc7f369bfa86e8db81d97ea0",
+      "actual": "5a0cae5cb46186f7052f1e8c4c4817d094da35c6fc7f369bfa86e8db81d97ea0",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+      "expected": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "actual": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+      "expected": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "actual": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py": {
+      "expected": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "actual": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py": {
+      "expected": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "actual": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py": {
+      "expected": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "actual": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+      "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py": {
+      "expected": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "actual": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py": {
+      "expected": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "actual": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+      "expected": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "actual": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": {
+      "expected": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "actual": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py": {
+      "expected": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "actual": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_ax.py": {
+      "expected": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "actual": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+      "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_events.py": {
+      "expected": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "actual": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_input.py": {
+      "expected": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "actual": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+      "expected": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "actual": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "match": true
+    },
+    "ruyi-workbench/app/server.js": {
+      "expected": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "actual": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "match": true
+    },
+    "ruyi-workbench/app/src/01h-process-runtime.js": {
+      "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "match": true
+    },
+    "ruyi-workbench/app/src/01n-desktop-automation.js": {
+      "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "match": true
+    },
+    "ruyi-workbench/app/src/06-provider-engine.js": {
+      "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "match": true
+    },
+    "ruyi-workbench/app/src/07-autonomy.js": {
+      "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "match": true
+    },
+    "ruyi-workbench/app/src/12-tool-dispatch.js": {
+      "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "match": true
+    },
+    "ruyi-workbench/app/src/13-http-router.js": {
+      "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "match": true
+    },
+    "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+      "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "match": true
+    },
+    "ruyi-workbench/app/src/manifest.json": {
+      "expected": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "actual": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "match": true
+    },
+    "ruyi-workbench/app/src/module-contracts.json": {
+      "expected": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "actual": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "match": true
+    },
+    "ruyi-workbench/desktop-macos/RuyiDesktop.swift": {
+      "expected": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "actual": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-ax.m": {
+      "expected": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "actual": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-events.m": {
+      "expected": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "actual": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-helper.m": {
+      "expected": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "actual": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-input.m": {
+      "expected": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "actual": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-session.m": {
+      "expected": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "actual": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation.h": {
+      "expected": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "actual": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "match": true
+    },
+    "ruyi-workbench/tools/build-macos-automation-helper.js": {
+      "expected": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "actual": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "match": true
+    },
+    "ruyi-workbench/tools/build-macos-desktop.js": {
+      "expected": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "actual": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "match": true
+    }
+  },
+  "isolation": {
+    "HOME": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-events-k53lps4i/home",
+    "USERPROFILE": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-events-k53lps4i/home",
+    "LOCALAPPDATA": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-events-k53lps4i/local",
+    "APPDATA": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-events-k53lps4i/roaming",
+    "WCW_DATA_DIR": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/p5-ax-independent-events-k53lps4i/data"
+  },
+  "browserPathCompatibilityFixture": null,
+  "exitCode": 0,
+  "signal": null,
+  "naturalExit": true,
+  "durationSeconds": 27.018,
+  "expectedOutcomeMatched": true,
+  "passLines": 42,
+  "failLines": 0,
+  "skipLines": 0,
+  "pythonTests": null,
+  "pythonOK": null,
+  "after": {
+    "dev-harness/fixture-home.static.e2e.js": {
+      "expected": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "actual": "9cf3745eb4f3885b39673deae59ea238819d81bf67e9f140ae5c60ffce9d4f49",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-ax-window.m": {
+      "expected": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "actual": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-capture-window.m": {
+      "expected": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "actual": "88ca3ab819e4d797323b79a80b9fcc45746bb5b62ef2e238237fadedea9b6265",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-clipboard-fixture.h": {
+      "expected": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "actual": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-finder-identity.m": {
+      "expected": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "actual": "788f34055606e4a34391075f368e4f2762607c99feae2c83910bfca70326949f",
+      "match": true
+    },
+    "dev-harness/fixtures/macos-input-window.m": {
+      "expected": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "actual": "edf7fc6991369a26621dea0c955139a46e83b2b8793f99ebfe0e082faa71cee4",
+      "match": true
+    },
+    "dev-harness/macos-acc-shared.e2e.js": {
+      "expected": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "actual": "0aab6f2b6c3802d36d7222df64644763472297a046f33110bf6e77937e241fe4",
+      "match": true
+    },
+    "dev-harness/macos-ax-finder.e2e.js": {
+      "expected": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "actual": "30195e912fea3bb676b8022ce904f582dcd4717cf2d25bd2ff4a22791dec55c3",
+      "match": true
+    },
+    "dev-harness/macos-ax.e2e.js": {
+      "expected": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "actual": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "match": true
+    },
+    "dev-harness/macos-capabilities.e2e.js": {
+      "expected": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "actual": "f3d154e9d5028e2121b8bbc72033bec64012d034fe15b1ac4c6a44eb9fa7da0b",
+      "match": true
+    },
+    "dev-harness/macos-capture-contract.e2e.js": {
+      "expected": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "actual": "743d3f9836b9f9ec1e316eab47af993677f216c80ec63e5741b9e063614a4e32",
+      "match": true
+    },
+    "dev-harness/macos-capture-host.e2e.js": {
+      "expected": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "actual": "4b26dc716b84dd71eb15ce3a93319dfaebbabe345059f86cee15b1a012d8c594",
+      "match": true
+    },
+    "dev-harness/macos-capture.e2e.js": {
+      "expected": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "actual": "a19cff8629ce9c93a8e7bd16717f3c9f1542e749113b80347f0f94960eb98095",
+      "match": true
+    },
+    "dev-harness/macos-input-apps.e2e.js": {
+      "expected": "df35ec7ab25013c28b74e40042e6ccb61b908b8b16be1c32d9abb53c16748087",
+      "actual": "df35ec7ab25013c28b74e40042e6ccb61b908b8b16be1c32d9abb53c16748087",
+      "match": true
+    },
+    "dev-harness/macos-input-events.e2e.js": {
+      "expected": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "actual": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc",
+      "match": true
+    },
+    "dev-harness/macos-input-host.e2e.js": {
+      "expected": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "actual": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+      "match": true
+    },
+    "dev-harness/macos-mcp-capabilities.e2e.js": {
+      "expected": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "actual": "9ac450fa0dc42f05334d6d1d5ad53377e41352050bd6a9ad2db1d2a032c0e3ce",
+      "match": true
+    },
+    "dev-harness/macos-window-clipboard.e2e.js": {
+      "expected": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "actual": "4c06bb2d99318171214eae497f8328873e78e49693a54f7e9fae5258af727973",
+      "match": true
+    },
+    "dev-harness/process-safety.static.e2e.js": {
+      "expected": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "actual": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+      "match": true
+    },
+    "dev-harness/unit/tool-dispatch-hardening.test.js": {
+      "expected": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "actual": "8de57155e724dc9be2152f74684595d2f1bc652e7abb203d194642ef9fd040c0",
+      "match": true
+    },
+    "docs/architecture/module-dependency-graph.json": {
+      "expected": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "actual": "69124a921bc91bbe40926798d41eab5e8d4947b74c4b3f667e96e1ab350a7a00",
+      "match": true
+    },
+    "docs/architecture/route-inventory.json": {
+      "expected": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "actual": "136619c7c32310a02093253a472653ba11fcd10caa123dfbfd7819364d9d6bbd",
+      "match": true
+    },
+    "facts.json": {
+      "expected": "5a0cae5cb46186f7052f1e8c4c4817d094da35c6fc7f369bfa86e8db81d97ea0",
+      "actual": "5a0cae5cb46186f7052f1e8c4c4817d094da35c6fc7f369bfa86e8db81d97ea0",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": {
+      "expected": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "actual": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": {
+      "expected": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "actual": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/keyboard.py": {
+      "expected": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "actual": "9ca3aa79ef10107e3a255798e68c2c0a5ce4749dc33632a95f31f21c0d246afc",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_application.py": {
+      "expected": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "actual": "7dbb61f387c2dda88f8fcedf071cdfc1b8119dff9bbdb019a4cb81e79c60c807",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py": {
+      "expected": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "actual": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py": {
+      "expected": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "actual": "05899adff24ce57448d70f995448994b4532cd6828cf469ad9b05cdf2f143194",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py": {
+      "expected": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "actual": "b0e6938b9bb865372520d8ff30fd0015671293b4922fc5bb8cdd5a46fc25c523",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_input.py": {
+      "expected": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "actual": "f8b8f4796772694dc02b90350c3d85bf2fe27f591bb94ecd62e236953453505d",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": {
+      "expected": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "actual": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": {
+      "expected": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "actual": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+      "match": true
+    },
+    "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py": {
+      "expected": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "actual": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_ax.py": {
+      "expected": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "actual": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_capture.py": {
+      "expected": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "actual": "030fc0fab32e4cd68709202ffb2f67c1633bc2da771b4f63e0556359ef2694b8",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_events.py": {
+      "expected": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "actual": "4a611995957b20f907b58895880d12c08b85ff8de2708d041a4c31275ad511bf",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_input.py": {
+      "expected": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "actual": "b0e4c38aaf128db0d4a6d762940e7736aacbe86ae9d4209b9ceceedfaf86e4fd",
+      "match": true
+    },
+    "mcp/ai-computer-control/tests/smoke_macos_shared.py": {
+      "expected": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "actual": "badd9d579547675328a87e3a858f5ced7c8a7cec771b6cc4360c453b3a5e40fc",
+      "match": true
+    },
+    "ruyi-workbench/app/server.js": {
+      "expected": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "actual": "5130f8353c12b39d548ffcacfcb6d2a2c269f3f2fe0e3da4feab4f79bdb4fe28",
+      "match": true
+    },
+    "ruyi-workbench/app/src/01h-process-runtime.js": {
+      "expected": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "actual": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e",
+      "match": true
+    },
+    "ruyi-workbench/app/src/01n-desktop-automation.js": {
+      "expected": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "actual": "4c5d590677939f84fe1485bf0795d5e311cf12206e02b8d2aea1df6af6d87c35",
+      "match": true
+    },
+    "ruyi-workbench/app/src/06-provider-engine.js": {
+      "expected": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "actual": "c4eb31ef619bba6f70ab8724ac46a3a0a3fc8656d2f6870830547f2ba34dbb7b",
+      "match": true
+    },
+    "ruyi-workbench/app/src/07-autonomy.js": {
+      "expected": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "actual": "bc8adfd69b0bba909034262e48201bef4abf1f33e7621ec38e8e8a85bc9da25d",
+      "match": true
+    },
+    "ruyi-workbench/app/src/12-tool-dispatch.js": {
+      "expected": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "actual": "f95634c9aa832e443288f6494b6092854e3bf2846641892de52e0f1f1bae640f",
+      "match": true
+    },
+    "ruyi-workbench/app/src/13-http-router.js": {
+      "expected": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "actual": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca",
+      "match": true
+    },
+    "ruyi-workbench/app/src/13f-native-tool-schemas.js": {
+      "expected": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "actual": "2cb9c2afcc9492e827dcaef8025a73d2a9f82f9a03c1f10a29970103396ef443",
+      "match": true
+    },
+    "ruyi-workbench/app/src/manifest.json": {
+      "expected": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "actual": "9b5c2a46fabc1928b5d7fbd67302c0cd0de240f0ac9f1a11e69459eff84de3e8",
+      "match": true
+    },
+    "ruyi-workbench/app/src/module-contracts.json": {
+      "expected": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "actual": "3c2d027a7c0428de07438ee94e5b961e26211e8051ab63a93595d0c7f0e4adc4",
+      "match": true
+    },
+    "ruyi-workbench/desktop-macos/RuyiDesktop.swift": {
+      "expected": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "actual": "f4637143b1561a079cccad81a94eca9df17d1d9cfc4621fb0162abc074e1df75",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-ax.m": {
+      "expected": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "actual": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-events.m": {
+      "expected": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "actual": "31972bf4d717fe2153176de25ac523eed1d8e198334dd5f5cf426ba64698b538",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-helper.m": {
+      "expected": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "actual": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-input.m": {
+      "expected": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "actual": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation-session.m": {
+      "expected": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "actual": "e9ead4f166c1eb4f8dd221f6da80d2bf761f49fc854659089a461ad4c383e137",
+      "match": true
+    },
+    "ruyi-workbench/resources/macos-automation.h": {
+      "expected": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "actual": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c",
+      "match": true
+    },
+    "ruyi-workbench/tools/build-macos-automation-helper.js": {
+      "expected": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "actual": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+      "match": true
+    },
+    "ruyi-workbench/tools/build-macos-desktop.js": {
+      "expected": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "actual": "d1685189b9d9f929ed7dd51d9b3cb58c2204c6932b958c3ba6431f99c75cb216",
+      "match": true
+    }
+  },
+  "logSha256": "5cb0bf68878e4468da563668f2afc8af0e74931d9a6ce417daef8f2ac291bb47",
+  "finishedAt": "2026-11-10T10:51:43.209486+00:00",
+  "ownedProcessObservation": {
+    "method": "Native process birth identities sampled at 200ms. Runner descendants plus exact post-baseline LaunchServices App and its observed descendants.",
+    "observed": [
+      {
+        "pid": 24095,
+        "ppid": 22662,
+        "created": "1794307876177126",
+        "name": ""
+      },
+      {
+        "pid": 24097,
+        "ppid": 24095,
+        "created": "1794307876208618",
+        "name": ""
+      },
+      {
+        "pid": 24098,
+        "ppid": 24097,
+        "created": "1794307876223301",
+        "name": ""
+      },
+      {
+        "pid": 24100,
+        "ppid": 24097,
+        "created": "1794307876563591",
+        "name": ""
+      },
+      {
+        "pid": 24103,
+        "ppid": 24097,
+        "created": "1794307876940143",
+        "name": ""
+      },
+      {
+        "pid": 24112,
+        "ppid": 24097,
+        "created": "1794307877243496",
+        "name": ""
+      },
+      {
+        "pid": 24130,
+        "ppid": 24097,
+        "created": "1794307877586015",
+        "name": ""
+      },
+      {
+        "pid": 24132,
+        "ppid": 24097,
+        "created": "1794307877828026",
+        "name": ""
+      },
+      {
+        "pid": 24135,
+        "ppid": 24095,
+        "created": "1794307877899444",
+        "name": ""
+      },
+      {
+        "pid": 24136,
+        "ppid": 24135,
+        "created": "1794307877912087",
+        "name": ""
+      },
+      {
+        "pid": 24138,
+        "ppid": 24135,
+        "created": "1794307878227234",
+        "name": ""
+      },
+      {
+        "pid": 24141,
+        "ppid": 24135,
+        "created": "1794307878594749",
+        "name": ""
+      },
+      {
+        "pid": 24144,
+        "ppid": 24135,
+        "created": "1794307878897566",
+        "name": ""
+      },
+      {
+        "pid": 24146,
+        "ppid": 24135,
+        "created": "1794307879232364",
+        "name": ""
+      },
+      {
+        "pid": 24148,
+        "ppid": 24135,
+        "created": "1794307879471297",
+        "name": ""
+      },
+      {
+        "pid": 24151,
+        "ppid": 24095,
+        "created": "1794307879541599",
+        "name": ""
+      },
+      {
+        "pid": 24155,
+        "ppid": 24095,
+        "created": "1794307880197338",
+        "name": ""
+      },
+      {
+        "pid": 24159,
+        "ppid": 24095,
+        "created": "1794307880798283",
+        "name": ""
+      },
+      {
+        "pid": 24160,
+        "ppid": 24159,
+        "created": "1794307880812291",
+        "name": ""
+      },
+      {
+        "pid": 24164,
+        "ppid": 24095,
+        "created": "1794307881120411",
+        "name": ""
+      },
+      {
+        "pid": 24171,
+        "ppid": 24095,
+        "created": "1794307881942848",
+        "name": ""
+      },
+      {
+        "pid": 24172,
+        "ppid": 24171,
+        "created": "1794307881944132",
+        "name": ""
+      },
+      {
+        "pid": 24173,
+        "ppid": 24172,
+        "created": "1794307881944491",
+        "name": ""
+      },
+      {
+        "pid": 24178,
+        "ppid": 24173,
+        "created": "1794307882257265",
+        "name": ""
+      },
+      {
+        "pid": 24197,
+        "ppid": 24173,
+        "created": "1794307884598240",
+        "name": ""
+      },
+      {
+        "pid": 24199,
+        "ppid": 24095,
+        "created": "1794307884748212",
+        "name": ""
+      },
+      {
+        "pid": 24275,
+        "ppid": 24173,
+        "created": "1794307899142381",
+        "name": ""
+      },
+      {
+        "pid": 24308,
+        "ppid": 24095,
+        "created": "1794307900423637",
+        "name": ""
+      },
+      {
+        "pid": 24317,
+        "ppid": 24095,
+        "created": "1794307900637255",
+        "name": ""
+      },
+      {
+        "pid": 24326,
+        "ppid": 24095,
+        "created": "1794307900852543",
+        "name": ""
+      },
+      {
+        "pid": 24353,
+        "ppid": 24095,
+        "created": "1794307901488125",
+        "name": ""
+      },
+      {
+        "pid": 24396,
+        "ppid": 24095,
+        "created": "1794307902543537",
+        "name": ""
+      }
+    ],
+    "remaining": [],
+    "confirmedAbsent": true
+  }
+}

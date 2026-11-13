@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T11:30:11.081808+00:00",
+  "status": "code_review_passed_effective_independent_functional_acceptance_recorded",
+  "scope": "Move only the owned capture test window before desktop pixel checks to remove a diagnosed local overlay collision. Preserve production capture behavior and all marker expectations.",
+  "sourceHashes": {
+    "dev-harness/fixtures/macos-capture-window.m": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+    "dev-harness/macos-capture.e2e.js": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2"
+  },
+  "sourceFingerprint": "../source-fingerprint-selected-apps.json",
+  "sourceFiles": 61,
+  "exactTwoFileDeltaFromBounded61": {
+    "dev-harness/fixtures/macos-capture-window.m": "d4ca4b3652cb0600e83171927ee7a401ed975213d94cf9b7d337e3515ca6af90",
+    "dev-harness/macos-capture.e2e.js": "43ff9f991d765a71c16aad1aa2535465f109f4e3b5124f1e18f80f6c3371d8f2"
+  },
+  "allOther59FilesUnchanged": true,
+  "sourceFindings": [],
+  "reviewedBehavior": [
+    "place-low is an explicit fixture command that only calls setFrameOrigin(160,80) on the fixture-owned window and reports its actual content after 300ms. The fixture default position for other callers is preserved.",
+    "The capture e2e retains initialReady, sends place-low before starting the MCP observation/target binding, and derives all subsequent region/window/monitor marker coordinates from the fresh actual report.",
+    "The placement assertion verifies exact observed 160-point y shift, unchanged x and unchanged content dimensions. The new primary-display bounds assertion checks the entire observed content rectangle against the actual reported display.",
+    "All four marker colors, sampling offsets, RGB tolerance, origin/backing-scale comparisons and covered-window assertions are preserved. No capture backend, product coordinate conversion or permission/action guard changes.",
+    "Evidence retains initialFixture, the actual placed fixture and a reason for using the lower test area. Original failed runs remain separate."
+  ],
+  "diagnosticEvidence": {
+    "file": "markers.json",
+    "sha256": "9ece90b4c41aa0810c8cd9af35c79c9e85314b4c62294fba6e1698cb9c8e6042",
+    "greenMarker": [
+      {
+        "kind": "region",
+        "rgba": [
+          13,
+          174,
+          10,
+          255
+        ],
+        "position": {
+          "x": 770,
+          "y": 477
+        },
+        "specificOverlay": [
+          {
+            "bounds": {
+              "X": 725,
+              "Height": 319,
+              "Y": 199,
+              "Width": 260
+            },
+            "layer": 8,
+            "owner": "UserNotificationCenter",
+            "pid": 24955,
+            "handle": 2584
+          }
+        ]
+      },
+      {
+        "kind": "window",
+        "rgba": [
+          3,
+          255,
+          0,
+          255
+        ],
+        "position": {
+          "x": 770,
+          "y": 477
+        },
+        "specificOverlay": [
+          {
+            "bounds": {
+              "X": 725,
+              "Height": 319,
+              "Y": 199,
+              "Width": 260
+            },
+            "layer": 8,
+            "owner": "UserNotificationCenter",
+            "pid": 24955,
+            "handle": 2584
+          }
+        ]
+      }
+    ],
+    "conclusion": "The composed desktop green sample differs while direct-window sample retains green; the public layer8 overlay bounds intersect that point. This supports a fixture-placement/environment cause for the observed desktop-only mismatch.",
+    "visualEvidenceNote": "Main agent reported inspecting a local crop. Reviewer checked numeric and public window metadata and did not request screenshots, inspect the external app through CUA or operate its UI."
+  },
+  "mainAgentEvidenceRead": {
+    "log": "lower-fixture/run.txt",
+    "sha256": "57c28abf6fb97252139a1739d28871f1aa4efa38ead1551c1b2d89f40204243e",
+    "passLines": 32,
+    "failLines": 0,
+    "allPass": true,
+    "executor": "main agent; read by reviewer",
+    "bindingNote": "This 32-assertion run predates the final added display-containment assertion. The final frozen 33-assertion command remains pending independent execution."
+  },
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedDuringReview": false,
+  "openActionableFindings": [],
+  "historicalFailure": "../independent-bounded/capture/run.txt and its original 27PASS/4FAIL remain unchanged. A later passing placement-specific run does not erase that failure.",
+  "pendingAcceptance": "Run the complete newly frozen candidate in independent-selected-apps. Physical display permutations and other environment gates remain pending. P5/P5-03 remain in_progress.",
+  "independentAcceptanceEvidence": "independent-completion/review.json",
+  "finalSourceFingerprint": "source-fingerprint-worker-ready.json",
+  "sourceReuseEvidence": "source-reuse-review.json"
+}

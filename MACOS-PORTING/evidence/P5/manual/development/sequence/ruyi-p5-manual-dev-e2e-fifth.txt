@@ -1,0 +1,48 @@
+PASS ordinary stdio discovery exposes source-bound event sequences and manual recording
+PASS manual fixture snapshots the original clipboard before seeding owned formats
+PASS raw Pinyin composition captured a complete portable event stream
+PASS raw Pinyin composition reached its expected committed text before replay
+PASS raw Pinyin composition replays through macro_run with released input and identical committed text
+PASS ASCII override on another keycode captured a complete portable event stream
+PASS ASCII override on another keycode reached its expected committed text before replay
+PASS ASCII override on another keycode retains its Unicode override
+PASS ASCII override on another keycode replays through macro_run with released input and identical committed text
+PASS emoji override captured a complete portable event stream
+PASS emoji override reached its expected committed text before replay
+PASS emoji override retains its Unicode override
+PASS emoji override replays through macro_run with released input and identical committed text
+PASS Shift Unicode override captured a complete portable event stream
+PASS Shift Unicode override reached its expected committed text before replay
+PASS Shift Unicode override retains its Unicode override
+PASS Shift Unicode override replays through macro_run with released input and identical committed text
+PASS raw Shift shortcut captured a complete portable event stream
+PASS raw Shift shortcut reached its expected committed text before replay
+PASS raw Shift shortcut replays through macro_run with released input and identical committed text
+PASS Option dead-key composition captured a complete portable event stream
+PASS Option dead-key composition reached its expected committed text before replay
+PASS Option dead-key composition replays through macro_run with released input and identical committed text
+PASS overlapping keys and autorepeat captured a complete portable event stream
+PASS overlapping keys and autorepeat reached its expected committed text before replay
+PASS autorepeat remains an explicit event inside the held-key sequence
+PASS overlapping keys and autorepeat replays through macro_run with released input and identical committed text
+PASS copy then paste from the replay clipboard captured a complete portable event stream
+PASS copy then paste from the replay clipboard reached its expected committed text before replay
+PASS copy then paste from the replay clipboard replays through macro_run with released input and identical committed text
+PASS manual modified drag preserves button ownership, path and held Shift
+PASS continuous dual-axis scrolling, momentum termination and double-click state survive capture
+PASS recorded pointer gestures replay and release their owned inputs
+PASS a malformed final event rejects the entire recording before any prefix is replayed
+PASS an occluded pointer in the final chunk rejects the whole macro before its first keyboard chunk
+PASS all native sequence points follow the fresh moved window without mutating the recording
+FAIL direct sequence cooperative cancellation audits dispatch and releases its held key and button
+PASS direct sequence cancellation posts no delayed suffix after cleanup
+PASS each cancelled sequence persists exactly one native-tool audit record
+FAIL Error: Owned manual recording fixture timed out
+    at until (/private/tmp/ruyi-p5-manual-worktree/dev-harness/macos-manual-record.e2e.js:26:9)
+    at async /private/tmp/ruyi-p5-manual-worktree/dev-harness/macos-manual-record.e2e.js:221:7
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned fixture conditionally restores its original keyboard source
+PASS owned manual fixture restores the original clipboard on exit
+
+MACOS MANUAL RECORD E2E: FAIL (2)

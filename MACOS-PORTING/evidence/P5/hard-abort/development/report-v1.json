@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-11T10:54:37.229870+00:00",
+  "executor": "/root",
+  "status": "passed_primary_zero_input_root_only_calibration_with_durable_attribution_gate_open",
+  "baseCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+  "freeze": "freeze-v4.json",
+  "productRuntimeSourceChanged": false,
+  "executionAttempts": 1,
+  "assertions": {
+    "pass": 12,
+    "fail": 0,
+    "skip": 0,
+    "retry": 0
+  },
+  "actualFault": {
+    "signal": "SIGKILL",
+    "scope": "root-only",
+    "pendingSinceStreamMs": 325.41037499999993,
+    "observedRootAndDescendantCount": 5,
+    "observedGoneWithinMs": 57,
+    "externalChildSignalsForFaultCleanup": 0
+  },
+  "receiver": {
+    "postedByTest": 0,
+    "down": 0,
+    "up": 0,
+    "otherInput": 0,
+    "receipts": 0,
+    "hidAndCombinedNeutral": true
+  },
+  "restart": {
+    "httpStatus": 200,
+    "execution": null,
+    "resumable": {
+      "dangling": true,
+      "kind": "user",
+      "turnSeq": 1,
+      "historyLength": 1
+    },
+    "modelRequestsBefore": 1,
+    "modelRequestsAfter": 1,
+    "automaticReplayObserved": false
+  },
+  "durableObservation": {
+    "originalProviderRows": [
+      "user"
+    ],
+    "originalMessageRows": [
+      "user"
+    ],
+    "preservedApproval": "interventions pending record persists ai_computer_control__macro_run request and wait30 arguments, followed by applying/allowed; Node model_call/assistant_tool_batch metadata also survives",
+    "accAuditRows": 0,
+    "macroExecutionOrTerminalAttribution": "No dispatch/wait-entry acknowledgement or execution terminal outcome correlated to the pending macro; persisted permission request intent is present and is not dispatch proof",
+    "waitEntryAcknowledged": false,
+    "conclusion": "Approved and pending normal-session wait-only call was root-aborted. Persisted permission intent exists. No claim actual ACC await-body entry or dispatched input. Missing execution/terminal attribution remains an open durable-contract/evidence issue, not a successful hard-abort gate."
+  },
+  "retainedRoot": null,
+  "limits": [
+    "No keyboard or pointer event was requested; no held input or automatic release tested.",
+    "Only observed process birth identities were covered; no blanket census of all instant children.",
+    "Cross-file snapshots are bounded non-atomic reads; present raw rows preserved unchanged.",
+    "No provider/App LaunchServices, TCC revoke, lock, clipboard, physical display topology, Windows, macOS14 or release identity acceptance."
+  ],
+  "engineeringReuse": "development/engineering-reuse-v1.json",
+  "sourceAndEvidenceBindings": [
+    {
+      "path": "freeze-v4.json",
+      "bytes": 7579,
+      "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+    },
+    {
+      "path": "neutral-code-review-v1.json",
+      "bytes": 7363,
+      "sha256": "dd4b35e3c014dbc3771f2bfdf98a37343eec900fab1b704633008a761e88e686"
+    },
+    {
+      "path": "neutral-code-review-v2.json",
+      "bytes": 17356,
+      "sha256": "4ba629fc86a76042672fd867ba4da302e2e9d076b7a096a18a4980668c59e239"
+    },
+    {
+      "path": "neutral-metadata-review-v1.json",
+      "bytes": 12665,
+      "sha256": "c7549b7086655f6e86298d1e6a39c3a60ca369052ac0783da98839dcd5ebcf97"
+    },
+    {
+      "path": "development/live-v1/results.json",
+      "bytes": 30787,
+      "sha256": "10d62032f50166172fb5d9e4ace5d4891ab632e07ef0e6bbdac915e9e1adc485"
+    },
+    {
+      "path": "development/live-v1/live.txt",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307"
+    },
+    {
+      "path": "development/live-v1/source-artifact-checks.json",
+      "bytes": 15784,
+      "sha256": "af417e3f5bd5f305f8c3102b55b9968a6b2e5ccfed7b4508505d2abde1239b65"
+    },
+    {
+      "path": "development/engineering-v1/execution.json",
+      "bytes": 660,
+      "sha256": "1f24b3f32acb17d598a52b9f3fe61ec795d7a5b869b61d574b39e2eefdff2c74"
+    },
+    {
+      "path": "development/engineering-v1/fast.txt",
+      "bytes": 7663,
+      "sha256": "7d042459666d05a458fe89e1d3e2f729f3de78c98ee80c4df963189e83e09c38"
+    },
+    {
+      "path": "development/engineering-v2/execution.json",
+      "bytes": 167,
+      "sha256": "b5f11aff5b43efbdbadcfc2dea7301d8813e6c3fd49c5d3a0e99fe26d1572417"
+    },
+    {
+      "path": "development/engineering-v2/fast.txt",
+      "bytes": 5737,
+      "sha256": "f05897b74e198c9d8758422cf8671d9fe715fdd0f2447e9ce2e6fa52715550a7"
+    }
+  ],
+  "phaseStatus": "in_progress"
+}

@@ -16,6 +16,8 @@ const HOME = path.join(os.tmpdir(), 'wcw-exe-resolve-e2e');
 const CWD = path.join(HOME, 'project');
 
 const srv = require(path.join(WB, 'app', 'server.js'));
+const windowsResolver = process.platform === 'win32' ? srv : require('./lib/server-internals').loadServerInternals(
+  ['resolveClaudeLauncher', 'normalizeConfig', 'cmdLineBudgetFor', 'CONFIG_SCHEMA'], { testPlatform: 'win32' });
 const { getFreePort } = require('./free-port.js');
 
 // ---- fixtures: 假 npm 布局(<dir>/claude.cmd + <dir>/node_modules/@anthropic-ai/claude-code/bin/claude.exe)
@@ -72,27 +74,27 @@ async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } cat
   try {
     // ============================== (A) 单元层 ==============================
     // A1: 绝对路径 shim → 真身 exe(npm 相对布局)。
-    const r1 = srv.resolveClaudeLauncher(L1.shim);
+    const r1 = windowsResolver.resolveClaudeLauncher(L1.shim);
     ok(path.resolve(r1) === path.resolve(L1.exe), '(A1) 绝对路径 shim 解析出真身 exe — ' + r1);
     // A2: 裸名 'claude.cmd' 沿 PATH 找到 shim 后同样解析。
     const savedPath = process.env.PATH;
     process.env.PATH = L2.dir + path.delimiter + savedPath;
     try {
-      const r2 = srv.resolveClaudeLauncher('claude.cmd');
+      const r2 = windowsResolver.resolveClaudeLauncher('claude.cmd');
       // 注意:本机 PATH 上若另有更早的真实 claude.cmd,命中的会是它 —— 两种命中都必须解析出【某个】exe 或原样。
       const hitOurs = path.resolve(r2) === path.resolve(L2.exe);
       const hitReal = /\.exe$/i.test(String(r2)) || String(r2) === 'claude.cmd';
       ok(hitOurs || hitReal, '(A2) 裸名沿 PATH 解析(命中本夹具=' + hitOurs + ') — ' + r2);
     } finally { process.env.PATH = savedPath; }
     // A3: 阴性 —— 有 shim 无 npm 布局 → 原样返回(行为逐字节不变)。
-    const r3 = srv.resolveClaudeLauncher(path.join(NO_LAYOUT, 'claude.cmd'));
+    const r3 = windowsResolver.resolveClaudeLauncher(path.join(NO_LAYOUT, 'claude.cmd'));
     ok(r3 === path.join(NO_LAYOUT, 'claude.cmd'), '(A3) 无 node_modules 布局 → 原样返回');
-    const r3b = srv.resolveClaudeLauncher(path.join(HOME, 'no-such-dir', 'claude.cmd'));
+    const r3b = windowsResolver.resolveClaudeLauncher(path.join(HOME, 'no-such-dir', 'claude.cmd'));
     ok(r3b === path.join(HOME, 'no-such-dir', 'claude.cmd'), '(A3b) shim 不存在 → 原样返回');
     // A4: 非 batch 输入不动(.exe / 无扩展名 / 空)。
-    ok(srv.resolveClaudeLauncher('claude.exe') === 'claude.exe', '(A4a) .exe 输入不动');
-    ok(srv.resolveClaudeLauncher('claude') === 'claude', '(A4b) 无扩展名输入不动');
-    ok(srv.resolveClaudeLauncher('') === '', '(A4c) 空输入不动');
+    ok(windowsResolver.resolveClaudeLauncher('claude.exe') === 'claude.exe', '(A4a) .exe 输入不动');
+    ok(windowsResolver.resolveClaudeLauncher('claude') === 'claude', '(A4b) 无扩展名输入不动');
+    ok(windowsResolver.resolveClaudeLauncher('') === '', '(A4c) 空输入不动');
     // A5: 预算自动升档 —— 解析到 exe 后 cmdLineBudgetFor 给 32000(降级阶梯近乎不再触发)。
     if (process.platform === 'win32') {
       delete process.env.WCW_CLAUDE_CMDLINE_BUDGET;
@@ -102,13 +104,23 @@ async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } cat
       ok(srv.cmdLineBudgetFor(r1) === 0, '(A5) 非 Windows 不设防(0)');
     }
     // A6: normalizeConfig 咽喉点 —— 配置里的 shim 被替换成 exe(全部消费方一致受益)。
-    const cfg = srv.normalizeConfig({ configSchema: srv.CONFIG_SCHEMA, claudePath: L1.shim }).config;
+    const cfg = windowsResolver.normalizeConfig({ configSchema: srv.CONFIG_SCHEMA, claudePath: L1.shim }).config;
     ok(path.resolve(cfg.claudePath) === path.resolve(L1.exe), '(A6) normalizeConfig 替换 claudePath → exe');
     // A7: memoize —— 同输入两次解析同值(缓存命中路径)。
-    const r7a = srv.resolveClaudeLauncher(L1.shim);
-    const r7b = srv.resolveClaudeLauncher(L1.shim);
+    const r7a = windowsResolver.resolveClaudeLauncher(L1.shim);
+    const r7b = windowsResolver.resolveClaudeLauncher(L1.shim);
     ok(r7a === r7b && path.resolve(r7a) === path.resolve(L1.exe), '(A7) memoize 一致');
 
+    if (process.platform !== 'win32') {
+      const launcher = path.join(HOME, 'claude-native');
+      fs.writeFileSync(launcher, '#!' + process.execPath + '\nconsole.log("fixture-cli");\n', { mode: 0o755 });
+      const linked = path.join(HOME, 'claude-link'); fs.symlinkSync(launcher, linked);
+      ok(srv.resolveClaudeLauncher(linked) === linked && srv.resolveClaudeLauncher(linked) === linked,
+        '(A Mac) POSIX executable symlink remains usable and stable');
+      ok(srv.normalizeConfig({ configSchema: srv.CONFIG_SCHEMA, claudePath: linked }).config.claudePath === linked
+        && srv.cmdLineBudgetFor(linked) === 0 && cp.spawnSync(linked, ['--version'], { encoding: 'utf8' }).status === 0,
+        '(A Mac) normalizeConfig preserves executable POSIX launcher and execution without cmd limits');
+    }
     // ============================== (B) 集成层 ==============================
     if (process.platform === 'win32') {
       const PORT = await getFreePort();

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-11-11T20:05:03.378890+00:00",
+  "author": "/root",
+  "freeze": {
+    "path": "image-delivery-freeze-v2.json",
+    "sha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f",
+    "sourceFiles": 118,
+    "artifacts": 3,
+    "allCurrentSourcesMatch": true
+  },
+  "scope": "Image-delivery slice development checks and supporting compatibility; final independent reports separate; original full P5 remains active.",
+  "checks": {
+    "fullUnit": {
+      "tests": 2629,
+      "passed": 2611,
+      "existingSkipped": 18,
+      "failed": 0,
+      "log": "development/image-all-unit-v2.log"
+    },
+    "fast": {
+      "passed": 80,
+      "failed": 0,
+      "retries": 0,
+      "liveSkipped": 11,
+      "log": "development/image-fast-v2.log"
+    },
+    "syntax": {
+      "files": 1176,
+      "failed": 0,
+      "log": "development/image-syntax-v2.log"
+    },
+    "buildCheck": {
+      "fresh": true,
+      "log": "development/image-build-check-v2.log"
+    },
+    "targetedUnit": {
+      "passed": 63,
+      "failed": 0,
+      "skipped": 0,
+      "log": "development/image-targeted-unit-v2.log"
+    },
+    "actualImagesDevelopment": {
+      "assertions": 26,
+      "failed": 0,
+      "log": "development/actual-images-v3.log",
+      "limit": "Synthetic PNG actual root/provider/SDK; not native screenshot/input."
+    },
+    "legacyCompatibility": {
+      "sessionStorageV2": "first_run_pass",
+      "providerToolHistory": "first_run_pass",
+      "sessionRewindExecution": "first_run_pass",
+      "rewind": "v1_wrong_orchestrator_data_root_env_failed_then_explicit_env_only_v2_pass",
+      "results": "development/image-legacy-regression-v1.json",
+      "rewindCorrected": "development/image-legacy-rewind-v2.json",
+      "rewindDiagnosis": "development/image-legacy-rewind-v1-diagnosis.json"
+    }
+  },
+  "developmentFailuresPreserved": [
+    {
+      "path": "development/image-history-unit-v1.log",
+      "reason": "Fixture inspected providerHistoryCount on load-normalized object rather than head; assertion fixed, no production weakening."
+    },
+    {
+      "path": "development/image-history-unit-v4.log",
+      "reason": "New corruption test expected live provider path after intentional .corrupt quarantine; test now verifies preserved quarantined bytes."
+    },
+    {
+      "path": "development/actual-images-v1.log",
+      "reason": "Fixture sent default queue steering but asserted interrupt; explicit mode:interrupt added. Full successful scenarios rerun and independently qualified."
+    },
+    {
+      "path": "development/image-fast-v1.log",
+      "reason": "Facts/README, process cleanup count and session-save call census were stale; updated truthful inventories, then80 fast passed. New4 Mac dependency probes centrally opt-in rather than default pseudo-pass."
+    },
+    {
+      "path": "development/image-legacy-rewind-v1.log",
+      "reason": "Primary orchestration forced RUYI_HOME ahead of legacy fixture WIN_CLAUDE_WORKBENCH_HOME; private persisted outer root had no provider, selected missing CLI. Env-only correction preserves fixture ownership and isolated HOME/AppData/TMP; v2 passed. No production or assertion change."
+    }
+  ],
+  "logs": [
+    {
+      "path": "development/image-all-unit-v2.log",
+      "sha256": "213200e1b92ad444233133c779037313d33b2009fbb6ac9010cc7a0d17dd6d05"
+    },
+    {
+      "path": "development/image-fast-v2.log",
+      "sha256": "7b2149db81dfb47bec2e353eaf89b36f94b76b8b16501f85dc324550ac657d41"
+    },
+    {
+      "path": "development/image-syntax-v2.log",
+      "sha256": "dff47949f96056990ddb226dcd5503e323af50f0e7a575737a4439a94a893243"
+    },
+    {
+      "path": "development/image-build-check-v2.log",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "development/image-targeted-unit-v2.log",
+      "sha256": "ca6e60b9cd27a5743dada47c63917012b39ff0cbbf3b8a3a4f29bc0c98dfd90e"
+    },
+    {
+      "path": "development/actual-images-v3.log",
+      "sha256": "efc758abd6539c4ff65710ea5cbc082db2cdbbe90e09936174de93f34ac3c1ea"
+    },
+    {
+      "path": "development/image-legacy-session-storage-v2-v1.log",
+      "sha256": "9aa2d87f698cbc258a434ffc0c0c0f77017c91e3b83db03ca4572d43dd007401"
+    },
+    {
+      "path": "development/image-legacy-provider-tool-history-v1.log",
+      "sha256": "082d3b891b3bd01e8c68a39fee9208f1c8d2f8c15829372554f5559ad9aba8bd"
+    },
+    {
+      "path": "development/image-legacy-session-rewind-execution-v1.log",
+      "sha256": "ab9e5a92060d32d991ccb04c50c47a46c5ce248c7f64e9f395f534be346fb969"
+    },
+    {
+      "path": "development/image-legacy-rewind-v2.log",
+      "sha256": "61f29ed03000a0f23778fe08f345c30df26ac9481e80f659f07ab23bd8692f7f"
+    }
+  ],
+  "limitations": [
+    "No native screenshot/input/held fault acceptance.",
+    "No subagent/CLI/manual/API admission or strict transcript delivery implementation.",
+    "No historical reconciliation/ACK/global retention/deletion complete feature.",
+    "Protected body hash reading and disabled omit-provider lane have no performance qualification.",
+    "Default remains off; all original10local+4external IDs and no-lock/restore-after-full-acceptance instructions remain."
+  ]
+}

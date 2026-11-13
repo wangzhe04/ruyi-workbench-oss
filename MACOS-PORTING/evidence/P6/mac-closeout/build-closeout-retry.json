@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-11-12T15:29:42.036697+00:00",
+  "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "previousFailure": "build-closeout.json",
+  "failureCause": "Code Signing subsystem internal error; disk was tight. Root cause unconfirmed. Source full candidate retained unchanged.",
+  "scope": "Retry Full wrapper after task-only space cleanup; then first Slim source/wrapper builds, same blocked-outbound sandbox.",
+  "runs": [
+    {
+      "kind": "dmg",
+      "variant": "full",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network-outbound)",
+        "node",
+        "ruyi-workbench/tools/package-macos-trial.js",
+        "--package",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout-source",
+        "--output",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout"
+      ],
+      "exitCode": 0,
+      "seconds": 49.21,
+      "log": "build-closeout-retry-dmg-full.txt"
+    },
+    {
+      "kind": "source",
+      "variant": "slim",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network-outbound)",
+        "node",
+        "ruyi-workbench/tools/package-macos-offline.js",
+        "--assets",
+        "/tmp/ruyi-p6-assets",
+        "--output",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout-source",
+        "--variant",
+        "slim"
+      ],
+      "exitCode": 0,
+      "seconds": 44.571,
+      "log": "build-closeout-retry-source-slim.txt"
+    },
+    {
+      "kind": "dmg",
+      "variant": "slim",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network-outbound)",
+        "node",
+        "ruyi-workbench/tools/package-macos-trial.js",
+        "--package",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout-source",
+        "--output",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout"
+      ],
+      "exitCode": 0,
+      "seconds": 9.917,
+      "log": "build-closeout-retry-dmg-slim.txt"
+    }
+  ],
+  "pass": true,
+  "finishedAt": "2026-11-12T15:31:25.753942+00:00"
+}

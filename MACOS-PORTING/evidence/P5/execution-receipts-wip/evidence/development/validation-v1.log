@@ -1,0 +1,17 @@
+....F.....
+======================================================================
+FAIL: test_missing_required_fields_are_not_defaulted (__main__.ReceiptValidation.test_missing_required_fields_are_not_defaulted) (index=8, key='ok')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py", line 84, in test_missing_required_fields_are_not_defaulted
+    with self.subTest(index=index, key=key): self.reject(value)
+                                             ^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py", line 44, in reject
+    with self.assertRaises(ExecutionJournalError): validate_committed_receipts(value)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ExecutionJournalError not raised
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.007s
+
+FAILED (failures=1)

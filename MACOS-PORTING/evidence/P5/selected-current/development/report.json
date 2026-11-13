@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "runtimeImplementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "executionHead": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "scope": "Unchanged selected TextEdit/CFT default/CFT renderer/Finder fixtures on current native/Python/Workbench source; actual per-case compiled helper source and complete normalized bytes bound to default1cc, not raw artifact/TCC identity equivalence.",
+  "runs": [
+    {
+      "name": "default-v1",
+      "path": "development/default-v1/report.json",
+      "sha256": "ad689d6f9e76db4c761014f3d82d1dad5c74b0023522ddd2f5193b9e133ba003",
+      "status": "passed_primary_selected_case",
+      "passed": true,
+      "pass": 31,
+      "fail": 0,
+      "skip": 0,
+      "sourceCount": 106,
+      "observedIdentityCount": 36,
+      "remainingObservedIdentities": []
+    },
+    {
+      "name": "renderer-v1",
+      "path": "development/renderer-v1/report.json",
+      "sha256": "15c2dc985f1a60531d811d07d224e75d19da0d295a0d9b05ac6de85f83ced5ac",
+      "status": "passed_primary_selected_case",
+      "passed": true,
+      "pass": 33,
+      "fail": 0,
+      "skip": 0,
+      "sourceCount": 106,
+      "observedIdentityCount": 34,
+      "remainingObservedIdentities": []
+    },
+    {
+      "name": "finder-v1",
+      "path": "development/finder-v1/report.json",
+      "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77",
+      "status": "failed",
+      "passed": false,
+      "pass": 0,
+      "fail": 1,
+      "skip": 0,
+      "sourceCount": 106,
+      "observedIdentityCount": 4,
+      "remainingObservedIdentities": []
+    },
+    {
+      "name": "finder-v2",
+      "path": "development/finder-v2/report.json",
+      "sha256": "64e085fec73ae9d6fa900ed8734b7df50b81a03fc9db35b264c0762d9214968c",
+      "status": "passed_primary_selected_case",
+      "passed": true,
+      "pass": 10,
+      "fail": 0,
+      "skip": 0,
+      "sourceCount": 106,
+      "observedIdentityCount": 21,
+      "remainingObservedIdentities": []
+    }
+  ],
+  "acceptedDevelopmentAssertions": 74,
+  "developmentFailedBeforeUserPrerequisiteChange": 1,
+  "failureContext": "Finder-v1 refused before opening any folder or building automation helper because an existing Finder content window exceeded the bounded ownership tree. A shallow read-only diagnostic confirmed1 existing AXWindow. User then chose to close it; after-user-response.json proved windowless before finder-v2. No existing window was closed by the agent; original refusal remains.",
+  "newProductCodeChanges": false,
+  "fullEngineeringRerun": false,
+  "reason": "Only observational wrapper/evidence and phase docs changed; selected fixtures/native/Python/runtime source unchanged. Full engineering final frozen entry candidate is separately bound.",
+  "phaseStatus": "in_progress"
+}

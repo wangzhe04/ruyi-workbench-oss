@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 // E2E (v0.8-S2): the MCP-child guard. The Claude CLI engine runs workbench tools in a one-shot
 // `node app/server.js mcp` subprocess; a shell session's state cannot survive there, so the 5 shell_*
 // tools must (a) still be LISTED (so the CLI-side model can see them + their guiding description) but
@@ -54,7 +55,7 @@ const HOME = path.join(os.tmpdir(), 'wcw-shell-mcp-guard-e2e');
     ok(call2.result && call2.result.isError === true, 'shell_send in MCP child → isError:true');
 
     // Sanity: a normal one-shot tool (powershell_run) still works in the child (guard is shell-specific).
-    const ps = await rpc('tools/call', { name: 'powershell_run', arguments: { command: 'Write-Output OK123', timeoutMs: 8000 } });
+    const ps = await rpc('tools/call', { name: shellTool, arguments: { command: echo('OK123'), timeoutMs: 8000 } });
     const psOut = (ps.result && ps.result.content && ps.result.content[0] && ps.result.content[0].text) || '';
     ok(ps.result && ps.result.isError === false && psOut.includes('OK123'), 'powershell_run still works in MCP child (guard is shell-specific)');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }

@@ -1,0 +1,10 @@
+PASS D1 撤销成功之后(按钮已经标成「已撤销」)右栏页签重读
+PASS D2 回溯成功之后(会话已重读、左栏已刷)右栏页签重读;缺省空实现可注入
+PASS D3 行动流水撤销【成功】之后重读流水表(失败时不重读,那一行保持原样)
+PASS D4 清空记忆之后页内广播 steward.memory.changed,口袋订了它
+PASS D5 应用提议成功之后记忆视图重读
+PASS D6 一键应用成功之后「MCP 运维」重读;组合根把 settings-operations 那一份注入 provider-settings
+PASS D7 组合根把 refreshToolPane 注入给撤销与回溯两处
+PASS F2 焦点栏停掉一条之后页内广播 steward.arbiter.changed,左栏只重读仲裁面这一发
+PASS P event-stream 导出 publishLocal = 同一个 emit(页内广播,不经服务端、不进补发环)
+ACTION FEEDBACK STATIC E2E: ALL PASS

@@ -178,3 +178,12 @@ Software without prior written authorization of the copyright holder.
 ---
 
 _本文件随组件增删更新。如发现遗漏或错误,请提 issue。_
+
+## 5. Mac arm64 离线候选包（P6-01）
+
+Mac 变体有独立资产锁 `MACOS-PORTING/dependencies/macos-offline-arm64.assets.json`，不将 Windows 二进制混入 Mac 包。
+Node 24.15.0（MIT 及其依赖许可）随附上游完整 `runtime/node/LICENSE`；ripgrep 15.1.0 随附 MIT/Unlicense/COPYING。
+Full 额外随附 CPython 3.12.13（PSF 及依赖许可）、ACC 所需锁定 wheels 和 Playwright 1.64.1 对应的 arm64 Chrome for Testing 156.0.8078.4。
+Python 的 `LICENSE.txt`、对应 standalone 构建的 `third-party-notices/` 与各 wheel 的原始许可均保留，`python-licenses.json` 列出分发包与许可文件位置。
+Chrome 的原始 ABOUT、组件许可，以及从实际包内 `chrome://credits`/`chrome://terms` 离线提取的页面随 Full 的 `browser-notices/` 分发。
+Mac 不随附 Windows extras、pynput、独立 FFmpeg 下载包或官方 Agent CLI。所需范围及开发候选限制见 `ruyi-workbench/desktop-macos/OFFLINE-PACKAGING.md`；此声明不代替正式发行身份与安装验收。

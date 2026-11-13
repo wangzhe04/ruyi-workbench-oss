@@ -344,6 +344,8 @@ try {
   browser = cp.spawn(executable, [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    // Match browser-fixture's isolated macOS profile policy, including while the screen is locked.
+    ...(process.platform === 'darwin' ? ['--use-mock-keychain', '--password-store=basic'] : []),
     '--force-device-scale-factor=1', '--window-size=1280,900',
     '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,

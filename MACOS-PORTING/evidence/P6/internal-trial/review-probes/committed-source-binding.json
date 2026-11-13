@@ -1,0 +1,54 @@
+{
+  "commit": "3279b83d880a84be1e4fa86ae4e1aed80ef740bc",
+  "checks": [
+    {
+      "file": "ruyi-workbench/tools/package-macos-trial.js",
+      "expected": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+      "current": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+      "committed": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/tools/macos-offline-lib.js",
+      "expected": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+      "current": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+      "committed": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt",
+      "expected": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+      "current": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+      "committed": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+      "pass": true
+    },
+    {
+      "file": "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt",
+      "expected": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+      "current": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+      "committed": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-trial-install.e2e.js",
+      "expected": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+      "current": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+      "committed": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/macos-offline-package.e2e.js",
+      "expected": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+      "current": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+      "committed": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+      "pass": true
+    },
+    {
+      "file": "dev-harness/unit/macos-trial-package.test.js",
+      "expected": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+      "current": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+      "committed": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+      "pass": true
+    }
+  ]
+}

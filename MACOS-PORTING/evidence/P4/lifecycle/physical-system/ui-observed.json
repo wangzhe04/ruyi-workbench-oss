@@ -1,0 +1,55 @@
+{
+  "method": "CUA native accessibility observations in current chat",
+  "date": "2026-11-08",
+  "wakeTrace": {
+    "suspends": 1,
+    "wakes": 1,
+    "streams": [
+      {
+        "path": "/api/events/stream",
+        "lastEventId": "2",
+        "ok": true,
+        "status": 200
+      }
+    ],
+    "frames": [
+      {
+        "event": "presence.ack",
+        "id": ""
+      },
+      {
+        "event": "thread.created",
+        "id": "3"
+      }
+    ]
+  },
+  "visiblePostWakeChange": {
+    "before": "任务 1; P4 原生交互验收",
+    "after": "任务 2; new P4 唤醒后事件 row",
+    "trigger": "real HTTP POST /api/sessions 200; sess_b8e89bb1d5897683"
+  },
+  "loginSequence": [
+    {
+      "action": "clicked native 登录时启动 menu item",
+      "observed": "System Settings > 登录项 > 登录时打开 contains Ruyi 应用程序 row"
+    },
+    {
+      "action": "clicked the same native menu item to unregister",
+      "observed": "System Settings reported Ruyi row removed"
+    },
+    {
+      "action": "native 显示如意工作台 refreshed acceptance report",
+      "observed": {
+        "loginStartupStatus": 0
+      }
+    }
+  ],
+  "externalHandoff": {
+    "source": "normal native WKWebView target=_blank hyperlink",
+    "url": "http://127.0.0.1:55586/p4-external-handoff",
+    "browser": "Safari",
+    "windowTitle": "P4 外链验收",
+    "visibleText": "如意 P4 本机外链已交给默认浏览器。",
+    "cleanup": "closed only the verified P4 external-handoff browser tab"
+  }
+}

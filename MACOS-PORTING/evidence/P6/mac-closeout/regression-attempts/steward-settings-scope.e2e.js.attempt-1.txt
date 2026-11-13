@@ -1,0 +1,28 @@
+PASS 破损历史或失败结果不能伪造结构化成功回执
+PASS 读取时逐键说明等待、缺省权限和管家自己的范围
+PASS 回执来自实际写盘值，已有等待不宣称重置
+PASS 撤销带原修改后的现值条件
+PASS 旧撤销不能覆盖后来的同键修改
+PASS 撤销只恢复本次键，保留其他键的后来修改
+PASS 同一撤销不能重复改写
+PASS 并发撤销在同一写锁中只有一个成功
+PASS 混合权限提议整份未写入、没有成功回执
+PASS 秘密与服务商配置仍整份拒绝
+PASS 伪造历史撤销按钮也不能绕过确认分档
+PASS 线程意图返回准确入口，零全局写入
+PASS 新任务作用域不能夹带全局等待设置
+PASS 不能把 CLI 默认模型回执冒充为当前服务商模型
+PASS 默认端点仍需确认
+PASS 确认后也不能指向不存在的端点
+PASS 写盘失败不返回生效值、成功回执或撤销
+PASS 工具初读后发生其他写入，回执和撤销仍取锁内真实旧值
+PASS 旧回合收尾保留仅此任务的模型与作用域，新任务默认不变
+PASS 回执、撤销与行动流水不泄露服务商密钥
+PASS 合法旧 CLI 哨兵可显式设为新任务默认
+PASS 旧 CLI 哨兵下可修改 CLI 默认模型
+
+STEWARD SETTINGS SCOPE E2E: ALL PASS
+(node:80970) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-settings-receipt.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

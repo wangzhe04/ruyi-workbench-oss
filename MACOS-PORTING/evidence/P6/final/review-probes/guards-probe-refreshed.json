@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-11-12T10:04:11.972Z",
+  "sourceHash": "dfe60965b15bb925ea669a06cc0f3dbf0c91ff43f4ad445f0cdd701f6e483f38",
+  "checks": [
+    {
+      "name": "uppercase bundle maps to complete App",
+      "pass": true
+    },
+    {
+      "name": "non-workbench App subtrees refused",
+      "pass": true
+    },
+    {
+      "name": "data entry in expanded App protected even when external symlink",
+      "result": {
+        "ok": false,
+        "error": "contains-data",
+        "status": 409
+      },
+      "pass": true
+    },
+    {
+      "name": "home entry in expanded App protected even when external symlink",
+      "result": {
+        "ok": false,
+        "error": "contains-home",
+        "status": 409
+      },
+      "pass": true
+    },
+    {
+      "name": "current App protected via case alias",
+      "result": {
+        "ok": false,
+        "error": "current-package",
+        "status": 409
+      },
+      "pass": true
+    }
+  ],
+  "nativeHelperInvocations": 0,
+  "pass": true,
+  "sourceBindings": {
+    "ruyi-workbench/app/server.js": "dfe60965b15bb925ea669a06cc0f3dbf0c91ff43f4ad445f0cdd701f6e483f38",
+    "ruyi-workbench/app/src/13u-migration-center.js": "6e87f836b15d489244c1a3b71eccc95ff56a3a08918d1172989c5b78a31e6be0",
+    "ruyi-workbench/app/src/00-boot.js": "d8625d2d1bf4eb23e20a2808647ecd1a25a2aa56295c69a10e757fea1ec53f25"
+  },
+  "checkedOnRefreshedServer": true
+}

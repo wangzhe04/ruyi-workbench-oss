@@ -1,0 +1,15 @@
+PASS workbench up
+PASS runtime token available
+PASS start @0ms：5 轮账本全在（实得 5/5）
+PASS start @10ms：5 轮账本全在（实得 5/5）
+PASS start @25ms：5 轮账本全在（实得 5/5）
+PASS start @50ms：5 轮账本全在（实得 5/5）
+PASS start @200ms：5 轮账本全在（实得 5/5）
+PASS s 02 落盘前合并是【一个共用函数】(三引擎同一份语义)
+PASS s 02 合并三支:磁盘无账本不动／内存不比磁盘旧不动／换了另一本账本以磁盘为准
+PASS s 02 同一本账本时以磁盘为底、用 applyMissionUpdate 语义重放内存增量
+PASS s 02 saveSession 的落盘前合并在【写链内】重读头(链外读+写中间还能插进路由那一存)
+PASS s 09／05 两处【起跑存】都带落盘前合并和执行所有者(claude 与 kimi 共用 05 那一处)
+PASS s 09／05／05b 三处【收尾存】前都调同一个合并函数
+
+MISSION START RACE E2E: ALL PASS

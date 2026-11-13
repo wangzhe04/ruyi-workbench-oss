@@ -1,0 +1,23 @@
+PASS index.html 抽出 id 数量合理(597 ≥ 100)
+PASS 聚合源码抽出【字面量】DOM 引用 id 数量合理(266)
+PASS ① 所有字面量 $()/getElementById() 的 id 均存在于 index.html
+PASS 121-K5：顶栏那两枚 chip 与 2.0 视窗返回带已退役，index.html 零残留（实测复活: 无）
+PASS ② 关键 id 契约(107 项)均存在于 index.html
+PASS ③ 关键类名契约(18 项)均在聚合源码中构建/引用
+PASS ④ 关键函数契约(46 项)均在聚合源码中有定义
+PASS ④ 定义 pickWorkspace / pickWorkspaceNative(文件夹选择,任一即可)
+PASS ⑤ 聚合源码含 window.state = state(全局兼容层)
+PASS per-session activeTurns registry is defined
+PASS legacy global liveAbort state is absent
+PASS background session progress is buffered and replayed when reopened
+PASS background stream lines are not discarded while another session is visible
+PASS simple mode keeps context occupancy and compact entry visible after usage exists
+PASS subagent preferred endpoint/model are controlled dropdowns, not free-text ids
+PASS diagnostics lives inside Settings and is removed from the lower-left/tool-pane duplicates
+PASS change diff opens in a dedicated window/tab with an inline fallback
+PASS native Claude background launch acknowledgements are not mislabeled as completed
+PASS Claude background acknowledgement classifier distinguishes launch receipts from real conclusions
+PASS Steer queue uses semantic theme-aware classes instead of hardcoded light colors
+INFO 参与聚合的前端源文件(78): app.js, js/agent-cli-registry.js, js/agent-roles.js, js/agent-workflows.js, js/app-frame.js, js/artifact-changes.js, js/attachment-tray.js, js/background-tray.js, js/boot-failure.js, js/chat-render-primitives.js, js/chat-scroll.js, js/chat-static-renderer.js, js/chat-stream-runtime.js, js/composer-voice.js, js/confirm-panel.js, js/event-stream.js, js/external-bot-setup.js, js/external-bots.js, js/file-browser.js, js/health-i18n.js, js/help-menu.js, js/help-viewer.js, js/host-bridge.js, js/i18n.js, js/icons.js, js/interaction-prompts.js, js/mermaid-postprocess.js, js/mermaid-runtime.js, js/mermaid-source.js, js/migration-center.js, js/mission-state.js, js/modal.js, js/model-catalog.js, js/model-menu.js, js/navigation-controls.js, js/net.js, js/notify-policy.js, js/onboarding-wizard.js, js/operations-observability.js, js/playbook-reuse.js, js/popover.js, js/presence-viewing.js, js/privacy-settings.js, js/prompt-queue.js, js/provider-api-styles.js, js/provider-settings.js, js/quiet-card.js, js/rail-pocket.js, js/run-health.js, js/run-state.js, js/session-experience.js, js/settings-catalog.js, js/settings-operations.js, js/settings-skills.js, js/shell-mode.js, js/skills-memory.js, js/state.js, js/steward-board.js, js/steward-chips.js, js/steward-composer.js, js/steward-conversation.js, js/steward-decisions.js, js/steward-delivery.js, js/steward-drawer.js, js/steward-handoff-recovery.js, js/steward-presence.js, js/steward-settings-receipt.js, js/steward-settings.js, js/steward-shell.js, js/thread-facts.js, js/thread-head.js, js/tool-runtime.js, js/turn-activity.js, js/turn-narrative.js, js/usage-dashboard.js, js/util.js, js/workbench.js, js/workspace-preferences.js
+
+DOM-CONTRACT E2E: ALL PASS

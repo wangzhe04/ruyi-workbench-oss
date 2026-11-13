@@ -1,0 +1,15 @@
+PASS S1 launch runId
+PASS S1 replan intervention registered
+PASS S1 counts.replan >= 1
+PASS S1 replanSummary present
+PASS S1 replanNodeId = nodeA
+PASS S1 reject ok
+PASS S1 patch rejected
+PASS S1 replan_reject metric
+PASS S1 intervention 离开 pending
+PASS S2 launch runId
+PASS S2 replan intervention registered
+PASS S2 approve 空 changes 诚实拒绝: {"ok":false,"reason":"replan_changes_pending","error":{"code":"intervention.replan_changes_pending","params":{"type":"replan"},"message":"重规划提案尚未补充 changes，暂不能应用；请先由 review 角色填充变更项，或拒绝该提案"}}
+PASS S2 patch 仍 pending(未应用)
+
+AGENT WORKFLOW REPLAN APPROVE E2E: ALL PASS

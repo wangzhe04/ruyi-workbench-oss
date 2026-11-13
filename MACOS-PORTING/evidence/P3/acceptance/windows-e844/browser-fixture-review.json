@@ -1,0 +1,23 @@
+{
+  "scope": "Actual single smoke test under native and ntpath path modules. Windows path semantics simulation only; not a real Windows run.",
+  "results": [
+    {
+      "name": "original test/native POSIX path host",
+      "passed": true
+    },
+    {
+      "name": "original test/simulated Windows ntpath host",
+      "passed": false,
+      "type": "AssertionError",
+      "error": "'' != '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'\n+ /Applications/Google Chrome.app/Contents/MacOS/Google Chrome\n"
+    },
+    {
+      "name": "fixed test/native POSIX path host",
+      "passed": true
+    },
+    {
+      "name": "fixed test/simulated Windows ntpath host",
+      "passed": true
+    }
+  ]
+}

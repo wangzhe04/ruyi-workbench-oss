@@ -1,0 +1,33 @@
+PASS workbench starts
+PASS A1 最终回答流式期间 /api/steer 被接受
+PASS A2 插话没有被丢:模型被再调一次、请求里带着 [用户插话](实得 2 次)
+PASS A3 会话正文里有 steered 那条
+PASS A4 回合正常结束
+PASS B1 第一回合写入两条任务
+PASS B2 半截参数的 todo_write 回失败结果(argsInvalid,说明是截断),没有执行
+PASS B3 任务清单没被 {} 清空(实得 [{"id":"t1","text":"a","status":"pending"},{"id":"t2","text":"b","status":"pending"}])
+PASS B4 被拒的调用仍有配对回复,模型收到了
+PASS C1 计划模式弹出计划
+PASS C2 审批挂着的 6.5 s 里回合没有被看门狗杀掉
+PASS C3 批准被接受
+PASS C4 批准后回合继续并正常结束(实得 {"type":"result","ok":true,"aborted":false,"traceId":"trace_dfab5359ff3d23d6","ts":"2026-11-12T11:35:32.027Z"})
+PASS C5 批准后模型被再调一次,全程没有 watchdog 中止(实得 2 次,watchdog=0)
+PASS C6 管家引用SCN不计入任务调用,普通及子代理工具目录仍可计数
+PASS D1 request_user_input 挂起提问
+PASS D2 停止被接受
+PASS D3 没执行的 d2 在收尾时就补了「回合已被停止」的配对回复(实得 "{\"ok\":false,\"outcome\":\"not_dispatched\",\"action_sent\":false,\"error\":\"回合已被停止,该调用未执行\"}")
+PASS D4 下一回合没有「上次回会在执行该工具时中断」的 🛠 修复消息
+PASS E1 interrupt 插话被接受
+PASS E2 第三发请求里每个 tool_call 都有配对回复(含本批复用的 call_1;实得 system | user | assistant[call_1] | tool<call_1> | assistant[call_9,call_1_1] | tool<call_9> | tool<call_1_1> | user)
+PASS F1 一次 429 后自动重试成功(实得 2 发,{"type":"result","ok":true,"aborted":false,"traceId":"trace_3a890bdec6db2eb4","ts":"2026-11-12T11:35:34.141Z"})
+PASS F2 重试时给出限流提示
+PASS F3 一直 429:首发 + 3 次重试(实得 4)
+PASS F4 重试用尽归 rate_limited(实得 rate_limited)
+PASS F5 ERROR_CLASSES 有 rate_limited 的人话
+PASS I1 首字节前连接被掐断后自动重试成功(实得 2 发,{"type":"result","ok":true,"aborted":false,"traceId":"trace_4495eecfd388cc03","ts":"2026-11-12T11:35:38.428Z"})
+PASS I2 重试时说的是「连接中断」
+PASS J1 一次 503 后自动重试成功(实得 2 发)
+PASS H1 子代理工作流跑完(实得 { "ok": true, "runId": "run_86ae71d45bec04fe", "status": "succeeded", "startedCount": 1, "results": [ { "id": "writer", "status": "succeeded", "result": "子任务完成", "structuredResult": null, "confidence")
+PASS H2 子代理收到「参数被截断、未执行」的配对回复
+
+PROVIDER TURNLOOP HARDENING E2E: ALL PASS

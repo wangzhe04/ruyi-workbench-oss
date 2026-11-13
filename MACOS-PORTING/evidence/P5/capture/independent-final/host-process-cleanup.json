@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-11-08T09:35:45.855Z",
+  "checks": [
+    {
+      "role": "nativePID",
+      "pid": 85140,
+      "result": "confirmed_absent"
+    },
+    {
+      "role": "servicePID",
+      "pid": 85147,
+      "result": "confirmed_absent"
+    }
+  ]
+}

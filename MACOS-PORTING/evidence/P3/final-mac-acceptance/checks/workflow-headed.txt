@@ -1,0 +1,29 @@
+PASS isolated Workbench starts on localhost
+PASS Provider turn calls real ACC write_document
+PASS Provider turn calls real ACC read_document
+PASS Provider turn calls real ACC browser_open
+PASS Provider turn calls real ACC browser_backend_status
+PASS Provider turn calls real ACC browser_type
+PASS Provider turn calls real ACC browser_click
+PASS Provider turn calls real ACC browser_get_text
+PASS Provider turn calls real ACC browser_screenshot
+PASS Provider turn calls real ACC browser_close
+PASS Provider turn calls real ACC browser_backend_status
+PASS real ACC calls follow the requested workflow in order
+PASS local Provider fixture completes without handler errors
+PASS all real ACC results return without tool errors
+PASS each ordered tool call has its matching successful real result
+PASS provider turn reaches successful result
+PASS document and browser readback reach the provider
+PASS only controlled local form receives the Chinese submission
+PASS actual browser reports requested visibility, readiness and subsequent closure
+PASS actual Chromium launch arguments match requested visibility
+PASS cleanup observes the actual Playwright driver as well as Chromium
+PASS GUI browser uses only owned isolated profiles
+PASS browser close removes the owned GUI profiles and processes
+PASS independent DOCX reader confirms the real generated artifact
+PASS Provider-triggered browser screenshot is stored as an actual 1280x720 PNG attachment
+PASS Provider-triggered document write creates a real checkpoint
+PASS Workbench teardown confirms the owned process tree exited
+
+MAC OVERALL WORKFLOW E2E: ALL PASS

@@ -1,0 +1,24 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS N1 没接模型：管家首页是「先接一个模型」卡（实测 {"acts":["接一个模型"],"text":"\n          \n            \n            \n              \n                \n          "}）
+PASS N2 输入框置灰、占位说清原因（实测 disabled=true placeholder="先接一个模型，管家才能回话"）
+PASS N2b 语言包重新套用之后占位仍说清原因（实测 {"disabled":true,"placeholder":"先接一个模型，管家才能回话"}）
+PASS N2c 真实语言切换事件不会用普通输入占位覆盖缺模型提示
+PASS N3 不出配置键名，也不出用户没选过的「claude」
+PASS N1b 没接模型：左栏空态先说「先接一个模型」（实测 "还没有任务。先接一个模型，就可以直接说你想做什么"）
+PASS N4 点它 → 向导打开、直接落在「引擎」那一步（实测 {"step":"引擎"}）
+PASS N6 服务端兜底那句也说人话（实测 {"type":"steward_reply","trigger":"user","say":"","why":"","acts":[],"actions":[],"parsed":false,"circuit":null,"error":"steward.unsupported_engine","message":"还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行）
+PASS N5a 写入一个端点（HTTP 200）
+PASS N5 接上之后：卡片消失、输入框可用、回到首跑那条自我介绍（实测 {"acts":[],"disabled":false,"examples":3}）
+PASS N7 首跑示例长得像按钮：可见边框、手形光标（实测 {"tag":"BUTTON","border":"1px","color":"rgb(38, 51, 73)","alpha":1,"cursor":"pointer"}）
+PASS N8a 把端点撤掉（HTTP 200）
+PASS N8 管家页开着时模型掉线 → 当场换成「先接一个模型」卡、输入框置灰（实测 {"acts":["接一个模型"],"disabled":true}）
+PASS N9 接回来 → 卡片撤掉、重新到访、输入框可用（实测 {"acts":[],"disabled":false,"examples":3}）
+PASS N10 管家视角：提示条不压右栏、点击穿透（实测 {"pe":"none","right":709.5546875,"bottom":804,"vw":1280,"vh":900,"sideLeft":null}）
+PASS N11 空线程落「新开的」、态是「还没开始」、没有排队那一段（实测 组=fresh {"state":"还没开始","queueHidden":true}）
+PASS F1 零未捕获异常（[]）
+
+STEWARD NO MODEL BROWSER E2E: ALL PASS

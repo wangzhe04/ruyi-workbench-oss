@@ -1,0 +1,10 @@
+PASS public AXWindows and all-space WindowServer baseline exclude existing Finder content windows
+PASS new Finder window exposes the exact controlled content file URIs and no additional tab surface
+PASS real Finder exposes a complete bounded AX tree for the owned folder
+FAIL Error: Finder fixture observation timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:31:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:113:22
+PASS only the proved Finder window closes and the shared Finder process survives
+PASS Finder scenario MCP and native helper exit completely
+
+MACOS AX FINDER E2E: FAIL (1)

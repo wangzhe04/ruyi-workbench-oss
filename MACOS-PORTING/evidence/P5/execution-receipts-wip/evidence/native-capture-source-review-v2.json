@@ -1,0 +1,1460 @@
+{
+  "schema": 1,
+  "kind": "independent_native_capture_source_and_harness_review",
+  "createdAt": "2026-11-11T22:56:54.073422+00:00",
+  "reviewer": "/root/p5_review_resumed",
+  "workspace": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "baseCommit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "status": "no_confirmed_blocking_source_or_harness_findings_for_explicit_narrow_default_off_slice_ready_for_frozen_independent_runtime_acceptance",
+  "boundary": "Read-only source/test/fixture/diff,offline hashes and preserved log/JSON inspection.No tests,native helpers,GUI,MCP/native probes,lock,TCC or keepawake changes.Only this evidence JSON written.FullP5 remains open;no native input/held rescue/body interruption/broad captureOCR acceptance.",
+  "freezeBinding": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-freeze-v2.json",
+    "bytes": 32390,
+    "sha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b",
+    "all125SourceBytesShaAndGitBlobMatch": true,
+    "all4ArtifactBytesAndShaMatch": true,
+    "all7ProductionFilesByteIdenticalToInitialSemanticReview": true
+  },
+  "freezeV1History": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-freeze-v1.json",
+    "bytes": 32004,
+    "sha256": "f3ddd4da67c6678ae49dc5c2d78eee4c08295938c8e441d2338c74acdc5c5e9d",
+    "earlierFullVerificationSucceededAtThatRead": true,
+    "thenInvalidatedByTwoAuthorizedTestEdits": "Final write attempt rehashed source before exclusive-create and aborted at changed hash before any report file existed.No report or old evidence overwritten.",
+    "v1ToV2Changes": [
+      "dev-harness/macos-execution-capture.e2e.js",
+      "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py"
+    ],
+    "artifactManifestsIdentical": true
+  },
+  "coverage": {
+    "previousFreeze": "foreground-subagent-freeze-v3.json",
+    "priorByteIdenticalSources": 103,
+    "changedPriorSources": 19,
+    "newToFreezeSources": 3,
+    "removedPriorSources": 0,
+    "gitDelta": "20tracked modified+2untracked=22 current paths;macos-ocr-window existed at baseline but was absent from prior122-source freeze.",
+    "inheritance": "Unchanged103 prior source paths carry previous review by exact byte identity;not claimed newly reread each entire source.7production semantic review from initial report reverified;tests/fixtures and current deltas independently reviewed.",
+    "ancillary": "README/README_EN/facts e2e601->602/live12->13,default589/unit289/smoke44 unchanged and inventory-only.run-all adds opt-in capture live SKIP;facts whitelist/process safety census377 align owned harness.route inventory changes generated timestamp/coverage references only;175route points/161auth unchanged.No Node production/server delta."
+  },
+  "governingInstructions": {
+    "CLAUDE.md:46": "Independent agent source review with scope,findings,resolutions required.",
+    "CONTRIBUTING.md:11": "Test assertions add-only in meaning.Original protocol assertions retained;WIP fixes align actual Stop/display contracts and preserve strict durable unknown/no later action/no continuation."
+  },
+  "sourceAssessment": [
+    {
+      "area": "exact generic feature protocol",
+      "result": "GENERIC_OPERATIONS is capture/status/ocr.image/ocr.languages. validate_features validates bounded known unique string list, absent field means no generic support. Actual helper advertises four literals; generic request requires supported operation before semantic exchange. Old input-only helper refuses explicitly; no legacy one-shot fallback."
+    },
+    {
+      "area": "routing/legacy compatibility",
+      "result": "macos.request active operation routes to receipt_request with original payload/timeout and generic=True before legacy child/2slot path. Contextless exactstatus exception and no-operation one-shot route remain original. Required mode lost context for other ops still refuses. New active route deliberately shares single input worker and nonblocking_LOCK."
+    },
+    {
+      "area": "real SDK lifetime/cancellation",
+      "result": "RequestExecution holds real Event+write Lock; copied _request context observes same object. Async cancellation signals before tool_terminal persistence; scopefinally signals before journal close. Generic adapter picks up these actual handles and existing independent observer can terminate exact worker without waiting for journal fsync. This does not make asyncio.to_thread itself cancelable; late worker/journal/Stop behavior still needs actual acceptance."
+    },
+    {
+      "area": "native async frame ownership",
+      "result": "Only fully valid control plus four literals selects generic dispatcher. ownedFrame captures exact current receipt object identity; challenge is filled once by existing entry handshake before business dispatch. Finish/publish accesses completion and global frame state only on main runloop, checks exact active frame pointer, ignores duplicate completion, writes one terminal, then resets/signals once. Input route retains original single handler-entry hook; no reentrant-enter weakening."
+    },
+    {
+      "area": "dispatcher/body reuse",
+      "result": "Static HandleRequest was exported as RuyiAutomationRequest and existing one-shot main calls same body. Session generic entry invokes hook once before same body, input family still calls InputRequest once. Unknown generic operation rejects in Python before worker creation; no-control persistent session does not gain generic surface."
+    },
+    {
+      "area": "timeouts and output",
+      "result": "Caller65/15/3 forwarded unchanged; native session watchdog60 for negotiated generic OCR and12otherwise; entry/continue2seconds unchanged. Existing aggregate native output bound68MiB and own cleanup remain. No performance or deadline runtime qualification inferred from static code."
+    }
+  ],
+  "closedFindings": [
+    {
+      "id": "NC1",
+      "state": "closed_in_frozen_source",
+      "repair": "Observer alive after bounded join forces exact old-session retirement/quarantine and typed unknown while shared request lock held,before successor reuse.expected-session mismatch cannot close replacement.Delayed observer test uses real thread/lock and mocked exchange/Popen,verifies only old terminated;primary adapter23 log inspected."
+    },
+    {
+      "id": "NH1",
+      "state": "closed_in_frozen_harness",
+      "repair": "Stop requires actual live execution,exact invocation,ACC/native birth identity,stopped=true,gate still blocked,timer margin,entry identity exits before native2s deadline,strict same-invocation unknown before5s fixture timer and no manual release."
+    },
+    {
+      "id": "NH2",
+      "state": "closed_correct_boundary",
+      "repair": "Immediate ledger/events/traces preserved;bounded wait then exact-process exit and strict unknown.No dispatching-or-unknown phase OR.HTTP Stop permits background native cleanup,not synchronous unknown.V8 evidence itself preserves dispatching then unknown."
+    },
+    {
+      "id": "NH3",
+      "state": "closed_in_frozen_harness",
+      "repair": "providerAttempts records every matched parent request before all-replies check and every actual native-sub child request.Fault parent count exactly1;quota parent1+child1;all cold-hold global request counts unchanged.Partial/unpaired model continuation cannot escape census."
+    },
+    {
+      "id": "NH4",
+      "state": "closed_in_frozen_harness",
+      "repair": "Scope states actual root Stop entry/after continue before terminal observation,exact cleanup,terminal/history EIO,cold holds;no input/held/background/CLI/fullP5.Quota and bounded child success additionally explicit in frozen scope/report."
+    }
+  ],
+  "confirmedRemainingBlockingFindings": [],
+  "testDeltaV2Assessment": {
+    "sharedBusy": "Actual native worker and journal gate;generic status and simultaneous input query exercise declared shared nonblocking lock,then exact worker reuse.No mocked native exchange in this case.",
+    "boundedNode": "Real public screenshot max_width640,strict private immutable history+ACK,exact child request PNG,successful workflow,cold reopen/no native replay.Raw small snapshot,child request,reopen events/rows/snapshot are now retained in final proof object.",
+    "proofFieldOnlyPostV9Change": "Final proof assignments add evidence retention after each measured step;no authorization/payload/decoder/decision or acceptance predicate changed.Independent runtime must freshly execute frozen source."
+  },
+  "preservedDevelopmentFailures": [
+    {
+      "path": "development/actual-native-capture-v4.log",
+      "failure": "Immediate Stop ledger still dispatching failed initial WIP predicate.",
+      "resolution": "Actual source explicitly allows background cleanup after HTTP Stop.Preserve immediate evidence then require bounded exact birth exit+strict same-invocation unknown/no continuation before native/fixture timeout.Production unchanged;no phase OR."
+    },
+    {
+      "path": "development/actual-native-capture-v7.log",
+      "failure": "Node already reached correct quota refusal,but initial WIP test expected huge screenshot display attachment.",
+      "resolution": "Existing10-context-governance attachment extraction limits base64 to4000000chars.Use observer of original capture._fields exact returned object and real raw PNG sidecar;match display_truncated original char count.Production unchanged,no image shrinking/drop to satisfy quota."
+    },
+    {
+      "path": "parent final-gates-v1 evidence",
+      "failure": "Parent reports full unit/static passed but concurrent test edit invalidated after-hash.",
+      "resolution": "Not treated as complete frozen qualification;parent final-gates-v2 in progress and fresh independent runtime pending."
+    }
+  ],
+  "designFourteenCaseEvidenceMatrix": [
+    {
+      "case": "Pure routing/default-off compatibility",
+      "evidenceKinds": [
+        "source",
+        "pure-test-source",
+        "primary-pure-log"
+      ],
+      "covered": "Active operation forwards original payload and caller deadline to generic receipt adapter,never one-shot fallback. Required-mode lost context rejects before helper. Exact contextless status exception and original legacy one-shot two-slot route retained. Required12 tests exercise routing/refusal and real shared cancellation context.",
+      "limit": "Default-off two-slot concurrent capture/OCR is source-preserved,not newly runtime measured by this reviewer or the87-pass harness.",
+      "classification": "mixed_pure_and_source_partial_broad_design"
+    },
+    {
+      "case": "Real generic feature gate",
+      "evidenceKinds": [
+        "source",
+        "pure-test-source",
+        "primary-protocol-log",
+        "primary-adapter-log"
+      ],
+      "covered": "Four exact advertised/negotiated ops are capture,status,ocr.image,ocr.languages;receiptVersion1 alone does not imply generic support. Actual old input-only helper refuses before native_prepared,no fallback. Pure validation rejects malformed/unknown/duplicate operation sets and wrong worker identity. Shared adapter rechecks helper identity before continue.",
+      "limit": "Not every adversarial generic helper/envelope combination is separately real runtime tested.",
+      "classification": "mixed_runtime_pure_source"
+    },
+    {
+      "case": "Uncontrolled native session surface",
+      "evidenceKinds": [
+        "source",
+        "primary-protocol-log"
+      ],
+      "covered": "Generic branch requires validated control plus exact four-op list;id/_ruyi_receipt stripped before business. Real no-control status/languages fail with no receipt and session survives. Shared dispatcher validates op-specific fields;testing ops compile guarded and excluded from generic list.",
+      "limit": "No-control capture/ocr.image and every malformed version/control/extra-field permutation remain source review or shared tests,not separate new generic runtime rows.",
+      "classification": "mixed_runtime_source_partial_broad_design"
+    },
+    {
+      "case": "Actual frame lifecycle",
+      "evidenceKinds": [
+        "source",
+        "primary-capture-log",
+        "primary-protocol-log",
+        "primary-adapter-log"
+      ],
+      "covered": "Real root screenshot/status/Vision/languages carry exact native operation/frame trace and root accepted identity. Strict decoder validates actual worker PID/incarnation,challenge,frame hash/operation and terminal ordering. Protocol generic status/languages/missing-image require three rows and exactly one terminal. Sequential real input/status/languages share same actual worker.",
+      "limit": "Root harness relies on strict product decoder for all field checks;it does not independently duplicate every validator.",
+      "classification": "runtime_with_source_validator_review"
+    },
+    {
+      "case": "Async completion safety",
+      "evidenceKinds": [
+        "source",
+        "normal-status-and-async-OCR-primary-runtime",
+        "pure-wire-decoder-test-source"
+      ],
+      "covered": "ownedFrame captures exact object before handler dispatch. finish schedules background completion onto main runloop;only that loop accesses completed and frame globals. completed check precedes exact current-frame comparison,then one terminal/reset/signal. Serial reader waits per-frame semaphore. Pure decoder rejects duplicate entry/terminal wire rows.",
+      "limit": "Forced duplicate native callback,intentionally delayed native completion after timeout/Stop,and old/new frame native callback interleavings have NOT been runtime exercised. Wire-duplicate tests do not prove native callback duplicate handling. No testhook body proof substituted.",
+      "classification": "source_only_for_forced_native_callback_interleavings"
+    },
+    {
+      "case": "Caller/native deadlines",
+      "evidenceKinds": [
+        "source",
+        "pure-routing-test-source",
+        "primary-adapter-log"
+      ],
+      "covered": "Caller capture15/status3/OCR65 forwarded;native generic OCR60/other12;entry/continue2. Real owned worker primed,timeout.2 request commits entry then injected.35s delay:typed input_session_timeout,unknown,no continue,closed session,elapsed<1.8. Reader-local frame watchdog is not a reusable runloop timer.",
+      "limit": ".2 test proves deadline is not restarted after .35s entry delay,not hard .2 wallclock completion. OCR completion after12s before60s and independent native12/60 expiry remain source-only.",
+      "classification": "runtime_caller_deadline_source_only_native_long_deadline"
+    },
+    {
+      "case": "Real Stop before/after ack",
+      "evidenceKinds": [
+        "source",
+        "primary-capture-log",
+        "primary-adapter-log",
+        "pure-cancellation-test-source"
+      ],
+      "covered": "Actual root Stop requires live exact execution,ACC/native birth identities,one gate invocation and stopped=true. Entry Stop sent<prepared+1500ms,both identities exited<prepared+1900ms;strict same-invocation unknown before5s timer/no manual release. All later same-batch file/tool/model blocked. Separate real request_scope cancellation test exits owned native worker while background journal thread blocked,before release.",
+      "limit": "continue_stop means after continue and before Python terminal observation;native capture may already be finished with terminal in pipe. Root case kills ACC/native with gateExit null and cannot prove interrupted capture body or independently effective SDK observer. No root OCR-body Stop or every prewrite stage claim.",
+      "classification": "runtime_narrow_boundary_not_body_interruption"
+    },
+    {
+      "case": "EOF and worker quarantine",
+      "evidenceKinds": [
+        "source",
+        "primary-protocol-log",
+        "primary-adapter-log",
+        "primary-capture-log",
+        "pure-decoder-test-source"
+      ],
+      "covered": "Real generic status/languages EOF/wrong challenge produce correlated not_dispatched/action_sent=false and exact worker exit. Capture terminal-journal EIO retains committed continue but no native terminal/delivery then cold hold. Shared adapter source/tests cover entry fsync EIO,terminal EIO,replacement identity,unexpected decoder,cleanup quarantine and descriptor/observer failure.",
+      "limit": "Every generic output-block/crash/corruption/helper replacement variant is not separately real runtime exercised.",
+      "classification": "mixed_runtime_shared_transport_partial_broad_design"
+    },
+    {
+      "case": "Busy/lock semantics",
+      "evidenceKinds": [
+        "source",
+        "primary-adapter-log"
+      ],
+      "covered": "New real generic status holds shared worker at durable native_entered;concurrent input mouse.position must desktop_busy. Exact Popen unchanged,native_prepared stays1;release leads to generic success,subsequent input succeeds on same Popen,terminal total2. Separately real-thread/gated mocked-exchange delayed observer test proves old session retired under lock and only old Popen later terminated.",
+      "limit": "Busy test is active generic channel versus input query in same MCP session,not simultaneous capture bodies or cross-MCP-session global desktop lock. Legacy2-slot/OCR_GATE lifetime source-preserved.",
+      "classification": "real_same_session_generic_input_busy_plus_source_limits"
+    },
+    {
+      "case": "Real screenshot delivery",
+      "evidenceKinds": [
+        "source",
+        "primary-capture-log"
+      ],
+      "covered": "Actual owned-window main PNG saved to provider image history and decoded;next model request follows durable ACK. New genuine foreground node captures native image at public max_width640,requires private historySha==ledger deliverySha,PNG width640 and exact tool reply. Actual child next-request contains same PNG dataURI;parent image history stays separate;workflow succeeds.",
+      "limit": "Historical saved-byte/ACK proof is not proof of semantic model understanding or arbitrary image substitution resistance beyond strict product validator.",
+      "classification": "real_main_and_bounded_foreground_node_delivery"
+    },
+    {
+      "case": "Real OCR",
+      "evidenceKinds": [
+        "source",
+        "primary-capture-log",
+        "primary-protocol-log"
+      ],
+      "covered": "Actual Vision recognizes English INVOICE42 and Chinese 中文测试 from owned local image and real captured window;real language query succeeds. Missing-image actual ocr.image failure and missing-window native capture failure/no invented image exercised.",
+      "limit": "No claims for OCR geometry accuracy,unsupported-language matrix,all image formats/capacities or accuracy beyond asserted text.",
+      "classification": "runtime_narrow_text_and_failure_contract"
+    },
+    {
+      "case": "Capacity and partial commit",
+      "evidenceKinds": [
+        "source",
+        "primary-capture-log",
+        "offline-sidecar-hash-binding"
+      ],
+      "covered": "Actual private random canvas rendered and native captured. observe_fields calls original macos_capture._fields first,records exact returned PNG/length/hash/invocation,returns same object. Independent harness decode+two exact dataURI copies exceed16MiB. Same native invocation returned/delivery null,actual native/ACC completion,explicit capacity error,reservation has no history,no postfault file/tool/parent or child model;cold unknown/no replay. Image save EIO separately distinguishes completed native from uncommitted delivery.",
+      "limit": "Actual node snapshot16MiB and history-save failures are covered,not every global ledger/reservation/file limit or native48MiB/transport68MiB cap.",
+      "classification": "runtime_true_native_png_quota_and_partial_commit"
+    },
+    {
+      "case": "Restart",
+      "evidenceKinds": [
+        "source",
+        "primary-capture-log"
+      ],
+      "covered": "New valid bounded native-node snapshot cold reopen preserves exact ACK,one invocation,permits exactly one new provider request and no replay. Entry/continue Stop,native terminal EIO,image save EIO and real node quota cold reopen hold unknown before any provider/tool replay;global provider request count equality retained.",
+      "limit": "No claim for all retention/reconciliation/replay policies or current model prefix identity from historical delivery hash.",
+      "classification": "runtime_valid_node_reopen_and_fault_holds"
+    },
+    {
+      "case": "Serial independent acceptance",
+      "evidenceKinds": [
+        "complete-frozen-hash-review",
+        "source-review",
+        "primary-development-logs"
+      ],
+      "covered": "All125sources bytes/SHA/gitBlob and4artifacts bytes/SHA independently rehashed;7production identical to initial review. Source changes after old freeze-v1 limited to2test files. Primary logs captureV9=87PASS,protocolV2=51PASS,adapterV6=23testsOK,pure16/12/18/4. Existing protocol assertions retain meaning;live suite opt-in and own fixture only.",
+      "limit": "Reviewer executed no tests/native/GUI. Primary logs are developer evidence;V9 preceded final evidence-only small proof field additions and cannot be claimed as current-byte independent qualification. Finalgate-v1 hash invalidation retained by parent;finalgate-v2 and fresh frozen independent runtime remain parent/acceptance work.",
+      "classification": "source_binding_complete_independent_runtime_pending"
+    }
+  ],
+  "qualificationDecision": {
+    "sourceAndHarness": "No confirmed blocker for explicitly narrow frozen default-off native capture/status/OCR receipt slice;ready for parent-owned frozen independent serial runtime.",
+    "remainingBroadDesignCoverage": [
+      "Forced duplicate/delayed/old native body callback interleavings:source-only.",
+      "OCR>12s<60s completion and independent native12/60 watchdog expiry:source-only.",
+      "Cross-MCP-session concurrency/global desktop serialization and fresh default-off two-slot runtime:unclaimed.",
+      "Every generic output-block/crash/corruption/helper replacement/global quota permutation:partial shared-transport evidence."
+    ],
+    "meaning": "These are proof limits,not discovered source defects.All14 broad design rows are not declared fully runtime accepted.",
+    "requiredNext": "Parent final engineering gates and independent p5_acceptance fresh serial frozen runtime;source review does not grant wholeP5,input/held,rescue,environment acceptance or lock restoration."
+  },
+  "primaryDevelopmentEvidence": {
+    "reviewerExecuted": false,
+    "runtimeIndependent": false,
+    "logsReadOnlyInspected": "V9 capture87PASS+ALLPASS,protocol51PASS+ALLPASS,adapterV6 Ran23testsOK;pure16/12/18/4 preserved.",
+    "bindingLimit": "Freeze binds bytes at review;primary runs do not substitute for fresh before/after frozen independent qualification.Final small raw-proof fields added afterV9 run.",
+    "quotaObservedInPrimaryJSON": {
+      "bytes": 9732208,
+      "width": 2000,
+      "height": 1456,
+      "minimumSnapshotBytes": 25952604,
+      "encoded": {
+        "invocationId": "84f9a31cc2281a43593e9d7d9afd793f",
+        "base64Chars": 12976280,
+        "bytes": 9732208,
+        "sha256": "45220d712952e9f1f2c923221122891085469cf0ed3a4b512dc162c1b26b42f3"
+      },
+      "sha256": "45220d712952e9f1f2c923221122891085469cf0ed3a4b512dc162c1b26b42f3"
+    },
+    "evidenceManifest": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v4.log",
+        "bytes": 3529,
+        "sha256": "b03063c96c1b7b4957e7d412747fb6de113bc19f46ee43a470ab897c09028900"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v7.log",
+        "bytes": 6281,
+        "sha256": "143605f36728dbea3cd7f9d4658ef26ef43a1edbb0e9f0746c651e4d85214fbb"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v8.log",
+        "bytes": 6484,
+        "sha256": "990e1341c015c7698fa092047ca55d6477d8720f7998db60c63a12ffd1211a43"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v8.json",
+        "bytes": 700250,
+        "sha256": "45f40da5f1675bc012d864cde939494b8b19b152571030165197ada0ea71b8f8"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v8-quota.png",
+        "bytes": 9728566,
+        "sha256": "8e3ce0bbbc8b8560aa1b5a3ee1036dd4e21d731a32c3970debff5ac45f1f20ee"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v9.log",
+        "bytes": 7506,
+        "sha256": "e732c41b2c01cc83ff1f1a41c608692671aeb68f1def07357df23d6066b7913e"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v9.json",
+        "bytes": 818645,
+        "sha256": "f2615f3092a4eca4bc4ab83f7be20adaf615092b632fd4fde557a442900a8e75"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v9-window.png",
+        "bytes": 49711,
+        "sha256": "07e29bd31644db08248e2ba1eea6155a642429fce4b3cf42019d72eeb8466686"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/actual-native-capture-v9-quota.png",
+        "bytes": 9732208,
+        "sha256": "45220d712952e9f1f2c923221122891085469cf0ed3a4b512dc162c1b26b42f3"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-native-protocol-v2.log",
+        "bytes": 3716,
+        "sha256": "dff97770ab40c63e1cd0c02461f615474e800af068f56edc1d8325724df4ab29"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-native-protocol-v2/results.json",
+        "bytes": 33080,
+        "sha256": "cbe25c0a39b8834225cf2e3c0d49a2e05c2fa3120fbc80bc204dcebe06949346"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_macos_receipt_session-v5.log",
+        "bytes": 121,
+        "sha256": "80b4dede9c74da422d9b9ee0e37e5483b50b9db13a69278ba754a3b7917770c8"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_macos_receipt_session-v6.log",
+        "bytes": 122,
+        "sha256": "b8d26475075a7b15ba5e630de33116ae6bc5ccd06f15fbed40bbe6c6feff8c85"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_native_receipts-v1.log",
+        "bytes": 115,
+        "sha256": "bf1d8186df2d63ab6beb6c5dbd7841764bfe6ec831b9b94b3acbe5cbc71d83a5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_execution_required-v1.log",
+        "bytes": 111,
+        "sha256": "a9a62c93b51eee640410bdd1924c2eb7632ed5f8a5eac2ea425b405c1a8a196c"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_execution_journal-v1.log",
+        "bytes": 117,
+        "sha256": "a5a4f1f106c36a0d70e3c549bb697177bdaecab6774626c9e8c7ba5524e1ec6d"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/native-capture-smoke_execution_control-v1.log",
+        "bytes": 812,
+        "sha256": "19ed97370d799c1381b08f0ce8e3bf865fecef967efa7c3a03052383ea69f51c"
+      }
+    ]
+  },
+  "priorReportsPreserved": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-receipts-design-review-v1.json",
+      "bytes": 29316,
+      "sha256": "0bcf4372ae86e6bbd71fee614637c500194e4b1bcfbbf08a4bdc16cbe8edaca1"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-production-source-review-v1.json",
+      "bytes": 10090,
+      "sha256": "b382c55e9869331cbfaa01d35e303fb2483d329726eae8eac77bc7719b687fd7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/native-capture-fault-harness-review-v1.json",
+      "bytes": 9137,
+      "sha256": "a61691909de6ee38300f1bbc0fa0e18af6352d93d1bff6bb912119b4c99ce72d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-source-review-v3.json",
+      "bytes": 69748,
+      "sha256": "370b19a90d90071dc07f23776bd4cf1b0834152b8c54511408d0a93ae252048c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-review-coverage-v1.json",
+      "bytes": 24238,
+      "sha256": "0136f55aba352547a32d468bd35549e278ffadffea70f0ba3c56cfaf84c11ab4"
+    }
+  ],
+  "sourceManifest": [
+    {
+      "path": "README.md",
+      "bytes": 66010,
+      "sha256": "6ee714a1b62b9e0756333c7de99f696009039b429973361c17ced617a356eba5",
+      "gitBlob": "259d591af929839d1f9e172e549585f974a38fc1",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 73111,
+      "sha256": "88c24796c34dabf9825f2123bb86d11e83328cab16860106293db1e1b3205247",
+      "gitBlob": "2a0249761511728a76a408c6799fea3fb3dc7dfa",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/desktop-execution-root.e2e.js",
+      "bytes": 8788,
+      "sha256": "560df60cd0b8f9b3b5a573a2c78cac883d0ef3e222c8b614432654558ddde8dc",
+      "gitBlob": "e62a89b09c3a878b68021fb9c950f92fc2bbbba2",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "bytes": 53300,
+      "sha256": "b3ad3ad95208fabd87fd82291f8377db7a6854d4d16d9330f4c6fd2ccc04dddf",
+      "gitBlob": "846150dc1a57096e0036c937962a0eafd9080f82",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/facts.static.e2e.js",
+      "bytes": 9928,
+      "sha256": "e06b00534e4d21951e3322a9d6fc83bc31546db649a2b2068daa3d28bf6361c3",
+      "gitBlob": "2dead9ccfd2f4dfb5f13ab569d539e682c1c8241",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-argument-vectors.json",
+      "bytes": 4762,
+      "sha256": "e5941ab4b5d1873c2a389a6381771205f9673531eb3657f55baf17348c81dd86",
+      "gitBlob": "ae4b32700165d1195f42042d9865a10031978003",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-capture-server.py",
+      "bytes": 3845,
+      "sha256": "28d48b9eb94c7195faeec503ae9b0ddb52fac4de20628bec6bcdb0fd1a5af5f4",
+      "gitBlob": "06cae10b16cb714cfd4d4899c2a26d4a6d3ee161",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-image-preload.cjs",
+      "bytes": 2506,
+      "sha256": "457c7970a97111c5676254bb143425ddf7ee69f9d89f4f1440cffb7520213173",
+      "gitBlob": "b9d4c2b004953d8a526c298747035824de51de4b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-image-server.py",
+      "bytes": 4248,
+      "sha256": "6c98e4dcf49e1071c0d114e22fb753f387314386ac91e16ea662544692ddb609",
+      "gitBlob": "8e72671d92f879e939885e6bf170ec1628c0a9f4",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-node-hooks.cjs",
+      "bytes": 2788,
+      "sha256": "3ab7de491debccd3ce282456094b89835dd682b4faf791bd328f84f497a446be",
+      "gitBlob": "5f7c7817c676d74d2ef9a2f10b2db4d588b8b0f9",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/fixtures/execution-node-preload.cjs",
+      "bytes": 2401,
+      "sha256": "dbcd6952e6f3c9dc699192082648955976d0f09ea3ec3fd2220dcc8d53669e53",
+      "gitBlob": "5ff53c2afb36da430ac397b263c628b2526a80c5",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-ocr-window.m",
+      "bytes": 9008,
+      "sha256": "4c85893cf5960fa11452284487227ae0fc8b54420be403f04935b0ebf61bfdc3",
+      "gitBlob": "abdf3a0cfa5eabf2bccc92d97e52aaf5d2338d16",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/lib/browser-cleanup.js",
+      "bytes": 2757,
+      "sha256": "77f67c7e31b9f5428d22deb0e056f0a17740c251b03c87b43c7ca82967b72abd",
+      "gitBlob": "cbe469af9315f1c92a3a67dd472a57f3491a2980",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/browser-fixture.js",
+      "bytes": 21509,
+      "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "gitBlob": "7c21a90b5e7d425c2634411d24629d19ff07c3da",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/browser-path.js",
+      "bytes": 1263,
+      "sha256": "435e5e8968ac124b43ee7cc0b03c34688940bf5fadbd0dd44fc88f5a5cb8d09d",
+      "gitBlob": "f81cd4521b7bb4adcc95df02c20372a963b45d5e",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/browser-profile-scope.js",
+      "bytes": 11320,
+      "sha256": "3b9cf3380cc77b2ba480521cb055f9056258cd594a4120f0eca4fc5c9d32c0f4",
+      "gitBlob": "81f5aa5b9d34222c8a625d889b3a786796e5dbad",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/composer-race-fixture.js",
+      "bytes": 3751,
+      "sha256": "bd13581f0d7b087065fa5047aa5ab2889394732f1d7ddb0942950c2544177f2e",
+      "gitBlob": "ef7ef731da0df57deddf46dc82c6183313cad3f0",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/count-fsp-open-preload.js",
+      "bytes": 790,
+      "sha256": "535aa17423ade29417e1ae21b7b17ce1da7a3d3eba4c6ecc8bb97dd91670cadb",
+      "gitBlob": "e3e2ab100196bcee1e49e756cac873a625a20234",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/external-bot-fixtures.js",
+      "bytes": 4032,
+      "sha256": "52df68555db7f9c89dcf3140e9a0b8856995ed62a6418928e71befecdcf07e02",
+      "gitBlob": "af5b8d0d239f8aaba4e3a2be198dfc6f797e1f15",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/external-channel-delivery-preload.js",
+      "bytes": 1542,
+      "sha256": "983925b6c43a47be1ac831147fa37c39746c222657a824750f925669c456b63f",
+      "gitBlob": "13f09766e509b6e02a2996263018cc0730ce1db3",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/fake-anthropic-provider.js",
+      "bytes": 10278,
+      "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1",
+      "gitBlob": "d7a6489354df332fff0df5dc65bcd787e5aaab76",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/fake-cold-shim.js",
+      "bytes": 4666,
+      "sha256": "feb322a537a7e5445a49292092f3a538621b8cd8956bf60cbd785bf5e44c2299",
+      "gitBlob": "c3df712c54591ea15fc651be524446b35dc373d6",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202",
+      "gitBlob": "9a776a818d4061391a5450f59698e9e9f90853ff",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/fake-stream-component.js",
+      "bytes": 2430,
+      "sha256": "a5fddbd7db9892beaea383258660e0d2d3d3dd001b81cca2eac1b88c31e6ff56",
+      "gitBlob": "ff7aaee8ea7eb2d4dbb06d65ffb8f620399acd9c",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76",
+      "gitBlob": "ef6b3c06478a491ebb19a0758face643d2d185f0",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae",
+      "gitBlob": "4494cb248ff81a6274d885191c772d1f2480f685",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/local-provider-key.js",
+      "bytes": 3957,
+      "sha256": "101a7b03d871182735d1494f791457fbb8b6c8bda9e4f091a7364ec05319958a",
+      "gitBlob": "b53f8a5d8708987b98f32ec9c1d2b021049bc9c6",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/macos-keychain-fixture.js",
+      "bytes": 1977,
+      "sha256": "ffa7a7c352e43b0fbac0a8c4c1cf0c6ae19902c3916759293699050ee03ab5e9",
+      "gitBlob": "13faff84d536a080dad1e4e47d435ff19670b026",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/png-grid.js",
+      "bytes": 5141,
+      "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+      "gitBlob": "9e605a8f43c17682f62fb7c2a79d561dd6c5cf4e",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/port-audit.js",
+      "bytes": 2543,
+      "sha256": "56a6aab691dad09fa5d31e1e108f58f3082c41a86f2d357b814a8f0837b56cf0",
+      "gitBlob": "41893e13ecd579f9b59c6a96f229db7a55a8ff7a",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/privacy-backup-fixture.js",
+      "bytes": 3026,
+      "sha256": "2126a669daebc2b11e16839a3547abdbec3d03c3a18f5f916b294f18c85df1ae",
+      "gitBlob": "e31a0cd5007b9f6ad60c97a6c98de2f37224a341",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/privacy-test-fixture.js",
+      "bytes": 2067,
+      "sha256": "25f5c350de3876d4c0d416b9167d07461dbc9b75d103b82bd39ea6ce4e154632",
+      "gitBlob": "a0a65a8b5ce5ce55456be4ea91b4f31da2d47e46",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/real-data-root.js",
+      "bytes": 1083,
+      "sha256": "edb4173a7ecb12cdd263cb24247e604e377ea0537f5c72e8f5d4eb61154c9e7f",
+      "gitBlob": "dfa7f9259704bc74725d64d2f64ef8468bab35b9",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/release-checks.js",
+      "bytes": 2826,
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172",
+      "gitBlob": "4ffc87d166a7401d0d587839bfa1729f8bc2e3fe",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "gitBlob": "2121418a003fd170a93fce278da1c2a6140733e5",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9",
+      "gitBlob": "5ce3c7076746a13ece00dd005a21fc2558bbddfd",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/source-slice.js",
+      "bytes": 6684,
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4",
+      "gitBlob": "7e17a951d76af01a96f116938c64697205fb2102",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/stream-event-scan.js",
+      "bytes": 3886,
+      "sha256": "bccd8e5aeffa0ea23f3d1697cfd3650e3faba3802e78ff59b3b2b1a35391a7fa",
+      "gitBlob": "546de87df2e178a17fd6278e278307ec5c2d9b95",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/temp-janitor.js",
+      "bytes": 5002,
+      "sha256": "b7f08be34628c0d54a8d634431fb9fd3250a21d97bc03cabf63b91d511f129f2",
+      "gitBlob": "d87c7c3b90dd35984485bf0315a8691c9d3eb462",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/trace-blocking.js",
+      "bytes": 1522,
+      "sha256": "8604ba1fba8cd8410fcd39108a67ac4f9680792d5b6a4b8bacc2d5575a3cca0f",
+      "gitBlob": "817566f031067b21dd32e3d010d7676ca3bb9a72",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/lib/wallclock-window-scan.js",
+      "bytes": 9496,
+      "sha256": "37fe5aea1dbad0b0442fe7c60b8272598c7d027813b70905ece5c3d2c38491f5",
+      "gitBlob": "4651544d9fd44aa3e5c3410ed99a1b4f111070ce",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/macos-execution-capture.e2e.js",
+      "bytes": 31969,
+      "sha256": "20aa3183431a7ec8dd31b3611473c58aeedaade8b46c3ca21a76361762475f65",
+      "gitBlob": "5c9a8e2e36086a98869f7667b06a62eb82c01f4e",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/macos-execution-context.e2e.js",
+      "bytes": 15107,
+      "sha256": "3908494da794c88118f42ad0d2c472f0e4ac40d654396007f55719d0010cb85d",
+      "gitBlob": "98aa54bbd4b52478c275c4da26c5b97909dcb368",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/macos-execution-dispatch.e2e.js",
+      "bytes": 17526,
+      "sha256": "581ec12e7574cfedff07225def820b6074c227b29656f40f09c0d935ddb967cb",
+      "gitBlob": "36df996aff3868d90e0ec1a75425848d54acf055",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/macos-execution-images.e2e.js",
+      "bytes": 15793,
+      "sha256": "12bc33216346d27a6ffb1328b9586299adb1c5e46c9faef56411c4f20812f131",
+      "gitBlob": "0ad0fd474d2957a6c4dbfcffc7218d4d015f3eba",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/macos-execution-subagents.e2e.js",
+      "bytes": 23359,
+      "sha256": "4dd58e0361f9872f431095ea0f62b14ea052d049cd54c827b96322d71d3f255c",
+      "gitBlob": "32945537d463e9a3d4e1e926cd1e1bec796de625",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "bytes": 11813,
+      "sha256": "4cf4f24cea8dc1a1b81c62964981a79cc70249ce04ee54265e05e17967d7944c",
+      "gitBlob": "e34580c121194afd4359909a190edd16d75d913c",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14714,
+      "sha256": "19802bad84da86bdd75bc303c405331b9a63360e2e8f4b62819787f29b09efae",
+      "gitBlob": "24dd6ebc32dc178fe93636795ebe94c6170e6962",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/run-all.js",
+      "bytes": 48735,
+      "sha256": "e1604efaa9ad6ea9de22487057b19f5b51e4d3bb0da433cc2f7a561aa4e8081f",
+      "gitBlob": "09ec7adee3ab2d9ae5553087368bc8d65a1cc85c",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "bytes": 9333,
+      "sha256": "2627a9244a2f99af241c061b929985356635f3fefe0e06f48871cb4c343ff1c0",
+      "gitBlob": "6416af04ed16904bf867339d15ae343646149ce2",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "bytes": 12099,
+      "sha256": "ec4d059cfbe207a92bab40d6bd81868e286cebbfd02d72c36564f5273e0bb47b",
+      "gitBlob": "48fbaa681207d2d65e8ac19873ecdf9791c2b929",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/credential-recovery.test.js",
+      "bytes": 19817,
+      "sha256": "d48ffdb8323b812d6ce27aeed7e2a8c87a64b1bf76a2651df5546cd9bd019dfc",
+      "gitBlob": "904b3a137dbcf1f495dfe639c4c5181671710c51",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-dispatch.test.js",
+      "bytes": 6580,
+      "sha256": "a21bde21285854678b3fe938ac59dc00e347c02835281e56223a45975c82fb12",
+      "gitBlob": "6c06a724f668fa1b7633721eb56d2490aaaf4809",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-ledger.test.js",
+      "bytes": 29254,
+      "sha256": "e72714480b95c87a42fb638ff9652f2d9e46406551353386c82adaff437f38ea",
+      "gitBlob": "f2b03e031211a69f48d627e33553ef2fad22f6f7",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/desktop-execution-runtime.test.js",
+      "bytes": 11904,
+      "sha256": "34be98ee703b66326bbf66b02217d18f088cbc9e1acfbcbcef73b43602fe23b2",
+      "gitBlob": "7d4add9bb268c72ae3158a979d31972cb8c6818f",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/desktop-image-history.test.js",
+      "bytes": 18118,
+      "sha256": "3f666cb3bab557997afa550e8cda79167320fa7e1cd5ca2ece500d22b3338b1f",
+      "gitBlob": "ada2c6a09e7f7da52618b2de4b5e6b74f139aca1",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/desktop-node-admission.test.js",
+      "bytes": 8207,
+      "sha256": "ce393f9db3ae222309756d43297b34150e105363523ad936dfb10555ed8a0388",
+      "gitBlob": "bc9eb31404256722e438c756524a4f252295fb72",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/durable-json-bounded.test.js",
+      "bytes": 9396,
+      "sha256": "84f0f2e9a9f6660ea672cc7bbab318060824e6c08c916558a191382fa3784fb1",
+      "gitBlob": "def785997eacf9b4a2ffb56d152192187c217943",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4739,
+      "sha256": "9f48f8e37717b2af02675c8f2e70ec6fad7f86fa30f0c08fb35ed994fe640c3f",
+      "gitBlob": "fe72c4b6434e5dde252c11fb4d3bff3f7ec89899",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8",
+      "gitBlob": "4905e390e78a6ada688e148751d8c9210b821395",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "dev-harness/unit/server-ownership.test.js",
+      "bytes": 17615,
+      "sha256": "6675726587d55663406b720d1321ac9f322f6bb51f803e58ece29ab3cad4a2cf",
+      "gitBlob": "80911718e58bd673106e0f62138f74e5d1e489f7",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "bytes": 62189,
+      "sha256": "3510e6f59a178e211463071b7534cf9e16ca9235b2ffb82696088a04efab9bee",
+      "gitBlob": "d35d0a7c452f37d2045e8274c4de33e403b450e4",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "bytes": 45192,
+      "sha256": "8cc353725b78ded38be22bbd67eb1226178bb459191e5fd8cee667bd6bbc356e",
+      "gitBlob": "b0d94c362d12aa538a5da3eae524b4460d32c095",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 936027,
+      "sha256": "189a9f434575b407784c843e417c26a9bbbb92301c3b9c64004dc1b4f1a0ee4f",
+      "gitBlob": "f411b3843b82e070d97486ff4e623e6b3a5fce3b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "bytes": 125026,
+      "sha256": "9926ddc50a1ab0677bc5b59e5aee0c55bc2417b9ce52654387cdf7e4289fe034",
+      "gitBlob": "95ec4d8e49ad29e9544790f30db36a32cadf190b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 211611,
+      "sha256": "039d4014fc1e39d47ba387d9f51319fc9a2c233a206ea9351be6f6838032f38d",
+      "gitBlob": "c57cba792551551e69852724b52eb4ae9b93c0f5",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 34115,
+      "sha256": "8d6ec1d77d40b420a58afdd1390b99b9e21c2120b42a7419e152db17f4d28bad",
+      "gitBlob": "2c2717c4ac52aea8ba1ab5c89d40320ec126126b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1337,
+      "sha256": "d784193c8cf15d8b575980298e791fb661eb581936a375ccfb26e550b9a1204e",
+      "gitBlob": "8a70d5afa311ee5d920c0f9be09fa6952dec2dad",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "bytes": 189,
+      "sha256": "5785518cfa8dfd434ef39bb0e08fcf7e6b0c1eef3ac6f14b5e4986c07ef5a6ea",
+      "gitBlob": "02d8d0a4fc394dbcae463b0510da0c3522e4857c",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "bytes": 1539,
+      "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5",
+      "gitBlob": "e73b7590536c6a903fb225d4bffbf42c2da2325c",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b",
+      "gitBlob": "ddee26d77746c0881cea591ae59571d9605ec329",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11618,
+      "sha256": "411c553288e9960f10d53a6ba04040e3fa1e28da70d37d6b445c2538910e495a",
+      "gitBlob": "093fc95123005f92a6a248ffa48c4e80de22fb5f",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2",
+      "gitBlob": "7ec7f6ccfaeba0e518f4363452d73ed48880836a",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py",
+      "bytes": 11996,
+      "sha256": "0134ea37db3cbbccb140e6768a9614f983048766cada844c1324422d82406866",
+      "gitBlob": "3e8ff53cfe872800b78c62c57aa4100802824ba1",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2",
+      "gitBlob": "5d3effd7825b83002475d0866bc0125efc5c83d7",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "bytes": 2445,
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d",
+      "gitBlob": "ab749f99f2ac35188dccdff7d3fe88e0e15a5e1f",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12994,
+      "sha256": "2c9ea109d227d2483c50df2606787b2ad521b9299164f56ee63bf425c5796de3",
+      "gitBlob": "2290656480e2ed96cb38d6d1fa19172511c0caa1",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b",
+      "gitBlob": "f7e5d0ad3e45c499dab73e86ffcbed753c9e4759",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19877,
+      "sha256": "7b36d87a1fb6679188b980d6788109a2f9824b46525c929e1b144bf43e41889d",
+      "gitBlob": "fd12f48fa5789d1651a3317891c0c54dc85f9dee",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 14189,
+      "sha256": "e117594fa5bb6f8ce59a2a3a184c3cb42ce2a4bed46fd0c7dd9f1f0fc5b6f08b",
+      "gitBlob": "15d9984fb979dfeab384e69f60c6d34d54b916f6",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 14931,
+      "sha256": "fa87007f33587a73f1b4a3508515da264fea3d82f0ed5088fc20f84540daf472",
+      "gitBlob": "56a41d30a93b99f524eae82fb05ac2f59667155d",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 8546,
+      "sha256": "371287a8644b9746d5e6b1559997e9e5ad80f10e7bce0e55de51fa3d41c40987",
+      "gitBlob": "4f53e6abc189a86cfe1ec4028e2caa0e66375a1d",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9269,
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb",
+      "gitBlob": "c3d02bf7477b38f1dbd4e3bb487745f18dc2d44f",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "bytes": 3381,
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5",
+      "gitBlob": "14fa52a52ef3fd93d33d3f37001206ffefe92af1",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_control.py",
+      "bytes": 4000,
+      "sha256": "2bbb4eabcb6718d6a281b1f96080c7f981e3202060478922668a779b59f890d4",
+      "gitBlob": "91c8f88d34f41081cbeb9c9752e750e1a76d1e8a",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 12714,
+      "sha256": "d824ea168eff2aabdf669f562c1dec74d199d4db45c50363e3276d98c44df798",
+      "gitBlob": "be4706549924f5889eb5d2758dff77e557402d5c",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "bytes": 17687,
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a",
+      "gitBlob": "9796d0b3212f0aa8b6eef82b4bde8d26b22e5ce1",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_required.py",
+      "bytes": 8451,
+      "sha256": "9ea60cb41aefbd4088d281cd97446dfa080774f496e6de5a27a1b0a660687b7b",
+      "gitBlob": "814793be2f81683f7845f77e6c03c46921b0b189",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 26702,
+      "sha256": "ec9d43b43489cb9fb2696235f47a4edcee753bac3ae96f8550b9d9cc6bb990e2",
+      "gitBlob": "3ff927d4d3e6df115cfcb9a8117b2d5d37a0edad",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "bytes": 8388,
+      "sha256": "af55dff1f9b61e1051e0f915a2acd18df200a6ed057c99030bcddfa47b5c3be4",
+      "gitBlob": "ce0af5d4cdb394a19e360113f321f197421fc279",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "test_fixture_census_or_derived_delta_review"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 6898444,
+      "sha256": "dadb94becc9951c8838dfa0348e59e92e1270d59b6bb35be3ec8e6606c995603",
+      "gitBlob": "4a7cb4a9b11e2055751c4d9835a9c75d63035dc7",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "bytes": 102463,
+      "sha256": "a3d5abaa699348a71306bd03507e7a27288d35bcf0e7dba2246cf52e4f70b464",
+      "gitBlob": "8dd997a4b4c626e2ff842ede9f004f58bb76b23b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "bytes": 296227,
+      "sha256": "36ebe66a701261130bfb2fef1ea40b1afce00e3f59b3aebb8fe97aafd5d75453",
+      "gitBlob": "0bf26bdb0ce9de6e2ed18aeb4abe221564fc9e94",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01g-server-ownership.js",
+      "bytes": 20697,
+      "sha256": "be996b8d394895da2bd48e43e967586c3c1f01132dd7fe6222055d8e33cc5f78",
+      "gitBlob": "d91d02419525e871176b91dbb2aee767c9643b25",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 433480,
+      "sha256": "301ba64028ee3c499f9296f9453b63bee099aaf06e39b051e9127714e2152bee",
+      "gitBlob": "1f805edda1de83fb9df0ca391f197894459b1ab2",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 1017,
+      "sha256": "d13e8e1273b7b5415431dc2920a6b28bb7becabc96f255f21d06ec06bc16e7be",
+      "gitBlob": "b88f49d63e8fb924e6a40a89100005c0e6d4a057",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 36479,
+      "sha256": "f402d9f45cf7cba5eb3541f2fd4ac2c3fc448705eb3cf7cf135438ff61daf965",
+      "gitBlob": "06284538d21f81d243a10d87df9036532d02dad8",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 198564,
+      "sha256": "c054a79b4f046a2a55fc9685bdd98191fac9e5cde48520ee64efc227eb37c087",
+      "gitBlob": "a5281edafe17e09733b6901d6af9e211e3c4c0a4",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/04h-provider-http.js",
+      "bytes": 15890,
+      "sha256": "4a7aa733436ea6c70a829d1be70f5b58ab1dc28fd5235daf77d51f193de3cb3f",
+      "gitBlob": "dc7f216ed967ea19ac4b1ffd304ef130e8c1ae3b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05-claude-engine.js",
+      "bytes": 181793,
+      "sha256": "ee17b519118a322dbeb6e2789a898795d2a719681e1dc4de882ffbbdefc3e24e",
+      "gitBlob": "47f38204dc0fae16630054aef8d9b31f26993711",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "bytes": 166432,
+      "sha256": "a614752d7de7fae66120c52262f03c0b23c650c8c8cebf856a599dd5512a07bf",
+      "gitBlob": "b4d7d615352987ded446a50d1fdb30cb5339df3b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234429,
+      "sha256": "6f4882baeb99382e4cb21efbf848c7192c703d032b90a5b908186ee1bea932eb",
+      "gitBlob": "b33edb6411c0bcbde3eaa0d03812d339e43a3330",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 249802,
+      "sha256": "66604b4a046fb46ef3973ae1c0ca76c43738552bdbb1b2b1fd7c371529c1ac7d",
+      "gitBlob": "9fabd5e04c1cce7b7199a72d976699cdeed96454",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 363565,
+      "sha256": "801e142ab3f463904d246163e085aa1420011ec9aef826d0904929cf02cee1e0",
+      "gitBlob": "e4de365954e2cd294a83b8380405e6bc38c9cf09",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 320122,
+      "sha256": "429693af6534301bbe3805133d87988b042231231b0943ee90ab2e8ee2b678d8",
+      "gitBlob": "1340d88c5abe343d421ec8014ddb0b3b60d9c857",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "bytes": 302071,
+      "sha256": "f794a665826fa1e87f977a670d40ea87e8b4aa0e8358b716747fff8f5980c80b",
+      "gitBlob": "33cf2998109b9850c21a743967472d376fe6d2d0",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "bytes": 222006,
+      "sha256": "dec468e99c0e33e928dfe73bbca328afdceb356c75e6e37c32f566058b201107",
+      "gitBlob": "6bea4c87f78a026a3e6b221db9a8609e5eb6eaa3",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 28740,
+      "sha256": "e2c4076371c118d67db6aed6ed92a80fbe88a1f4dbe92c8f71209d92c344ad27",
+      "gitBlob": "7834fbf3072794afa910808d52917e129170ed3b",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 24566,
+      "sha256": "1fe079d89973e39e07fea01a277e83234911e4875e714c8b4c0bf2e19ce7e687",
+      "gitBlob": "c16ba37ee58ee076ee4a8e7b60c34fbef3656efe",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 706186,
+      "sha256": "2c8cf2bf24dc1a622c15b3a8916e8afe5aeb1eb33ad3c775912ef2d3e1683751",
+      "gitBlob": "0fbee2c4c3b58eabdbf4b53f44a2aee4efd03efe",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "bytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "gitBlob": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+      "gitBlob": "82ab216b0568f56d92662356d6f0990b33f897d0",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23092,
+      "sha256": "78309aa3e36a7d4d75f2aa1788e896b182b2773e90e3b1c931ce40ca352f6ad4",
+      "gitBlob": "bf631cef7cdef96e7c9c44a1819a464cae12a7e5",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "gitBlob": "19fb81e2c29cfe1b050b4ce1bf3f614bbcd26e92",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "bytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "gitBlob": "d17d67f9ac2a3a10791a53c3c706a67efc626e60",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+      "gitBlob": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+      "gitBlob": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+      "gitBlob": "5d0c13e99777641a62cb58ad5ace0f0432e423ca",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 18470,
+      "sha256": "d647510e88323cdba786022147adf0beb3bc921ed96e001dd45fa2560a0aa7c3",
+      "gitBlob": "a52bf573a61ebbe9b768dd60a29a6504307f8956",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4717,
+      "sha256": "5eb063a03f058272a7f59335a0dbfc46f69cc7166b67cae78a63ec9ecfae5cf2",
+      "gitBlob": "c073a0fbed727edd95c8f16ec60f3d40fe804be5",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "production_semantic_review"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+      "gitBlob": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "bytes": 2728,
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+      "gitBlob": "c177ca6ed174c2efa7b42a7da1c90d5e89b506be",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+      "bytes": 1557,
+      "sha256": "161cf7047a8662aa2f135e6b0c3388292092d1406b6ddd68f854332c12a5cabc",
+      "gitBlob": "6a495d8820c057f8ef96758947744a563bd59d38",
+      "bytesShaAndGitBlobVerified": true,
+      "reviewClassification": "inherited_previous_review_byte_identical"
+    }
+  ],
+  "artifactManifest": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-helper",
+      "bytes": 309344,
+      "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18",
+      "bytesAndShaVerified": true,
+      "executedByReviewer": false
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e",
+      "bytesAndShaVerified": true,
+      "executedByReviewer": false
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bytesAndShaVerified": true,
+      "executedByReviewer": false
+    },
+    {
+      "path": "/tmp/ruyi-p5-native-capture-receipts-helper",
+      "bytes": 309968,
+      "sha256": "ec6b11c1e4ff7cb4bbeb1bc4ee138b0e1e49c6b003327937669e240fccdc7ff0",
+      "bytesAndShaVerified": true,
+      "executedByReviewer": false
+    }
+  ],
+  "fullP5StillOpen": [
+    "Background/API0/resume/authenticatedCLI/manual admission",
+    "Historical reconciliation,trusted locator,retentionACK/global byte-file quotas/delete/rewind",
+    "Balanced real root input,qualified bounded rescue before held faults",
+    "Original10local+4external environment/revoke/action-time lock/displays/macOS14/Windows/release identity/credentials/clean install",
+    "No lock/TCC/keepawake restoration before fullP5"
+  ]
+}

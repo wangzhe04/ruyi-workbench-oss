@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root/p5_acceptance",
+  "at": "2026-11-11T11:47:52.318852+00:00",
+  "status": "authorized_after_green_engineering_and_explicit_gui_handoff",
+  "freeze": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/freeze-v3.json",
+    "bytes": 23550,
+    "sha256": "8804365cc4c97b34c4b1e6e6cb0f4e0abbf403fe57a177371b69d9c29f7109b3"
+  },
+  "codeReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/code-review-v1.json",
+    "bytes": 23388,
+    "sha256": "f0c0550fac6d54babadee4ea6448a12120e6ae1d34644211e98180f9f7382c3d"
+  },
+  "sourceCount": 127,
+  "sourceDigest": "ae64092fd037d85f9d383a64d09b05a3ab10d58b1fb45afd7ca300502381ed8e",
+  "plannedRuns": [
+    {
+      "name": "unit",
+      "expectedTests": 9,
+      "scope": "Only new session-required-persistence.test.js, not full unit or preexisting shrink15."
+    },
+    {
+      "name": "offline",
+      "expectedAssertions": 11,
+      "scope": "Actual private file_write prefix, question pending/root death, intent/results and denial."
+    },
+    {
+      "name": "native",
+      "expectedAssertions": 12,
+      "scope": "Existing zero-input approved/pending macro intent calibration; parse new provider intent/tool_calls restart, no ACC entry ACK claim."
+    },
+    {
+      "name": "entry",
+      "expectedAssertions": 31,
+      "scope": "Existing ordinary provider default allow/deny/pendingcancel, actual balanced input and PNG image create/overwrite checkpoint/rollback, Node service only."
+    }
+  ],
+  "testsStarted": 0,
+  "GUIUsed": false,
+  "engineeringRerunsPlanned": 0,
+  "phaseStatus": "in_progress",
+  "previousPreparation": {
+    "path": "preparation.json",
+    "bytes": 1451,
+    "sha256": "9862c0daf172ba3fe00ce4615f25a85e388debb4ed7edea4a9479059ccfb7df5"
+  },
+  "delta": "Only session-save-census.static.e2e.js added to freeze; original126 sources and2 artifacts byte-identical. Primary fast v1 failed79/80 after internal retry; census updated; v2 syntax/fullfast with unit preflight is in progress.",
+  "supplementalReviewPending": false,
+  "supplementalReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/metadata-review-v1.json",
+    "bytes": 9706,
+    "sha256": "0813c66f387270c04d6745292775a62ba2664eeee55bb7f847b89f9e0e1f8199"
+  },
+  "additionalEntryFixtures": [
+    {
+      "path": "dev-harness/macos-native-entry.e2e.js",
+      "bytes": 22359,
+      "sha256": "45ca16f3a86018c032a79a580ccf4f24d9d549cb41f0bb00e63a531d5a47c86e",
+      "gitBlobAt96db15f6": "aec4c8a054c05913be3b2fc61eee09ecc74717ec"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "gitBlobAt96db15f6": "fbf9031954580f6eddf3eef3546fc6c97fc83290"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "gitBlobAt96db15f6": "66157f31a6d4182bf74c94135294977b5f80786b"
+    }
+  ],
+  "additionalEntryBinding": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/additional-entry-fixture-binding.json",
+    "bytes": 1255,
+    "sha256": "550641bf2880f873cbf5db1b91a23ad654fdd69bb1b6cded08fe774cb270d7b9"
+  },
+  "entryAuthorization": "Parent explicitly added one independent existing native-entry31 due ordinary provider path changes. Run serially after unit9/offline11/native12. No App/held/TCC/lock or unowned windows."
+}

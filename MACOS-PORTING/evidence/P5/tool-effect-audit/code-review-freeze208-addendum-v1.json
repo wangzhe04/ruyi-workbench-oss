@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T12:53:47.728Z",
+  "verdict": "passed_mission_result_behavior_assertion_and_freeze208_addendum",
+  "scope": "只读审查mission-result.e2e.js指定的一处断言替换，并核对最终208-source冻结；未运行测试、GUI、构建或进程探测，不改产品/测试/index及旧closed报告。只新增本补记。",
+  "worktree": "/tmp/ruyi-p5-effect-worktree",
+  "previousClosedSourceReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/tool-effect-audit/code-review-closed-v1.json",
+    "bytes": 28984,
+    "sha256": "ee7cdc247acaabf0dcb8301b63d7a149af6a147d917074281d30719cd6e7c79b"
+  },
+  "previousClosedSourceReviewUnchanged": true,
+  "findings": [],
+  "unresolvedFindings": [],
+  "assertionReview": {
+    "path": "dev-harness/mission-result.e2e.js",
+    "exactDiffOnly": true,
+    "old": "源码正则要求return对象的irreversible后立即闭括号，新增合法irreversibleIncomplete字段会令其失败。",
+    "replacement": "require实际app/server.js，调用导出的buildTurnSummary(1, [], 'openai', [])，断言summaryProbe.irreversible为Array。",
+    "reason": "检查真实返回值及类型，比绑定对象字面量排列更符合这条断言原本的返回irreversible契约；允许增加其他合法字段，不把该变化误报为运行时失败。",
+    "labelPreserved": "s 02 turnSummary 返回 irreversible",
+    "otherAssertionsUnchanged": true,
+    "exactReplacementVerifiedAgainstHead": true,
+    "importBoundary": "14-main.js在require.main===module时才走主入口；该函数调用为空工具/空journal的纯摘要操作。测试已有self-isolate-home先加载。补记审查者没有实际require或运行该测试。",
+    "repositoryInstruction": "CLAUDE.md:40–41要求静态锁优先断言运行时值；这次替换与该要求一致。",
+    "authoredWhitespaceCheckExitCode": 0
+  },
+  "freezeComparison": {
+    "original207": {
+      "path": "/tmp/ruyi-p5-effect-evidence/engineering-freeze-v1.json",
+      "bytes": 52367,
+      "sha256": "1ee76254e3fb45c325761b9778393840f3f07ee69bddd8f38a75f98fc73e276d"
+    },
+    "final208": {
+      "path": "/tmp/ruyi-p5-effect-evidence/candidate-freeze.json",
+      "bytes": 52597,
+      "sha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e"
+    },
+    "originalSourceCount": 207,
+    "finalSourceCount": 208,
+    "artifactCount": 2,
+    "addedSource": {
+      "path": "dev-harness/mission-result.e2e.js",
+      "bytes": 25239,
+      "sha256": "bf2ff3321fe4e4104dd272f8bcbc3cd8aaaea0009e8472ed028fa2b1350d66e6",
+      "gitBlob": "3af115eb1a0c2b4ffc856cd6877ef40096d98c32"
+    },
+    "allOriginal207SourceRowsByteAndHashIdentical": true,
+    "removedOrChangedOriginalSourceRows": [],
+    "all208CurrentSourceBytesSha256AndGitBlobIdsMatch": true,
+    "originalTwoArtifactsUnchangedAndCurrentBytesMatch": true,
+    "actualArtifacts": [
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "realpath": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "realpath": "/private/tmp/ruyi-p5-effect-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "402d561d3800362a490336055a559625797c0ca7b50f25f26a08a03d4acdd2af"
+      }
+    ],
+    "explanation": "engineering-freeze-v1保留原207-source冻结；candidate-freeze仅增加修正后的既有mission-result测试绑定。产品、生成runtime及原207工程来源未变，EFA1–5源码闭合保持。"
+  },
+  "primaryRelatedHistory": {
+    "logs": [
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/related-v1/mission-result.e2e.js.log",
+        "bytes": 3401,
+        "sha256": "0c3693584252d0c2a6d94a939693a7762719664cf091ff83855e5e24e6b0e3c0",
+        "passLines": 61,
+        "failLines": 1,
+        "summary": "MISSION RESULT E2E: FAIL (1)"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/mission-result.e2e.js.log",
+        "bytes": 3401,
+        "sha256": "60e0a9c69668582052473cbeca277172ec9a73d04674797b2d3025eb1ed801e4",
+        "passLines": 62,
+        "failLines": 0,
+        "summary": "MISSION RESULT E2E: ALL PASS"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/provider-turnloop-hardening.e2e.js.log",
+        "bytes": 2655,
+        "sha256": "dccd0e46d7e2d9b8c2835c3e8b04b08ba9a8b793fdedd552a01f1d9b4a8b5073",
+        "passLines": 31,
+        "failLines": 0,
+        "summary": "PROVIDER TURNLOOP HARDENING E2E: ALL PASS"
+      },
+      {
+        "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/turn-stop-supersede.e2e.js.log",
+        "bytes": 2458,
+        "sha256": "33bbce77a6fc340dfa8117d8d6b3c4de7ff1dbab91bc6403ab65fdafc4b72c7f",
+        "passLines": 32,
+        "failLines": 0,
+        "summary": "TURN STOP SUPERSEDE E2E: ALL PASS"
+      }
+    ],
+    "initialMissionResult": "related-v1为61 PASS/1 FAIL；唯一失败是旧源码排列正则，其他原运行时断言保留通过。原失败日志保留。",
+    "correctedRelated": "related-v2 mission-result62/62、turnloop31/31、stop/supersede32/32；这里只读既有主执行日志，未由审查者重跑。",
+    "scope": "这次断言替换不增加宏/ACC/native实际派发或完整P5验收声明。"
+  },
+  "actionsThisReview": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "builds": 0,
+    "processSnapshots": 0,
+    "sourceEdits": 0,
+    "testEdits": 0,
+    "originalEvidenceEdits": 0,
+    "oldReviewEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/tool-effect-audit/code-review-freeze208-addendum-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress",
+  "claimLimits": [
+    "此补记只接受一处测试行为断言与208-source字节绑定，不提前宣布最终工程/独立验收或整个P5完成。",
+    "actual dispatch/ACC-entry/terminal、held释放/救援和未知调用自动防重发等此前边界继续保留。",
+    "无人值守推进及P5整体验收后恢复自动锁屏的用户指令由主任务登记；本审查未触发或调整锁屏。"
+  ]
+}

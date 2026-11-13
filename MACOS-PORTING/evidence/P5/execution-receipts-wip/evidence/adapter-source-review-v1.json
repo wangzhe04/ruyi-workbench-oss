@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T14:16:26.732Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Read-only independent source review; no tests, native/helper execution, GUI, builds or source changes by reviewer.",
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 12541,
+      "sha256": "af0e373d1e875397f18b2ef8ae59cfbfa6c17bc945f13f0f30174fcbf9afdd14"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 8172,
+      "sha256": "a9aaa7eff92498b10ce947ab81a395940a8c10e5abd33533258d3d4b4f573863"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "bytes": 11305,
+      "sha256": "7dc644d03a8561d4c91657f2c5ae5b4257b74adaeeafce3613acfdc6a3231076"
+    }
+  ],
+  "implementationState": "Uncommitted full execution-receipts feature WIP. Product input-session adapter activates only when a fixture/future real caller establishes current_operation; ACC and Node have not established it yet.",
+  "findings": [
+    {
+      "id": "monitor-start-failure-retains-global-lock",
+      "priority": 2,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "line": 170,
+      "trigger": "threading.Thread.start() raises RuntimeError, for example because the runtime cannot create another thread.",
+      "path": "The monitor variable already references an unstarted Thread. RuntimeError bypasses the DesktopError/OSError handlers. finally calls monitor.join(), which raises RuntimeError because that thread never started; native._LOCK.release() is skipped.",
+      "consequence": "The owned session is not closed and the process-wide input request lock remains permanently held. Subsequent input calls return desktop_busy until restart.",
+      "recommendation": "Track successful monitor startup, close the owned session on startup failure, and nest finalization so native._LOCK.release() runs even if monitor joining or cleanup raises.",
+      "validationNeeded": "Inject Thread.start failure with a controlled fake/owned session; verify typed refusal/unknown, session cleanup and a released global lock. Do not exhaust actual host resources."
+    },
+    {
+      "id": "unexpected-protocol-exception-bypasses-session-cleanup",
+      "priority": 2,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "line": 196,
+      "trigger": "An exception outside the three handled families occurs after the session exists, such as json.loads raising RecursionError for excessive JSON nesting.",
+      "path": "The strict decoder JSON helper does not convert RecursionError to DesktopError; adapter catches only ExecutionJournalError, DesktopError and OSError.",
+      "consequence": "The exception propagates without closing the current native worker or preserving the adapter typed unknown outcome. This violates the stated adapter failure cleanup boundary.",
+      "recommendation": "At the adapter boundary, handle unexpected ordinary Exceptions conservatively: close only the currently owned session, preserve unknown when dispatch/effect cannot be excluded, and return a typed failure. Ensure final lock release remains unconditional. Do not convert process-control BaseExceptions indiscriminately.",
+      "validationNeeded": "Inject a decoder exception or synthetic deeply nested protocol bytes after a controlled prepared/entered state; require owned-session closure, typed unknown and lock release."
+    }
+  ],
+  "positiveSourceChecks": [
+    "Default callers without current_operation retain the old session path.",
+    "Feature probe is serialized under the existing native request lock, validates worker PID/incarnation and current helper identity, and sends no business operation to a valid unsupported legacy helper.",
+    "Actual immutable request frame bytes are snapshotted and native_prepared is committed before transmission.",
+    "Entered and continue-intent journal commits occur before continue. Cancellation is checked under the same write lock before completing request or continue bytes.",
+    "Observed output is preferred over a newly queued continue, and a combined entry/refusal does not authorize a body.",
+    "A typed native terminal is decoded and committed before a successful adapter return.",
+    "Handled journal persistence failures close the owned session before typed unknown and do not retry mutations.",
+    "Cancel observer targets the same captured session and Popen object and can signal it independently of a blocked journal thread."
+  ],
+  "testSourceObserved": "The new opt-in adapter test file covers real read-only query, exact frame identity, worker restart, entry/terminal/journal fsync faults, independent cancellation during blocked entry persistence, pre-cancel, cancellation after intent, helper change and legacy refusal. Reviewer has not executed these tests and claims no runtime pass count.",
+  "notCoveredOrNotCompleted": [
+    "ACC real request metadata/wrapper and batch context activation.",
+    "Node durable preparation, returned result persistence and restart reconciliation.",
+    "Single-request capture/OCR helper protocol integration.",
+    "Strict journal reader field semantics and retention/global-space management.",
+    "Held-state fault qualification with independent qualified rescue."
+  ],
+  "outcome": "Two exception-finalization findings require correction before adapter qualification is treated as complete.",
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  }
+}

@@ -1,0 +1,245 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0f 五条线程都建出来了（{"S":"sess_f776040709c4bae0","L":"sess_e0b74aeb510f33b3","R":"sess_11faf425514b4159","Q":"sess_6b42fa046e8b0048","P":"sess_c5719b820827a188"}）
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS H1.0 管家视角
+PASS H1.1 [zh-CN 1280] 菜单开着、五档齐（实测 {"hidden":false,"l":792,"r":1182,"w":390,"vw":1280,"n":5,"spill":0,"tall":374}）
+PASS H1.2 [zh-CN 1280] 菜单整个在视口里（left 792、right 1182、视口 1280；修前 en 1280 left=-948）
+PASS H1.3 [zh-CN 1280] 菜单宽 390px 在 180–440 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [zh-CN 1280] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [zh-CN 1024] 菜单开着、五档齐（实测 {"hidden":false,"l":490,"r":880,"w":390,"vw":1024,"n":5,"spill":0,"tall":374}）
+PASS H1.2 [zh-CN 1024] 菜单整个在视口里（left 490、right 880、视口 1024；修前 en 1280 left=-948）
+PASS H1.3 [zh-CN 1024] 菜单宽 390px 在 180–440 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [zh-CN 1024] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [zh-CN 760] 菜单开着、五档齐（实测 {"hidden":false,"l":226,"r":616,"w":390,"vw":760,"n":5,"spill":0,"tall":374}）
+PASS H1.2 [zh-CN 760] 菜单整个在视口里（left 226、right 616、视口 760；修前 en 1280 left=-948）
+PASS H1.3 [zh-CN 760] 菜单宽 390px 在 180–440 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [zh-CN 760] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [zh-CN 500] 菜单开着、五档齐（实测 {"hidden":false,"l":8,"r":492,"w":484,"vw":500,"n":5,"spill":0,"tall":338}）
+PASS H1.2 [zh-CN 500] 菜单整个在视口里（left 8、right 492、视口 500；修前 en 1280 left=-948）
+PASS H1.3 [zh-CN 500] 菜单宽 484px 在 180–视口-8（窄屏铺满） 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [zh-CN 500] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [zh-CN 390] 菜单开着、五档齐（实测 {"hidden":false,"l":8,"r":382,"w":374,"vw":390,"n":5,"spill":0,"tall":374}）
+PASS H1.2 [zh-CN 390] 菜单整个在视口里（left 8、right 382、视口 390；修前 en 1280 left=-948）
+PASS H1.3 [zh-CN 390] 菜单宽 374px 在 180–视口-8（窄屏铺满） 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [zh-CN 390] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [en-US 1280] 菜单开着、五档齐（实测 {"hidden":false,"l":792,"r":1182,"w":390,"vw":1280,"n":5,"spill":0,"tall":451}）
+PASS H1.2 [en-US 1280] 菜单整个在视口里（left 792、right 1182、视口 1280；修前 en 1280 left=-948）
+PASS H1.3 [en-US 1280] 菜单宽 390px 在 180–440 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [en-US 1280] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [en-US 1024] 菜单开着、五档齐（实测 {"hidden":false,"l":490,"r":880,"w":390,"vw":1024,"n":5,"spill":0,"tall":451}）
+PASS H1.2 [en-US 1024] 菜单整个在视口里（left 490、right 880、视口 1024；修前 en 1280 left=-948）
+PASS H1.3 [en-US 1024] 菜单宽 390px 在 180–440 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [en-US 1024] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [en-US 760] 菜单开着、五档齐（实测 {"hidden":false,"l":226,"r":616,"w":390,"vw":760,"n":5,"spill":0,"tall":451}）
+PASS H1.2 [en-US 760] 菜单整个在视口里（left 226、right 616、视口 760；修前 en 1280 left=-948）
+PASS H1.3 [en-US 760] 菜单宽 390px 在 180–440 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [en-US 760] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [en-US 500] 菜单开着、五档齐（实测 {"hidden":false,"l":8,"r":492,"w":484,"vw":500,"n":5,"spill":0,"tall":403}）
+PASS H1.2 [en-US 500] 菜单整个在视口里（left 8、right 492、视口 500；修前 en 1280 left=-948）
+PASS H1.3 [en-US 500] 菜单宽 484px 在 180–视口-8（窄屏铺满） 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [en-US 500] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H1.1 [en-US 390] 菜单开着、五档齐（实测 {"hidden":false,"l":8,"r":382,"w":374,"vw":390,"n":5,"spill":0,"tall":483}）
+PASS H1.2 [en-US 390] 菜单整个在视口里（left 8、right 382、视口 390；修前 en 1280 left=-948）
+PASS H1.3 [en-US 390] 菜单宽 374px 在 180–视口-8（窄屏铺满） 之间（修前 zh 1011／en 2130／≤390 的 51）
+PASS H1.4 [en-US 390] 选项里的文字不溢出菜单框（0 条溢出）
+PASS H2.0 [zh-CN steward] 在跑那条让「N 在跑」胶囊出现了
+PASS H2.1 [zh-CN steward running 1280] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 1180] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 1100] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 960] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 900] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN steward running 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN steward running 600] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN steward running 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN steward running 420] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN steward running 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.0 [zh-CN classic] 在跑那条让「N 在跑」胶囊出现了
+PASS H2.1 [zh-CN classic running 1280] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 1180] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 1100] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 960] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 900] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [zh-CN classic running 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN classic running 600] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN classic running 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN classic running 420] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [zh-CN classic running 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.0 [en-US steward] 在跑那条让「N 在跑」胶囊出现了
+PASS H2.1 [en-US steward running 1280] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US steward running 1180] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US steward running 1100] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US steward running 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US steward running 960] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US steward running 900] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US steward running 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 600] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 420] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US steward running 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.0 [en-US classic] 在跑那条让「N 在跑」胶囊出现了
+PASS H2.1 [en-US classic running 1280] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US classic running 1180] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US classic running 1100] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US classic running 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US classic running 960] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US classic running 900] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊在）
+PASS H2.1 [en-US classic running 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 600] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 420] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.1 [en-US classic running 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []；胶囊已收）
+PASS H2.2 [zh-CN steward 空闲 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN steward 空闲 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [zh-CN classic 空闲 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US steward 空闲 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 1024] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 860] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 820] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 780] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 760] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 700] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 640] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 500] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS H2.2 [en-US classic 空闲 390] 顶栏控件不重叠、不出屏（重叠 []；出屏 []）
+PASS M3.1 管家右抽屉开着
+PASS M3.2 快捷键弹窗开着
+PASS M3.3 第一下 Esc 就关了弹窗（修前要按两下；实测 {"modal":false,"drawer":true,"focus":"appGearBtn"}）
+PASS M3.4 抽屉没被这一下 Esc 收掉
+PASS H3.0 管家视角
+PASS H3.1 两条「它在问你」药丸都挂上了（[["a188","needs_you",true,"等你放行:写入文件「report.md」","等你(1 条待决)"],["0048","needs_you",true,"这件事要等吗？","等你(1 条待决)"],["33b3","blank",false,null,""],["bae0","blank",false,null,""],["4159","done",false,null,""]]；ids={"S":"sess_f776040709c4bae0","L":"sess_e0b74aeb510f33b3","R":"sess_11faf425514b4159","Q":"sess_6b42fa046e8b0048","P":"sess_c5719b820827a188"}）
+PASS H3.2 [zh-CN 1280] 长标题：色点与标题同一行、标题不被挤没（实测 {"headH":46,"dotMid":521,"titleMid":521,"titleW":155,"lines":2,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [zh-CN 1280] 长标题：行头不超过两行高（46px；修前长标题三行 ≥ 60）
+PASS H3.2 [zh-CN 1280] 短标题：色点与标题同一行、标题不被挤没（实测 {"headH":20,"dotMid":586,"titleMid":586,"titleW":70,"lines":2,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [zh-CN 1280] 短标题：行头不超过两行高（20px；修前长标题三行 ≥ 60）
+PASS H3.4 [zh-CN 1280] 「它在问你」药丸高 22px，不是 40px 的大按钮
+PASS H3.2 [zh-CN 1024] 长标题：色点与标题同一行、标题不被挤没（实测 {"headH":46,"dotMid":521,"titleMid":521,"titleW":155,"lines":2,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [zh-CN 1024] 长标题：行头不超过两行高（46px；修前长标题三行 ≥ 60）
+PASS H3.2 [zh-CN 1024] 短标题：色点与标题同一行、标题不被挤没（实测 {"headH":20,"dotMid":586,"titleMid":586,"titleW":70,"lines":2,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [zh-CN 1024] 短标题：行头不超过两行高（20px；修前长标题三行 ≥ 60）
+PASS H3.4 [zh-CN 1024] 「它在问你」药丸高 22px，不是 40px 的大按钮
+PASS H3.2 [en-US 1280] 长标题：色点与标题同一行、标题不被挤没（实测 {"headH":44,"dotMid":565,"titleMid":565,"titleW":155,"lines":3,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [en-US 1280] 长标题：行头不超过两行高（44px；修前长标题三行 ≥ 60）
+PASS H3.2 [en-US 1280] 短标题：色点与标题同一行、标题不被挤没（实测 {"headH":44,"dotMid":628,"titleMid":628,"titleW":70,"lines":2,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [en-US 1280] 短标题：行头不超过两行高（44px；修前长标题三行 ≥ 60）
+PASS H3.4 [en-US 1280] 「它在问你」药丸高 22px，不是 40px 的大按钮
+PASS H3.2 [en-US 1024] 长标题：色点与标题同一行、标题不被挤没（实测 {"headH":44,"dotMid":565,"titleMid":565,"titleW":155,"lines":3,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [en-US 1024] 长标题：行头不超过两行高（44px；修前长标题三行 ≥ 60）
+PASS H3.2 [en-US 1024] 短标题：色点与标题同一行、标题不被挤没（实测 {"headH":44,"dotMid":628,"titleMid":628,"titleW":70,"lines":2,"pillH":0,"pillLines":0}；修前长标题：色点在第 1 行、标题在第 2 行）
+PASS H3.3 [en-US 1024] 短标题：行头不超过两行高（44px；修前长标题三行 ≥ 60）
+PASS H3.4 [en-US 1024] 「它在问你」药丸高 22px，不是 40px 的大按钮
+PASS H4.0 [1024] 工作台视角
+PASS H4.1 [1024] 关着的工作区抽屉 visibility:hidden（实测 {"vis":"hidden","tf":"matrix(1, 0, 0, 1, 392, 0)","shadow":"none","open":false}）
+PASS H4.2 [1024] 关着的抽屉不带阴影（否则把 40px 软影漏进视口右缘；实测 none）
+PASS H4.3 [1024] Tab 走 40 下焦点没进关着的抽屉（[]）
+PASS H4.4 [1024] .app-shell 没被横向滚走（scrollLeft=0；修前 392）
+PASS H4.5 [1024] 点「右栏」钮之后抽屉可见（visible）
+PASS H4.6 [1024] 抽屉里有焦点时收起，焦点还给「右栏」钮（appSideToggleBtn）
+PASS H4.0 [760] 工作台视角
+PASS H4.1 [760] 关着的工作区抽屉 visibility:hidden（实测 {"vis":"hidden","tf":"matrix(1, 0, 0, 1, 392, 0)","shadow":"none","open":false}）
+PASS H4.2 [760] 关着的抽屉不带阴影（否则把 40px 软影漏进视口右缘；实测 none）
+PASS H4.3 [760] Tab 走 40 下焦点没进关着的抽屉（[]）
+PASS H4.4 [760] .app-shell 没被横向滚走（scrollLeft=0；修前 392）
+PASS H4.5 [760] 点「右栏」钮之后抽屉可见（visible）
+PASS H4.6 [760] 抽屉里有焦点时收起，焦点还给「右栏」钮（appSideToggleBtn）
+PASS H4.7 [1024 管家视角] 关着的 .steward-side 同样 visibility:hidden 且无阴影（{"vis":"hidden","shadow":"none","open":false}）
+PASS H5.1 表单 hidden 就是不显示（修前 hidden=true 仍 display:grid、600px 高；实测 {"formHidden":true,"formShown":false,"daysHidden":false,"daysShown":false,"leak":[]}）
+PASS H5.2 点「新建」之后表单显示（{"formHidden":false,"formShown":true,"daysHidden":true,"daysShown":false,"leak":[]}）
+PASS H5.3 默认「只这一次」时「星期几」不显示（修前 hidden=true 仍 display:flex；{"formHidden":false,"formShown":true,"daysHidden":true,"daysShown":false,"leak":[]}）
+PASS H5.4 选「每周」之后「星期几」才显示（{"formHidden":false,"formShown":true,"daysHidden":false,"daysShown":true,"leak":[]}）
+PASS H5.5 此刻没有「hidden 却在显示」的元素（[]）
+PASS H5.6 点「取消」之后表单收回（{"formHidden":true,"formShown":false,"daysHidden":false,"daysShown":false,"leak":[]}）
+PASS M5.1 定时任务权限下拉顺序 = 跟随全局／每步都问／改文件不问／只做计划／智能自动（["","default","acceptEdits","plan","auto"]）
+PASS H6.1 [zh-CN 390] 页签条里 18 枚页签两两不叠（0 对重叠；修前 241/457px 宽的钮互相压住）
+PASS H6.2 [zh-CN 390] 单枚页签宽 103px 由文字撑开，不是「组宽的百分比」（修前 457）
+PASS H6.3 [zh-CN 390] 切到最后一页（update）后激活的页签被滚进条的可见区（修前仍停在「基础」）
+PASS H6.1 [zh-CN 500] 页签条里 18 枚页签两两不叠（0 对重叠；修前 241/457px 宽的钮互相压住）
+PASS H6.2 [zh-CN 500] 单枚页签宽 103px 由文字撑开，不是「组宽的百分比」（修前 457）
+PASS H6.3 [zh-CN 500] 切到最后一页（update）后激活的页签被滚进条的可见区（修前仍停在「基础」）
+PASS H6.1 [zh-CN 640] 页签条里 18 枚页签两两不叠（0 对重叠；修前 241/457px 宽的钮互相压住）
+PASS H6.2 [zh-CN 640] 单枚页签宽 103px 由文字撑开，不是「组宽的百分比」（修前 457）
+PASS H6.3 [zh-CN 640] 切到最后一页（update）后激活的页签被滚进条的可见区（修前仍停在「基础」）
+PASS H6.1 [en-US 390] 页签条里 18 枚页签两两不叠（0 对重叠；修前 241/457px 宽的钮互相压住）
+PASS H6.2 [en-US 390] 单枚页签宽 165px 由文字撑开，不是「组宽的百分比」（修前 457）
+PASS H6.3 [en-US 390] 切到最后一页（update）后激活的页签被滚进条的可见区（修前仍停在「基础」）
+PASS H6.1 [en-US 500] 页签条里 18 枚页签两两不叠（0 对重叠；修前 241/457px 宽的钮互相压住）
+PASS H6.2 [en-US 500] 单枚页签宽 165px 由文字撑开，不是「组宽的百分比」（修前 457）
+PASS H6.3 [en-US 500] 切到最后一页（update）后激活的页签被滚进条的可见区（修前仍停在「基础」）
+PASS H6.1 [en-US 640] 页签条里 18 枚页签两两不叠（0 对重叠；修前 241/457px 宽的钮互相压住）
+PASS H6.2 [en-US 640] 单枚页签宽 165px 由文字撑开，不是「组宽的百分比」（修前 457）
+PASS H6.3 [en-US 640] 切到最后一页（update）后激活的页签被滚进条的可见区（修前仍停在「基础」）
+PASS M1.1 子代理卡片头：标题宽 218px，不被状态句挤成 0（修前 0）
+PASS M1.2 状态句不被卡片右缘切掉（337 ≤ 348）
+PASS M2.1 工具卡的人话动词不被挤成一字一行（宽 57、高 19；修前 15px 宽、四行）
+PASS M4.1 英文界面新建「自定义」服务商，显示名无中文（「Custom (OpenAI-compatible / self-hosted)」）
+PASS M6.1 「测试连接」的结果紧跟卡头（距卡顶 59px，卡高 875px；修前在卡底 ~880px；「✗ Fill in the base URL first」）
+PASS M4.2 英文界面左栏「等你放行」那一行是英文（「Waiting for your appro…」；修前「等你放行:写入文件…」）
+PASS M4.3 药丸悬停提示是整句英文并点名 report.md（「Waiting for your approval: Write file “report.md”」）
+PASS M4.4 stewardAskText：英文拼成「Waiting for your approval: Write file “a.txt”」
+PASS M4.5 缺 toolName/target（老服务端）与 question 原样退回服务端原句
+PASS M4.6 服务端三处 subagent_progress 都带 noteCode
+PASS M4.7 词表有 chat.subagent.note.init（en 无中文）
+PASS M4.7 词表有 chat.subagent.note.streaming（en 无中文）
+PASS M4.7 词表有 chat.subagent.note.generating（en 无中文）
+PASS M4.7 词表有 chat.subagent.note.kimiRunning（en 无中文）
+PASS M4.7 词表有 chat.subagent.note.kimiRunningFor（en 无中文）
+PASS M4.7 词表有 chat.subagent.note.kimiPaused（en 无中文）
+PASS M4.7 词表有 chat.subagent.note.kimiPausedWaiting（en 无中文）
+PASS M8.1 [en 1280] 线程头三枚 chip 的值都有宽度（[98,41,26]；修前 Engine 的值 0 宽）
+PASS M8.2 [en 390] 管家条的复选框有可见文字（{"w":134,"h":16}；修前 1×1 的屏读文字）
+PASS M5.2 英文向导「每步都问」叫 Ask me every step（Ask me every step）
+PASS M5.3 英文向导「改文件不问」叫 Edit files without asking（Edit files without asking）
+PASS M5.4 Plan only
+PASS M5.5 向导提示句也跟着改了（This decides whether the AI asks before it acts. New installs start in Smart auto; pick Ask me every step if you want it to ask before each step. You can change it later.）
+PASS M5.6 「权限弹窗桥接」那句不再说 bypass，改说「全自动」档
+PASS M5.7 中英文都点名「全自动 / Fully automatic」
+PASS Z1 页面没有未捕获异常（[]）
+
+FRONTEND WAVE3 BROWSER E2E: ALL PASS

@@ -1,0 +1,39 @@
+{
+  "label": "routes",
+  "argv": [
+    "node",
+    "dev-harness/route-inventory.static.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rra-bz42hivh/home",
+    "USERPROFILE": "/tmp/rra-bz42hivh/userprofile",
+    "APPDATA": "/tmp/rra-bz42hivh/appdata",
+    "LOCALAPPDATA": "/tmp/rra-bz42hivh/localappdata",
+    "RUYI_HOME": "/tmp/rra-bz42hivh/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-bz42hivh/data",
+    "WCW_DATA_DIR": "/tmp/rra-bz42hivh/acc-data",
+    "TMPDIR": "/tmp/rra-bz42hivh/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rra-bz42hivh/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rra-bz42hivh/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T17:52:03.998272+00:00",
+  "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64"
+  },
+  "finishedAt": "2026-11-11T17:52:04.590069+00:00",
+  "elapsedSeconds": 0.5916282089892775,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/routes.log",
+    "bytes": 1024,
+    "sha256": "3f2005a6c97fae3cb4119a75e86334291cf0a02c11da665620b1ed27f8d246c4"
+  }
+}

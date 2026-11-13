@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "createdAtUTC": "2026-11-12T13:47:18.609168+00:00",
+  "kind": "Development read-only code review; not frozen final binding or independent runtime acceptance",
+  "baseCommit": "b6405af1fb935c9b1501d84d441946cdad1e0f80",
+  "result": "no_actionable_findings_in_reviewed_snapshot",
+  "findings": [],
+  "reviewedFiles": [
+    {
+      "path": "dev-harness/agent-mode-v2.e2e.js",
+      "sha256": "af9ab4ccc2be15a996a3becc87b3ca70dcc59839b1bd2cbb69b4198d58381090"
+    },
+    {
+      "path": "dev-harness/artifacts.e2e.js",
+      "sha256": "5c808e1294f66651fcea49e527bde9768285c2f3e81a72c17f8db6c1e22fd55c"
+    },
+    {
+      "path": "dev-harness/audit-w23.e2e.js",
+      "sha256": "93be6b1e20bc2415b67e52bbc56c55fb3fd6f78bf50097ea228269e896b0e2da"
+    },
+    {
+      "path": "dev-harness/autonomy-benchmark.e2e.js",
+      "sha256": "ccb581b0d3a692561a3d5297d6b66e1b30aaf9d8a43ec0778c72d12f1a13be54"
+    },
+    {
+      "path": "dev-harness/background-completion.e2e.js",
+      "sha256": "daa8e5468d61e04fcb7ef11107bb975ba2b79f9e81d9113cb236cf3ec6897894"
+    },
+    {
+      "path": "dev-harness/bridge-cancel-timeout.e2e.js",
+      "sha256": "1eeb1f8e978aeb7195252d9d8eb71203b72918d5ff9359f8e2e33034efa1188c"
+    },
+    {
+      "path": "dev-harness/budget-guard.e2e.js",
+      "sha256": "b3ed38a45dfdbb16da0f4019f61f121c718144326d63963d167729a987090770"
+    },
+    {
+      "path": "dev-harness/claude-cmdline-guard.e2e.js",
+      "sha256": "8b2d91baf8472be0125cc9a28cc4b113b5ef632fee66171dae62386422f185af"
+    },
+    {
+      "path": "dev-harness/claude-exe-resolve.e2e.js",
+      "sha256": "c1755bfb9b0d74e79cf923346393a0db36af73ff914e4276a49716e36a610775"
+    },
+    {
+      "path": "dev-harness/cli-probe-stall.e2e.js",
+      "sha256": "36a52b180aea95023a27f8557e1ebb0ce9758798e50980a603026da260ab5d24"
+    },
+    {
+      "path": "dev-harness/desktop-mcp-smoke.e2e.js",
+      "sha256": "8ce177f39ad0d6fd2b0e4d1f4cbe447c7533cd0d64d626c97342e28886af23ff"
+    },
+    {
+      "path": "dev-harness/engine-env-runtime.e2e.js",
+      "sha256": "8ee238ce999e6a089b20eb521ff02aa0666bc7821d87e7756535fd24765d5bce"
+    },
+    {
+      "path": "dev-harness/harness-friction.e2e.js",
+      "sha256": "17d3f53d747c80bada801581b2e40068de57c63a9c50714a1d1f6a0e27c358aa"
+    },
+    {
+      "path": "dev-harness/macos-capture-host.e2e.js",
+      "sha256": "74f561020f639ddef023d4b3d690ea636e15087772df2dc5a925055e24ece339"
+    },
+    {
+      "path": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "3a48c87bfc1139b5d3c886c3871242bb0e135e1957b0994af12872437e9c044f"
+    },
+    {
+      "path": "dev-harness/mcp-import-origin.e2e.js",
+      "sha256": "421f2a47fc31e8c8b81f8c52a0aa4ee7ebd5abe20e8f5980269a5237cb92b5b3"
+    },
+    {
+      "path": "dev-harness/mission-driver.e2e.js",
+      "sha256": "ac32c31d4825942249a55c048d03888f32ab4efd40295d1d6045691740d9ccd1"
+    },
+    {
+      "path": "dev-harness/overlay-update-core.e2e.js",
+      "sha256": "b00bfd3befbb27a43a7dc25f0adc32dce456f774c879507d55a1d947d266fb93"
+    },
+    {
+      "path": "dev-harness/permission-plain.browser.e2e.js",
+      "sha256": "f2379e57564c1d714fd8fc9b1fc76931c34ba382b53ee655cd3deb64d5e490e8"
+    },
+    {
+      "path": "dev-harness/privacy-31/typed-turn-recovery-repro.js",
+      "sha256": "7205d428d9d22742ac7512c823ca512946a987cec6cabb8b085ed9297eba4d3f"
+    },
+    {
+      "path": "dev-harness/repo-hygiene.e2e.js",
+      "sha256": "4332835292245165d65133328a81c3a45f4e1ecbf7dd43bbf64baf88d4cd8702"
+    },
+    {
+      "path": "dev-harness/settings-wave1.browser.e2e.js",
+      "sha256": "5614027bf14fde9e09e93f28a98af62082929df988f17ac00f07732884a9a08b"
+    },
+    {
+      "path": "dev-harness/shell-mcp-guard.e2e.js",
+      "sha256": "e391585d0ff40bd654dd3336406af705f953025758c7609025ad12d661b8291c"
+    },
+    {
+      "path": "dev-harness/shell-session.e2e.js",
+      "sha256": "0f58ff077cb6589d83daa49579dc094d9514e40b0e230a7160a458cd5badf9b0"
+    },
+    {
+      "path": "dev-harness/steward-decisions.browser.e2e.js",
+      "sha256": "dd3d3034e141f48b05fec1736bc3f8b0000ddeb7c22b34452bdaf48aea02f2e9"
+    },
+    {
+      "path": "dev-harness/steward-deferred-permission.e2e.js",
+      "sha256": "a4e73a64f4d481dd6c0a6f11ec8461837c3e406b7457919c73afe3335c22b282"
+    },
+    {
+      "path": "dev-harness/steward-exempt-delegation.e2e.js",
+      "sha256": "6cb76100542705c64de52f5f4350127beef2d5b682336a2c833fa35146c408bc"
+    },
+    {
+      "path": "dev-harness/steward-exempt-no-swap.e2e.js",
+      "sha256": "6c8a7a92098cd44364703136047cfdbf8e165c5a2c1e7ffd562b5c602fc685d6"
+    },
+    {
+      "path": "dev-harness/steward-exempt-shell-send.e2e.js",
+      "sha256": "1440adf80538afd9a30bb288e8750c5ab0c86f2a5795f438c023afe248bf72bd"
+    },
+    {
+      "path": "dev-harness/steward-guardrails.e2e.js",
+      "sha256": "bc9dc0d22d2ff7d6edf1d953ee38ad452216705d2010d30097ffccb1184c1ce2"
+    },
+    {
+      "path": "dev-harness/steward-tools.e2e.js",
+      "sha256": "59962546f2493d3eaec454b18c2122148746678d10c7c408a914f5f30bc33eea"
+    },
+    {
+      "path": "dev-harness/tool-audit-fixes.e2e.js",
+      "sha256": "443abeee80b4fc147435efc2d202764ec61f17187b75a1a58f6792fc64f158d0"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-meta.e2e.js",
+      "sha256": "5f44bb42c1934652829f24faa5a4d031e4c04ced871adf9c3d1dc90524178b69"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-netexec.e2e.js",
+      "sha256": "d9354e0d8677429a4da23b8f93863432ed1e7d18a437b5f2614bad79d5ce83bf"
+    },
+    {
+      "path": "dev-harness/tool-invoke-promote.e2e.js",
+      "sha256": "4cfca66efb03c4dfbfccaff28c00f6266d76e6c41c8cae39605b2b7b6da70ced"
+    },
+    {
+      "path": "dev-harness/vision-loop.e2e.js",
+      "sha256": "02312994a0dfbc1f880783518266d2317159dc516a7bc97d00e63189b780ce9b"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "18af59e366c93d05476792ea5c40528eddc31d9eae05054066e6ff8d61b1df9e"
+    },
+    {
+      "path": "dev-harness/lib/macos-host-fixture.js",
+      "sha256": "0a7dbe14a73d2a4a14bfd82145e4608a301265218194db0a30ff661ff1231022"
+    },
+    {
+      "path": "dev-harness/lib/platform-shell-fixture.js",
+      "sha256": "2d7e4974c21d6fa0f181df200e0096e5f24928a29662fa6a59d30a7e57500cad"
+    },
+    {
+      "path": "dev-harness/unit/platform-shell-fixture.test.js",
+      "sha256": "c0993cf09d42a499e3d47ffb5a7fbf0115344b8dcfcbfe4d543b302892dcdbed"
+    }
+  ],
+  "scope": {
+    "trackedFixtureFiles": 36,
+    "newHelpers": 2,
+    "productionSourceDelta": false,
+    "testsRunByReviewer": 0,
+    "desktopActionsByReviewer": 0,
+    "oldDmgHashesRecomputed": 0,
+    "generatedMetadataFiles": 1,
+    "newUnitFiles": 1
+  },
+  "reviewChecks": [
+    {
+      "area": "Windows contracts",
+      "conclusion": "Windows shell helper retains PowerShell syntax and tools; .cmd fake launchers stay on Windows; cmd wrapping/resolver pure tests use win32 module-local seam on Mac; genuine Windows integration remains platform-scoped."
+    },
+    {
+      "area": "POSIX quoting and effects",
+      "conclusion": "Helper quote closes/escapes/reopens single quotes; printf uses fixed format; output paths are quoted. Native path.join fixtures retain containment/sibling/escape/write-target assertions."
+    },
+    {
+      "area": "Delegation safety",
+      "conclusion": "Actual rm -rf commands target fixture-owned simple relative names with explicit cwd. Shutdown/root/absolute/indirect probes remain in shell comments. Floor/risk-note/taint/scan-limit/default-auto and actual deleted markers remain asserted."
+    },
+    {
+      "area": "No swap",
+      "conclusion": "Original and substituted owned marker commands preserved; updatedInput/scope stripping, persisted decision hashes, action/tool/user decision paths remain asserted."
+    },
+    {
+      "area": "Netexec native surface",
+      "conclusion": "Mac injects generated helper before its first screenshot tool call; it returns controlled denial or a 2x2 PNG and metadata. Mac bypasses Linux fake-PowerShell execution; static Windows DPI checks remain. This is protocol coverage, not true screen qualification."
+    },
+    {
+      "area": "Overlay",
+      "conclusion": "Shared S locks and clean/leaked/malformed JSON discipline run before darwin return. Mac invokes existing authenticated HTTP boundary fixture and checks unsupported/force/no PowerShell/no extraction. Actual PowerShell apply/rollback stays unchanged for Windows."
+    },
+    {
+      "area": "Hygiene",
+      "conclusion": "Published evidence remains scanned. Exact synthetic token + exact PASS context is the only new allowance. Different credential on same line and same token outside context remain negative controls. Per-hit matching avoids previous first-hit masking."
+    },
+    {
+      "area": "Rollback failure injection",
+      "conclusion": "EACCES limited to the fixture config publication destination; original rename restored in finally. Precondition proves injected failure and unchanged bytes; default fallback, derived-directory cleanup and both table assertions remain."
+    },
+    {
+      "area": "Engine rg",
+      "conclusion": "Test-owned app layout receives real Mach-O rg bound to verified frozen package manifest; no script echo substitute or Homebrew rg. Clean PATH, bundled source, real command output, persistent shell, no startup synchronous rg, provider/Claude prompt checks remain."
+    },
+    {
+      "area": "App host isolation",
+      "conclusion": "New helper builds fresh default host; checks five Swift/lease source fingerprints and server SHA, copies package metadata and required runtime trees, rewrites exact source checkout references only inside cloned venv. Input records complete diagnostic on refusal and bounded unknown-tool readiness retry."
+    },
+    {
+      "area": "Process observations",
+      "conclusion": "Bridge timeout now records actual birth identities before liveness assertions and fails if identities unavailable. Mac structured cleanup scope/unconfirmed count replace obsolete prose. App input retains observed PID identity cleanup."
+    },
+    {
+      "area": "Privacy",
+      "conclusion": "Typed recovery uses platform shell with identical JSON and one counter append. Three protocol H0/H1 execution, exactly-once count, canonical args, child exact writes and no originals on model wire remain. Later DPAPI-only scope retained."
+    },
+    {
+      "area": "Generated facts",
+      "conclusion": "facts.json diff reviewed separately: only actual generated metadata deltas; does not mark execution gates green."
+    },
+    {
+      "area": "New helper unit coverage",
+      "conclusion": "Read-only review of Windows literal selection and POSIX spaces/apostrophe/double quote/command-substitution filename test. Actual file contents and absence of injection marker are asserted. Reviewer did not execute."
+    }
+  ],
+  "limitations": [
+    "Snapshot may change during development batch. Refresh all reviewed hashes and review later deltas at final freeze.",
+    "No test, subprocess fixture, browser, App or UI validation was performed by this reviewer in this phase.",
+    "Parent reports second input staging now diagnostics ok:true with explicit authorization denied. Reviewer has not independently executed native qualification.",
+    "Mac synthetic readiness fixtures in guardrails/metadata prove schema/policy composition only; they do not grant TCC or establish runtime native availability.",
+    "Original frozen DMGs and prior failed logs remain separate evidence; code-only test adaptation does not retroactively turn historical failures green.",
+    "Clean standard user/second Mac/formal Developer ID and notarization remain outside accepted local internal scope."
+  ]
+}

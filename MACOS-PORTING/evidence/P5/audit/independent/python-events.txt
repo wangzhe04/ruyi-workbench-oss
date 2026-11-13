@@ -1,0 +1,20 @@
+test_application_args_keep_posix_quoted_boundaries (__main__.EventTools.test_application_args_keep_posix_quoted_boundaries) ... ok
+test_default_scroll_uses_observed_pointer_then_guarded_target (__main__.EventTools.test_default_scroll_uses_observed_pointer_then_guarded_target) ... ok
+test_direct_chinese_is_preserved_for_unicode_events (__main__.EventTools.test_direct_chinese_is_preserved_for_unicode_events) ... ok
+test_discovery_tracks_each_input_family (__main__.EventTools.test_discovery_tracks_each_input_family) ... ok
+test_empty_chord_components_never_start_native_work (__main__.EventTools.test_empty_chord_components_never_start_native_work) ... ok
+test_explicit_paste_keeps_trailing_newlines_verbatim (__main__.EventTools.test_explicit_paste_keeps_trailing_newlines_verbatim) ... ok
+test_invalid_gui_launch_options_fail_before_native_work (__main__.EventTools.test_invalid_gui_launch_options_fail_before_native_work) ... ok
+test_native_ready_flags_cannot_override_denied_input_authorization (__main__.EventTools.test_native_ready_flags_cannot_override_denied_input_authorization) ... ok
+test_partial_action_and_restore_metadata_reach_the_mcp_envelope (__main__.EventTools.test_partial_action_and_restore_metadata_reach_the_mcp_envelope) ... ok
+test_pointer_failure_preserves_finite_actual_position (__main__.EventTools.test_pointer_failure_preserves_finite_actual_position) ... ok
+test_scroll_requires_both_coordinates (__main__.EventTools.test_scroll_requires_both_coordinates) ... ok
+test_text_routing_reaches_the_native_session_with_target (__main__.EventTools.test_text_routing_reaches_the_native_session_with_target) ... ok
+test_paste_wait_remains_bounded (__main__.TextRouting.test_paste_wait_remains_bounded) ... ok
+test_trailing_enter_contract (__main__.TextRouting.test_trailing_enter_contract) ... ok
+test_windows_compatible_routing (__main__.TextRouting.test_windows_compatible_routing) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.218s
+
+OK

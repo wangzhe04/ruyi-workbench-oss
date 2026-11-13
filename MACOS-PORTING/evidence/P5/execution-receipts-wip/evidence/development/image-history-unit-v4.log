@@ -1,0 +1,38 @@
+✔ candidate inserts every later tool reply before already persisted images and returns actual tool index (0.773083ms)
+✔ batch anchor and requested call identity must remain current before inserting history (0.206708ms)
+✔ real stale metadata snapshot cannot overwrite an inserted tool result or its image (175.296167ms)
+✔ stamped disk remains protected after candidate flag off and rejects unstamped stale object (94.67575ms)
+✔ stamp zero is an existing protected revision, not absence (95.002375ms)
+✔ queued same-object writer takes revision/body/head from one chain-time snapshot (113.428541ms)
+✔ missing, null and malformed existing heads never reset an initialized revision (295.641334ms)
+✔ invalid or future revisions refuse before replacing body; rewrite overflow is bounded (99.751125ms)
+✔ head commit updates live revision even if a later body stat step fails (92.958625ms)
+✔ actual branded wrapper cannot use fabricated meta/checker as a private root dispatch permit (0.751042ms)
+✔ same-length protected rewrite rolls back both bodies when head commit fails (94.527625ms)
+✔ cold reader restores simulated same-count interrupted rewrite by committed body hashes rather than line count (92.64875ms)
+✖ either surviving protection field refuses legacy downgrade with flag off (101.827666ms)
+✔ exception after real head publication does not roll committed bodies or live revision back (109.990583ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 13
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1477.538458
+
+✖ failing tests:
+
+test at dev-harness/unit/desktop-image-history.test.js:111:1
+✖ either surviving protection field refuses legacy downgrade with flag off (101.827666ms)
+  Error: ENOENT: no such file or directory, open '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-image-history-qXpkAH/data/sessions/sess_28cb81e4b10e431f.provider.ndjson'
+      at Object.openSync (node:fs:561:18)
+      at Object.readFileSync (node:fs:445:35)
+      at TestContext.<anonymous> (/private/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/desktop-image-history.test.js:120:68)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-image-history-qXpkAH/data/sessions/sess_28cb81e4b10e431f.provider.ndjson'
+  }

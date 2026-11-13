@@ -1,0 +1,24 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS rendered stop is bound to A
+PASS A applied stop prepares the retained-button race
+PASS rendered stop is bound to B
+PASS retained production A handler issued its original request
+PASS old handler sends captured A, never looks up B at click
+PASS real backend rejects stale A while B remains active
+PASS A rejection cannot overwrite B feedback
+PASS service applied B stop with its response withheld
+PASS rendered stop is bound to C
+PASS B in-flight request does not lock new C button
+PASS late lost-response B does not stop C
+PASS late B unknown does not masquerade as C feedback
+PASS C sends its own stop despite B request
+PASS C request carries C execution
+PASS idle history shows the newest C request, not late B unknown
+PASS unknown B never automatically replays
+PASS no uncaught page exceptions: 
+
+SESSION STOP IDENTITY BROWSER E2E: ALL PASS

@@ -1,0 +1,82 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS R0 同源空白页就绪
+PASS R1a 切回后旧壳已不在文档里(前置成形)
+PASS R1b 切回重放后在跑的工具秒表仍只有一只(旧壳那只已停;切前 1,切回 1)
+PASS R1c 脱离文档的旧工具卡计时不再走
+PASS R1d 回合收尾后本页零残留 setInterval(实为 0)
+PASS R2a 「已停止」画在屏上那只壳里
+PASS R2b 屏上不再留闪烁光标
+PASS R2c 停止前已流出的正文仍在屏上
+PASS R3a 晚到的回包不把当前会话写回 A(实为 B)
+PASS R3b 标题仍是刚打开的那条(实为 B-title)
+PASS R4a[steer] 只给一句提示(toast.compactWaitTurn)
+PASS R4b[steer] 不开指示条、不禁用按钮
+PASS R4c[steer] 没有发出 /compact 回合
+PASS R4a[queued] 只给一句提示(chat.relayQueued)
+PASS R4b[queued] 不开指示条、不禁用按钮
+PASS R4c[queued] 没有发出 /compact 回合
+PASS R4a[permission] 只给一句提示(chat.relayPermission)
+PASS R4b[permission] 不开指示条、不禁用按钮
+PASS R4c[permission] 没有发出 /compact 回合
+PASS R5a 前置成形:sendPrompt 没起回合
+PASS R5b 指示条收掉、按钮复原({"indicator":false,"btnDisabled":false,"btnText":"Compact","longTimeouts":0,"streams":0})
+PASS R5c 兜底超时一并撤掉
+PASS R6a 流内 started 打开指示条(前置成形)
+PASS R6b 流内起的指示条不挂超时(挂了 0 个)
+PASS R6c 回合被停(completed 未到):指示条随回合收尾收掉
+PASS R6d 对照:手动压缩仍挂兜底超时(实为 1)
+PASS R6e 全程没有「压缩超时」误报
+PASS R6f1 前置成形:A 压缩中,切到也在跑的 B,指示条仍挂着
+PASS R6f2 A 的回合在后台收尾:指示条随之收掉,不会活过回合
+PASS R6f3 没有残留的兜底超时
+PASS R7a 前置成形:申请挂着时状态条是「等你拍板」
+PASS R7b 停止后状态条收起,不再停在「等你拍板」
+PASS R10a 长回复流式期间分了块(5 块,共 10120 字)
+PASS R10b 屏上文本与流出的逐字相同
+PASS R10c 只剩尾巴一个裸文本节点在长(尾巴 0 字)
+PASS R10d 回合收尾换成一份 Markdown,不留分块
+PASS R10e 没有换行的一整段不切
+PASS R10f 选着字时不切、选区还在(选中「gamma」,块数 0)
+PASS R10f 松手后下一帧照常切(块数 1)
+PASS R10g 思维链面板分块、文本逐字相同(块数 3)
+PASS R11a 带戳的底子 → 只发一发增量(/api/sessions/A?fromIndex=2&prefixStamp=m1.2.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
+PASS R11b 不带戳 → 与修前同一发无参全量(/api/sessions/A)
+PASS R11c 服务端落回全量 → 原样收下(1 发);拼接自检不符 → 补一发无参全量(/api/sessions/A?fromIndex=2&prefixStamp=m1.2.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa , /api/sessions/A)
+PASS R11d[delta] 收尾后的 state.currentSession 与全量(去掉 providerHistory)一致
+PASS R11d[full] 收尾后的 state.currentSession 与全量(去掉 providerHistory)一致
+PASS R11d[server-full] 收尾后的 state.currentSession 与全量(去掉 providerHistory)一致
+PASS R11d[bad-splice] 收尾后的 state.currentSession 与全量(去掉 providerHistory)一致
+PASS R11e 增量拼出来的会话不带 providerHistory(前端不读它);全量照旧带
+PASS R11f 标题/元信息/步骤条/事项条/电量表/续跑横幅的输入四遍一致
+PASS R11g 乐观 user 行重绑到增量尾巴里那条持久化的 user 消息
+PASS R11h 拼接出的是新数组,底子那份 messages 一条没多
+PASS R13a 底子带戳 → 发送体带 knownMessages {count:2, stamp}({"count":2,"stamp":"m1.2.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
+PASS R13b 底子没戳 → 发送体没有 knownMessages(修前形状)
+PASS R13c 增量起点事件拼回前缀(3 条、新数组),并记上新戳(收尾路径 /api/sessions/A?fromIndex=3&prefixStamp=m1.3.cccccccccccccccccccccccccccccccccccccccc)
+PASS R13d 收尾只发一发、从 3 接着增量(/api/sessions/A?fromIndex=3&prefixStamp=m1.3.cccccccccccccccccccccccccccccccccccccccc)
+PASS R13e 起点增量拼不上 → 补一发无参全量(/api/sessions/A , /api/sessions/A)
+PASS R13f[start-delta] 收尾后的会话与全量(去掉 providerHistory)一致
+PASS R13f[no-stamp] 收尾后的会话与全量(去掉 providerHistory)一致
+PASS R13f[bad-splice] 收尾后的会话与全量(去掉 providerHistory)一致
+PASS R13g 底子那份 messages 一条没多(不就地改)
+PASS R14 前提:两个回合都发出了流(2)
+PASS R14 回合 1 收尾之后,回合 2 还在流 → 页面仍是「在跑」(修前被回合 1 的 finally 删掉登记,按钮回到发送)
+PASS R14 回合 2 收尾之后才回到空闲
+PASS R15 中止后 state 里是服务端落盘的会话(2 条)
+PASS R16 前提:首次到达时弹了提示、写了调试行({"toasts":1,"debug":1})
+PASS R16 切回三次重放,提示与调试行都没有再加({"toasts":1,"debug":1})
+PASS R12a 行还在文档外时不当场高亮(当场高亮了 0 块)
+PASS R12b 挂进去滚到底:可见的最后一块高亮了(5 个 span)
+PASS R12c 离可见区很远的第一块还没动(没高亮、没补复制按钮)
+PASS R12d 滚到顶之后第一块也高亮了、复制按钮补上了
+PASS R12e 已在文档里的容器照旧当场高亮
+PASS R12f 挂上后同一拍补 nearView:视口附近当场着色、远处不动(最后一块 true / 第一块 false)
+PASS R9a 前置成形:树头是后切的工作区(📂 Y)
+PASS R9b 晚到的旧工作区结果被丢弃,树里是 Y 的内容(📄y-file.txt@)
+PASS R8 页面无未捕获异常
+
+CHAT STREAM REMOUNT BROWSER E2E: ALL PASS

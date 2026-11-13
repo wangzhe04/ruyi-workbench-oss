@@ -1,0 +1,2555 @@
+{
+  "checkedAt": "2026-11-10T09:11:46.070373+00:00",
+  "method": "Independent native PID and process birth identity comparison after all 16 commands. Includes the fixture-recorded App descendant identities that can exit between external 200ms samples.",
+  "checks": [
+    {
+      "run": "ax-ttl",
+      "pid": 85979,
+      "created": "1794301639936204",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 85981,
+      "created": "1794301639961358",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 85982,
+      "created": "1794301639974492",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 85984,
+      "created": "1794301640286950",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 85987,
+      "created": "1794301640632137",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 85997,
+      "created": "1794301640909691",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86006,
+      "created": "1794301641223158",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86034,
+      "created": "1794301641548561",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86039,
+      "created": "1794301642171584",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86040,
+      "created": "1794301642185303",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86042,
+      "created": "1794301642421135",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86044,
+      "created": "1794301642482764",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86052,
+      "created": "1794301643370406",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86053,
+      "created": "1794301643372006",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86054,
+      "created": "1794301643372382",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86057,
+      "created": "1794301643680666",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86063,
+      "created": "1794301643866110",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86074,
+      "created": "1794301645337603",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86075,
+      "created": "1794301645338834",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86076,
+      "created": "1794301645339166",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86078,
+      "created": "1794301645571507",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "ax-ttl",
+      "pid": 86080,
+      "created": "1794301645634177",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86451,
+      "created": "1794301713381310",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86454,
+      "created": "1794301713411887",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86455,
+      "created": "1794301713425915",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86459,
+      "created": "1794301713747312",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86464,
+      "created": "1794301714105409",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86473,
+      "created": "1794301714397926",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86483,
+      "created": "1794301714730186",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86486,
+      "created": "1794301714970628",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86490,
+      "created": "1794301715040109",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86491,
+      "created": "1794301715051469",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86495,
+      "created": "1794301715341383",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86505,
+      "created": "1794301716345836",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86507,
+      "created": "1794301716362233",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86520,
+      "created": "1794301716576399",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86569,
+      "created": "1794301717032026",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86627,
+      "created": "1794301717609803",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86597,
+      "created": "1794301717399222",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86598,
+      "created": "1794301717401383",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86599,
+      "created": "1794301717402024",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86649,
+      "created": "1794301717898584",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86645,
+      "created": "1794301717863408",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86709,
+      "created": "1794301718458094",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86537,
+      "created": "1794301716706014",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86536,
+      "created": "1794301716705190",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86603,
+      "created": "1794301717423841",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86611,
+      "created": "1794301717459452",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86612,
+      "created": "1794301717466587",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86613,
+      "created": "1794301717467475",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86620,
+      "created": "1794301717557380",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86676,
+      "created": "1794301718242045",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86681,
+      "created": "1794301718283619",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86684,
+      "created": "1794301718310951",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86687,
+      "created": "1794301718341433",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86690,
+      "created": "1794301718368046",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86702,
+      "created": "1794301718428722",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86699,
+      "created": "1794301718422894",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86717,
+      "created": "1794301718558662",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86721,
+      "created": "1794301718607730",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax",
+      "pid": 86727,
+      "created": "1794301718663344",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86741,
+      "created": "1794301718960103",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86745,
+      "created": "1794301718994437",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86746,
+      "created": "1794301719010222",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86749,
+      "created": "1794301719341238",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86754,
+      "created": "1794301719714591",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86763,
+      "created": "1794301720011754",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86778,
+      "created": "1794301720340891",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86783,
+      "created": "1794301720652554",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86784,
+      "created": "1794301720664065",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86789,
+      "created": "1794301720959921",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86797,
+      "created": "1794301721556921",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86799,
+      "created": "1794301721567078",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86812,
+      "created": "1794301721776757",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86872,
+      "created": "1794301722395266",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86873,
+      "created": "1794301722396637",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86874,
+      "created": "1794301722396966",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86896,
+      "created": "1794301722665890",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86944,
+      "created": "1794301723212742",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86956,
+      "created": "1794301723274037",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86822,
+      "created": "1794301721892924",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86826,
+      "created": "1794301721903969",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86825,
+      "created": "1794301721903003",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86861,
+      "created": "1794301722260243",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86866,
+      "created": "1794301722326730",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86893,
+      "created": "1794301722626871",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86927,
+      "created": "1794301723048205",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86932,
+      "created": "1794301723099786",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86935,
+      "created": "1794301723127959",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86938,
+      "created": "1794301723158322",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86941,
+      "created": "1794301723187241",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86952,
+      "created": "1794301723245402",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86949,
+      "created": "1794301723241063",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86950,
+      "created": "1794301723243005",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86958,
+      "created": "1794301723291975",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86959,
+      "created": "1794301723293292",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86961,
+      "created": "1794301723293738",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86963,
+      "created": "1794301723323156",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86970,
+      "created": "1794301723394684",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86976,
+      "created": "1794301723471469",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-unicode",
+      "pid": 86985,
+      "created": "1794301723560919",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87002,
+      "created": "1794301724000445",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87005,
+      "created": "1794301724035838",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87006,
+      "created": "1794301724049908",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87009,
+      "created": "1794301724384053",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87016,
+      "created": "1794301724752275",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87024,
+      "created": "1794301725052632",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87041,
+      "created": "1794301725385443",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87046,
+      "created": "1794301725698030",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87047,
+      "created": "1794301725709859",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87051,
+      "created": "1794301726010221",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87059,
+      "created": "1794301726670288",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87061,
+      "created": "1794301726684549",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87074,
+      "created": "1794301726892919",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87135,
+      "created": "1794301727499923",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87136,
+      "created": "1794301727501321",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87137,
+      "created": "1794301727501753",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87162,
+      "created": "1794301727771718",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87199,
+      "created": "1794301728229854",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87221,
+      "created": "1794301728381425",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87271,
+      "created": "1794301728959783",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87086,
+      "created": "1794301727013483",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87090,
+      "created": "1794301727030812",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87089,
+      "created": "1794301727029648",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87123,
+      "created": "1794301727346877",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87128,
+      "created": "1794301727422331",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87163,
+      "created": "1794301727778366",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87191,
+      "created": "1794301728160764",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87196,
+      "created": "1794301728203188",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87204,
+      "created": "1794301728262767",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87208,
+      "created": "1794301728291086",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87211,
+      "created": "1794301728322898",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87218,
+      "created": "1794301728354681",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87215,
+      "created": "1794301728352952",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87216,
+      "created": "1794301728354315",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87217,
+      "created": "1794301728354645",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87228,
+      "created": "1794301728422711",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87224,
+      "created": "1794301728404351",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87225,
+      "created": "1794301728405842",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87235,
+      "created": "1794301728490621",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-paste",
+      "pid": 87281,
+      "created": "1794301729073209",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87299,
+      "created": "1794301729539414",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87301,
+      "created": "1794301729572070",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87302,
+      "created": "1794301729587797",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87304,
+      "created": "1794301729917461",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87309,
+      "created": "1794301730296004",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87325,
+      "created": "1794301730610270",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87334,
+      "created": "1794301730944614",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87336,
+      "created": "1794301731184227",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87339,
+      "created": "1794301731254742",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87340,
+      "created": "1794301731266806",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87342,
+      "created": "1794301731579455",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87345,
+      "created": "1794301731938869",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87347,
+      "created": "1794301732240149",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87350,
+      "created": "1794301732563646",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87354,
+      "created": "1794301732874649",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87357,
+      "created": "1794301733261379",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87361,
+      "created": "1794301733716353",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87363,
+      "created": "1794301733729456",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87366,
+      "created": "1794301734021571",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87373,
+      "created": "1794301734845911",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87374,
+      "created": "1794301734847493",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87375,
+      "created": "1794301734847926",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87378,
+      "created": "1794301735164355",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87397,
+      "created": "1794301737547416",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87399,
+      "created": "1794301737687318",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87476,
+      "created": "1794301752054228",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87533,
+      "created": "1794301753925636",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87541,
+      "created": "1794301754132940",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87551,
+      "created": "1794301754340317",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "events",
+      "pid": 87596,
+      "created": "1794301755401577",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87620,
+      "created": "1794301756075228",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87622,
+      "created": "1794301756103067",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87623,
+      "created": "1794301756117229",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87625,
+      "created": "1794301756442330",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87628,
+      "created": "1794301756797958",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87632,
+      "created": "1794301757084781",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87640,
+      "created": "1794301757406976",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87661,
+      "created": "1794301757739111",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87664,
+      "created": "1794301758159370",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87667,
+      "created": "1794301758289345",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87668,
+      "created": "1794301758302512",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87670,
+      "created": "1794301758544011",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87672,
+      "created": "1794301758605079",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87678,
+      "created": "1794301759473719",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87679,
+      "created": "1794301759475085",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87680,
+      "created": "1794301759475461",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87683,
+      "created": "1794301759787156",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87691,
+      "created": "1794301760503765",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87692,
+      "created": "1794301760505005",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "window-clipboard",
+      "pid": 87693,
+      "created": "1794301760505339",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87712,
+      "created": "1794301763727121",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87714,
+      "created": "1794301763760049",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87715,
+      "created": "1794301763774145",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87717,
+      "created": "1794301764100806",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87720,
+      "created": "1794301764465326",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87724,
+      "created": "1794301764763208",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87753,
+      "created": "1794301765113685",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87755,
+      "created": "1794301765350332",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87758,
+      "created": "1794301765420636",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87762,
+      "created": "1794301765976164",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87763,
+      "created": "1794301765977464",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87764,
+      "created": "1794301765977899",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87766,
+      "created": "1794301766227674",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87769,
+      "created": "1794301766296452",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87782,
+      "created": "1794301766343017",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87810,
+      "created": "1794301767559132",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87811,
+      "created": "1794301767582267",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87814,
+      "created": "1794301767896368",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87819,
+      "created": "1794301768746288",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87831,
+      "created": "1794301769149838",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87830,
+      "created": "1794301769149533",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87829,
+      "created": "1794301769098923",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87828,
+      "created": "1794301769092052",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87835,
+      "created": "1794301769366382",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87834,
+      "created": "1794301769365947",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87838,
+      "created": "1794301769552366",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87846,
+      "created": "1794301770738258",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87849,
+      "created": "1794301770969169",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87850,
+      "created": "1794301770970679",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87851,
+      "created": "1794301770971214",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87853,
+      "created": "1794301771236595",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87863,
+      "created": "1794301771501345",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "selected-apps",
+      "pid": 87855,
+      "created": "1794301771307995",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87868,
+      "created": "1794301771759308",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87870,
+      "created": "1794301771790556",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87871,
+      "created": "1794301771805947",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87873,
+      "created": "1794301772140656",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87878,
+      "created": "1794301772511071",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87886,
+      "created": "1794301772813432",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87910,
+      "created": "1794301773215732",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87915,
+      "created": "1794301773590717",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87918,
+      "created": "1794301774041771",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87919,
+      "created": "1794301774055522",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87923,
+      "created": "1794301774362656",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87932,
+      "created": "1794301775174666",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87933,
+      "created": "1794301775176726",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87934,
+      "created": "1794301775177201",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87937,
+      "created": "1794301775498028",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87943,
+      "created": "1794301775709663",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87951,
+      "created": "1794301776427629",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87954,
+      "created": "1794301776811258",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87956,
+      "created": "1794301777187984",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87959,
+      "created": "1794301777396006",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87962,
+      "created": "1794301777548420",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87964,
+      "created": "1794301777744036",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87973,
+      "created": "1794301778034818",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87975,
+      "created": "1794301778110471",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture",
+      "pid": 87984,
+      "created": "1794301779619473",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 87992,
+      "created": "1794301780213824",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 87994,
+      "created": "1794301780242356",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 87995,
+      "created": "1794301780256406",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 87997,
+      "created": "1794301780584912",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88000,
+      "created": "1794301780940952",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88008,
+      "created": "1794301781247068",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88037,
+      "created": "1794301781596174",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88039,
+      "created": "1794301781836091",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88042,
+      "created": "1794301781905804",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88043,
+      "created": "1794301781918108",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88045,
+      "created": "1794301782235583",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88048,
+      "created": "1794301782602626",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88050,
+      "created": "1794301782893798",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88053,
+      "created": "1794301783204596",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88057,
+      "created": "1794301783516444",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88065,
+      "created": "1794301783937963",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88079,
+      "created": "1794301784480353",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88088,
+      "created": "1794301785041304",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88092,
+      "created": "1794301785118914",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88093,
+      "created": "1794301785120281",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88094,
+      "created": "1794301785120575",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88099,
+      "created": "1794301785235664",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88104,
+      "created": "1794301785438685",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88109,
+      "created": "1794301785546340",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88110,
+      "created": "1794301785547701",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88111,
+      "created": "1794301785548024",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88113,
+      "created": "1794301785790505",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88121,
+      "created": "1794301786320731",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88122,
+      "created": "1794301786322047",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "capture-contract",
+      "pid": 88123,
+      "created": "1794301786322335",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "shared",
+      "pid": 88131,
+      "created": "1794301786986253",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "shared",
+      "pid": 88135,
+      "created": "1794301787076463",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "shared",
+      "pid": 88136,
+      "created": "1794301787077696",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "shared",
+      "pid": 88137,
+      "created": "1794301787078175",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "shared",
+      "pid": 88139,
+      "created": "1794301787345048",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "shared",
+      "pid": 88145,
+      "created": "1794301787554625",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-ax",
+      "pid": 88149,
+      "created": "1794301787865225",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88175,
+      "created": "1794301788325554",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88194,
+      "created": "1794301788415154",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88198,
+      "created": "1794301788927111",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88200,
+      "created": "1794301788988858",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88203,
+      "created": "1794301789259941",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88213,
+      "created": "1794301789656623",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88247,
+      "created": "1794301790086957",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88250,
+      "created": "1794301790519675",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88255,
+      "created": "1794301791074372",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88259,
+      "created": "1794301791248700",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88262,
+      "created": "1794301791367704",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88266,
+      "created": "1794301791979573",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88269,
+      "created": "1794301792421511",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88272,
+      "created": "1794301792847385",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88276,
+      "created": "1794301793590381",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88278,
+      "created": "1794301793808912",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88282,
+      "created": "1794301794467400",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-input",
+      "pid": 88287,
+      "created": "1794301795281346",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88294,
+      "created": "1794301795801478",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88297,
+      "created": "1794301796061680",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88299,
+      "created": "1794301796090120",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88300,
+      "created": "1794301796092707",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88317,
+      "created": "1794301797121584",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88318,
+      "created": "1794301797131696",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88319,
+      "created": "1794301797135027",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88366,
+      "created": "1794301797530388",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88371,
+      "created": "1794301797888798",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-shared",
+      "pid": 88377,
+      "created": "1794301798081634",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-events",
+      "pid": 88382,
+      "created": "1794301798366843",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88387,
+      "created": "1794301798831824",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88390,
+      "created": "1794301799087951",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88401,
+      "created": "1794301799449724",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88451,
+      "created": "1794301799796081",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88455,
+      "created": "1794301800160901",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88458,
+      "created": "1794301800485455",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "python-capture",
+      "pid": 88460,
+      "created": "1794301800543643",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88468,
+      "created": "1794301800999403",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88471,
+      "created": "1794301801031492",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88472,
+      "created": "1794301801045715",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88475,
+      "created": "1794301801431048",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88480,
+      "created": "1794301801800136",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88485,
+      "created": "1794301802097817",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88534,
+      "created": "1794301802473623",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88539,
+      "created": "1794301802780366",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88540,
+      "created": "1794301802792145",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88543,
+      "created": "1794301803027949",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88546,
+      "created": "1794301803088955",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88552,
+      "created": "1794301803682849",
+      "origin": "independently_sampled",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88554,
+      "created": "1794301803698162",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88567,
+      "created": "1794301803894198",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88635,
+      "created": "1794301804566707",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88636,
+      "created": "1794301804568177",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88637,
+      "created": "1794301804568500",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88660,
+      "created": "1794301804837975",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88712,
+      "created": "1794301805412527",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88720,
+      "created": "1794301805442884",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88580,
+      "created": "1794301804007726",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88584,
+      "created": "1794301804019429",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88583,
+      "created": "1794301804018551",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88618,
+      "created": "1794301804394866",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88620,
+      "created": "1794301804397262",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88628,
+      "created": "1794301804476964",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88658,
+      "created": "1794301804830960",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88691,
+      "created": "1794301805222026",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88696,
+      "created": "1794301805260632",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88699,
+      "created": "1794301805287658",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88702,
+      "created": "1794301805332117",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88705,
+      "created": "1794301805358260",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88708,
+      "created": "1794301805383972",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88714,
+      "created": "1794301805414161",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88713,
+      "created": "1794301805413887",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88722,
+      "created": "1794301805464746",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88723,
+      "created": "1794301805466401",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88725,
+      "created": "1794301805466812",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88727,
+      "created": "1794301805490052",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88730,
+      "created": "1794301805515950",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88738,
+      "created": "1794301805597288",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    },
+    {
+      "run": "app-ax-forced-exit",
+      "pid": 88741,
+      "created": "1794301805648036",
+      "origin": "fixture_recorded_and_independently_checked",
+      "confirmedAbsent": true
+    }
+  ],
+  "allConfirmedAbsent": true
+}

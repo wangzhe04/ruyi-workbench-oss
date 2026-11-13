@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-11-13T02:52:59.564938+00:00",
+  "serial": true,
+  "automaticRetries": 0,
+  "userConfirmedCorrectScreenCategory": true,
+  "cases": [
+    {
+      "case": "capture",
+      "command": [
+        "node",
+        "dev-harness/macos-capture-host.e2e.js"
+      ],
+      "testApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+      "exitCode": 0,
+      "seconds": 3.976,
+      "log": "capture.txt"
+    },
+    {
+      "case": "input",
+      "command": [
+        "node",
+        "dev-harness/macos-input-host.e2e.js"
+      ],
+      "testApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+      "exitCode": 1,
+      "seconds": 4.519,
+      "log": "input.txt"
+    }
+  ]
+}

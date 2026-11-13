@@ -1,5 +1,8 @@
 # Ruyi Administrator Guide
 
+For the Mac arm64 local/internal trial, start with [installation, upgrade and recovery](../MACOS-RELEASE_EN.md). Windows commands and overlay updates below do not apply to Mac.
+
+
 This is the English companion to [管理员手册](ADMIN-GUIDE_CN.md). It covers local deployment, engine integration,
 security boundaries, verification, and troubleshooting. Audience: deployers, IT and intranet operators; the
 user-facing instructions are in [USER-GUIDE_EN.md](USER-GUIDE_EN.md).

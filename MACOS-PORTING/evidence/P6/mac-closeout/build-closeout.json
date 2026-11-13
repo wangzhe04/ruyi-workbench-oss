@@ -1,0 +1,46 @@
+{
+  "startedAt": "2026-11-12T15:24:18.009758+00:00",
+  "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "assets": "/tmp/ruyi-p6-assets",
+  "sandboxProfile": "(version 1)(allow default)(deny network-outbound)",
+  "runs": [
+    {
+      "variant": "full",
+      "kind": "source",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network-outbound)",
+        "node",
+        "ruyi-workbench/tools/package-macos-offline.js",
+        "--assets",
+        "/tmp/ruyi-p6-assets",
+        "--output",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout-source",
+        "--variant",
+        "full"
+      ],
+      "exitCode": 0,
+      "seconds": 65.294,
+      "log": "build-closeout-source-full.txt"
+    },
+    {
+      "variant": "full",
+      "kind": "dmg",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1)(allow default)(deny network-outbound)",
+        "node",
+        "ruyi-workbench/tools/package-macos-trial.js",
+        "--package",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout-source",
+        "--output",
+        "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout"
+      ],
+      "exitCode": 1,
+      "seconds": 10.139,
+      "log": "build-closeout-dmg-full.txt"
+    }
+  ]
+}

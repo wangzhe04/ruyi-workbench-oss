@@ -1,0 +1,15 @@
+PASS fixture built with 400 messages (got 400)
+PASS workbench up on :58641
+PASS ② cold start /health ready < 7500ms (got 160ms)
+PASS ① session-load API 200/ok
+PASS ④ API returns FULL 400 messages — windowing never truncates the API (got 400)
+PASS ① session-load server latency < 2000ms (got 4.9ms)
+PASS ③a renderCurrentSession exists
+PASS ③b tail-window logic is bounded by row count + content weight
+PASS ③c count threshold remains 150 alongside the new weight budget
+PASS ③d light sessions stay full; heavy sessions window below the row threshold
+PASS ③e「加载更早」control build code present
+PASS ③f shared visible-message iterator starts at the bounded window cursor
+PASS ③g render-weight estimate is capped and never serializes giant message payloads
+
+PERF E2E: ALL PASS

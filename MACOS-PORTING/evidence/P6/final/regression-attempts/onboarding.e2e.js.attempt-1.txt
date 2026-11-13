@@ -1,0 +1,29 @@
+[fake] [fake-openai] listening on 61190
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 8ca5364e10e1)
+[wb] UI: http://127.0.0.1:61189/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-onboarding-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :61189
+PASS ① bootstrap 换到 token(写配置的路由是 token 级)
+PASS ① 全新安装 config.onboarding === null(加法默认,未完成也未跳过)
+PASS ② POST /api/config 接受 onboarding 补丁
+PASS ② 完成记录原样读回 {completedAt,version:1,skipped:false}
+PASS ② CONFIG_SCHEMA 未被本波 bump
+PASS ② 记录真的落到 config.json(重启后可复现)
+PASS ③ 「以后再说」记录读回 {completedAt:null,skipped:true}
+PASS ④ 字符串 -> null
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-onboarding-e2e/generated/workbench.mcp.json
+PASS ④ 数组 -> null
+PASS ④ 脏对象类型收紧(非字符串时间 -> null;非数字版本 -> 0;非 true 的 skipped -> false)
+PASS ④ 额外键被丢弃(只留三字段)
+PASS ④ 超长时间串截断到 64、版本号 clamp 到 1000
+PASS ⑤ locale 合法值往返
+PASS ⑤ locale 非法值回落 auto
+PASS ⑥ 可用端点 -> {ok:true} 且回模型清单(向导据此让用户挑模型)
+PASS ⑥ 密钥错(401) -> errorClass provider_misconfigured
+PASS ⑥ 401 错误是中文人话且保留原始状态码(向导直接展示,不自造诊断)
+PASS ⑥ 不可达端点 -> errorClass network_down
+PASS ⑥ 向导保存的 provider 成为活动端点
+PASS ⑥ 读回时密钥仍被遮盖(向导界面拿不到明文)
+
+ONBOARDING E2E: ALL PASS

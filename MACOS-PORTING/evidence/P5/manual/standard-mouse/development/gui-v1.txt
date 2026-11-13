@@ -1,0 +1,22 @@
+PASS native session monitor create failure exits instead of retaining a stopped worker
+PASS native session monitor register failure exits instead of retaining a stopped worker
+PASS native monitor wait error exits while its input pipe remains open
+PASS native pointer capture preserves default and mouse-touch fields and refuses tablet or unknown subtypes
+PASS standard projection normalizes all supported button families and preserves source capabilities only as provenance
+PASS native release failures retain ownership and block subsequent writes across tool families
+PASS a stopped native session refuses every input, clipboard, window, launch, AX and recording mutation
+PASS native portable rows preserve bounded raw flag bits from current macOS
+PASS native preflight refuses an unmatched or contradictory gesture before dispatch
+PASS native preflight refuses an unmatched or contradictory gesture before dispatch
+PASS native preflight refuses an unmatched or contradictory gesture before dispatch
+PASS production helper excludes testing-only release injection
+PASS production helper excludes testing-only pointer generation
+PASS production helper excludes testing-only projection generation
+FAIL Error: spawn failed: Mac process supervisor is unavailable
+    at McpStdioClient.start (/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/app/server.js:19328:13)
+    at startClient (/private/tmp/ruyi-p5-touch-worktree/dev-harness/macos-manual-record.e2e.js:215:20)
+    at /private/tmp/ruyi-p5-touch-worktree/dev-harness/macos-manual-record.e2e.js:221:11
+PASS cooperative MCP cleanup confirms balanced receiver and HID state before force cleanup
+FAIL owned fixture conditionally restores its original keyboard source
+
+MACOS MANUAL RECORD E2E: FAIL (2)

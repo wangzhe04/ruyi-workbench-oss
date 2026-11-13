@@ -700,9 +700,21 @@ function buildCapabilityPopoverContent() {
       wrap.appendChild(row);
     }
   }
-  wrap.appendChild(el('h4', null, t('capability.desktopControl')));
+  const macShared = runtime?.platform === 'darwin';
+  wrap.appendChild(el('h4', null, t(macShared ? 'capability.sharedControl' : 'capability.desktopControl')));
   const dm = caps.desktopMcp || {};
-  wrap.appendChild(item(t('capability.desktopMcp'), dm.present ? tCount('capability.connected', dm.toolCount || 0) : t('capability.notConnected'), dm.present ? 'ok' : 'muted'));
+  wrap.appendChild(item(t(macShared ? 'capability.sharedMcp' : 'capability.desktopMcp'), dm.present ? tCount('capability.connected', dm.toolCount || 0) : t('capability.notConnected'), dm.present ? 'ok' : 'muted'));
+  if (macShared) {
+    wrap.appendChild(item(t('capability.desktopControl'), t('capability.macDesktopUnsupported'), 'muted'));
+    const browser = dm.browser || {};
+    const ready = !_capPending && !_capFailed && browser.ready === true;
+    const value = _capPending ? 'capability.checking' : _capFailed ? 'capability.network.unknown'
+      : browser.mode === 'system' ? 'capability.browserHandoff'
+        : ready ? 'capability.available' : 'capability.browserUnverified';
+    const row = item(t('capability.browserControl'), t(value), ready ? 'ok' : 'muted');
+    row.dataset.browserCapability = 'dom';
+    wrap.appendChild(row);
+  }
   const opt = dm.optional || {};
   const optStr = ['ocr', 'uia', 'cv2', 'playwright'].filter(k => opt[k]).join(', ') || t('capability.none');
   wrap.appendChild(item(t('capability.optionalModules'), optStr, opt.ocr || opt.uia ? 'ok' : 'muted'));

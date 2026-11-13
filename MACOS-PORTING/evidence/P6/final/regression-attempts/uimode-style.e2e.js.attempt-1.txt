@@ -1,0 +1,68 @@
+PASS (S1) 简易模式不藏设置页签 basic
+PASS (S1) 简易模式不藏设置页签 providers
+PASS (S1) 简易模式不藏设置页签 network
+PASS (S1) 简易模式不藏设置页签 claude
+PASS (S1) 简易模式不藏设置页签 agents
+PASS (S1) 简易模式不藏设置页签 integrations
+PASS (S1) 简易模式不藏设置页签 advanced
+PASS (S1) 简易模式不藏设置页签 migration
+PASS (S1) 简易模式不藏设置页签 toolbox
+PASS (S1) 不再有简易模式设置页签白名单
+PASS (S1) switchSettingsTab 不按 uiMode 改投页签
+PASS (S2) app.js 定义 buildBootFailureCard / renderBootFailure
+PASS (S2) 故障卡大标题「无法连接本地服务」(代码与中文 locale 双向锁)
+PASS (S2) 故障卡列可能原因「端口被占用」(i18n)
+PASS (S2) 故障卡列可能原因「服务未启动」(i18n)
+PASS (S2) 故障卡列可能原因「被安全软件拦截」(i18n)
+PASS (S2) 「重试连接」按钮重跑 bootData（不重复 bindEvents）
+PASS (S2) 诊断入口存在并走 i18n
+PASS (S2) boot 失败 wire 到 renderBootFailure（不再只塞英文进状态行）
+PASS (S2) 故障卡可访问（role=alert + aria-expanded 诊断按钮）
+PASS (S2) styles.css 有故障卡样式（令牌驱动）
+PASS (S3) applyUiMode 写 data-density（跟随 uiMode）
+PASS (S3) index.html 预绘 data-density（避免首屏闪烁）
+PASS (S3) styles.css 有 comfortable / compact 两档密度块
+PASS (S3) 密度驱动 --density-scale / --tap-min token
+PASS (S4) 设计 token --sp-8 已定义
+PASS (S4) 设计 token --r-sm 已定义
+PASS (S4) 设计 token --r-md 已定义
+PASS (S4) 设计 token --r-pill 已定义
+PASS (S4) 设计 token --ease-out 已定义
+PASS (S4) 设计 token --dur-fast 已定义
+PASS (S4) 设计 token --dur-base 已定义
+PASS (S4) 设计 token --dur-slow 已定义
+PASS (S4) 设计 token --info 已定义
+PASS (S4) 语义色变体 --ok-bg 已定义
+PASS (S4) 语义色变体 --ok-fg 已定义
+PASS (S4) 语义色变体 --warn-bg 已定义
+PASS (S4) 语义色变体 --warn-fg 已定义
+PASS (S4) 语义色变体 --danger-bg 已定义
+PASS (S4) 语义色变体 --danger-fg 已定义
+PASS (S4) 语义色变体 --info-bg 已定义
+PASS (S4) 语义色变体 --info-fg 已定义
+PASS (S4) --ok/--warn/--danger 齐全
+PASS (S4) 未回退到 --success/--warning
+PASS (S4) --ruyi-cloud 内联 SVG data-URI token（离线，不引外部资源）
+PASS (S4) 空状态/故障卡 ::before 用 --ruyi-cloud 作云纹水印
+PASS (S4) 云纹走 mask + --brand-qh 上色（随主题，不硬编码）
+PASS (S4) 云纹水印 opacity ≤ 0.09(克制)
+[fake] [fake-openai] listening on 64798
+PASS workbench listening
+PASS UI token scraped
+PASS (A) POST illegal uiMode/outputStyle accepted (cleansed)
+PASS (A) illegal uiMode cleansed → simple (第36波:回退与 defaultConfig 对齐,不再 pro;got simple)
+PASS (A) illegal outputStyle cleansed → detailed (got detailed)
+PASS (A) POST legal uiMode:simple/outputStyle:concise ok
+PASS (A) uiMode:simple persisted
+PASS (A) outputStyle:concise persisted
+PASS (A) changed outputStyle persisted to disk config.json (uiMode unchanged = default, not pinned)
+PASS (B) concise: request captured (3)
+PASS (B) concise: request prompt contains short-answer instruction
+PASS (B) detailed: request captured (4)
+PASS (B) detailed: request prompt does NOT contain short-answer instruction
+PASS (B) detailed: identity-pinned system prompt captured (sanity)
+PASS (C) /api/status carries errorClasses table top-level
+PASS (C) errorClasses has all expected keys with {zh,next}
+PASS (C) provider_misconfigured.next points at 设置 (Providers)
+
+UIMODE-STYLE E2E: ALL PASS

@@ -1,0 +1,12 @@
+{
+  "movingRequests": 8,
+  "movingSuccesses": 0,
+  "changedRefusalsWithWitness": 8,
+  "requestsWithMotionWitness": 8,
+  "expectedDynamicPass": 18,
+  "actualCounts": {
+    "pass": 18,
+    "fail": 0,
+    "skip": 0
+  }
+}

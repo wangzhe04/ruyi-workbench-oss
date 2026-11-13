@@ -1,0 +1,797 @@
+{
+  "status": {
+    "applicationReady": 1,
+    "authorization": "granted",
+    "axReady": 1,
+    "axSupported": true,
+    "backend": "ScreenCaptureKit",
+    "clipboardReady": 1,
+    "coordinate_space": "macos_global_points",
+    "eventAuthorization": "granted",
+    "inputReady": 1,
+    "locked": false,
+    "monitors": [
+      {
+        "height": 1107,
+        "id": 1,
+        "index": 0,
+        "is_primary": 1,
+        "scale": 2,
+        "width": 1710,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "ok": true,
+    "permissionRequestsMade": false,
+    "pointerQueryReady": 1,
+    "protocolVersion": 1,
+    "ready": 1,
+    "virtual": {
+      "height": 1107,
+      "width": 1710,
+      "x": 0,
+      "y": 0
+    },
+    "windowAuthorization": "granted",
+    "windowListReady": 1,
+    "windowReady": 1
+  },
+  "tree": {
+    "ok": true,
+    "coordinate_space": "macos_global_points",
+    "element_ttl_seconds": 60,
+    "nodes": 27,
+    "nodes_scanned": 27,
+    "protocolVersion": 1,
+    "scope": "window",
+    "success": true,
+    "tree": {
+      "actions": [
+        "AXRaise"
+      ],
+      "bounds": {
+        "height": 528,
+        "width": 740,
+        "x": 180,
+        "y": 379
+      },
+      "center": [
+        550,
+        643
+      ],
+      "children": [
+        {
+          "actions": [
+            "AXShowMenu",
+            "AXConfirm"
+          ],
+          "automation_id": "draft",
+          "bounds": {
+            "height": 32,
+            "width": 652,
+            "x": 209,
+            "y": 466
+          },
+          "center": [
+            535,
+            482
+          ],
+          "description": "P5 AX draft",
+          "element_ref": "94D46DC4-44BF-4EBE-B97A-3EC14A92EC8F",
+          "enabled": true,
+          "focused": true,
+          "name": "P5 AX draft",
+          "offscreen": 0,
+          "type": "AXTextField",
+          "value_settable": true,
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 32,
+            "width": 652,
+            "x": 209,
+            "y": 466
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "automation_id": "apply",
+          "bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 216,
+            "y": 531
+          },
+          "center": [
+            305,
+            546
+          ],
+          "element_ref": "52F40123-7265-47F3-81C7-DFA3AB928E4F",
+          "enabled": true,
+          "focused": false,
+          "name": "Apply 中文",
+          "offscreen": 0,
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 216,
+            "y": 531
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "automation_id": "disabled",
+          "bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 486,
+            "y": 531
+          },
+          "center": [
+            575,
+            546
+          ],
+          "element_ref": "9492D5C3-5002-45F3-8040-49BE0A6993D0",
+          "enabled": false,
+          "focused": false,
+          "name": "Disabled",
+          "offscreen": 0,
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 486,
+            "y": 531
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "automation_id": "duplicate-one",
+          "bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 216,
+            "y": 601
+          },
+          "center": [
+            305,
+            616
+          ],
+          "element_ref": "18AAE30B-90C4-471C-95C5-5CB99B2A1C97",
+          "enabled": true,
+          "focused": false,
+          "name": "Duplicate",
+          "offscreen": 0,
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 216,
+            "y": 601
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "automation_id": "duplicate-two",
+          "bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 486,
+            "y": 601
+          },
+          "center": [
+            575,
+            616
+          ],
+          "element_ref": "A7FAC027-218E-4BE9-9450-BDFFDE0AFBFE",
+          "enabled": true,
+          "focused": false,
+          "name": "Duplicate",
+          "offscreen": 0,
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 30,
+            "width": 178,
+            "x": 486,
+            "y": 601
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "automation_id": "toggle",
+          "bounds": {
+            "height": 30,
+            "width": 300,
+            "x": 211,
+            "y": 667
+          },
+          "center": [
+            361,
+            682
+          ],
+          "element_ref": "93FD8E8E-35DA-4802-938F-CD91C7292A44",
+          "enabled": true,
+          "focused": false,
+          "name": "Enable fixture",
+          "offscreen": 0,
+          "type": "AXCheckBox",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 30,
+            "width": 300,
+            "x": 211,
+            "y": 667
+          }
+        },
+        {
+          "actions": [],
+          "automation_id": "result",
+          "bounds": {
+            "height": 37,
+            "width": 648,
+            "x": 211,
+            "y": 731
+          },
+          "center": [
+            535,
+            749.5
+          ],
+          "element_ref": "950685E0-D5FC-41C4-8874-14FD171D1DBE",
+          "enabled": true,
+          "focused": false,
+          "offscreen": 0,
+          "type": "AXStaticText",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 37,
+            "width": 648,
+            "x": 211,
+            "y": 731
+          }
+        },
+        {
+          "actions": [],
+          "bounds": {
+            "height": 60,
+            "width": 300,
+            "x": 210,
+            "y": 807
+          },
+          "center": [
+            360,
+            837
+          ],
+          "description": "P5 slow group",
+          "element_ref": "D81ED1A7-86F9-443F-84EC-101FBC84795C",
+          "focused": false,
+          "name": "P5 slow group",
+          "offscreen": 0,
+          "type": "AXGroup",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 60,
+            "width": 300,
+            "x": 210,
+            "y": 807
+          }
+        },
+        {
+          "actions": [],
+          "bounds": {
+            "height": 60,
+            "width": 160,
+            "x": 530,
+            "y": 807
+          },
+          "center": [
+            610,
+            837
+          ],
+          "children": [
+            {
+              "actions": [
+                "AXPress"
+              ],
+              "automation_id": "ghost",
+              "bounds": {
+                "height": 30,
+                "width": 140,
+                "x": 540,
+                "y": 827
+              },
+              "center": [
+                610,
+                842
+              ],
+              "description": "Retained ghost",
+              "element_ref": "F24D63F5-E7AC-4F3A-8362-A0175692035B",
+              "enabled": true,
+              "expanded": false,
+              "focused": false,
+              "hidden": false,
+              "name": "Retained ghost",
+              "offscreen": 0,
+              "selected": false,
+              "type": "AXButton",
+              "visibility": "geometric",
+              "visible_bounds": {
+                "height": 30,
+                "width": 140,
+                "x": 540,
+                "y": 827
+              }
+            }
+          ],
+          "element_ref": "A5DC77C9-1774-4E95-8C9C-9C623DE3A128",
+          "focused": false,
+          "offscreen": 0,
+          "type": "AXGroup",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 60,
+            "width": 160,
+            "x": 530,
+            "y": 807
+          }
+        },
+        {
+          "actions": [
+            "AXScrollLeftByPage",
+            "AXScrollRightByPage",
+            "AXScrollUpByPage",
+            "AXScrollDownByPage"
+          ],
+          "bounds": {
+            "height": 150,
+            "width": 180,
+            "x": 700,
+            "y": 537
+          },
+          "center": [
+            790,
+            612
+          ],
+          "children": [
+            {
+              "actions": [
+                "AXPress"
+              ],
+              "automation_id": "scrolled-out",
+              "bounds": {
+                "height": 20,
+                "width": 128,
+                "x": 716,
+                "y": 763
+              },
+              "center": [
+                780,
+                773
+              ],
+              "element_ref": "1965DEBD-BD21-4091-8562-86AA2EC7258A",
+              "enabled": true,
+              "focused": false,
+              "name": "Outside viewport",
+              "offscreen": true,
+              "type": "AXButton",
+              "visibility": "outside_clip"
+            },
+            {
+              "actions": [],
+              "bounds": {
+                "height": 152,
+                "width": 18,
+                "x": 863,
+                "y": 536
+              },
+              "center": [
+                872,
+                612
+              ],
+              "children": [
+                {
+                  "actions": [],
+                  "bounds": {
+                    "height": 55.5,
+                    "width": 12,
+                    "x": 868,
+                    "y": 538
+                  },
+                  "center": [
+                    874,
+                    565.75
+                  ],
+                  "element_ref": "BD9AA308-928D-4964-AAF6-9D9905BA2156",
+                  "offscreen": true,
+                  "type": "AXValueIndicator",
+                  "visibility": "outside_clip"
+                },
+                {
+                  "actions": [
+                    "AXPress"
+                  ],
+                  "element_ref": "029778E9-D233-4663-B27D-A5C92B039976",
+                  "offscreen": 1,
+                  "subrole": "AXIncrementArrow",
+                  "type": "AXButton",
+                  "visibility": "offscreen"
+                },
+                {
+                  "actions": [
+                    "AXPress"
+                  ],
+                  "element_ref": "6531D54D-83BF-468B-89EE-219212402B88",
+                  "offscreen": 1,
+                  "subrole": "AXDecrementArrow",
+                  "type": "AXButton",
+                  "visibility": "offscreen"
+                },
+                {
+                  "actions": [
+                    "AXPress"
+                  ],
+                  "bounds": {
+                    "height": 93.5,
+                    "width": 12,
+                    "x": 868,
+                    "y": 593.5
+                  },
+                  "center": [
+                    874,
+                    640.25
+                  ],
+                  "element_ref": "97ED061B-1D58-4856-BAC3-82F317335CC9",
+                  "offscreen": true,
+                  "subrole": "AXIncrementPage",
+                  "type": "AXButton",
+                  "visibility": "outside_clip"
+                },
+                {
+                  "actions": [
+                    "AXPress"
+                  ],
+                  "bounds": {
+                    "height": 1,
+                    "width": 12,
+                    "x": 868,
+                    "y": 537
+                  },
+                  "center": [
+                    874,
+                    537.5
+                  ],
+                  "element_ref": "D9E08979-3958-49FB-BA1E-0BEA5C0EAF6E",
+                  "offscreen": true,
+                  "subrole": "AXDecrementPage",
+                  "type": "AXButton",
+                  "visibility": "outside_clip"
+                }
+              ],
+              "element_ref": "0C8EF373-72C4-48F4-8266-35754A28DB92",
+              "enabled": true,
+              "focused": false,
+              "hidden": true,
+              "offscreen": 1,
+              "type": "AXScrollBar",
+              "visibility": "offscreen",
+              "visible_bounds": {
+                "height": 150,
+                "width": 17,
+                "x": 863,
+                "y": 537
+              }
+            }
+          ],
+          "element_ref": "E6E9F6A9-1E60-4C66-905B-96ED957DB466",
+          "focused": false,
+          "offscreen": 0,
+          "type": "AXScrollArea",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 150,
+            "width": 180,
+            "x": 700,
+            "y": 537
+          }
+        },
+        {
+          "actions": [
+            "AXShowMenu"
+          ],
+          "automation_id": "text-area",
+          "bounds": {
+            "height": 70,
+            "width": 180,
+            "x": 700,
+            "y": 807
+          },
+          "center": [
+            790,
+            842
+          ],
+          "element_ref": "B330C9A7-8EDD-414E-9C8B-56DEE1BF8C2A",
+          "focused": false,
+          "offscreen": 0,
+          "type": "AXTextArea",
+          "value_settable": true,
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 70,
+            "width": 180,
+            "x": 700,
+            "y": 807
+          }
+        },
+        {
+          "actions": [
+            "AXShowMenu"
+          ],
+          "automation_id": "readonly-area",
+          "bounds": {
+            "height": 25,
+            "width": 160,
+            "x": 530,
+            "y": 772
+          },
+          "center": [
+            610,
+            784.5
+          ],
+          "element_ref": "7E57B62C-8836-40BD-8865-66F6677C852B",
+          "focused": false,
+          "offscreen": 0,
+          "type": "AXTextArea",
+          "value_settable": false,
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 25,
+            "width": 160,
+            "x": 530,
+            "y": 772
+          }
+        },
+        {
+          "actions": [],
+          "automation_id": "disclosure",
+          "bounds": {
+            "height": 25,
+            "width": 140,
+            "x": 530,
+            "y": 702
+          },
+          "center": [
+            600,
+            714.5
+          ],
+          "description": "P5 expandable",
+          "element_ref": "EF3336C0-9561-41AA-A870-1849220E108F",
+          "enabled": true,
+          "expanded": false,
+          "focused": false,
+          "name": "P5 expandable",
+          "offscreen": 0,
+          "type": "AXDisclosureTriangle",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 25,
+            "width": 140,
+            "x": 530,
+            "y": 702
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "bounds": {
+            "height": 14,
+            "width": 12,
+            "x": 190,
+            "y": 386
+          },
+          "center": [
+            196,
+            393
+          ],
+          "element_ref": "E685829A-47FA-465D-90A3-FB585BF6F075",
+          "enabled": true,
+          "focused": false,
+          "offscreen": 0,
+          "subrole": "AXCloseButton",
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 14,
+            "width": 12,
+            "x": 190,
+            "y": 386
+          }
+        },
+        {
+          "actions": [
+            "AXPress",
+            "AXShowMenu"
+          ],
+          "bounds": {
+            "height": 14,
+            "width": 12,
+            "x": 230,
+            "y": 386
+          },
+          "center": [
+            236,
+            393
+          ],
+          "children": [
+            {
+              "actions": [],
+              "bounds": {
+                "height": 16,
+                "width": 14,
+                "x": 229,
+                "y": 385
+              },
+              "center": [
+                236,
+                393
+              ],
+              "element_ref": "BC56719C-0A68-49EF-8DBF-2372EABFACD4",
+              "focused": false,
+              "offscreen": 0,
+              "type": "AXGroup",
+              "visibility": "geometric",
+              "visible_bounds": {
+                "height": 16,
+                "width": 14,
+                "x": 229,
+                "y": 385
+              }
+            }
+          ],
+          "element_ref": "AC8AFB5B-00BF-4959-9FC5-499979626125",
+          "enabled": false,
+          "focused": false,
+          "offscreen": 0,
+          "subrole": "AXZoomButton",
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 14,
+            "width": 12,
+            "x": 230,
+            "y": 386
+          }
+        },
+        {
+          "actions": [
+            "AXPress"
+          ],
+          "bounds": {
+            "height": 14,
+            "width": 12,
+            "x": 210,
+            "y": 386
+          },
+          "center": [
+            216,
+            393
+          ],
+          "element_ref": "586F0C33-D234-412E-ABAE-B9A29314CD76",
+          "enabled": false,
+          "focused": false,
+          "offscreen": 0,
+          "subrole": "AXMinimizeButton",
+          "type": "AXButton",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 14,
+            "width": 12,
+            "x": 210,
+            "y": 386
+          }
+        },
+        {
+          "actions": [],
+          "bounds": {
+            "height": 16,
+            "width": 122,
+            "x": 489,
+            "y": 384
+          },
+          "center": [
+            550,
+            392
+          ],
+          "element_ref": "40D891A7-3E0B-4D3E-965B-73FC94F9A1C8",
+          "enabled": true,
+          "focused": false,
+          "offscreen": 0,
+          "type": "AXStaticText",
+          "visibility": "geometric",
+          "visible_bounds": {
+            "height": 16,
+            "width": 122,
+            "x": 489,
+            "y": 384
+          }
+        }
+      ],
+      "element_ref": "DA71B66F-1329-4FEA-8461-E8E9051D3339",
+      "focused": false,
+      "name": "Ruyi P5 AX 35054",
+      "offscreen": 0,
+      "subrole": "AXStandardWindow",
+      "type": "AXWindow",
+      "visibility": "geometric",
+      "visible_bounds": {
+        "height": 528,
+        "width": 740,
+        "x": 180,
+        "y": 379
+      }
+    },
+    "truncated": 0,
+    "truncated_by": [],
+    "window": {
+      "application": "ax-fixture",
+      "handle": 3060,
+      "height": 528,
+      "pid": 35054,
+      "process_start": "1794310213:995873",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 740,
+          "x": 180,
+          "y": 379
+        },
+        "handle": 3060,
+        "pid": 35054,
+        "process_start": "1794310213:995873",
+        "ref": "D631593B-46E3-4DE2-9C5F-C3C983454613"
+      },
+      "title": "Ruyi P5 AX 35054",
+      "visible": true,
+      "width": 740,
+      "x": 180,
+      "y": 379
+    }
+  },
+  "actualState": {
+    "active": true,
+    "applied": 2,
+    "areaText": "AX 直接赋值 中文😀",
+    "duplicateOne": 0,
+    "duplicateTwo": 1,
+    "event": "state",
+    "expanded": false,
+    "ghostPressed": 0,
+    "id": 3060,
+    "keyWindow": 3060,
+    "menuInvoked": 1,
+    "pid": 35054,
+    "readonlyText": "read-only fixture",
+    "result": "AX 直接赋值 中文😀",
+    "text": "AX 直接赋值 中文😀",
+    "title": "Ruyi P5 AX 35054",
+    "toggle": 1
+  },
+  "stalledProvider": {
+    "code": "accessibility_timeout",
+    "elapsedMs": 138
+  }
+}

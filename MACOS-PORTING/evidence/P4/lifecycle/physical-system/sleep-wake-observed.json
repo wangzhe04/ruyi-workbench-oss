@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-07T17:47:14.581Z",
+  "nativePID": 97075,
+  "servicePID": 97078,
+  "sameNativeIdentity": true,
+  "sameServiceIdentity": true,
+  "sameHealthIdentity": true,
+  "sleepEvents": 1,
+  "wakeEvents": 1,
+  "wakeValidated": true,
+  "simulatedSystemEvents": false
+}

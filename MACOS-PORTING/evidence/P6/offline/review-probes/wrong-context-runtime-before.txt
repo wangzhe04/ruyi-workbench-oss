@@ -1,0 +1,3 @@
+dyld[29272]: Library not loaded: @rpath/libsub.dylib
+  Referenced from: <C2000FD8-F0F4-32AE-99D7-4A6363673618> /private/tmp/ruyi-p6-review-context/A/liba.dylib
+  Reason: no LC_RPATH's found

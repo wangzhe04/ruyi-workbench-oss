@@ -982,7 +982,8 @@ try {
       `O7b 对照:同一次递话把 launchedBy 打成了 'steward'(§11.21.1 指出的污染,故出身标另起一个字段;got ${JSON.stringify(headOf(SID_ACCEPT) && headOf(SID_ACCEPT).launchedBy)})`);
 
     // ③ 锁 3:会话级覆盖真的落到注册层,且只落在这一条线程上。
-    const DESK = ['desktop_screenshot', 'keyboard_send_keys'];
+    const DESK = process.platform === 'darwin' ? ['desktop_screenshot'] : ['desktop_screenshot', 'keyboard_send_keys'];
+    const fixtureCaps = { runtime: { capabilities: { 'desktop.capture': { ready: true }, 'process.supervisor': { ready: true } } } };
     const deskOf = tools => tools.map(t => t.function.name).filter(n => DESK.includes(n)).sort();
     writeConfig({ allowDesktopTools: false });
     const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(configFile, 'utf8'))).config;
@@ -992,9 +993,9 @@ try {
     const plainHead = await srv.loadSession(SID_ACCEPT);
     ok(grantedHead && grantedHead.desktopTools === true,
       `O9 覆盖落盘到会话头(got ${JSON.stringify(grantedHead && grantedHead.desktopTools)})`);
-    const grantedTools = deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: grantedHead.desktopTools == null ? null : grantedHead.desktopTools }));
-    const plainTools = deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: plainHead && plainHead.desktopTools != null ? plainHead.desktopTools : null }));
-    ok(grantedTools.length === 2, `O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got ${JSON.stringify(grantedTools)})`);
+    const grantedTools = deskOf(srv.buildOpenAiTools(cfg, fixtureCaps, { desktopOverride: grantedHead.desktopTools == null ? null : grantedHead.desktopTools }));
+    const plainTools = deskOf(srv.buildOpenAiTools(cfg, fixtureCaps, { desktopOverride: plainHead && plainHead.desktopTools != null ? plainHead.desktopTools : null }));
+    ok(grantedTools.length === DESK.length, `O10 锁 3:被开权限的那条线程,下一回合的工具面含桌面工具(got ${JSON.stringify(grantedTools)})`);
     ok(plainTools.length === 0, `O11 锁 3:别的线程仍然不含(got ${JSON.stringify(plainTools)})`);
     ok(JSON.parse(fs.readFileSync(configFile, 'utf8')).allowDesktopTools === false,
       'O12 锁 3:全局 allowDesktopTools 的值一个字没动(会话级覆盖是另一把钥匙)');
@@ -1005,7 +1006,7 @@ try {
     const clearedHead = await srv.loadSession(stewardSid);
     ok(clearedHead && clearedHead.desktopTools === undefined,
       `O13 反向:清除覆盖后会话头上的键被删掉(回落全局;got ${JSON.stringify(clearedHead && clearedHead.desktopTools)})`);
-    ok(deskOf(srv.buildOpenAiTools(cfg, null, { desktopOverride: clearedHead.desktopTools == null ? null : clearedHead.desktopTools })).length === 0,
+    ok(deskOf(srv.buildOpenAiTools(cfg, fixtureCaps, { desktopOverride: clearedHead.desktopTools == null ? null : clearedHead.desktopTools })).length === 0,
       'O14 反向:清除后该线程也拿不到桌面工具了');
     writeConfig({});
   }
@@ -1127,7 +1128,8 @@ try {
     const accRoute = {};
     for (const n of accNames) accRoute[`${ACC}__${n}`] = { serverId: ACC, toolName: n };
     const namesOf = tools => tools.map(t => t && t.function && t.function.name).filter(Boolean);
-    const NATIVE_DESK = ['desktop_screenshot', 'keyboard_send_keys'];
+    const NATIVE_DESK = process.platform === 'darwin' ? ['desktop_screenshot'] : ['desktop_screenshot', 'keyboard_send_keys'];
+    const fixtureCaps = { runtime: { capabilities: { 'desktop.capture': { ready: true }, 'process.supervisor': { ready: true } } } };
 
     writeConfig({ allowDesktopTools: false, toolLoadingMode: 'full' });
     const cfgFull = srv.normalizeConfig(JSON.parse(fs.readFileSync(configFile, 'utf8'))).config;
@@ -1143,10 +1145,10 @@ try {
       `R1b 同一批工具在目录里的【包】是 'desktop'(07:375 按名字归包)—— 「桌面」在工作台里是包名/账本 kind,不是档(got ${JSON.stringify(catalog.map(x => x.pack))})`);
 
     // R2 对照:同一把闸对两个【原生】桌面工具是有效的(07:129),会话覆盖也生效 —— 这把闸本身没坏,只是够不着桥接面。
-    const ownOff = srv.buildOpenAiTools(cfgFull, null, { desktopOverride: null });
+    const ownOff = srv.buildOpenAiTools(cfgFull, fixtureCaps, { desktopOverride: null });
     ok(!namesOf(ownOff).some(n => NATIVE_DESK.includes(n)),
       `R2 allowDesktopTools:false + 会话覆盖 null -> 两个原生桌面工具被滤掉(got ${JSON.stringify(namesOf(ownOff).filter(n => NATIVE_DESK.includes(n)))})`);
-    const ownOn = srv.buildOpenAiTools(cfgFull, null, { desktopOverride: true });
+    const ownOn = srv.buildOpenAiTools(cfgFull, fixtureCaps, { desktopOverride: true });
     ok(NATIVE_DESK.every(n => namesOf(ownOn).includes(n)),
       'R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)');
 

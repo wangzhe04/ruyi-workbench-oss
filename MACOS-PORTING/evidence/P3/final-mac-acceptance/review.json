@@ -1,0 +1,345 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "date": "2026-11-07",
+  "candidateCommit": "aa2d78464ac117dea547a247676022964066feb6",
+  "userScope": "继续完成P3最终验收，只需要Mac端",
+  "acceptanceScope": "P3 four work packages in current macOS27.0.1 arm64 developer environment. Windows excluded from this round with its failed/pending acceptance retained. P0-P2 accepted scope and existing deferred accounts/login-Keychain conditions retained. macOS14 execution/signing/complete offline release continue under O2/P6.",
+  "reviewScope": [
+    "P3 requirement and four package evidence mapping",
+    "P1/P2 carryover and latest recorded-file fingerprint reuse",
+    "Fresh candidate unit/static and P3 execution logs",
+    "MACOS-PORTING/probes/accept-mac-workflow.cjs source, evidence predicates and cleanup",
+    "Fresh actual Office independent verification and browser screenshots"
+  ],
+  "probeSource": {
+    "path": "MACOS-PORTING/probes/accept-mac-workflow.cjs",
+    "sha256": "8a5a3da28edd4df79d8cf553a3bfd4eff0bce7fbc75fb4946be3eeb041fe50c0",
+    "workingTreeAddition": false,
+    "productionCodeChanged": false,
+    "commit": "aa2d78464ac117dea547a247676022964066feb6"
+  },
+  "fingerprintAudit": {
+    "evidence": "source-audit.json",
+    "latestP3": {
+      "total": 87,
+      "matched": 87,
+      "differences": []
+    },
+    "latestP1P3RecordedFiles": {
+      "total": 323,
+      "matched": 323,
+      "differences": []
+    },
+    "reuseBoundary": "Latest evidence is layered by package. P1 original207 has183 still matching; P2 original70 has53 matching and all17 changed entries covered by later P3 evidence. This is a323-recorded-file consistency audit, not a claim of a whole-repository or unchanged combined server tree.",
+    "timing": "Original323/87 comparison occurred on6717378f before final closeout metadata changes. Rechecking after final metadata updates still matched323/87 recorded files. Changed MACOS-PORTING tracking/acceptance documents lie outside that recorded-file map. The new acceptance probe has its separate current fingerprint."
+  },
+  "requirements": [
+    {
+      "id": "P3-01",
+      "result": "satisfied_current_Mac_scope",
+      "evidence": [
+        "../acc-shared/validation.json",
+        "checks/macos-acc-shared.txt",
+        "checks/smoke_macos_shared.txt"
+      ],
+      "coverage": "Platform dependency split, actual43 shared tools, diagnostics/failure isolation, real protected-path/APFSX tests, real MCP writes and auditing. Prior no-index noneditable-wheel install remains supported by package source fingerprints."
+    },
+    {
+      "id": "P3-02",
+      "result": "satisfied_current_Mac_scope",
+      "evidence": [
+        "../office/validation.json",
+        "checks/macos-office-artifacts.txt",
+        "checks/office-independent.txt",
+        "checks/office-render.txt",
+        "samples/renders-4x5Not/verification.json"
+      ],
+      "coverage": "Fresh real writers/readers, checkpoint and HTTP byte restoration, independent24 artifact checks, old/new existing Office/read/chart suites. Final current render archive is handled by parent. Current6 pages independently visually inspected by reviewer after fresh render: report1, data1, slides3, summary1. Chinese/English, all3 city rows, numeric labels, native chart and table boundaries are readable without clipping."
+    },
+    {
+      "id": "P3-03",
+      "result": "satisfied_current_Mac_scope",
+      "evidence": [
+        "checks/macos-browser-runtime.txt",
+        "checks/smoke_browser_runtime.txt",
+        "checks/workflow-headed.txt",
+        "checks/workflow-headless.txt"
+      ],
+      "coverage": "Prepared Chromium-only cache, SDK runtime detection, owned profile, real local DOM/form/screenshot/tabs, failure degradation, CDP existing-page protection, cancellation/EOF cleanup. New whole Provider-to-actual-ACC turn completes both headed and headless."
+    },
+    {
+      "id": "P3-04",
+      "result": "satisfied_current_Mac_scope",
+      "evidence": [
+        "../templates/content-audit.json",
+        "../templates/content-resolution.json",
+        "checks/macos-platform-templates.txt",
+        "checks/macos-capability-popover.browser.txt"
+      ],
+      "coverage": "All71 content items individually reviewed previously and latest59 template-package source fingerprints match. Current template/capability/UI/permission/Playbook suites pass."
+    }
+  ],
+  "probeFindings": [
+    {
+      "id": "P3-FINAL-R1",
+      "priority": "P2",
+      "status": "resolved",
+      "issue": "Readiness/status headless field alone echoes configuration and cannot establish actual GUI launch.",
+      "resolution": "Assert actual main Chromium command line flags, excluding --type child processes. Both headed false/headless true physical launch-argument observations pass."
+    },
+    {
+      "id": "P3-FINAL-R2",
+      "priority": "P2",
+      "status": "resolved",
+      "issue": "Initial observation omitted Playwright driver and final cleanup ignored helper incomplete results.",
+      "resolution": "Capture driver, browser and full observed descendant snapshot. Assert browser_close removes browser/driver/profiles, then verify helper cleanup completeness, server exit and disappearance of current plus earlier full trees. Reviewer independent ps and filesystem reread confirms both13-process snapshots and profiles gone."
+    },
+    {
+      "id": "P3-FINAL-R3",
+      "priority": "P2",
+      "status": "resolved",
+      "issue": "Profile containment used lexical /var against canonical /private/var, producing a false failure.",
+      "resolution": "Canonicalize captured existing profile paths and tmp root before containment. Initial headed-first failure remains archived and final run passes."
+    },
+    {
+      "id": "P3-FINAL-R4",
+      "priority": "P2",
+      "status": "resolved",
+      "issue": "Actual screenshot attachment would be removed with successful fixture cleanup, leaving only a placeholder in events.",
+      "resolution": "Copy the actual attachment before cleanup, validate PNG signature and1280x720 dimensions, and archive browser.png. Reviewer viewed headed image, with complete Chinese marker and no clipping."
+    }
+  ],
+  "engineeringGates": {
+    "unit": {
+      "tests": 2509,
+      "pass": 2491,
+      "fail": 0,
+      "existingSkip": 18
+    },
+    "static": {
+      "pass": 80,
+      "fail": 0,
+      "excludedLive": 7
+    },
+    "evidence": "checks/fast.txt",
+    "probeSyntax": "node --check passed",
+    "diffCheck": "git diff --check passed"
+  },
+  "executionAccounting": {
+    "originalChecks": 59,
+    "originalPassed": 57,
+    "originalFailed": [
+      "macos-runtime-start",
+      "workbench-memory-core"
+    ],
+    "reruns": [
+      {
+        "name": "macos-runtime-start",
+        "pass": 35,
+        "fail": 0,
+        "allPass": true,
+        "evidence": "checks/runtime-final.txt",
+        "reason": "Runner changed HOME again after launcher fixture created its Node symlink."
+      },
+      {
+        "name": "workbench-memory-core",
+        "pass": 23,
+        "fail": 0,
+        "allPass": true,
+        "evidence": "checks/memory-final.txt",
+        "reason": "Runner WCW_DATA_DIR absolute override correctly superseded fixture LOCALAPPDATA memory import source."
+      }
+    ],
+    "interpretation": "Retain original57/59 run plus two directed standard-entry reruns passing. No fresh single59/59 run claimed. Production unchanged.",
+    "checkpointCoverageInternalSkip": {
+      "evidence": "checks/checkpoint-coverage.txt",
+      "status": "Original real-ACC subbranch B skipped and fell back to static A after comparing43 Mac tools against old99 in-process expectation. This subbranch remains skipped.",
+      "currentDirectCoverage": "macos-acc-shared audits actual43 tools with zero uncovered writes; macos-office-artifacts exercises real writes/checkpoints/rollback."
+    },
+    "originalEvidence": "validation-first.json"
+  },
+  "workflowExecutions": {
+    "headed": {
+      "evidence": "workflow-headed",
+      "log": "checks/workflow-headed.txt",
+      "pass": 27,
+      "fail": 0,
+      "allPass": true,
+      "failures": 0,
+      "toolResults": 10,
+      "observedProcesses": 13,
+      "cleanup": {
+        "killed": [
+          80303,
+          80304,
+          80302,
+          80290
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "artifacts": {
+        "docx_sha256": "82aaa06bbc1dc98055ffebae499e452ae115d191c1c913c7f525c54c4a5fd5fb",
+        "png_sha256": "ea9e0468e9396bc4298d6912613763f7aa3d2eead4af3786cce20a63cd9025a7"
+      }
+    },
+    "headless": {
+      "evidence": "workflow-headless",
+      "log": "checks/workflow-headless.txt",
+      "pass": 27,
+      "fail": 0,
+      "allPass": true,
+      "failures": 0,
+      "toolResults": 10,
+      "observedProcesses": 13,
+      "cleanup": {
+        "killed": [
+          80393,
+          80394,
+          80392,
+          80380
+        ],
+        "terminated": 4,
+        "alreadyExited": 0,
+        "unconfirmed": 0,
+        "scope": "observed-tree",
+        "incomplete": false
+      },
+      "artifacts": {
+        "docx_sha256": "3ca4e31b159b79073ee64d8c56e3e7b53586ca3a5cb177d1f8ee4c32a5cda0bf",
+        "png_sha256": "b9d2bdb030f041df3525fdbf3e768badd44dab6f521c9ee886a9186081c96e53"
+      }
+    }
+  },
+  "independentFinalResourceChecks": {
+    "evidence": "independent-workflow-audit.json",
+    "results": [
+      {
+        "run": "headed-final",
+        "retained_processes": [],
+        "retained_profiles": [],
+        "independent_zip_xml_contains_marker": true,
+        "png_bytes": 14154
+      },
+      {
+        "run": "headless-final",
+        "retained_processes": [],
+        "retained_profiles": [],
+        "independent_zip_xml_contains_marker": true,
+        "png_bytes": 14150
+      }
+    ]
+  },
+  "remaining_code_findings": [],
+  "commitRecommendation": "approved_for_final_P3_Mac_acceptance_metadata",
+  "conclusion": "approved_P3_Mac_current_host_acceptance",
+  "pendingFinalArchive": [],
+  "unverifiedBoundaries": [
+    "Cua app-name selection opened a separate older148 browser welcome page and the desktop then locked. This attempt supplies no manual visible-user acceptance for tested156. Automatic headed Chromium156 launch, page operations and returned screenshot are verified.",
+    "Windows actual same-candidate acceptance remains failed/pending and excluded this round.",
+    "Actual macOS14 arm64 execution remains pending under O2/P6. Static required-cache deployment declarations are64 wheels/98 arm64 binaries/max14.0, with original optional ffmpeg15.0 failure retained.",
+    "Formal signing, notarization, clean-machine offline closure, upgrade/rollback and final permissions remain later-phase gates.",
+    "Finder visible selection, AppKit/WKWebView host lifecycle/voice/notifications remainP4. Desktop screenshots/input/AX/OCR remainP5. Trash remainsP6.",
+    "Real-model task quality, real account services, login-Keychain interaction and all71 tasks running with external models remain outside verified evidence. The local deterministic provider proves actual Workbench/MCP/tool execution.",
+    "Applicable selected P3 chains and complete unit/static are covered. All570 e2es/27 ACC smoke files have not been executed on current Mac."
+  ],
+  "currentOfficeVisualReview": {
+    "renderDirectory": "samples/renders-4x5Not",
+    "verification": [
+      {
+        "name": "report",
+        "pages": 1,
+        "sampleRowValuesPresent": {
+          "上海": true,
+          "北京": true,
+          "深圳": true
+        },
+        "images": [
+          "report-1.png"
+        ]
+      },
+      {
+        "name": "data",
+        "pages": 1,
+        "sampleRowValuesPresent": {
+          "上海": true,
+          "北京": true,
+          "深圳": true
+        },
+        "images": [
+          "data-1.png"
+        ]
+      },
+      {
+        "name": "slides",
+        "pages": 3,
+        "sampleRowValuesPresent": {
+          "上海": true,
+          "北京": true,
+          "深圳": true
+        },
+        "images": [
+          "slides-1.png",
+          "slides-2.png",
+          "slides-3.png"
+        ]
+      },
+      {
+        "name": "summary",
+        "pages": 1,
+        "sampleRowValuesPresent": {
+          "上海": true,
+          "北京": true,
+          "深圳": true
+        },
+        "images": [
+          "summary-1.png"
+        ]
+      }
+    ],
+    "images": {
+      "report-1.png": "ed5c9ed4e7ecd71fd0efadef0c20b14caca0e005ff20e06ed74bdc5c02a7cf4e",
+      "data-1.png": "c20da2726d051ac2736b291ab035d0970d3df9bec63b9b3202926be0e5033826",
+      "slides-1.png": "7e3401c61c2b088f0d4731df5be6f53b518c9bb1f2cea75074d4c3947f839005",
+      "slides-2.png": "21d75292ea9290c7f54f7ece224c545f42ad6770eca32f6436433afbb396c2de",
+      "slides-3.png": "f77e046f356adb698e807155f3ee891a1c0800aacc2773552a4643a2b462f28c",
+      "summary-1.png": "4c15eeb24628227bff5072337f8152936f3ed185ead0a8701c2adf215cc82421"
+    },
+    "reviewerViewedEachImage": true,
+    "result": "pass"
+  },
+  "baselineValidationCommit": "6717378f4b136414839da0ab0ef754eef5804ff1",
+  "candidateRelation": "Original59 commands executed at6717378f. aa2d7846 adds the reviewed acceptance probe, whose exact source hash matches both final workflow executions. Production source fingerprints are unchanged. Current closeout changes are acceptance/tracking metadata.",
+  "source_modifications": false,
+  "documentationReview": {
+    "result": "passed",
+    "files_sha256": {
+      "MACOS-PORTING/README.md": "0ec6f1892cd3fc582bbe59d23b35c3dad2624979847327fab2552ca796469245",
+      "MACOS-PORTING/04-P3-DOCUMENT-BROWSER.md": "765ed0e3a17f8537ca634190c7194e3563c1e1438e286af6d026441bc7cf6953",
+      "MACOS-PORTING/10-TRACKING.md": "68f56d70055b93b2f39b6ce491d30fd7cf45e6d6ff6083c015d38ca285779277",
+      "MACOS-PORTING/TASKS.json": "594a41bf522da2e81d990011eb396b0e5f8f4dda090ff2787299404176d86757",
+      "MACOS-PORTING/evidence/P3/README.md": "6d95daf87d9bec533620feb0f9c974e31d9720b68b5857bf4b1f33a4502aeb9e"
+    },
+    "scope": "Latest top-level state and stage/tasks consistently record done in current Mac host scope, user-excluded Windows as failed/pending, O2/P6 and P4-P6 carryover, real-model/account/login-Keychain boundaries, original failures and all skips. Earlier chronological history remains archived.",
+    "archiveIntegrity": "14/14 checked workflow event/summary/DOCX/PNG and six Office-page copies exactly match the original observed output. All final README links and active acceptance/validation evidence paths checked exist. Four final runtime/probe source fingerprints match current bytes.",
+    "findings": [
+      {
+        "id": "P3-FINAL-D1",
+        "status": "resolved",
+        "file": "MACOS-PORTING/README.md",
+        "issue": "Top status line retained old in-progress P3 status while table/final paragraph were updated.",
+        "resolution": "Top status now matches latest current-Mac final acceptance and retained carryovers."
+      },
+      {
+        "id": "P3-FINAL-D2",
+        "status": "resolved",
+        "file": "MACOS-PORTING/TASKS.json",
+        "issue": "O2 staticEvidence was copied with a final-acceptance-relative path invalid from TASKS directory.",
+        "resolution": "Changed to evidence/P3/acceptance/minimum/README.md and target existence confirmed."
+      }
+    ]
+  }
+}

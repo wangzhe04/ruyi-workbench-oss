@@ -1,7 +1,15 @@
 # Mac 版移植指导文档包
 
-版本：1.4 · 日期：2026-11-06 · 基线：`f5223548` / 如意 3.0.1。
-状态：**P0 基线、架构与技术验证已完成；P1 运行时与系统边界实现阶段已完成；P2 已按用户指定排除暂缓项的范围验收完成，真实账号/登录Keychain交互/Windows仍待补验；P3–P6 待开始。** [P0 结果与证据](evidence/P0/README.md)记录了失败、未执行项和后续关口，尚不是可交付的 Mac 产品。
+**当前状态（2026-11-12）：P5 已按用户选择的已验 Mac 范围完成交付验收，未验项保留后续。** 详见 [收尾记录](evidence/P5/closeout/README.md)。下文旧日期状态保留为历史快照。
+
+P6-01 已完成自包含 arm64 Full/Slim 离线候选实现与当前 Mac 验证，源码 `f059b7eb`；最终候选绑定见 [离线打包记录](evidence/P6/offline/README.md)。正式签名、公证、最低系统与干净安装仍按原阶段关口保留。
+
+2026-11-13，**P6 当前 Mac 本地／内部试用范围已完成收尾**。固定 Full App 经本人授权后，主执行及独立录屏7项、基本输入14项通过；Full普通复制升级／完整快照回退各14项通过。应用／包装来源 `74d57c88`，验收夹具 `f3237570`，安装包未改动。完整轮与定点复验逐件合并为594退出成功，仍有32件历史内部SKIP、14项live排除，未重新执行最终候选594件完整轮。`currentMacTrialStatus=done`；P6及P6-04的原正式发行范围仍为 `in_progress`。[最新收尾](evidence/P6/authorization-resume/README.md)／[逐件对账](evidence/P6/authorization-resume/regression-composite.json)。
+
+版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
+状态更新于2026-11-11。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。
+
+P5 的截图、输入、AX核心与选定应用、OCR、组合动作、受控原生请求录制及协作取消审计，已分别按各自提交和证据完成当前主机范围验收。各切片的实施提交与独立绑定登记在 [TASKS.json](TASKS.json)。手动严格模式 `0d054b04` 与用户确认的标准鼠标投影 `1500b82b` 已提交并独立验收。标准投影独立桌面 88 项、App exact 17 项、standard 19 项通过；主执行真人“你好”与触控板拖拽保存回放通过，来源独立核验。压力手势不在该投影内。[手动录制记录](evidence/P5/manual/README.md) 保留失败历史和精确范围。普通会话默认审批允许/拒绝/待审批取消，以及两图片 writer 新建/覆盖检查点与真实回滚已在 `5e246343` 通过当前主机独立验收（离线 13、真实桌面 31、静态 80）。[入口记录](evidence/P5/entry/README.md) 限定 Node 服务启动范围；当前源码选定应用默认31/renderer33/Finder10共74项独立复验通过，[记录](evidence/P5/selected-current/README.md)限定场景与helper字节等价范围。缺 helper、真实隐藏注册表回放与 Node 两个总闸的普通会话拒绝已在 `229a9021` 独立40项通过，[记录](evidence/P5/readiness/README.md)限定 CLI 仅生成配置；真实自有窗口平移期间捕获拒绝已在 `1b03da04` 独立18项通过，[记录](evidence/P5/transition/README.md)区分静止控制、实际拒绝与未执行的动态成功分支；实际撤权/拒权 readiness、动作中锁屏、硬杀和原环境门继续推进。[原审计](evidence/P5/remaining-audit.json)与[历史映射](evidence/P5/remaining-resolution-2026-11-11.json)与[当前剩余范围](evidence/P5/remaining-resolution-2026-11-11-current.json)分列历史和后续操作。零输入根进程强杀校准在 `96db15f6` 主执行与独立各12项通过，[记录](evidence/P5/hard-abort/README.md)保留派发/终局持久归属与held强杀总门尚未闭合的限制。`7f95d654` 已修复普通Provider主回合工具意图与已取得结果的持久化，独立9/11/12/31各组通过，[记录](evidence/P5/durable-history/README.md)明确实际派发、held及App等未验边界。P5 整体保持进行中，物理多屏、macOS14、Windows同候选和正式身份等原环境门继续保留，P6待开始。
 
 ## 目标与默认范围
 
@@ -16,9 +24,9 @@
 | P0（完成） | [基线与方案冻结](01-P0-BASELINE.md) | 平台契约、测试基线、宿主与依赖验证 | 4–6 人日 |
 | P1（完成） | [运行时与系统边界](02-P1-RUNTIME.md) | Mac 启动、shell、路径护栏、可靠停止 | 8–12 人日 |
 | P2（验收完成，暂缓项除外） | [Agent、凭据与核心业务](03-P2-AGENT-CORE.md) | CLI、Keychain、管家、多 Agent、调度与机器人链路 | 8–12 人日 |
-| P3 | [文档、浏览器与模板](04-P3-DOCUMENT-BROWSER.md) | 跨平台 ACC 子集、Office、Playwright、Mac 模板 | 6–10 人日 |
+| P3（Mac范围验收完成） | [文档、浏览器与模板](04-P3-DOCUMENT-BROWSER.md) | 跨平台 ACC 子集、Office、Playwright、Mac 模板 | 6–10 人日 |
 | P4 | [Mac 桌面壳](05-P4-DESKTOP-APP.md) | 独立 App、菜单栏、通知、语音与后台生命周期 | 10–16 人日 |
-| P5 | [Mac 桌面自动化](06-P5-AUTOMATION.md) | 截图、输入、AX、OCR、组合动作与录制 | 16–26 人日 |
+| P5（已验Mac范围完成） | [Mac 桌面自动化](06-P5-AUTOMATION.md) | 截图、输入、AX、OCR、组合动作与录制 | 16–26 人日 |
 | P6 | [离线打包与发行](07-P6-RELEASE.md) | 签名发行包、升级/回退、迁移与最终验收 | 8–14 人日 |
 | 原始合计 | [工作量依据与排期](09-EFFORT-ESTIMATE.md) | 全部阶段基础预算 | **60–96 人日** |
 
@@ -56,3 +64,25 @@
 P1按用户决定完成本次Mac范围收尾，Windows实机门槛移除，Finder可见实机归P4/V10，媒体未重现异常保留观察。详见 [P1收尾记录](evidence/P1/closeout/README.md)。
 
 2026-11-06 P2按用户约定范围完成验收，见 [最终验收](evidence/P2/final-acceptance/README.md)。此前估算快照保留为历史规划，不将暂缓验收的后续投入自动算作0。
+
+2026-11-06 P3-01完成Mac共享ACC子集开发与单独本地验收，见 [P3-01证据](evidence/P3/acc-shared/README.md)。P3整体进行中，Windows同候选回归未执行且未豁免，后续P3-02文档与图表。
+
+2026-11-07 P3-02完成Office、PDF、图表及中文字体的Mac开发与单独本地验收，见[P3-02证据](evidence/P3/office/README.md)。下一包P3-03；Windows同候选、最低系统与正式发行关口继续保留。
+
+2026-11-07 P3按用户指定的Mac当前主机范围完成最终验收，四包与真实工作台到ACC组合链路通过，Windows排除本轮，最低系统与正式发行按O2/P6交接。见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。
+
+
+2026-11-08 P4 按用户“本轮按 Mac 范围收尾，Windows 保留后续待验”的决定完成，四包当前 macOS27.0.1 arm64 本地开发与独立验收通过。实现提交 `0e9d5edb`，证据提交 `f5c5d4c5`，正式身份与 macOS14 实际运行仍未验收。详见[P4最终范围](05-P4-DESKTOP-APP.md)及[收尾清单](evidence/P4/local-closeout.json)。
+
+
+2026-11-08 用户追加要求后，已停止本任务防休眠，并完成 P4 当前 Mac 的主轮完整功能复验。16 组专项最终 630 项通过，完整单元和工程门再次通过。真实系统交互复用同冻结 App 既有独立证据，Windows、正式身份与 macOS14 实机继续待验。见[完整Mac验收](evidence/P4/full-mac-acceptance/README.md)。
+
+最终修正候选独立串行复跑八组、255项全部通过，均自然退出0，53项源码指纹无漂移且观察到的自有进程已退出。本任务防休眠保持停止，当前Mac功能验收完成，既有待验边界保留。[最终独立验收](evidence/P4/full-mac-acceptance/review.json)
+
+2026-11-12 默认关闭的桌面执行回执与前台 Provider 子代理切片已在 `f671a004` 提交并集成。真实 root/ACC/原生输入 worker 身份关联、主回合与正回合前台节点的逐结果/图片历史保存、存储失败后的 unknown 屏障通过独立验收。13 条命令各一次、零失败/跳过/重试；子代理117、主图片26、主派发32、上下文38、Python控制4、相关单元78及清册/构建通过，122源码与3产物共26次前后绑定一致。默认关闭兼容5组85项通过；完整单元2626通过/18既有跳过、语法1178、静态80通过/12显式live跳过。真实图片测试使用固定PNG，未外推原生截图/OCR；后台/API0/恢复/CLI/manual admission、reconciliation/retention及原环境门继续开放。源码、全部失败历史和独立报告已归档。[当前状态](evidence/P5/execution-receipts-wip/current-state.json)。按用户要求继续无人值守，P5整体仍进行中，整体验收后恢复自动锁屏。
+
+2026-11-12 原生截图与 Vision 回执切片 `b7930bde` 已在默认关闭状态提交并集成（候选源码提交 `56c970cf`）。Node serve 与冻结 helper 的独立18条命令全部通过，无失败/跳过/重试；真实截图/OCR及故障87、原生协议51、适配器23，另含上下文/主图像/派发/子代理回归与清册。125源码/4产物共36次前后绑定匹配。实际小图子代理保存、下一模型请求与冷重启复开通过；真实大图触发16MiB快照拒绝时保持未交付并阻断后继操作，未丢图假报成功。实际Stop证明精确进程清理与未确认终局的unknown，不等同于捕获body被中断；forced callback和原生OCR长时限分支仍仅源码证明。完整单元2626通过/18既有跳过、静态80通过/13明确live跳过、语法1179及构建新鲜度通过。所有开发失败保留，包括第一次Stop过早采样、图片展示附件误断与一次因实施者校验中改测试导致的指纹失效；最终冻结重新验证通过。本切片无输入投递/held故障或App身份复验，P5整体和原10本地/4外部门仍开放。[当前归档](evidence/P5/execution-receipts-wip/current-state.json)。
+
+2026-11-12 正常输入回执验收切片 `2d3d725e` 已集成，保持默认关闭；本次新增验收设施，未修改生产运行逻辑。真实默认审批允许时，自有窗口仅收到一组中键按下/松开；拒绝与待审批取消均未派发输入。同一原生 worker 的目标、PID/出生身份、回执、持久历史、步骤0操作记录、事项API与冷重启不重放通过独立51项复跑，零失败/跳过/重试。127源码/4指定产物两次前后绑定一致；窗口接收器另从冻结源码编译，开发与独立运行的实际字节相同。计划40,000微秒为相对时间安排，独立接收间隔实测28.221708毫秒，不声称40毫秒精度保证。工程单元2626通过/18既有跳过、静态80通过/14明确live跳过、语法1180及构建检查通过。首次就绪字段类型误判与静态进程清册漏增的失败均保留。本轮不涉及held故障、救援或新App身份验收；后台/API0/恢复/CLI/手工准入、历史恢复/容量管理及原环境门继续开放。[独立报告](evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/report.json)与[当前状态](evidence/P5/execution-receipts-wip/current-state.json)明确完整范围。P5整体继续无人值守推进，整体验收后恢复自动锁屏。
+
+2026-11-12，用户明确选择“按已验范围交付，保留未验项并提交 macos PR”。P5 及五个工作包按此前独立验收通过的当前 Mac 功能切片登记 `done`；原完整 P5 门槛与默认关闭执行回执的后续开发继续保留，未验项不计通过。历史证据继续仅对各自冻结源码、产物、应用版本和入口范围有效。合入上游 `macos` 的 PR #61 后续修复并重建生成物；本轮工程验证与分支收尾见 [范围交付记录](evidence/P5/closeout/README.md)。未提交的 workflow-receipts 工作树不纳入此次交付。

@@ -1,0 +1,11 @@
+PASS initialize handshake ok
+PASS tools/list exposes all 5 shell_* tools (so CLI-side model sees them + guidance)
+PASS shell_start in MCP child → isError:true
+PASS guiding error text mentions 仅在原生 provider 引擎可用 (got: {
+  "ok": false,
+  "error": "shell 会话仅在原生 provider 引擎可用(工具运行于一次性 MCP 子进程,无法跨回合存活)",
+  "hint": "需要非阻塞长任务时请使用当前 CLI 引擎自己的后)
+PASS shell_send in MCP child → isError:true
+PASS powershell_run still works in MCP child (guard is shell-specific)
+
+SHELL-MCP-GUARD E2E: ALL PASS

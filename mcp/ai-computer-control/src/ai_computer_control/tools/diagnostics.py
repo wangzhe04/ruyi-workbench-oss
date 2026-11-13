@@ -47,7 +47,7 @@ def _optional_modules() -> dict:
     return out
 
 
-def _optional() -> dict:
+def _optional(mac_capture=None) -> dict:
     """Compact optional-backend availability with the exact keys the workbench probe scans.
 
     The Win Claude Workbench `probeDesktopMcp` reads `diagnostics().optional` for the boolean keys
@@ -57,14 +57,18 @@ def _optional() -> dict:
     """
     def flag(module_path: str, mod_name: str) -> bool:
         m = sys.modules.get(module_path)  # only if the server already loaded it (never import here)
+        if m is None or module_path.rsplit(".", 1)[-1] in _server._UNSUPPORTED_MODULES:
+            return False
         if m is not None and hasattr(m, "_AVAILABLE"):
             return bool(m._AVAILABLE)
         return _has_module(mod_name)
 
     return {
-        "ocr": flag("ai_computer_control.tools.ocr", "winsdk"),
-        "uia": flag("ai_computer_control.tools.uia", "uiautomation"),
-        "cv2": flag("ai_computer_control.tools.vision", "cv2"),
+        "ocr": bool(mac_capture and mac_capture.get("installed") and mac_capture.get("ocrSupported"))
+            if sys.platform == "darwin" else flag("ai_computer_control.tools.ocr", "winsdk"),
+        "uia": bool(mac_capture and mac_capture.get("installed") and mac_capture.get("axSupported"))
+            if sys.platform == "darwin" else flag("ai_computer_control.tools.uia", "uiautomation"),
+        "cv2": flag("ai_computer_control.tools.macos_vision" if sys.platform == "darwin" else "ai_computer_control.tools.vision", "cv2"),
         "playwright": flag("ai_computer_control.tools.browser", "playwright"),
         "pynput": flag("ai_computer_control.tools.record", "pynput"),
         # v1.6 Office 模板驱动 optional backends.
@@ -75,7 +79,7 @@ def _optional() -> dict:
 
 def _monitors_summary() -> dict:
     try:
-        mod = sys.modules.get(_TOOLS_PKG + "desktop_extra")
+        mod = sys.modules.get(_TOOLS_PKG + ("macos_capture" if sys.platform == "darwin" else "desktop_extra"))
         if mod is None:  # toolset not loaded (ACC_TOOLSETS) — don't load it just to report
             return {"count": None, "monitors": []}
         m = mod.list_monitors()
@@ -88,7 +92,7 @@ def _monitors_summary() -> dict:
 
 def _dpi_summary() -> dict:
     try:
-        mod = sys.modules.get(_TOOLS_PKG + "desktop_extra")
+        mod = sys.modules.get(_TOOLS_PKG + ("macos_capture" if sys.platform == "darwin" else "desktop_extra"))
         if mod is None:
             return {"awareness": None, "primary_scale": None}
         return mod.get_dpi_info()
@@ -105,10 +109,72 @@ def diagnostics() -> dict:
         booleans that the workbench probe reads), optional_modules (full import-level map), tool_count, and
         load_errors ({module: error} for tool modules that failed to import — their tools are missing).
     """
+    return _diagnostics_snapshot(include_monitors=True)
+
+
+def execution_readiness_snapshot() -> dict:
+    """Contextless control read: exact native status and import flags, never tool dispatch.
+
+    Monitor/DPI tool wrappers and browser driver probing are deliberately excluded.
+    """
+    return _diagnostics_snapshot(include_monitors=False)
+
+
+def _diagnostics_snapshot(*, include_monitors: bool) -> dict:
     try:
         tool_count = len(mcp._tool_manager.list_tools())
     except Exception:
         tool_count = None
+    desktop = {}
+    if sys.platform == "darwin":
+        from ai_computer_control.utils.macos import capability
+        desktop["desktop.capture"] = capability()
+        state = desktop["desktop.capture"]
+        desktop["desktop.accessibility"] = {"supported": state.get("axSupported", False),
+            "installed": bool(state.get("installed") and state.get("axSupported")),
+            "authorization": state.get("windowAuthorization", "unknown"), "ready": state.get("axReady", False),
+            "backend": "AXUIElement", "coordinate_space": "macos_global_points"}
+        desktop["desktop.ocr"] = {"supported": state.get("ocrSupported", False),
+            "installed": bool(state.get("installed") and state.get("ocrSupported")),
+            "authorization": "not_required_for_local_images", "ready": state.get("ocrReady", False),
+            "screenReady": bool(state.get("ocrReady") and state.get("ready")),
+            "inputReady": bool(state.get("ocrReady") and state.get("ready") and state.get("inputReady")),
+            "backend": "Vision", "recognition_revision": state.get("ocrRevision"),
+            "image_coordinate_space": "image_pixels", "screen_coordinate_space": "macos_global_points"}
+        vision = bool(getattr(sys.modules.get(_TOOLS_PKG + "macos_vision"), "_AVAILABLE", False))
+        desktop["desktop.template_matching"] = {"supported": True, "installed": vision,
+            "authorization": state.get("authorization", "unknown"),
+            "ready": bool(vision and state.get("ready")),
+            "inputReady": bool(vision and state.get("ready") and state.get("inputReady")),
+            "backend": "OpenCV", "coordinate_space": "macos_global_points"}
+        observe = bool(sys.modules.get(_TOOLS_PKG + "macos_observe"))
+        verify = bool(sys.modules.get(_TOOLS_PKG + "macos_act_and_verify"))
+        replay = bool(sys.modules.get(_TOOLS_PKG + "batch"))
+        desktop["desktop.observe"] = {"supported": True, "installed": bool(observe and state.get("installed")),
+            "authorization": state.get("authorization", "unknown"), "ready": bool(observe and state.get("ready")),
+            "axReady": bool(state.get("axReady")), "ocrReady": bool(state.get("ocrReady")),
+            "coordinate_space": "macos_global_points"}
+        desktop["desktop.action_verification"] = {"supported": True,
+            "installed": bool(verify and state.get("installed")),
+            "authorization": state.get("eventAuthorization", "unknown"),
+            "ready": bool(verify and state.get("ready") and state.get("inputReady")),
+            "verification": "screen_change_observation", "coordinate_space": "macos_global_points"}
+        desktop["desktop.input_sequence"] = {"supported": state.get("inputSequenceSupported", False),
+            "installed": bool(state.get("installed") and state.get("inputSequenceSupported")),
+            "ready": bool(state.get("inputSequenceReady")), "backend": "bounded CGEvent sequence"}
+        desktop["desktop.macro_replay"] = {"supported": True, "installed": replay, "ready": replay,
+            "inputReady": bool(replay and state.get("inputReady")), "backend": "ACC tool registry"}
+        record = bool(sys.modules.get(_TOOLS_PKG + "macos_record"))
+        desktop["desktop.recording"] = {"supported": state.get("recordSupported", False),
+            "installed": bool(record and state.get("installed") and state.get("recordSupported")),
+            "authorization": state.get("eventAuthorization", "unknown"),
+            "ready": bool(record and state.get("recordReady")), "source": "controlled_native_requests",
+            "sources": state.get('recordSources', []), "manualSupported": state.get('manualRecordSupported', False),
+            "manualReady": bool(record and state.get('manualRecordReady')),
+            "pointerProfiles": state.get('manualPointerProfiles', []),
+            "standardMouseScope": "keyboard_and_standard_mouse; pressure gestures are excluded, not reproduced or exhaustively detected",
+            "listenAuthorization": state.get('listenAuthorization', 'unknown'), "inputSource": state.get('recordInputSource'),
+            "coordinate_space": "macos_global_points"}
     return {
         "ok": True,
         "version": VERSION,
@@ -116,15 +182,19 @@ def diagnostics() -> dict:
         "python_full": sys.version,
         "platform": platform.platform(),
         "is_admin": _is_admin(),
-        "monitors": _monitors_summary(),
-        "dpi": _dpi_summary(),
+        "monitors": _monitors_summary() if include_monitors else {"count": None, "monitors": []},
+        "dpi": _dpi_summary() if include_monitors else {"awareness": None, "primary_scale": None},
         # Compact, probe-aligned availability (top-level, boolean) — read by workbench probeDesktopMcp.
-        "optional": _optional(),
+        "optional": _optional(desktop.get("desktop.capture")),
         # Fuller import-level map kept for humans / debugging.
         "optional_modules": _optional_modules(),
         "tool_count": tool_count,
         # Tool modules that failed to import (their tools are NOT registered). Empty dict = all loaded.
         "load_errors": dict(_server._LOAD_ERRORS),
+        # Deliberately unsupported modules are distinct from broken dependencies.
+        # These tools never enter tools/list, regardless of ACC_TOOLSETS.
+        "unsupported_modules": dict(_server._UNSUPPORTED_MODULES),
+        "capabilities": desktop,
         # Tools the host removed via ACC_HIDE_TOOLS (sorted). Empty list = nothing hidden.
         "hidden_tools": list(getattr(_server, "HIDDEN_TOOLS", [])),
     }

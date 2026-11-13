@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "executor": "/root",
+  "testImplementationCommit": "229a9021f2ae96e493b9a10c99ea1d50ea22b619",
+  "parentCommit": "dc59e365fc598f0f0c9ff6de6bda01d24bcabdac",
+  "changedFiles": [
+    "README.md",
+    "README_EN.md",
+    "dev-harness/fixture-home.static.e2e.js",
+    "dev-harness/macos-native-readiness.e2e.js",
+    "dev-harness/process-safety.static.e2e.js",
+    "docs/architecture/route-inventory.json",
+    "docs/architecture/route-inventory.md",
+    "facts.json"
+  ],
+  "files": [
+    {
+      "path": "dev-harness/macos-native-readiness.e2e.js",
+      "sha256": "938f740633bcbfea0ef8d4dca37dc8925e334ecff8f7e62eff5ffd266b5a50de",
+      "gitBlob": "bc265251939df4571451f825bbe235f30a89ff86",
+      "bytes": 27179,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "7f642fe3c8328baef1655114e97849cc3c6584efdd4274590cbd8d2147fdbb45",
+      "gitBlob": "1f966b5824c2a09831e65867e86d4c6c6503649c",
+      "bytes": 41805,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "012364d502b02c79c6d4d71a3eca0b7b406e1d9665a8a69083e169be7bf7f7d1",
+      "gitBlob": "5229e3d2f3e20f3709e60f7a5578249fbe8e3a2b",
+      "bytes": 14136,
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "sha256": "bec6efae537d74caeba801c94f9d19f12d187c4810b91ae2567f9ffbbb48e8fa",
+      "gitBlob": "f061a1466d5aa4c39e92f352e76af76aeccf9ca9",
+      "bytes": 1335,
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "sha256": "80d48bb148e909807dc0e5f14f840c524cbdc71b6fbe251a801e18b0edd7117d",
+      "gitBlob": "2d88635c6b3d17dd99b7e30719af8823dacc5c2a",
+      "bytes": 65808,
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "d1e07ec8c36fea02c112fc0ccb446e1572bb6ee0d947fda0eaa5f199796d5088",
+      "gitBlob": "e3f12510342b24ce8bdea4c4d17225267bdfc1f5",
+      "bytes": 72914,
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+      "gitBlob": "0f2eea4dc7aec71160b2f374a6a2362865ce1e2e",
+      "bytes": 207630,
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+      "gitBlob": "836e0a1fa33ccd4a78ba3099e8e36227322219d2",
+      "bytes": 34115,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017",
+      "gitBlob": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+      "bytes": 6777831,
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d",
+      "gitBlob": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+      "bytes": 301569,
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+      "gitBlob": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+      "bytes": 18974,
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc",
+      "gitBlob": "d37c4b1b395f562cb75425249ac6d2c0238fd44f",
+      "bytes": 23110,
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2",
+      "gitBlob": "bc33caa38e1dea2dc215f8384e9e25b9f883fb12",
+      "bytes": 10462,
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31",
+      "gitBlob": "72602dc77eccf01d1a965972af09d1d616d9cbac",
+      "bytes": 11734,
+      "matched": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "bytes": 291712
+    },
+    {
+      "path": "/tmp/ruyi-p5-readiness-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "sha256": "3ebd47102e66ffda9b9d877b033f6235bdf15aa360912766f1f16739aad0eff2",
+      "bytes": 35520
+    }
+  ],
+  "evidence": [
+    {
+      "path": "freeze-v5.json",
+      "sha256": "5e60e15d4c3e1c21c614e8fbd9eeb44cfc5e21983dcfafaf904b36a550778b28",
+      "bytes": 2888
+    },
+    {
+      "path": "code-review-v1.json",
+      "sha256": "3bd8f0ec2902efe39850b46e033137d830bbcff66cd095aa21b0610e6e0e1a82",
+      "bytes": 18912
+    },
+    {
+      "path": "code-review-v2.json",
+      "sha256": "c9ad25affda616cfee56a1682e8bf539e1f3a28ab3201ee6d405a78ed65b7a03",
+      "bytes": 9064
+    },
+    {
+      "path": "code-review-v3.json",
+      "sha256": "f2029b00c051ab964dd1173d073f008a700293bee5cdb2c497ce2ac537672c0c",
+      "bytes": 14916
+    },
+    {
+      "path": "independent-v1/report.json",
+      "sha256": "38e11b8179f47151279c9b3c14505ce35df314c0a7dd485903fcff71a598dd13",
+      "bytes": 14701
+    },
+    {
+      "path": "independent-v1/execution-report.json",
+      "sha256": "158750428b27385b4f9ad4dd0e397ca531574d6586fd0222983cade73ae61a86",
+      "bytes": 1174
+    },
+    {
+      "path": "independent-v1/native/results.json",
+      "sha256": "45444107bdb26016609bb0e691885fc5bd6379c02014bdbb2534351d27a2bccd",
+      "bytes": 218463
+    },
+    {
+      "path": "independent-v1/counts.json",
+      "sha256": "5a02afa6741d0d0b101998cb47220a2b87a9ed4ee93f8b0594836feec0ec5760",
+      "bytes": 43
+    },
+    {
+      "path": "independent-v1/output.txt",
+      "sha256": "24f08f08b16b20f8dbf793b4a3879c869c713c0e411deaec0798e83119c2fe2c",
+      "bytes": 3392
+    },
+    {
+      "path": "independent-v1/source-artifact-checks.json",
+      "sha256": "56376393324bf73f5de5c25895dec88a4be53b026b9cbfa7e8e763ba8b3a4cfb",
+      "bytes": 20528
+    },
+    {
+      "path": "independent-v1/engineering-reuse.json",
+      "sha256": "e5c45b4b5b8fb2eeab83c3a75eecb3b22d72844dfecc39c607e871ac93505db6",
+      "bytes": 2460
+    },
+    {
+      "path": "development/engineering-v1/results.json",
+      "sha256": "ef8cfcea661a140e261504761dc14f0a9abadd976e9ba719075164e8d725b316",
+      "bytes": 677
+    },
+    {
+      "path": "development/engineering-v1/source-artifact-checks.json",
+      "sha256": "4f70f646d888b910f7390c4e2251edf1c55091bb554e364262cb6277b612989b",
+      "bytes": 25141
+    }
+  ],
+  "runtimeProductSourceChanged": false,
+  "scope": "Actual Node/ACC missing helper and registry-hidden replay plus Node policy refusal with product-generated CLI policy config.40 independent assertions and full-engineering hash-bound reuse. Real captured saved balanced-click baseline, not human demonstration. No clipboard snapshot recovery, TCC revoke, OS lock or actual CLI policy runtime claim.",
+  "phaseStatus": "in_progress"
+}

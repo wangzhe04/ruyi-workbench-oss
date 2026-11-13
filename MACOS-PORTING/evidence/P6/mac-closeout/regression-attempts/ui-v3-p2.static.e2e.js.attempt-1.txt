@@ -1,0 +1,76 @@
+PASS 0 解析到 dark/light 主题令牌块
+PASS 0 新 token --canvas-bg 两主题均定义
+PASS 0 新 token --panel-veil 两主题均定义
+PASS 0 新 token --glow-accent 两主题均定义
+PASS 0 新 token --gold-line 两主题均定义
+PASS 0 两主题令牌键集对称(dark 独有 [] / light 独有 [])
+PASS 0 --canvas-bg 墨夜 #0c1119 / 月白 #edf1f8
+PASS A CSS .app-shell 两轨:中栏 ｜ 右栏 var(--right-w)
+PASS A CSS --right-w 定义在外框上,默认 392px
+PASS A CSS ≥1600 右栏放宽到 440px,且覆盖落在 .app-body(容器查询改不了容器自己)
+PASS A CSS 左栏是外框的第一轨(var(--rail-w)),两视角共用
+PASS A CSS 拖拽手柄贴 tool-pane 左缘(right:var(--right-w))+ col-resize
+PASS A CSS 全屏档 tool-pane 转 fixed 覆盖中栏
+PASS A CSS 拖拽瞬间去过渡(手柄跟手)
+PASS A CSS ≤1180 抽屉档隐藏拖拽手柄
+PASS A HTML #rightResizeHandle 元素就位
+PASS A JS RIGHT_TIERS = [392,480,full]
+PASS A JS --right-w 写在 .app-body 上(两视角共用一个宽度;容器查询改不了容器自己,断点档的覆盖也落在它上面),不再写 .app-shell
+PASS A JS applyRightWidth/restoreRightWidth/cycleRightWidth 齐备
+PASS A JS 拖拽手柄 pointerdown + setPointerCapture
+PASS A JS 双击手柄循环切档
+PASS A JS 拖动实时改 --right-w
+PASS A JS 档位记忆 localStorage(wcw.rightWidth)
+PASS A JS Esc 退出全屏(exitRightFullscreen 接入 Esc 链)
+PASS A JS 监控/用量页签一次性软提示切 480(maybeSuggestWideRight)
+PASS A JS boot 恢复档位 + 绑定手柄
+PASS B .agent-node 无外框规则(border:0,原 1px 全边框已删)
+PASS B 全文件无 .agent-node{border:1px solid --line} 残留
+PASS B 树脊线 .agent-run-graph::before(渐隐纵脊)
+PASS B 圆角肘线 .agent-node::before(border-bottom-left-radius)
+PASS B 2px 圆头发丝缘 .agent-node::after(--node-edge)
+PASS B 运行态渗透洗(13% 渐变)+ 发丝缘
+PASS B 运行态 --glow-accent 光渗
+PASS B 各状态 3px 实色左边框已全部改渗透缘(无 border-left:3px 残留)
+PASS B 状态徽标缩为 9px 色点(currentColor 继承 .st-<status>)
+PASS B 池卡琥珀渗透洗(11% 渐变)
+PASS B 池卡左 2px 圆头发丝缘
+PASS B 宽限窗发丝进度条 .pool-grace-bar
+PASS B 审批按钮 min-height:var(--tap-min)(保留 P1)
+PASS B 聚合头当前活动行 .ar-agg-live(+ 呼吸点)
+PASS B JS 宽限窗窗宽提示常量(60s 对齐服务端默认)
+PASS B JS 当前活动行取运行节点 progressLog 末条(提升到聚合头)
+PASS B JS 宽限窗渲染细进度条
+PASS B 保留监控类名 .wf-status-badge
+PASS B 保留监控类名 .agent-run-card
+PASS B 保留监控类名 .agent-node
+PASS B 保留监控类名 .pool-section
+PASS B 保留监控类名 .st-running
+PASS C 技能两列卡片网格 .sk-grid(1fr 1fr)
+PASS C 分段控件锚点导航 .sk-seg(active 态)
+PASS C 启用态卡片青花描边 + 顶部渗透洗
+PASS C 启用态实心青花图标块
+PASS C mono id 降为小字(.sk-id)
+PASS C 本地化名称主显 .sk-name(粗体主标)
+PASS C JS 锚点导航 + 分组题构建器
+PASS C JS 卡片图标块构建器 skillCardIco
+PASS C JS 卡片带 .skill-item(保键盘导航)+ .sk-card(视觉)
+PASS C JS 技能卡使用本地化显示名称(skillDisplayName)
+PASS C JS mono id 小字(sk-id)
+PASS C JS 记忆面板同构(buildMemoryRow 卡片化)
+PASS C JS 记忆面板复用锚点导航(memGroups)
+PASS C buildSkillRow 无 innerHTML(el()/textContent,XSS 安全)
+PASS D 统计瓦片默认两列(340px)
+PASS D 480/全屏档三列(.app-shell.rp-wide)
+PASS D JS applyRightWidth 联动 rp-wide(瓦片列数随档切换)
+PASS D 「计划内计费」徽标使用本地化人话 title tooltip
+PASS E styles.css 裸 px 字号仍仅 2 处基线锚点(延续 P1;实际 2)
+PASS E 新组件规则零硬编码色:.right-resize-handle
+PASS E 新组件规则零硬编码色:.sk-card
+PASS E 新组件规则零硬编码色:.sk-seg
+PASS E 新组件规则零硬编码色:.agent-run-graph
+PASS E 新组件规则零硬编码色:.wf-status-badge
+PASS E 新组件规则零硬编码色:.pool-grace
+PASS E 新组件规则零硬编码色:.ar-agg-live
+
+UI V3 P2 STATIC E2E: ALL PASS

@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "codeStatus": "passed",
+  "remainingCodeFindings": 0,
+  "scope": [
+    "native capture state observer, normal release cleanup, deadline and monotonic timing",
+    "physical probe completion, isolation, LaunchServices entry and owned-process cleanup",
+    "probe startup native source binding and missing-owner not_verified semantics"
+  ],
+  "independent": [
+    {
+      "name": "host",
+      "passed": 31,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "new-host-independent.txt"
+    },
+    {
+      "name": "media synthetic only",
+      "passed": 36,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "new-media-independent.txt"
+    },
+    {
+      "name": "lifecycle simulated only",
+      "passed": 23,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "new-lifecycle-independent.txt"
+    },
+    {
+      "name": "bridge",
+      "passed": 47,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "new-bridge-independent.txt",
+      "conditionalBranchesNotRun": 3,
+      "condition": "real OS notification permission now granted; earlier denied/ungranted branches retained in historical bridge50"
+    }
+  ],
+  "gates": {
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "syntaxFiles": 1134,
+    "fastExitCode": 0,
+    "nativeBuild": "build-final.txt"
+  },
+  "physicalResult": "new LaunchServices physical run pending; earlier strict failure retained",
+  "sourceFingerprint": "next-candidate-source-fingerprint.json"
+}

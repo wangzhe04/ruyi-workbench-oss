@@ -1,0 +1,35 @@
+✔ bounded strict private file roundtrips using the shared store and exact canonical formatter (4.530542ms)
+✔ read/write capacity refuses while preserving the previously committed state (1.371458ms)
+✔ duplicate fields, alternate numeric tokens and discarded whitespace are rejected without normalization (2.341584ms)
+✔ invalid UTF-8 is rejected before JSON parsing can replace damaged bytes (0.504417ms)
+✔ symlinks, hardlinks and nonprivate leaf permissions are refused (1.186959ms)
+✔ non-regular files are refused without a blocking read (0.357584ms)
+✔ invalid byte bounds cannot accidentally enable an unbounded owned reader (0.152542ms)
+✔ ordinary-JSON evidence remains immutable and never invokes inherited hooks during queued write or canonical read (0.90925ms)
+✔ ordinary-JSON storage refuses getters and own serialization functions without running them (0.13025ms)
+✔ FIFO leaves are rejected by both APIs under an independent process deadline (88.471584ms)
+✔ ordinary JSON rejects a schema getter before it can execute (0.1535ms)
+✔ bounded queued write publishes its fixed enqueue bytes even if a mutable legacy cache is changed (1.000583ms)
+✔ strict read permits a missing initial file without writing, but rejects malformed/schema-less/unknown/invalid state without quarantine or fallback (4.576125ms)
+✔ strict read rejects transient failures and retries the real file next time; default stores retain their recovery behavior (1.725042ms)
+✔ a failed strict uncached write cannot become a committed inbox or dedupe record on the next read (1.036834ms)
+✔ Node matches shared cross-language argument identity vectors (0.952208ms)
+✔ JSON key insertion order and JSON.stringify zero agree without conflating string/number values (0.11275ms)
+✔ unsupported numbers, lone Unicode surrogates and cycles fail before dispatch (0.399667ms)
+✔ host transport metadata is separate, bounded and cloned; invalid serialization cannot drop context (0.38975ms)
+✔ integer identity follows exact JSON.stringify digits instead of rounded binary64 integers (0.076833ms)
+✔ real metadata probe fails closed on a shape flag, dropped nonce, altered values or bad worker identity (0.967792ms)
+✔ preparation owns a recursively frozen snapshot whose exact outgoing bytes and digests agree (1.119833ms)
+✔ accessors and toJSON are rejected without being executed, including arrays (0.114708ms)
+✔ raw JSON, sparse arrays, nonfinite numbers, unsupported values and extra array fields fail before preparation (0.173292ms)
+✔ prototype-looking keys remain data without changing an outgoing object prototype (0.098542ms)
+✔ depth and byte limits refuse before returning a dispatchable preparation (30.153292ms)
+✔ copied arrays and objects cannot inherit toJSON hooks before or after an async boundary (0.316833ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 205.811625

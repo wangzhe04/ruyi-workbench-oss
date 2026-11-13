@@ -1,0 +1,18 @@
+PASS file and Office aliases for the same path conflict
+PASS workspace lease conflicts with descendant file
+PASS workspace lease covers every descendant path
+PASS two shared readers may overlap
+PASS writer conflicts with shared reader
+PASS worktree isolation remaps filesystem resources but preserves global resources
+PASS different browser profiles may overlap
+PASS same browser profile is exclusive and case-normalized
+PASS desktop hotkey is automatically recognized
+PASS file move locks source and destination
+PASS shell execution locks its workspace
+PASS conflicting agent waits while lease is held
+PASS waiting agent resumes immediately after release
+PASS shared readers acquire concurrently
+PASS late reader queues behind an already-waiting writer
+PASS writer receives the lease before the late reader
+PASS tool-level lock does not deadlock against its node declaration
+RESOURCE AWARENESS E2E: ALL PASS

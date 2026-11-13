@@ -1,0 +1,118 @@
+PASS NODE_FOREGROUND_1 actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_1 each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_1 repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_1 exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_1 actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_1 exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_1 actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_1 actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_1 next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_1 child history stays separate from actual parent transcript
+PASS NODE_FOREGROUND_2 actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_2 each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_2 repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_2 actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_2 next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_2 next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_2 child history stays separate from actual parent transcript
+PASS NODE_FOREGROUND_3 actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_3 each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_3 repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_3 exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_3 actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_3 exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_3 actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_3 exact private node history binds actual invocation fixture_image/worker2
+PASS NODE_FOREGROUND_3 actual required image part and node attempt survive delivery fixture_image/worker2
+PASS NODE_FOREGROUND_3 exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_3 actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_3 exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_3 actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_3 exact private node history binds actual invocation fixture_observe_node/worker2
+PASS NODE_FOREGROUND_3 actual required image part and node attempt survive delivery fixture_observe_node/worker2
+PASS NODE_FOREGROUND_3 actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_3 next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_3 next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_3 next actual ACC body sees its own saved node image, never parent history worker2
+PASS NODE_FOREGROUND_3 child history stays separate from actual parent transcript
+PASS NODE_FOREGROUND_DELAYED actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_DELAYED each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_DELAYED repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_DELAYED actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_DELAYED next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_DELAYED next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_DELAYED child history stays separate from actual parent transcript
+PASS controlled sibling guard waits for real pending node image publication without dispatch failure
+PASS NODE_FOREGROUND_DISPATCH_GAP actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_DISPATCH_GAP each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_DISPATCH_GAP repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_DISPATCH_GAP exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_DISPATCH_GAP actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_DISPATCH_GAP exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_DISPATCH_GAP actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_DISPATCH_GAP exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_DISPATCH_GAP actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_DISPATCH_GAP exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_DISPATCH_GAP actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_DISPATCH_GAP actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_DISPATCH_GAP next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_DISPATCH_GAP next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_DISPATCH_GAP child history stays separate from actual parent transcript
+PASS actual sibling cannot prepare or dispatch while first ACC call and its delivery own the session ticket
+PASS NODE_FOREGROUND_RESOURCE_WAIT actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_RESOURCE_WAIT each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_RESOURCE_WAIT repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_RESOURCE_WAIT exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_RESOURCE_WAIT actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_RESOURCE_WAIT exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_RESOURCE_WAIT actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_RESOURCE_WAIT exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_RESOURCE_WAIT actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_RESOURCE_WAIT exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_RESOURCE_WAIT actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_RESOURCE_WAIT actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_RESOURCE_WAIT next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_RESOURCE_WAIT next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_RESOURCE_WAIT child history stays separate from actual parent transcript
+PASS actual tool heartbeat does not falsely resume resource-waiting node in live run API
+PASS actual resource acquisition resumes isolated file tool and later ACC delivery
+PASS actual service restart strictly reopens and retains valid node snapshot deliveries
+PASS actual background workflow cannot borrow its former parent admission or dispatch ACC without independent workflow identity
+PASS actual authenticated API origin preserves factual turn zero and refuses ACC rather than inventing a parent turn
+PASS real parent Stop retains already acknowledged child image and exact private snapshot
+PASS Stop after node image never dispatches later same-batch local mutation
+PASS Stop after node delivery does not resume child or parent model
+PASS explicit later parent request can continue verified delivery without replaying the stopped node
+PASS intent_eio never dispatches a later same-node local file write
+PASS actual node intent publication failure dispatches no business call
+PASS known no-dispatch intent failure returns a failed node envelope
+PASS history_eio never dispatches a later same-node local file write
+PASS history_eio keeps exactly one unacknowledged node invocation
+PASS history_eio blocks both node and parent model continuation
+PASS history_eio distinguishes actual completed SDK entry from reservation refusal before SDK send
+PASS history_eio actual restart holds without re-executing the node or later local write
+PASS reservation_loss never dispatches a later same-node local file write
+PASS reservation_loss keeps exactly one unacknowledged node invocation
+PASS reservation_loss blocks both node and parent model continuation
+PASS reservation_loss distinguishes actual completed SDK entry from reservation refusal before SDK send
+PASS reservation_loss actual restart holds without re-executing the node or later local write
+PASS actual restart detects deleted acknowledged node transcript and durably holds its session
+PASS lost node history never reaches a new model request or replays an ACC invocation
+
+MACOS EXECUTION SUBAGENTS E2E: ALL PASS

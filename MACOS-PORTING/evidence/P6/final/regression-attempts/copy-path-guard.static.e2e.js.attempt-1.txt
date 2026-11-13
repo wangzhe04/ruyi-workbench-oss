@@ -1,0 +1,57 @@
+PASS ① 四个 locale 的用户可见文案零「自己去打开」出口
+PASS ① index.html 零「自己去打开」出口
+PASS ① public/**/*.js 的代码行零「自己去打开」出口(扫了 78 个文件)
+PASS ② 剪贴板写入只在白名单 6 处(boot-failure.js, chat-render-primitives.js, external-bot-setup.js, help-menu.js, mermaid-runtime.js, provider-settings.js)
+PASS ② 机器人复制例外严格限于服务端回调地址与配对挑战；秘密、文件路径、命令和表单内容无剪贴板出口
+PASS ② 机器人回调复制来源固定为平台协议相对HTTP地址，不能替换成本机文件路径
+PASS ② 向导与手册阅读器仍然零剪贴板(118a-fix 的红线不回潮)
+PASS ② 「打开数据目录」不再走 runTool('browser_open', {url: dataRoot})
+PASS ② 改走 /api/open-path 枚举通道(前端不再经手绝对路径)
+PASS ② 前端也只发四个枚举 key,枚举外连请求都不发
+PASS ② 请求体里没有任何 path 字段(服务端也不接受)
+PASS ③ 侧栏有常驻「帮助」入口 #helpMenuBtn(aria-haspopup=menu)
+PASS ③ 设置页签排尾有「?」#settingsHelpBtn,且不带 data-stab(不参与页签切换)
+PASS ③ 页签接线与 active 切换都只认 [data-stab],不会把「?」当成页签
+PASS ③ 帮助菜单复用手册阅读器与向导的共用实例(不另造第二个)
+PASS ③ 向导共用实例登记处与 help-viewer 的 registerHelpViewer 同一口径
+PASS ③ 三个入口在 initHelpEntries() 里一次接线,组合根只加一行
+PASS ③ 帮助菜单聚合五个真动作条目(user-guide / admin-guide / reopen-wizard / view-logs / open-data-dir)
+PASS ③ 管理员手册终于有了 UI 入口(118a-fix 打通通道但没有按钮)
+PASS ③ 日志面板三件套:应用内看内容 + 复制全部(内容) + 打开日志目录(真动作)
+PASS ③ help-menu.js 零 innerHTML
+PASS ③ help-menu.js 零 import(壳无关工厂,环境依赖全注入)
+PASS ③ overlay 离线载荷登记 help-menu.js
+PASS ③ 118d 样式落在已注册的 onboarding.css 层内(含窄屏收敛),不新开样式表
+PASS ③b 设置页每个页签都有锚点映射(18 个页签: basic, security, limits, steward, models, providers, voice, claude, agents, network, integrations, toolbox, skills, migration, doctor, storage, advanced, update)
+PASS ③b 锚点文案(help.anchor.settings, help.anchor.faq, help.anchor.power)与两份手册的 ## 标题逐字相符
+PASS ③b 「?」打开的是手册对应小节(anchor 取自映射表的文案键,不是硬编码标题)
+PASS ④ MCP 模板卡的主动作是「一键应用到配置」,走 import-config/apply 写入路径
+PASS ④ 写入前原位展示变更摘要(新增 / 覆盖了哪个连接器),跟着 id 实时更新
+PASS ④ 成功 toast + 刷新列表,失败给人话
+PASS ④ 「复制」降级为次要动作并改名「复制 JSON(排错用)」
+PASS ④ 复制按钮不再回填硬编码中文「复制」(旧写法绕过了 i18n)
+PASS ④ MCP 导入错误走 mcpErrText 取人话(不再 [object Object],也不被兜底 code 翻成泛泛的「请求失败」)
+PASS ④ 应用失败优先显示 skipped[0].reason(那句才说明为什么没写进去)
+PASS ④ 日志面板是实底面板(浮层玻璃档会把背后的文字透上来,密排等宽日志读不下去)
+PASS ④ zh-CN 的 mcp.createManifestHint 不再教用户去建文件: 这个文件夹里没有 ruyi-mcp.json 清单。不用去建文件：把下面几项确认…
+PASS ④ en-US 的 mcp.createManifestHint 不再教用户去建文件: This folder has no ruyi-mcp.json manifes…
+PASS ④ 12 条 mcp.apply.* 键在四个 locale 齐备且逐字一致
+PASS ④ 20 条 help.menu/logs/open/tabHelp 键在四个 locale 齐备且逐字一致
+PASS ⑤ chat-stream-runtime.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ workbench.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ agent-roles.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ navigation-controls.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ agent-workflows.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ artifact-changes.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ chat-render-primitives.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ chat-static-renderer.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ session-experience.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ settings-operations.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ usage-dashboard.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ steward-settings.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ turn-activity.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ app.js 的硬编码中文只剩白名单登记的既有项，零新增
+PASS ⑤ 白名单零陈旧登记（每一条都对应当前源码里真实存在的中文命中，不是摆设）
+PASS ⑤ P1-7 本刀已修的行号零一个出现在白名单里（不许用白名单把刚修的 bug 豁免回来）
+
+COPY PATH GUARD STATIC E2E: ALL PASS

@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 89,
-    "providedSymbols": 3894,
-    "requiredSymbols": 3505,
-    "edges": 643,
+    "modules": 93,
+    "providedSymbols": 3917,
+    "requiredSymbols": 3560,
+    "edges": 656,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -38,6 +38,7 @@
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "DeliveryHooks",
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
@@ -84,6 +85,7 @@
         "computeCostFromPricing",
         "computeProviderCost",
         "consoleIncompleteTail",
+        "copyOrdinaryJsonData",
         "cp",
         "createCappedDiagnosticText",
         "createConsoleLineDecoder",
@@ -98,6 +100,7 @@
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
+        "executionArgumentsDigest",
         "exposeBundledPythonRuntime",
         "exposeVendorBinOnPath",
         "externalRoot",
@@ -389,19 +392,38 @@
       "requires": []
     },
     {
-      "file": "01h-process-runtime.js",
+      "file": "01n-desktop-automation.js",
       "order": 9,
+      "layer": "foundation",
+      "note": "P5 bounded native desktop capture IPC and capability status",
+      "provides": [
+        "MacDesktopAutomation",
+        "MacDesktopAutomationHooks"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01h-process-runtime.js",
+      "order": 10,
       "layer": "foundation",
       "note": "P1-04 opaque execution handles and macOS supervisor lifetime",
       "provides": [
         "ProcessRuntime",
         "ProcessRuntimeHooks"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "01n-desktop-automation.js",
+          "symbol": "MacDesktopAutomation",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "01i-privacy-rules.js",
-      "order": 10,
+      "order": 11,
       "layer": "foundation",
       "note": "81-P1: versioned offline rule catalog, no dependencies",
       "provides": [
@@ -411,7 +433,7 @@
     },
     {
       "file": "01h-privacy-core.js",
-      "order": 11,
+      "order": 12,
       "layer": "foundation",
       "note": "81-P0: isolated privacy detector, scoped references and authenticated envelopes; not yet wired to product traffic",
       "provides": [
@@ -429,7 +451,7 @@
     },
     {
       "file": "01m-privacy-regex.js",
-      "order": 12,
+      "order": 13,
       "layer": "foundation",
       "note": "81-P3: disposable bounded regex worker, no application dependencies",
       "provides": [
@@ -447,7 +469,7 @@
     },
     {
       "file": "01j-local-crypto.js",
-      "order": 13,
+      "order": 14,
       "layer": "foundation",
       "note": "Bounded platform protector: unchanged Windows DPAPI and versioned Mac Keychain/AES-GCM envelopes",
       "provides": [
@@ -466,7 +488,7 @@
     },
     {
       "file": "01-config.js",
-      "order": 14,
+      "order": 15,
       "layer": "foundation",
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH",
       "provides": [
@@ -692,6 +714,13 @@
           "symbol": "CONFIG_SCHEMA",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1105,7 +1134,7 @@
     },
     {
       "file": "01k-credential-vault.js",
-      "order": 15,
+      "order": 16,
       "layer": "foundation",
       "note": "81-P1: encrypted immutable credential records and config persistence/hydration hooks",
       "provides": [
@@ -1172,7 +1201,7 @@
     },
     {
       "file": "01l-credential-recovery.js",
-      "order": 16,
+      "order": 17,
       "layer": "foundation",
       "note": "81-P1: transactional recovery with encrypted rollback journal",
       "provides": [
@@ -1275,7 +1304,7 @@
     },
     {
       "file": "02c-turn-segments.js",
-      "order": 17,
+      "order": 18,
       "layer": "foundation",
       "note": "110-3b: 从 02-session-store.js 搬出回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)",
       "provides": [
@@ -1285,7 +1314,7 @@
     },
     {
       "file": "02d-session-overrides.js",
-      "order": 18,
+      "order": 19,
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话级内存覆盖表(sessionEngineRouteOverrides/sessionPermissionModeOverrides/sessionDesktopToolsOverrides)及其归一、读形与应用函数;唯一出边是 01e-permission-modes(PERMISSION_MODES),不进任何环;纯搬家,零行为变更",
       "provides": [
@@ -1313,7 +1342,7 @@
     },
     {
       "file": "02e-session-engine-route.js",
-      "order": 19,
+      "order": 20,
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话引擎路由的纯函数(normalizeSessionEngineRoute/sessionEngineRouteFromConfig/inferSessionEngineRoute/configForSessionEngineRoute;123-N2 读写 config 的三件留在 02);零出边,不进任何环;纯搬家,零行为变更",
       "provides": [
@@ -1334,7 +1363,7 @@
     },
     {
       "file": "02f-turn-effect-kinds.js",
-      "order": 20,
+      "order": 21,
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出回合摘要的工具分类表(TURN_SUMMARY_FILE_TOOLS/TURN_SUMMARY_COMMAND_TOOLS/TURN_SUMMARY_KNOWN_TOOLS/ARTIFACT_OUTPUT_PATH_KEYS/ARTIFACT_BRIDGED_WRITE_*/unprefixedBridgedName/isBridgedWriteTool)与不可逆操作账分类(IRREVERSIBLE_NATIVE_KIND/IRREVERSIBLE_BRIDGED_KIND/CLAUDE_IRREVERSIBLE_KIND/IRREVERSIBLE_LEDGER_MAX/irreversibleToolKind/irreversibleDetail);零出边,不进任何环;纯搬家,零行为变更",
       "provides": [
@@ -1361,8 +1390,121 @@
       "requires": []
     },
     {
+      "file": "02g-desktop-executions.js",
+      "order": 22,
+      "layer": "foundation",
+      "note": "P5 execution correlation: semantic argument fingerprint and durable desktop execution state; dependencies stay before session/runtime callers.",
+      "provides": [
+        "prepareDesktopExecutionArguments"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "executionArgumentsDigest",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "02h-desktop-ledger.js",
+      "order": 23,
+      "layer": "foundation",
+      "note": "P5 root-owned strict ledger; default-off root/provider direct+proxy receipt/history delivery candidate",
+      "provides": [
+        "DesktopExecutionLedger"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02g-desktop-executions.js",
+          "symbol": "prepareDesktopExecutionArguments",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02-session-store.js",
-      "order": 21,
+      "order": 24,
       "layer": "foundation",
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志",
       "provides": [
@@ -1370,6 +1512,8 @@
         "BRIDGED_WRITE_PATH_ARGS",
         "IMPORTED_MESSAGE_ROLE_MAX",
         "INTERVENTION_TERMINAL",
+        "IRREVERSIBLE_COMPOUND_TOOLS",
+        "IRREVERSIBLE_RESULT_TEXT_MAX",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -1474,6 +1618,9 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
+        "irreversibleEntryMetadata",
+        "irreversibleReportedState",
+        "irreversibleResultObject",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -1577,6 +1724,7 @@
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
+        "projectBridgedIrreversible",
         "providerHistoryToolCalls",
         "readInterventions",
         "readInterventionsWithMeta",
@@ -1615,7 +1763,10 @@
         "scratchpadTotalChars",
         "serializeSessionBody",
         "sessionAssociatedSaveIsTombstoned",
+        "sessionBodiesMatchCommit",
+        "sessionBodyCommitValid",
         "sessionBodyDanglingFromLines",
+        "sessionBodyDigest",
         "sessionBodyFileStamp",
         "sessionBodyLineCache",
         "sessionBodyLineCacheChars",
@@ -1710,6 +1861,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -2017,6 +2175,13 @@
         },
         {
           "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_BRIDGED_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "IRREVERSIBLE_LEDGER_MAX",
           "kinds": [
             "read"
@@ -2243,7 +2408,7 @@
     },
     {
       "file": "03-bridge-guard.js",
-      "order": 22,
+      "order": 25,
       "layer": "foundation",
       "note": "桥接写族覆盖审计/工作区护栏",
       "provides": [
@@ -2589,7 +2754,7 @@
     },
     {
       "file": "03a-privacy-gateway.js",
-      "order": 23,
+      "order": 26,
       "layer": "foundation",
       "note": "81-P2: scoped bidirectional privacy gateway",
       "provides": [
@@ -2614,7 +2779,7 @@
     },
     {
       "file": "04-visual-pipeline.js",
-      "order": 24,
+      "order": 27,
       "layer": "foundation",
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）",
       "provides": [
@@ -2624,7 +2789,7 @@
     },
     {
       "file": "04-permission-runtime.js",
-      "order": 25,
+      "order": 28,
       "layer": "foundation",
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
@@ -2726,6 +2891,7 @@
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
         "mcpBridgeError",
+        "mcpCallToolParams",
         "mcpChildExitResult",
         "mcpClientFailures",
         "mcpClientFingerprints",
@@ -2759,6 +2925,7 @@
         "pendingPlans",
         "pendingQuestions",
         "permissionWaitMs",
+        "probeDesktopExecutionReceipts",
         "probeMcpConnector",
         "promptDeadlineIsReal",
         "promptWaitMs",
@@ -2798,6 +2965,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "cp",
           "kinds": [
             "read"
@@ -2826,7 +3000,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "executionArgumentsDigest",
           "kinds": [
             "call"
           ]
@@ -3101,7 +3289,7 @@
     },
     {
       "file": "04-desktop-shell.js",
-      "order": 26,
+      "order": 29,
       "layer": "foundation",
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）",
       "provides": [
@@ -3213,7 +3401,7 @@
     },
     {
       "file": "04f-toolbox-services.js",
-      "order": 27,
+      "order": 30,
       "layer": "foundation",
       "note": "ruyi-toolbox 服务类组件：拉起／探活／接成能力端点／回收（登记读取与 MCP 并入住 04）",
       "provides": [
@@ -3348,11 +3536,12 @@
     },
     {
       "file": "04h-provider-http.js",
-      "order": 28,
+      "order": 31,
       "layer": "foundation",
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
       "provides": [
         "PROVIDER_LAN_HOST_SUFFIXES",
+        "ProviderHttpHooks",
         "abortableDelay",
         "providerApiBase",
         "providerBaseIsLocalOrLan",
@@ -3380,7 +3569,7 @@
     },
     {
       "file": "04i-provider-anthropic.js",
-      "order": 29,
+      "order": 32,
       "layer": "foundation",
       "note": "58 号方案批 2: Anthropic Messages 线协议(apiStyle:anthropic)的编解码纯函数——端点/鉴权头(x-api-key/Bearer/auto)、chat 形历史→Messages(system-reminder 折叠、tool_result 合并与排序、角色交替、图片)、自适应思考与 output_config.effort、非流式与流式解码(思考块+签名收进 providerBlocks,只回放最后一条 user 之后那段)、用量归一(input+cache_read+cache_creation)、400 兼容重打(签名失配去思考块、网关不认的参数去掉);只引用 04h,makeId/redact/配对自愈由 04i-provider-wire 的登记表胶水注入,不进任何环",
       "provides": [
@@ -3456,7 +3645,7 @@
     },
     {
       "file": "04i-provider-wire.js",
-      "order": 30,
+      "order": 33,
       "layer": "foundation",
       "note": "58 号方案批 1: 服务商线协议登记表 PROVIDER_WIRE_PROTOCOLS(chat/responses 的端点、请求头、请求体编码、推理强度、工具、流式/非流式解码、用量归一、落历史字段)与唯一的协议值归一 normalizeProviderApiStyle/providerWireProtocol;Responses 翻译(toResponsesContent/buildResponsesInputItems/toResponsesTools/responsesHistoryWithCompleteToolPairs)自 07、推理强度(PROVIDER_REASONING_EFFORTS/providerReasoningEffort/applyProviderReasoningEffort)自 05 纯搬家;只引用 04h,环内工具经 ProviderWireHooks 由 07 延迟绑定,不进任何环",
       "provides": [
@@ -3622,7 +3811,7 @@
     },
     {
       "file": "04j-hanzi-pinyin.js",
-      "order": 31,
+      "order": 34,
       "layer": "foundation",
       "note": "59 号文 §6(语音词库第二步):汉字 → 普通话读音(不带声调)的离线小表 —— Unicode Unihan(kMandarin 主读音 + kXHC1983 其余现代读音,Unicode License v3,THIRD-PARTY-NOTICES §4)经 dev-harness/hanzi-pinyin-generate.js 生成的生成物,不手改;冻结对象 HanziPinyin(readings),零出边、不进任何环",
       "provides": [
@@ -3632,7 +3821,7 @@
     },
     {
       "file": "04j-voice-lexicon.js",
-      "order": 32,
+      "order": 35,
       "layer": "foundation",
       "note": "59 号文(语音词库第一步):个人词 + 原厂常用词表的纯函数内核 —— 词条形状与清洗、设置页文本读写、按这一句挑词、给句尾改错 <glossary> / 整段识别 prompt / 实时识别热词各出一份形状;冻结对象 VoiceLexicon,零出边、不进任何环(同 11b 模具);落盘住 05、路由住 13b",
       "provides": [
@@ -3642,7 +3831,7 @@
     },
     {
       "file": "04j-voice-learn.js",
-      "order": 33,
+      "order": 36,
       "layer": "foundation",
       "note": "59 号文 §6(语音词库第二步):从用户手改里学词的纯函数内核 —— 机器写的几句在发出去的字里定位与对齐、抽改动、读音像不像(拼音/辅音骨架/字母)、人名单字改动拼窗口、打字里抽专名英文词、请改字大模型复核的提示词与回体校验、落进词库(攒次数、先验、纠、墓碑、腾位置);冻结对象 VoiceLearn,只读 04j 的 VoiceLexicon 与 HanziPinyin(二者零出边),不进任何环;路由住 13b",
       "provides": [
@@ -3667,7 +3856,7 @@
     },
     {
       "file": "05-claude-engine.js",
-      "order": 34,
+      "order": 37,
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
@@ -3794,6 +3983,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -4741,7 +4937,7 @@
     },
     {
       "file": "05b-kimi-bridge.js",
-      "order": 35,
+      "order": 38,
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
@@ -5417,7 +5613,7 @@
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "order": 36,
+      "order": 39,
       "layer": "engine",
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器",
       "provides": [
@@ -5552,7 +5748,7 @@
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "order": 37,
+      "order": 40,
       "layer": "engine",
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级",
       "provides": [
@@ -5607,7 +5803,7 @@
     },
     {
       "file": "06-provider-engine.js",
-      "order": 38,
+      "order": 41,
       "layer": "engine",
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks",
       "provides": [
@@ -5645,6 +5841,7 @@
         "TOOL_REQUIRES",
         "_capCache",
         "_capInflight",
+        "_capRequestedKey",
         "_engineBriefMemo",
         "appendMemorySection",
         "appendResponseLanguagePolicy",
@@ -5806,6 +6003,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "DEFAULT_PORT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -6192,7 +6396,7 @@
     },
     {
       "file": "06b-prompt-registry.js",
-      "order": 39,
+      "order": 42,
       "layer": "engine",
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)",
       "provides": [
@@ -6219,7 +6423,7 @@
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "order": 40,
+      "order": 43,
       "layer": "engine",
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine",
       "provides": [
@@ -6251,7 +6455,7 @@
     },
     {
       "file": "06h-retrieval-index.js",
-      "order": 41,
+      "order": 44,
       "layer": "engine",
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用",
       "provides": [
@@ -6275,7 +6479,7 @@
     },
     {
       "file": "06i-steward-core.js",
-      "order": 42,
+      "order": 45,
       "layer": "engine",
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)",
       "provides": [
@@ -6459,7 +6663,7 @@
     },
     {
       "file": "06d-memory-domain.js",
-      "order": 43,
+      "order": 46,
       "layer": "engine",
       "note": "第104波：跨会话记忆、提议、关系图与检索",
       "provides": [
@@ -6920,7 +7124,7 @@
     },
     {
       "file": "06e-mission-domain.js",
-      "order": 44,
+      "order": 47,
       "layer": "engine",
       "note": "第104波：Mission 提示摘要与 until-done 驱动",
       "provides": [
@@ -7031,7 +7235,7 @@
     },
     {
       "file": "06f-autonomy-grants.js",
-      "order": 45,
+      "order": 48,
       "layer": "engine",
       "note": "第104波：自治授权签发、消费、撤销与预检",
       "provides": [
@@ -7150,7 +7354,7 @@
     },
     {
       "file": "06g-resource-leases.js",
-      "order": 46,
+      "order": 49,
       "layer": "engine",
       "note": "第104波：Agent 资源归一化、冲突检测与租约",
       "provides": [
@@ -7216,7 +7420,7 @@
     },
     {
       "file": "06j-scheduler-core.js",
-      "order": 47,
+      "order": 50,
       "layer": "engine",
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)",
       "provides": [
@@ -7269,7 +7473,7 @@
     },
     {
       "file": "06k-config-patch.js",
-      "order": 48,
+      "order": 51,
       "layer": "engine",
       "note": "架构还债批 2 B2: 从 13-http-router.js 搬出 applyConfigPatch(配置补丁落盘与副作用;纯搬家,零行为变更),经 01 的 ConfigPatchHooks 调用、零入边",
       "provides": [
@@ -7427,7 +7631,7 @@
     },
     {
       "file": "07-autonomy.js",
-      "order": 49,
+      "order": 52,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -7627,6 +7831,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -8190,7 +8401,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 50,
+      "order": 53,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -8347,6 +8558,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -9153,7 +9371,7 @@
     },
     {
       "file": "09b-replan-ledger.js",
-      "order": 51,
+      "order": 54,
       "layer": "orchestration",
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -9199,7 +9417,7 @@
     },
     {
       "file": "09d-token-estimation.js",
-      "order": 52,
+      "order": 55,
       "layer": "orchestration",
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -9248,7 +9466,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 53,
+      "order": 56,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -9317,6 +9535,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -9625,6 +9850,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "projectBridgedIrreversible",
           "kinds": [
             "call"
           ]
@@ -11174,7 +11406,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 54,
+      "order": 57,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -11440,6 +11672,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -12148,7 +12387,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 55,
+      "order": 58,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -12669,7 +12908,7 @@
     },
     {
       "file": "11b-file-text-io.js",
-      "order": 56,
+      "order": 59,
       "layer": "tools",
       "note": "单文件工具的文本 I/O 内核:编码嗅探/GB18030 编码、有界流式读、原子写、file_edit 未命中诊断;零出边(冻结对象 FileTextIo),不进依赖环",
       "provides": [
@@ -12694,7 +12933,7 @@
     },
     {
       "file": "11c-file-visual-io.js",
-      "order": 57,
+      "order": 60,
       "layer": "tools",
       "note": "",
       "provides": [
@@ -12726,7 +12965,7 @@
     },
     {
       "file": "11d-media-inspection.js",
-      "order": 58,
+      "order": 61,
       "layer": "tools",
       "note": "Local dependency discovery, bounded audio measurement and parse-only syntax validation; built-ins only",
       "provides": [
@@ -12752,7 +12991,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 59,
+      "order": 62,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -12856,6 +13095,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -13067,6 +13313,13 @@
         {
           "provider": "01h-process-runtime.js",
           "symbol": "ProcessRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01n-desktop-automation.js",
+          "symbol": "MacDesktopAutomation",
           "kinds": [
             "read"
           ]
@@ -13818,7 +14071,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 60,
+      "order": 63,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -13837,7 +14090,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 61,
+      "order": 64,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -14006,6 +14259,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
           "kinds": [
             "call"
@@ -14146,6 +14406,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "pathToFileURL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "readline",
           "kinds": [
             "read"
@@ -14161,6 +14428,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathKey",
           "kinds": [
             "call"
           ]
@@ -15056,6 +15330,13 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
+          "symbol": "fileURLToPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
           "symbol": "kimiSessionStatus",
           "kinds": [
             "call"
@@ -15849,7 +16130,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 62,
+      "order": 65,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -16376,7 +16657,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 63,
+      "order": 66,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -16495,7 +16776,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 64,
+      "order": 67,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -17613,7 +17894,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 65,
+      "order": 68,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -17953,7 +18234,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 66,
+      "order": 69,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -18254,7 +18535,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 67,
+      "order": 70,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -18505,7 +18786,7 @@
     },
     {
       "file": "13aa-steward-delivery.js",
-      "order": 68,
+      "order": 71,
       "layer": "unclassified",
       "note": "Bounded per-turn delivery evidence, file freshness and revision source projection via StewardHooks",
       "provides": [
@@ -18742,7 +19023,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 69,
+      "order": 72,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -19701,7 +19982,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 70,
+      "order": 73,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -20668,7 +20949,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 71,
+      "order": 74,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -21223,7 +21504,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 72,
+      "order": 75,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -21394,7 +21675,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 73,
+      "order": 76,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -21593,7 +21874,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 74,
+      "order": 77,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -22087,7 +22368,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 75,
+      "order": 78,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -22573,7 +22854,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 76,
+      "order": 79,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -23231,7 +23512,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 77,
+      "order": 80,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -23592,7 +23873,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 78,
+      "order": 81,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -23753,7 +24034,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 79,
+      "order": 82,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -24082,7 +24363,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 80,
+      "order": 83,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -24388,7 +24669,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 81,
+      "order": 84,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -24402,6 +24683,7 @@
         "MIGRATION_SKILL_MAX_DEPTH",
         "MIGRATION_SKILL_MAX_FILES",
         "MIGRATION_SKILL_STAGE_PREFIX",
+        "MigrationTrashHooks",
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
@@ -24449,6 +24731,7 @@
         "migrationStamp",
         "migrationTomlReplace",
         "migrationTomlSections",
+        "migrationTrashTarget",
         "migrationTreeHash",
         "migrationUndo",
         "migrationUndoSkillCopy"
@@ -24703,7 +24986,7 @@
     },
     {
       "file": "13v-external-channel-protocols.js",
-      "order": 82,
+      "order": 85,
       "layer": "transport",
       "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers",
       "provides": [
@@ -24735,7 +25018,7 @@
     },
     {
       "file": "13x-external-channel-delivery.js",
-      "order": 83,
+      "order": 86,
       "layer": "transport",
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes",
       "provides": [
@@ -24760,7 +25043,7 @@
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "order": 84,
+      "order": 87,
       "layer": "transport",
       "note": "Platform-protected bot credential vault with explicit env precedence and credential revision CAS",
       "provides": [
@@ -24820,7 +25103,7 @@
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "order": 85,
+      "order": 88,
       "layer": "transport",
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted",
       "provides": [
@@ -24830,7 +25113,7 @@
     },
     {
       "file": "13ab-privacy-api.js",
-      "order": 86,
+      "order": 89,
       "layer": "unclassified",
       "note": "81-P2: token-authenticated security settings and recovery API",
       "provides": [
@@ -24967,7 +25250,7 @@
     },
     {
       "file": "13w-external-bots.js",
-      "order": 87,
+      "order": 90,
       "layer": "transport",
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
       "provides": [
@@ -25204,8 +25487,173 @@
       ]
     },
     {
+      "file": "13ac-desktop-execution-runtime.js",
+      "order": 91,
+      "layer": "unclassified",
+      "note": "P5 actual root ownership/admissions and default-off provider direct/proxy receipts plus strict history delivery; CLI/subagent/retention/image batching remain open",
+      "provides": [
+        "DesktopExecutionRuntime"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "copyOrdinaryJsonData",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionObjectIsStale",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionRewindGenHighWater",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02h-desktop-ledger.js",
+          "symbol": "DesktopExecutionLedger",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "isEquivalentDesktopAccServer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "mcpClients",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "McpStdioClient",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "probeDesktopExecutionReceipts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "ProviderHttpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
-      "order": 88,
+      "order": 92,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -29412,6 +29860,7 @@
         "VERSION",
         "agentCliHomes",
         "apiFailure",
+        "copyOrdinaryJsonData",
         "cp",
         "crypto",
         "ensureDirs",
@@ -29582,6 +30031,14 @@
       "direction": "backward"
     },
     {
+      "from": "01h-process-runtime.js",
+      "to": "01n-desktop-automation.js",
+      "symbols": [
+        "MacDesktopAutomation"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "01j-local-crypto.js",
       "to": "00-boot.js",
       "symbols": [
@@ -29671,6 +30128,7 @@
       "from": "02-session-store.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "RUYI_EVENTS",
         "SESSION_SCHEMA",
@@ -29757,6 +30215,7 @@
       "to": "02f-turn-effect-kinds.js",
       "symbols": [
         "ARTIFACT_OUTPUT_PATH_KEYS",
+        "IRREVERSIBLE_BRIDGED_KIND",
         "IRREVERSIBLE_LEDGER_MAX",
         "TURN_SUMMARY_COMMAND_TOOLS",
         "TURN_SUMMARY_FILE_TOOLS",
@@ -29875,6 +30334,47 @@
       "to": "01f-agent-cli-types.js",
       "symbols": [
         "normalizeAgentCliType"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02g-desktop-executions.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "copyOrdinaryJsonData",
+        "crypto",
+        "executionArgumentsDigest",
+        "json"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02h-desktop-ledger.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "copyOrdinaryJsonData",
+        "crypto",
+        "fsp",
+        "json",
+        "nowIso",
+        "path",
+        "runKeyedChain"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02h-desktop-ledger.js",
+      "to": "01-config.js",
+      "symbols": [
+        "DurableJsonStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02h-desktop-ledger.js",
+      "to": "02g-desktop-executions.js",
+      "symbols": [
+        "prepareDesktopExecutionArguments"
       ],
       "direction": "backward"
     },
@@ -30035,15 +30535,18 @@
       "from": "04-permission-runtime.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopExecutionHooks",
         "OVERLAY_ID",
         "SessionExecutionHooks",
         "URL",
         "VERSION",
+        "copyOrdinaryJsonData",
         "cp",
         "crypto",
         "dataRoot",
         "decodeTextFileBytes",
         "ensureDirs",
+        "executionArgumentsDigest",
         "externalRoot",
         "fs",
         "fsp",
@@ -30254,6 +30757,7 @@
       "to": "00-boot.js",
       "symbols": [
         "DeliveryHooks",
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "RUYI_EVENTS",
         "URL",
@@ -30795,6 +31299,7 @@
       "symbols": [
         "APP_NAME",
         "DEFAULT_PORT",
+        "DesktopExecutionHooks",
         "OVERLAY_ID",
         "RUYI_EVENTS",
         "VERSION",
@@ -31322,6 +31827,7 @@
       "from": "07-autonomy.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopExecutionHooks",
         "TOOL_TIER_RANK",
         "URL",
         "apiFailure",
@@ -31554,6 +32060,7 @@
       "from": "08-agent-runs.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "RUYI_EVENTS",
         "SubAgentMemoryHooks",
@@ -31827,6 +32334,7 @@
       "to": "00-boot.js",
       "symbols": [
         "DeliveryHooks",
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "RUYI_EVENTS",
         "SubAgentMemoryHooks",
@@ -31903,6 +32411,7 @@
         "mutateSession",
         "normalizeMetaToolArgs",
         "normalizeTodoItems",
+        "projectBridgedIrreversible",
         "providerHistoryToolCalls",
         "readSessionNotes",
         "readSessionScratchpad",
@@ -32318,6 +32827,7 @@
       "from": "10-context-governance.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "SessionExecutionHooks",
         "URL",
@@ -32720,6 +33230,7 @@
       "to": "00-boot.js",
       "symbols": [
         "ASR_MAX_BODY_BYTES",
+        "DesktopExecutionHooks",
         "OVERLAY_ID",
         "SKILL_ID_RE",
         "TOOL_TIER_RANK",
@@ -32774,6 +33285,14 @@
       "to": "01h-process-runtime.js",
       "symbols": [
         "ProcessRuntime"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "12-tool-dispatch.js",
+      "to": "01n-desktop-automation.js",
+      "symbols": [
+        "MacDesktopAutomation"
       ],
       "direction": "backward"
     },
@@ -33024,6 +33543,7 @@
         "CONFIG_SCHEMA",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
+        "DesktopExecutionHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "OVERLAY_ID",
@@ -33055,10 +33575,12 @@
         "nowIso",
         "os",
         "path",
+        "pathToFileURL",
         "paths",
         "readline",
         "recordInstallLaunch",
         "safeJsonParse",
+        "samePathKey",
         "spawnDetachedChecked",
         "text",
         "zlib"
@@ -33323,6 +33845,7 @@
       "to": "05b-kimi-bridge.js",
       "symbols": [
         "applyKimiStatusToSession",
+        "fileURLToPath",
         "kimiSessionStatus",
         "kimiStatusFingerprint",
         "kimiUsageFromStatus"
@@ -33723,6 +34246,77 @@
       "to": "13j-steward-tool-base.js",
       "symbols": [
         "stewardAppendDecision"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "DesktopExecutionHooks",
+        "copyOrdinaryJsonData",
+        "crypto",
+        "fs",
+        "fsp",
+        "json",
+        "path",
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "loadSession",
+        "saveSession",
+        "sessionObjectIsStale",
+        "sessionRewindGenHighWater",
+        "sessionSaveIsTombstoned"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "02h-desktop-ledger.js",
+      "symbols": [
+        "DesktopExecutionLedger"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "McpStdioClient",
+        "isEquivalentDesktopAccServer",
+        "mcpClients",
+        "probeDesktopExecutionReceipts",
+        "turnSettlers"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "ProviderHttpHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-desktop-execution-runtime.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "activeAgentRuns"
       ],
       "direction": "backward"
     },

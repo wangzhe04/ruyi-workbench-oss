@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T11:55:06.891073+00:00",
+  "status": "inventory_review_passed_final_engineering_verified",
+  "scope": "Three-file inventory synchronization only, with explicit reuse delta for prior functional evidence.",
+  "sourceHashes": {
+    "README.md": "fed5ce1d3a5fe298b028f68f8ee6f3d0b98c90eb4063134e8b64aec949ac0edd",
+    "README_EN.md": "c82dca95448b99fb7b6977a19cdda1875840512a66d696be044f7d5007ffdd69",
+    "dev-harness/process-safety.static.e2e.js": "533f29673ad3d2d86c8e314891c9ea0eae535fceb898b5413c140aa4e7f7ff02"
+  },
+  "staticSourceProof": {
+    "previousFingerprint": "../source-fingerprint-worker-ready.json",
+    "reconstructedOldSha256": "be715538bc3d3a30802c442d2137b3ce276363ba4403f58f3a6a85d828265834",
+    "matchesPreviousFrozenStaticFile": true,
+    "onlyChanges": [
+      "KILL_OWNERS358-to359",
+      "one comment stating Finder imports owned-process identity snapshots"
+    ],
+    "allOtherScannerAndSafetyAssertionsByteIdentical": true
+  },
+  "readmeProof": {
+    "README.md": {
+      "currentSha256": "fed5ce1d3a5fe298b028f68f8ee6f3d0b98c90eb4063134e8b64aec949ac0edd",
+      "onlyInventoryNumberSubstitutionsComparedWithHEAD": true,
+      "oldCounts": {
+        "e2e": 582,
+        "default": 575,
+        "unit": 278
+      },
+      "finalCounts": {
+        "e2e": 583,
+        "default": 576,
+        "unit": 279
+      }
+    },
+    "README_EN.md": {
+      "currentSha256": "c82dca95448b99fb7b6977a19cdda1875840512a66d696be044f7d5007ffdd69",
+      "onlyInventoryNumberSubstitutionsComparedWithHEAD": true,
+      "oldCounts": {
+        "e2e": 582,
+        "default": 575,
+        "unit": 278
+      },
+      "finalCounts": {
+        "e2e": 583,
+        "default": 576,
+        "unit": 279
+      }
+    }
+  },
+  "independentReadOnlyInventory": {
+    "e2eFiles": 583,
+    "unitSuiteFiles": 279,
+    "liveProbeInventory": 7,
+    "defaultInventory": 576,
+    "killOwnTreeImportMatchingFiles": 359,
+    "finderUsage": "snapshotProcessTable import only; the shared Finder process is not killed. The original predicate counts module import users.",
+    "method": "Filesystem filename counts and literal import predicate read-only replication. No test command executed."
+  },
+  "reuseRelationship": {
+    "priorCompletedFunctionalEvidence": "../independent-completion/review.json",
+    "priorFunctionalManifestLayers": [
+      "../source-fingerprint-selected-apps.json",
+      "../source-fingerprint-worker-ready.json"
+    ],
+    "newCandidateScope": "63 files expected, adding the two root READMEs and changing only the inventory static file among the prior61.",
+    "workerReadyToInventoryDelta": "60 prior file hashes remain identical. One existing static inventory test changes and two documentation files are added to the manifest.",
+    "selectedNodeToFinalDelta": "The earlier selected-apps Node layer additionally differs in the separately reviewed standalone Python input smoke fixture. Its runtime/functional sources remain identical.",
+    "dependencyBasis": "The changed process-safety static file is an engineering gate, outside the recorded functional commands. READMEs supply inventory prose. Their changes do not modify the reused GUI/IPC fixtures or production code. The earlier Python-only reuse proof remains separate.",
+    "claimLimit": "Old functional commands remain bound to their recorded manifests. They are not described as having checked all63 final source bytes. New engineering gates must bind the new63-file candidate before acceptance."
+  },
+  "mainAgentEvidenceRead": [
+    {
+      "log": "facts.txt",
+      "sha256": "5560b7011ce13b5dac384e2da75f60e3132a3fb8a593e2aa124c54421cee4a31",
+      "passLines": 30,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by independent reviewer"
+    },
+    {
+      "log": "process-safety.txt",
+      "sha256": "ed3afb41b4481dcf2712452da2bdcdb5e7e22d0b7800f74fe9071c81ab9395e2",
+      "passLines": 12,
+      "failLines": 0,
+      "allPass": true,
+      "executor": "main agent; read by independent reviewer"
+    }
+  ],
+  "historicalEngineeringFailure": "Original engineering.json/engineering-static.txt retain the78/80 outcome and both static registration failures, including runner retries. Later successful gates do not overwrite that evidence.",
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedByReviewer": false,
+  "openActionableFindings": [],
+  "pendingAcceptance": "Freeze the63-file inventory candidate, re-run final syntax/build/unit/fast gates and independently review actual results and binary/source binding. P5 and P5-03 remain in_progress.",
+  "finalEngineeringReview": "../final-delivery-review.json",
+  "finalSourceFingerprint": "../source-fingerprint-final-delivery.json"
+}
