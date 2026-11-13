@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const cp = require('node:child_process');
+const crypto = require('node:crypto');
 const { createRunner } = require('./lib/harness');
 const { fixtureChildEnv } = require('./lib/fixture-home');
 const { killOwnTree, snapshotProcessTable, ownDescendants } = require('./lib/kill-own-tree');
@@ -94,8 +95,15 @@ async function cleanupOwned() {
     if (process.platform !== 'darwin') { console.log('SKIP Mac App input launch chain'); return; }
     if (manual && (recording || visual || ax || paste || forceAppExit)) throw new Error('Select the manual App scenario by itself');
     if (!['exact', 'standard_mouse'].includes(pointerProfile) || (!manual && pointerProfile !== 'exact')) throw new Error('Select a supported manual pointer profile');
-    const helper = (manual && process.env.RUYI_P5_MANUAL_HELPER) || (recording && process.env.RUYI_P5_RECORD_HELPER) || (visual && process.env.RUYI_P5_OCR_HELPER)
-      || buildMacAutomationHelper({ output: path.join(root, 'input-helper') });
+    runtime = prepareMacHost(root);
+    const helperOverride = (manual && process.env.RUYI_P5_MANUAL_HELPER) || (recording && process.env.RUYI_P5_RECORD_HELPER) || (visual && process.env.RUYI_P5_OCR_HELPER);
+    const helper = helperOverride || (runtime.bundled
+      ? path.join(runtime.workbenchRoot, 'runtime/macos/ruyi-automation-helper')
+      : buildMacAutomationHelper({ output: path.join(root, 'input-helper') }));
+    fs.accessSync(helper, fs.constants.X_OK);
+    const nativeHelper = { path: fs.realpathSync(helper), origin: helperOverride ? 'explicit-test-override' : runtime.bundled ? 'installed-app-bundle' : 'fresh-source-build',
+      sha256: crypto.createHash('sha256').update(fs.readFileSync(helper)).digest('hex') };
+    console.log('INFO input native helper ' + JSON.stringify(nativeHelper));
     if (manual) {
       const state = cp.spawnSync(helper, [], { input: JSON.stringify({ version: 1, op: 'status' }), encoding: 'utf8', timeout: 5000 });
       if (JSON.parse(state.stdout).locked) { t.fail('App manual acceptance requires an unlocked desktop'); return; }
@@ -122,7 +130,6 @@ async function cleanupOwned() {
     });
     fixture.stderr.resume();
     const ready = await until(() => events.find(event => event.event === 'ready'), 10000);
-    runtime = prepareMacHost(root);
     const bundle = runtime.bundle;
     const executable = path.join(bundle, 'Contents/MacOS/RuyiDesktop');
     const report = path.join(root, 'report.json');
@@ -324,7 +331,7 @@ return {capabilities,focused,typed,clicked,scrolled,ax,recording:${recording}?{s
     if (process.env.RUYI_P5_EVIDENCE) {
       fs.mkdirSync(process.env.RUYI_P5_EVIDENCE, { recursive: true });
       fs.writeFileSync(path.join(process.env.RUYI_P5_EVIDENCE, manual ? 'manual-host.json' : composed ? 'composed-host.json' : recording ? 'record-host.json' : visual ? 'visual-host.json' : 'input-host.json'), JSON.stringify({ nativePID: result.nativePID,
-        servicePID: result.servicePID, launch: 'LaunchServices', serviceInvocation, ...runtime, ...extra,
+        servicePID: result.servicePID, launch: 'LaunchServices', serviceInvocation, ...runtime, nativeHelper, ...extra,
         manualDemonstration: manual ? { kind: 'independent synthetic input through a real event tap', before: manualBefore } : null,
         observedProcesses: ownedTree.map(row => ({ pid: row.pid, ppid: row.ppid, created: row.created.toString() })),
         receiver: { textMatches: state.text === sample, counts: state.counts, pad: state.pad,
