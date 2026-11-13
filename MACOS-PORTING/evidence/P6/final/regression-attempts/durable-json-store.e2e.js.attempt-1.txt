@@ -1,0 +1,23 @@
+PASS missing file returns defaults without an unnecessary rewrite
+PASS write-through cache advances when the newest write is enqueued
+PASS serialized concurrent writes preserve the latest complete snapshot and apply capacity eviction
+PASS atomic writes leave no temporary orphan
+PASS process cache remains stable until explicit invalidation
+PASS explicit invalidation observes an external replacement
+PASS torn JSON recovers to sanitized defaults
+PASS torn JSON is quarantined byte-for-byte
+PASS invalid schema is rejected and reported
+PASS sanitizer removes malformed entries during recovery write
+PASS store remains readable after corruption recovery
+PASS quarantine:false recovers to defaults and leaves the bad file in place without a .corrupt copy
+PASS quarantine:false still reports through onCorrupt, with an empty corruptPath
+PASS async read() follows the same recovery path
+PASS async read() with cache:false re-reads the file every time
+PASS quarantine:false: a wrong schema reads as defaults, nothing copied
+PASS async read() of a missing file returns defaults without writing
+PASS async read() does not replace a newer write-through cache with the older disk snapshot
+PASS transient sync read error: this call gets defaults
+PASS transient sync read error: no .corrupt copy, no onCorrupt report
+PASS transient sync read error: defaults were not cached — the next read sees the real file
+PASS transient async read error: defaults for this call only, nothing quarantined
+PASS transient async read error: the next read() sees the real file

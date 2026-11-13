@@ -71,8 +71,7 @@ function gitAvailable() {
     // git_diff / git_log 为 read;git_status 亦 read。
     ok(/git_diff:\s*'read'/.test(server) && /git_log:\s*'read'/.test(server), "⑥ server.js git_diff/git_log === 'read'");
     ok(/git_status:\s*'read'/.test(server), "⑥ server.js git_status === 'read'");
-    // TOOL_REQUIRES 四条 gitCli。
-    ok(/git_commit:\s*\{\s*requires:\s*\['gitCli'\]/.test(server), '⑥ TOOL_REQUIRES git_commit requires gitCli');
+    ok(/git_commit:\s*\{\s*requires:\s*\['gitCli',\s*'processSupervisor'\]/.test(server), '⑥ TOOL_REQUIRES git_commit requires Git and process supervision');
     // ⑥d 安全加固(对抗复核 CRITICAL防回潮,git 缺失机器也守):runGit 前置 GIT_SAFE_FLAGS 中和仓库自带
     // core.fsmonitor / diff.external;gitDiff 加 --no-textconv。全部覆盖仓库配置的代码执行面。
     ok(/GIT_SAFE_FLAGS\s*=\s*\[[^\]]*core\.fsmonitor=/.test(server), '⑥ server.js GIT_SAFE_FLAGS 含 core.fsmonitor=(中和 fsmonitor RCE)');

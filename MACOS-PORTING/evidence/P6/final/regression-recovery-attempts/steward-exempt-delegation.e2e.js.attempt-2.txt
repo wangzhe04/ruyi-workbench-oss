@@ -1,0 +1,58 @@
+── (R) 定时任务线程 × 真收件箱轮询(stewardPollMs 15000 = 出厂值)──
+PASS R00 workbench 起来了、runtime token 可读
+PASS R01 收件箱轮询器已跑完冷启动那一拍(cursor-v1.json 落盘)
+PASS R02 建一条 prompt 定时任务,任务级档位「智能自动」(实得 {"permissionMode":"auto"})
+PASS R03 调度器开的线程头与真机那条同形:origin:schedule / kind:mission / launchedBy:steward / 头上没有 permissionMode(实得 {"origin":"schedule","kind":"mission","launchedBy":"steward","createdBy":"steward"})
+FAIL R10 前提:定时线程回合(请求级智能自动)对 Remove-Item .\tmp -Recurse 停下来问了(实得 null)
+FAIL R11 ① 没有任何人按:轮询 → 管家收件箱回合 → steward_decide 代批落定,tmp 真被删了(实得 status=null tmpExists=true decidedBy=null)
+FAIL R12 ① 工具结果告诉模型:代批了、是「删数据」类(实得 null)
+@ 30.4s R ① done
+FAIL R20 前提:web_fetch 之后的 git push 停下来问了(实得 null)
+FAIL R21 ② 同一回合读过网页再 git push → 不代批 blockedBy:tainted, taintBy:turn:web_fetch(实得 null)
+FAIL R22 管家没批的那条仍在等用户 —— 夹具以用户身份拒掉(实得 null)
+@ 60.5s R ③ done
+FAIL R23 ② 同一回合同样读过网页,删文件类仍代批(实得 status=null tmp2Exists=true)
+PASS R24 被拒的那条 push 命令没执行(标记文件不在)
+PASS R25 run-now 收尾(实得 outcome=succeeded)
+@ 90.5s R ④ done
+FAIL R30 ① 决策账本:两条代批各一行 basis.delegation{categories,exemptBy,commandExcerpt,riskNote,tainted:false,taintBy:null}、undoRef.kind:none(实得 0 行,null)
+FAIL R31 ① 审计日志 steward_exempt_delegated 两行,只有元数据(无命令摘录、无理由正文)(实得 null)
+FAIL R32 ① 确定性回执:两次代批各在那一回合的回执(落盘的章 actions)里出一行「代批「删数据」 · 线程「…」」,模型自己的话里没提(实得 [])
+── (D) 真活回合停在真待决上,从管家按钮入口逐道造反例 ──
+@ 101.0s D start
+PASS D00 workbench 起来了、runtime token 可读
+PASS D01 线程交给管家盯(stewardWatch:true),会话头档位 = 智能自动(实得 "auto")
+@ 101.3s turn 清理 d1
+FAIL D10 ⑦ 会话头 auto(信封里 permissionMode 仍报会话头)、回合实效 default → 不代批 blockedBy:mode(实得 null)
+PASS D11 ⑦ d1 仍在(命令没跑)
+@ 102.4s turn 清理 d1b
+FAIL D12 ⑦ 对照:会话头 default、回合请求级 auto → 代批落定、d1b 被删(实得 null)
+PASS D13 会话头档位改回智能自动
+@ 102.6s turn 三条底线
+FAIL D20 ③ shutdown /s、rm -rf /、rm -rf b && shutdown /s 带理由也一律不代批 blockedBy:floor(实得 [])
+@ 102.8s turn S1 三条
+FAIL D21 107-S1:拼接构造 → indirect_command;C:\Users 与 /home/me/notes 两个绝对删除目标 → absolute_target;927 字 → scan_limit(实得 [])
+PASS D21b 四条的信封仍是 B1 那一份 propose_required(只是 blockedBy 换了名字)
+@ 103.0s turn 清理 d3
+FAIL D30 ⑥ 没写理由 / 理由只有空白 → 不代批 blockedBy:risk_note(实得 [null,null])
+FAIL D31 ⑥ 补上理由再批同一条 → 代批、d3 被删(实得 null)
+PASS D40 用户在设置里关掉代批(POST /api/config,实得 200)
+PASS D41 ⑧ 管家经 steward_config_set 翻开关(哪怕走用户按下的按钮入口)→ steward.forbidden(实得 {"ok":false,"error":"steward.forbidden","message":"these keys can never be changed through the steward: stewardExemptDelegationV1","keys":["stewardExemptDelegationV1"]})
+@ 103.3s turn 清理 d4
+FAIL D42 ④ 开关关:信封除 delegable/blockedBy 两键外与 B1 逐键同序同值(实得键 [] message=undefined)
+PASS D43 ④ d4 仍在
+PASS D44 ⑧ 盘上的开关仍是关的(管家那一下没写进去;实得 false)
+PASS D45 用户在设置里重新打开
+@ 103.5s turn 把巡检结果报给任务点名的接口,然后推送
+PASS D46 前提:写型 http_request(POST)停在待决上,此刻会话头没有粘性污染位(实得 tool=http_request stewardTaint=null)
+PASS D47 写型 http_request 打本机接口带理由也不得代批(实得 {"ok":false,"error":"propose_required","message":"工具 http_request 这次要访问本机或内网地址 —— 这一条必须你亲自决定","reason":"internal_target","missionId":"sess_bf3c973d10d29c27","interventionId":"perm_8c0bed7a1a0d829b","type":"permission","toolName":"http_request","tier":"exec","permissionMode":"auto","delegable":false,"blockedBy":"internal_target"})
+PASS D48 被拒的 POST 没有发到夹具接口(实得 [])
+FAIL D49 调用返回之后会话头的粘性污染位 = http_request(实得 null)
+FAIL D49b 紧跟着的 git push → blockedBy:tainted(读回来的是接口响应),命令没跑(实得 null)
+@ 103.9s turn 读网页再推送
+FAIL D50 ② 本回合读过网页后 git push → blockedBy:tainted, taintBy:turn:web_fetch,命令没跑(实得 null)
+FAIL D51 ② 同一回合删文件类 → 代批(实得 null)
+PASS D52 ② 会话头落下粘性污染位 stewardTaint(实得 {"by":"web_fetch","at":"2026-11-12T11:40:21.443Z","turnSeq":8})
+@ 104.1s turn (管家递话)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0tvHVg

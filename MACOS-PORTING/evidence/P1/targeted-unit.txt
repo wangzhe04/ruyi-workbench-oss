@@ -1,0 +1,35 @@
+✔ [S1] spawnDetachedChecked:程序不存在 → {ok:false, code:ENOENT},不成为 uncaughtException (210.787708ms)
+✔ [S1] spawnDetachedChecked:能起的程序 → {ok:true, pid}(成功路径与原 spawn().unref() 同参) (0.667416ms)
+✔ [S2] createSession:非字符串/空白的 cwd 与 title 当没传 (290.158042ms)
+✔ [H1] 请求体是 JSON null → 按空体处理,不再 TypeError 500 (10.915958ms)
+✔ [H2] 坏百分号编码的路径段 → 4xx,不再 URIError 500 (6.495084ms)
+✔ [H3] DELETE /api/sessions/<坏 id> → 400 session.id_invalid(不再回假的 ok:true) (0.376458ms)
+✔ [H4] /api/tools:未知工具 404、工具参数错 400,不再 500 (11.228375ms)
+✔ [H5] /api/chat/stream 带坏 sessionId → 400,不再静默新建一条会话 (2.73775ms)
+✔ [H6] 非字符串 cwd 不再让 /api/memory* 与会话落盘 500 (97.04225ms)
+✔ [H7] 声明的 Content-Length 超总闸 → 立即 413 api.body_too_large(不先缓冲、不报 internal_error) (6.870125ms)
+✔ [H8] office_open 起不来打开程序 → 工具失败,服务不崩(Linux:explorer.exe 不存在) (306.761292ms)
+✔ [H9] /api/events/stream 连接数有上限(第 33 条 → 503),已有连接不受影响 (63.427583ms)
+✔ [L1] 子进程 stdin 挂了 error 监听(Kimi ACP RPC、PowerShell 会话):EPIPE 不成 uncaughtException (3.769792ms)
+✔ [L2] NDJSON 流壳:收尾后的迟到事件不写、res 挂 error 监听(streamChat / 管家运行器) (1.910667ms)
+✔ [L3] agent-runs digest 轮询不再深拷贝 live run(只读标量,浅展开等值) (0.967541ms)
+✔ [L4] 分离式启动全部走 spawnDetachedChecked:产品源码里不再有裸 spawn(...).unref() (24.857917ms)
+▶ portAudit
+  ✔ detects no collisions when ports are unique (0.929375ms)
+  ✔ detects collision when two files share a port (0.386209ms)
+  ✔ ignores port mentions in comments (0.616792ms)
+  ✔ counts ports inside string literals (0.2325ms)
+  ✔ handles multiple ports in one file (0.195708ms)
+  ✔ ignores non-.e2e.js files (0.265ms)
+  ✔ handles empty directory (0.16125ms)
+  ✔ PORT_BAND regex boundary: 8699 and 9200 excluded (0.175792ms)
+  ✔ the real dev-harness/*.e2e.js set has no cross-file collisions (same gate run-all applies before the suite) (194.226958ms)
+✔ portAudit (198.116625ms)
+ℹ tests 25
+ℹ suites 1
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1150.644708

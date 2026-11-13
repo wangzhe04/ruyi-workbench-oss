@@ -1,0 +1,48 @@
+✔ preparation commits only hashes/identities before returning an immutable dispatchable value (7.751ms)
+✔ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (9.0035ms)
+✔ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (11.238625ms)
+✔ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (7.258083ms)
+✔ ordinary returned results require matching actual worker/tool/argument and terminal facts (21.607208ms)
+✔ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (7.068834ms)
+✔ client replacement or lost ownership prevents a preparation being used for dispatch (2.446708ms)
+✔ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (3.051708ms)
+✔ corrupt, missing and replaced storage is refused rather than reinitialized as empty (3.932541ms)
+✔ capacity refuses without pruning any unresolved row (16.243042ms)
+✔ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (5.068417ms)
+✔ unknown records cannot be retired even if a caller confirms closure (2.785875ms)
+✔ client facts and receipt content are snapshotted before asynchronous ledger IO (4.437416ms)
+✔ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (3.27925ms)
+✔ two live authorities for the same canonical directory cannot create independent write chains (1.422041ms)
+✔ strict root record validation rejects contradictory returned-unknown state without resetting the file (5.40875ms)
+✔ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (4.304709ms)
+✔ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (4.928916ms)
+✔ loss of authority during the actual write cannot return a dispatchable preparation (3.3695ms)
+✔ ordinary business exit codes remain result data and are not invented as receipt flags (2.397459ms)
+✔ receipt code projection uses Python code points and preserves astral-boundary distinctions (8.234792ms)
+✔ authority handover refuses until the old write has drained, then preserves it as an unknown record (2.42975ms)
+✔ retired turns remain closed across reopen and explicit newer rewind generation gets a distinct admission (7.617792ms)
+✔ prepare and dispatch require the explicit live host turn, not a caller-supplied newer generation (1.566916ms)
+✔ late actual results remain recordable after the host turn stops, while new dispatch is refused (2.15925ms)
+✔ retirement confirmation receives an exact scope even when the turn has no records (1.559083ms)
+✔ OS gate is exclusive; repeated old release cannot release a new owner (23.593959ms)
+✔ canonical roots collapse junctions and missing leaves without creating directories (5.553375ms)
+✔ protocol selection retains Node 20.0 and non-Linux POSIX compatibility (0.51925ms)
+✔ Mac kernel lock is independent of TMPDIR and retained through a live legacy socket (15.026292ms)
+✔ Mac refuses symlink and hardlink lock files without touching their targets (10.301459ms)
+✔ Mac preserves unknown residual sockets and malformed ownership evidence (98.647166ms)
+✔ unknown legacy runtime blocks without modifying files and releases the acquired gate (9.176416ms)
+✔ Mac never removes a live socket even with matching stale-owner metadata (26.713542ms)
+✔ Mac ownership namespace is protected from file tools even in bypass workspaces (8.575042ms)
+✔ Mac FIFO ownership records fail promptly on both read and write paths (204.494792ms)
+✔ Mac socket ownership reads remain bounded when the record grows after stat (114.988708ms)
+✔ Mac APFS Data-volume aliases share one cold-start lock and missing-leaf identity (19.373958ms)
+✔ Mac stored casing and trailing whitespace produce one existing-root lock with legacy aliases (10.579125ms)
+✔ Mac startup gate covers partially created ancestors and queues unrelated new roots (132.603709ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 780.064

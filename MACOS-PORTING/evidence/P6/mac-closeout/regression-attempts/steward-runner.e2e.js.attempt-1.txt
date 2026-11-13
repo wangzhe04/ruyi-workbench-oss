@@ -1,0 +1,142 @@
+── (A) 开关关 ──
+PASS A0 工作台起来了
+PASS A1 开关关:visit -> 409 steward.disabled(got 409)
+PASS A2 开关关:message -> 409 steward.disabled(got 409)
+PASS A3 开关关:act -> 409 steward.disabled(got 409)
+PASS A4 开关关:<data>/steward 目录不存在(零写入)
+PASS A5 开关关:不建管家会话
+PASS A6 开关关:会话列表仍是空的
+── (B) 开关开:管家会话与提示词 ──
+PASS B0 message 返回 200 NDJSON 流(got 200)
+PASS B1 流末尾有一条 steward_reply 事件
+PASS B1b 流形态与 /api/chat/stream 同款(session/assistant_delta/result 等既有事件照常)
+PASS B2 首次 message 懒建管家会话(固定 id steward、kind:steward、标题「如意管家」)
+PASS B2b 管家会话的 permissionMode 是独立模式 'steward'(不进 PERMISSION_MODES)
+PASS B3 排除面 1:/api/sessions 会话列表不含管家会话
+PASS B4 排除面 2:113b 内容搜索不含管家会话
+PASS B5 排除面 3:13e 投影(/api/missions)不含管家会话
+PASS B6 排除面 4:116b 收件箱不含管家会话(否则回合自激励成环)
+PASS B7 工具面:管家回合的请求体里只有 steward_* 工具(零文件/shell/桌面/联网/元工具)
+PASS B7b 管家回合拿到全部 43 个 steward_*(按需装载对管家强制 full;got 43)
+PASS B7d 67:真实 provider 工具面包含本机机器人准备工具
+PASS B7c 117m-A4:管家回合的请求体里有 steward_thread_stop(线程级停止原语真的到了模型手里)
+PASS B8 稳定层:身份/永久豁免/输出契约都在系统提示里
+PASS B8b 稳定层【整段替换】普通包(不含工具协议层与能力层)
+PASS B9 半稳定层:记忆块在第一条 user 消息前缀里(易变内容后置)
+PASS B10 到访层:线程总览 + 「更多细节用 steward_thread_read」尾句
+── (C) 输出契约 ──
+PASS C1 say 解析正确
+PASS C2 why 解析正确
+PASS C3 acts 归一到 ≤3 个(got 3)
+PASS C4 acts 里的 tool 只认 steward_*(file_write 那条被丢弃)
+PASS C5 主动作只有一个(第一个 primary 胜出)
+PASS C6 parsed:true
+── (G) 到访 ──
+PASS G1 visit 返回 200
+PASS G2 force:true -> 新到访
+PASS G3 digest 条数 ≤5(确定性归纳,不调模型)
+PASS G4 待决列表随到访一起下发
+PASS G5 返回 threads 投影与 visit 时间戳
+PASS G5b 到访响应里【没有】focus —— 服务端不再替界面挑「现在这一件」（§8.5 ④）
+PASS G5c threads 行恰好四个键 sessionId/title/state/updatedAt（本夹具此刻 0 行）
+PASS G6 归档文件出现在 <data>/steward/visits/(got 1)
+PASS G7 retention:'visit' -> 归档后管家历史清空(messageCount 0)
+PASS G8 归档文件里是完整的这次到访对话
+── (D) act 落定 ──
+PASS D1 act:dismiss 只记日志
+PASS D2 act:open_thread 只回 sessionId(切换由 UI 完成)
+PASS D3 act:非管家工具 -> not_allowed(动世界的工具永远进不来)
+PASS D4 act:tool 走 13g 的同一实现(稳定信封原样回传)
+── (H) 熔断 ──
+PASS H1 每小时回合上限=1 且本小时已跑满 -> 用户自己的 message 【不】被挡(小时窗只节流自主回合;got null)
+PASS H1b 用户真的拿到了一句回答(不是空信封)
+PASS H2 而且模型真的被调了(fake 收到新请求)—— 放行不是假装放行
+PASS H3 用户回合放行后 /api/steward/state 的 circuit 键仍在、值为空(形状不变)
+PASS H4 /api/steward/state 扩展了 visit/turns/cost/lastReply
+PASS H3b 停机 200
+PASS H3b 停机后连用户消息也得 circuit:stopped(用户自己按的停机 > 用户说话;got {"kind":"stopped","detail":"管家已停机(可在设置或 /api/steward/start 恢复)"})
+PASS H3b 停机熔断时不再调模型(fake 没有收到新请求)
+PASS H3b /api/steward/state 带 circuit
+PASS H3b 恢复运行(后续相位不受影响)
+── 进程内阶段(单进程运行时,时序可判定)──
+PASS C7 非 JSON 输出 -> say 取原文、acts 空(got parsed=false)
+PASS C8 非 JSON 时不臆造按钮与动作
+PASS C9 700 字回合正常收尾(got ok=true parsed=true)
+PASS C9b 700 字的 say 一个字都不少(修前会是 600;got 700)
+PASS C9c 而且逐字相同 —— 不是「长度对了但内容被改写」
+PASS C9d 700 字【落盘】也一个字不少(steward.messages.ndjson 上的回执 meta;got 700)
+PASS C10 5000 字回合正常收尾(got ok=true)
+PASS C10b 5000 字触到天花板,确实被裁了(got 4026)
+PASS C10c 正文落在 4000 天花板之内且贴着它(got 3993)
+PASS C10d 正文是原文前缀 —— 只截不改写
+PASS C10e 切在句末标点上,不是半句话(结尾 "楚了。")
+PASS C10f 末尾有诚实的明说,不假装这就是它说完了(标记 "\n(话太长,先说到这里;后面还有,是工作台截断的,不是我说完了。)")
+PASS D5 default 权限线程的 decide -> propose_required(got propose_required)
+PASS D6 propose_required 自动降级成一条 act(label 由工具与 args 派生:允许)
+PASS D7 降级不算失败(回合照常返回 ok)
+PASS D8 propose_required 不落决策日志
+PASS D9 auto 权限线程的 decide 过档位门、进命令核心(合成待决没有活回合可投递 -> delivery_unavailable,不是被权限挡下;got "delivery_unavailable")
+PASS D10 同一回合里的写动作真的执行了(thread_rename 成功)
+PASS D10b actions 行带人话标签(got 改标题)
+PASS D10b 执行后落一行决策日志(含目标线程、权限档与 undoRef)
+── (E) 收件箱回合 ──
+PASS E1 收件箱回合跑通
+PASS E2 收件箱事件以一条 origin:inbox 的 user 消息注入(元数据随正文落盘)
+PASS E3 消息文本自己就说清了「这不是用户说的话」
+PASS E4 拿 origin:inbox 的回合当记忆来源 -> source_not_user(got source_not_user)
+PASS E5 同一会话里用户【本人】那一回合仍是合法来源(got undefined)
+── (F) 抢占 ──
+PASS F1 用户回合抢占后照常跑完(用户永远优先)
+PASS F2 在途收件箱回合被就地取消(got steward.cancelled)
+PASS F3 被抢占那批事件重排进队列不丢(queued=1)
+PASS D11 自理清单里 relay 未勾选 -> 无人值守回合的递话只提议(got propose_required)
+PASS D11b 自理重试在 default 档线程上只提议(got self_serve_gate)
+PASS D12 自理清单挡下的 action 同样降级成一条按钮
+PASS G9 刚活动过(未静默 60 分钟)-> 不是新到访,只回当前状态
+PASS G10 force -> 又一个归档文件(got 2)
+PASS G11 到访清空对话,但待决仍在(待决持久化,重开必现)
+── (K) 记账 ──
+PASS K1 管家回合进了用量台账(got 11 行)
+PASS K2 管家回合一律 kind:'aux' + note:'steward'(不是用户的聊天回合;日费用熔断按这条口径累计)
+PASS K3 线程自己的回合不带 steward 记号(管家开销与线程开销分得开)
+PASS H5 连续 5 次收件箱回合零 acts 零 actions -> no_progress 退避(got {"kind":"no_progress","detail":"连续 5 次收件箱回合没有任何动作,退避到下一次你说话","limit":5})
+PASS H6 用户消息永远优先:一说话就解除无进展退避
+PASS H7 小时窗打满 -> trigger:'inbox' 的自主回合【仍被挡】(got {"kind":"turns_per_hour","detail":"本小时已经跑了 1 个管家回合,先歇一会儿(你随时可以直接跟我说话,不受这条限制)。要让它自己多跑一些,去设置·管家页把「每小时最多回合数」调高。","limit":1})
+PASS H7b 被挡的自主回合确实没调模型(原 H2 的强度搬到真正该被挡的这条路径上)
+PASS H7c 挡下自主回合那句话告诉用户去哪儿调(带「设置·管家页 / 每小时最多回合数」);got "本小时已经跑了 1 个管家回合,先歇一会儿(你随时可以直接跟我说话,不受这条限制)。要让它自己多跑一些,去设置·管家页把「每小时最多回合数」调高。"
+PASS H7d 并且说清楚「你随时可以直接跟我说话」—— 别让用户以为自己也被锁了
+PASS H8 同一时刻 trigger:'user' 【放行】(小时窗不是用户的说话额度;got null)
+PASS H8b 用户那一句真的调了模型
+PASS H9 stewardCircuitCheck(cfg,'user') === null(小时窗对用户不生效;got null)
+PASS H9b stewardCircuitCheck(cfg,'inbox') 命中 turns_per_hour 且回报 limit
+PASS H9c 未知 trigger(非 'user')按【自主回合】处理 —— 白名单式放行,新调用面不会误当成用户
+PASS E6 带 errorClass 的收件箱回合跑通(got undefined)
+PASS E7 事件行带上人话原因(逐字来自 ERROR_CLASSES;实得 "ns 留空。智能自动线程停下来问的权限请求是交给你的:每条都用 steward_decide 表态(该批就批、越界就拒),工具挡回或真判断不了才交给用户,并说清卡在哪 —— 不要只说一句留给你。say 是说给用户听的:像顺口提一句那样讲发生了什么、要不要用户管,不提事件编号、不说「同上一条」「不用重复处理」这类内部话。")
+PASS E8 连「下一步」一起给 —— 修前这半句模型根本看不见
+PASS E9 裸机器词不再进模型的回合层(它留在 payload 里,给去重与取证用)
+PASS E10 表里没有的类照样跑通(got undefined)
+PASS E11 查不到就如实说未知并带上原词 —— 宁可说不知道,也不编一个听起来像那么回事的原因(实得 "decide 表态(该批就批、越界就拒),工具挡回或真判断不了才交给用户,并说清卡在哪 —— 不要只说一句留给你。say 是说给用户听的:像顺口提一句那样讲发生了什么、要不要用户管,不提事件编号、不说「同上一条」「不用重复处理」这类内部话。")
+── (I) 预算分叉 ──
+PASS I1 模型窗口够大时预算 = stewardContextBudgetTokens × 60%(got 120000)
+PASS I2 模型窗口更小时取小值 × 60%(got 30000)
+PASS I5 136 系数可配:0.9 → 180000(got 180000)
+PASS I6 136 系数越界低,夹到下限 0.3(不经过 normalize 也守得住)
+PASS I3 分叉经 StewardHooks 挂接(10-context-governance 不认识 13h)
+PASS I4 到访内 L2 压缩用 steward.visitNotes 摘要 prompt
+── (J) 引擎守卫 ──
+PASS J1 主端点是 Claude CLI -> stewardResolveRoute 稳定信封
+PASS J2 回合入口同样 fail-closed(got steward.unsupported_engine)
+PASS G12 前置:锚点回合已经被归档,活会话里没有它了
+PASS G13 并发的用户回合照常跑完(got ok)
+PASS G14 到访要么等到回合收尾再归档、要么如实回 steward.busy(got ok)
+PASS G15 并发写的那条消息没丢(活会话 0 处 / 归档 1 处)
+PASS G16 也没有被写进两个地方(总共 1 处)
+PASS G17 已归档的旧消息没有被在途回合的陈旧快照复活(修前这里会把整段历史盖回活会话)
+PASS G18 归档失败如实回 archive.error(修前静默吞掉;got "EEXIST: file already exists, mkdir '/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-steward-runner-k53Nju/steward/visits'")
+PASS G19 归档没成 -> 这次到访不算真的开始(newVisit:false;got false)
+PASS G20 到访时间戳没被推进(下一次调用可以立刻重试,不必再等一个静默窗口;got 2026-11-12T14:16:51.197Z)
+PASS G21 故障排除后立刻重试成功(归档 2 条)
+PASS A7 开关关:runStewardTurn 直接 steward.disabled
+PASS A8 开关关:stewardVisit 直接 steward.disabled(不建归档)
+
+STEWARD RUNNER E2E: ALL PASS

@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-11T20:10:29.081755+00:00",
+  "mainCurrentState": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/current-state.json",
+  "sourceFiles": 75,
+  "sourceArchive": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/source-snapshot-20261111T201029Z.tar.gz",
+  "sourceArchiveSha256": "a3c31dd2d67e1151f5629d3b0a23145408f7113ffbaeda8f87f0f8b68c07e0b2",
+  "evidenceFiles": 551,
+  "evidenceIndex": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/execution-receipts-wip/evidence-index-v7.json",
+  "freezeSha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f",
+  "independentReportSha256": "8f1dc729859bc1ccec4c801a72a9ab17c03e3416fbd98aabd6907bfa05c77c8b",
+  "automaticLockRestored": false,
+  "phaseStatus": "in_progress"
+}

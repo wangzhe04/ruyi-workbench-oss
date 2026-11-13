@@ -1,0 +1,478 @@
+{
+  "at": "2026-11-11T14:26:25.172837+00:00",
+  "freezeSha256": "91100237ca368b69e2cbd8508316cff6af4bf27e1cebb9054e47cf130deac899",
+  "sources": 56,
+  "artifacts": 3,
+  "allMatched": true,
+  "rows": [
+    {
+      "path": "dev-harness/lib/browser-cleanup.js",
+      "kind": "sources",
+      "bytes": 2757,
+      "sha256": "77f67c7e31b9f5428d22deb0e056f0a17740c251b03c87b43c7ca82967b72abd",
+      "gitBlob": "cbe469af9315f1c92a3a67dd472a57f3491a2980",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/browser-fixture.js",
+      "kind": "sources",
+      "bytes": 21509,
+      "sha256": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+      "gitBlob": "7c21a90b5e7d425c2634411d24629d19ff07c3da",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/browser-path.js",
+      "kind": "sources",
+      "bytes": 1263,
+      "sha256": "435e5e8968ac124b43ee7cc0b03c34688940bf5fadbd0dd44fc88f5a5cb8d09d",
+      "gitBlob": "f81cd4521b7bb4adcc95df02c20372a963b45d5e",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/browser-profile-scope.js",
+      "kind": "sources",
+      "bytes": 11320,
+      "sha256": "3b9cf3380cc77b2ba480521cb055f9056258cd594a4120f0eca4fc5c9d32c0f4",
+      "gitBlob": "81f5aa5b9d34222c8a625d889b3a786796e5dbad",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/composer-race-fixture.js",
+      "kind": "sources",
+      "bytes": 3751,
+      "sha256": "bd13581f0d7b087065fa5047aa5ab2889394732f1d7ddb0942950c2544177f2e",
+      "gitBlob": "ef7ef731da0df57deddf46dc82c6183313cad3f0",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/count-fsp-open-preload.js",
+      "kind": "sources",
+      "bytes": 790,
+      "sha256": "535aa17423ade29417e1ae21b7b17ce1da7a3d3eba4c6ecc8bb97dd91670cadb",
+      "gitBlob": "e3e2ab100196bcee1e49e756cac873a625a20234",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/external-bot-fixtures.js",
+      "kind": "sources",
+      "bytes": 4032,
+      "sha256": "52df68555db7f9c89dcf3140e9a0b8856995ed62a6418928e71befecdcf07e02",
+      "gitBlob": "af5b8d0d239f8aaba4e3a2be198dfc6f797e1f15",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/external-channel-delivery-preload.js",
+      "kind": "sources",
+      "bytes": 1542,
+      "sha256": "983925b6c43a47be1ac831147fa37c39746c222657a824750f925669c456b63f",
+      "gitBlob": "13f09766e509b6e02a2996263018cc0730ce1db3",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fake-anthropic-provider.js",
+      "kind": "sources",
+      "bytes": 10278,
+      "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1",
+      "gitBlob": "d7a6489354df332fff0df5dc65bcd787e5aaab76",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fake-cold-shim.js",
+      "kind": "sources",
+      "bytes": 4666,
+      "sha256": "feb322a537a7e5445a49292092f3a538621b8cd8956bf60cbd785bf5e44c2299",
+      "gitBlob": "c3df712c54591ea15fc651be524446b35dc373d6",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "kind": "sources",
+      "bytes": 11750,
+      "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202",
+      "gitBlob": "9a776a818d4061391a5450f59698e9e9f90853ff",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fake-stream-component.js",
+      "kind": "sources",
+      "bytes": 2430,
+      "sha256": "a5fddbd7db9892beaea383258660e0d2d3d3dd001b81cca2eac1b88c31e6ff56",
+      "gitBlob": "ff7aaee8ea7eb2d4dbb06d65ffb8f620399acd9c",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home-guard.js",
+      "kind": "sources",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76",
+      "gitBlob": "ef6b3c06478a491ebb19a0758face643d2d185f0",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "kind": "sources",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5",
+      "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "kind": "sources",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae",
+      "gitBlob": "4494cb248ff81a6274d885191c772d1f2480f685",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "kind": "sources",
+      "bytes": 10301,
+      "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74",
+      "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/local-provider-key.js",
+      "kind": "sources",
+      "bytes": 3957,
+      "sha256": "101a7b03d871182735d1494f791457fbb8b6c8bda9e4f091a7364ec05319958a",
+      "gitBlob": "b53f8a5d8708987b98f32ec9c1d2b021049bc9c6",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/macos-keychain-fixture.js",
+      "kind": "sources",
+      "bytes": 1977,
+      "sha256": "ffa7a7c352e43b0fbac0a8c4c1cf0c6ae19902c3916759293699050ee03ab5e9",
+      "gitBlob": "13faff84d536a080dad1e4e47d435ff19670b026",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/png-grid.js",
+      "kind": "sources",
+      "bytes": 5141,
+      "sha256": "fdd5153f735c85de18bffbe0b2fef205a2d96f07503e2be5db7c982a5c5adfe3",
+      "gitBlob": "9e605a8f43c17682f62fb7c2a79d561dd6c5cf4e",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/port-audit.js",
+      "kind": "sources",
+      "bytes": 2543,
+      "sha256": "56a6aab691dad09fa5d31e1e108f58f3082c41a86f2d357b814a8f0837b56cf0",
+      "gitBlob": "41893e13ecd579f9b59c6a96f229db7a55a8ff7a",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/privacy-backup-fixture.js",
+      "kind": "sources",
+      "bytes": 3026,
+      "sha256": "2126a669daebc2b11e16839a3547abdbec3d03c3a18f5f916b294f18c85df1ae",
+      "gitBlob": "e31a0cd5007b9f6ad60c97a6c98de2f37224a341",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/privacy-test-fixture.js",
+      "kind": "sources",
+      "bytes": 2067,
+      "sha256": "25f5c350de3876d4c0d416b9167d07461dbc9b75d103b82bd39ea6ce4e154632",
+      "gitBlob": "a0a65a8b5ce5ce55456be4ea91b4f31da2d47e46",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/real-data-root.js",
+      "kind": "sources",
+      "bytes": 1083,
+      "sha256": "edb4173a7ecb12cdd263cb24247e604e377ea0537f5c72e8f5d4eb61154c9e7f",
+      "gitBlob": "dfa7f9259704bc74725d64d2f64ef8468bab35b9",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/release-checks.js",
+      "kind": "sources",
+      "bytes": 2826,
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172",
+      "gitBlob": "4ffc87d166a7401d0d587839bfa1729f8bc2e3fe",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "kind": "sources",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e",
+      "gitBlob": "2121418a003fd170a93fce278da1c2a6140733e5",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/server-internals.js",
+      "kind": "sources",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9",
+      "gitBlob": "5ce3c7076746a13ece00dd005a21fc2558bbddfd",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/source-slice.js",
+      "kind": "sources",
+      "bytes": 6684,
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4",
+      "gitBlob": "7e17a951d76af01a96f116938c64697205fb2102",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/stream-event-scan.js",
+      "kind": "sources",
+      "bytes": 3886,
+      "sha256": "bccd8e5aeffa0ea23f3d1697cfd3650e3faba3802e78ff59b3b2b1a35391a7fa",
+      "gitBlob": "546de87df2e178a17fd6278e278307ec5c2d9b95",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/temp-janitor.js",
+      "kind": "sources",
+      "bytes": 5002,
+      "sha256": "b7f08be34628c0d54a8d634431fb9fd3250a21d97bc03cabf63b91d511f129f2",
+      "gitBlob": "d87c7c3b90dd35984485bf0315a8691c9d3eb462",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/trace-blocking.js",
+      "kind": "sources",
+      "bytes": 1522,
+      "sha256": "8604ba1fba8cd8410fcd39108a67ac4f9680792d5b6a4b8bacc2d5575a3cca0f",
+      "gitBlob": "817566f031067b21dd32e3d010d7676ca3bb9a72",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/wallclock-window-scan.js",
+      "kind": "sources",
+      "bytes": 9496,
+      "sha256": "37fe5aea1dbad0b0442fe7c60b8272598c7d027813b70905ece5c3d2c38491f5",
+      "gitBlob": "4651544d9fd44aa3e5c3410ed99a1b4f111070ce",
+      "matched": true
+    },
+    {
+      "path": "dev-harness/macos-native-receipts.e2e.js",
+      "kind": "sources",
+      "bytes": 9310,
+      "sha256": "8857590334eea5327ab27850d8cc43f2006e882b65ff45b6ef0f0b2a10520874",
+      "gitBlob": "28e2addbb6fc12cc07d493cf27beeca3484f0e41",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/__init__.py",
+      "kind": "sources",
+      "bytes": 189,
+      "sha256": "5785518cfa8dfd434ef39bb0e08fcf7e6b0c1eef3ac6f14b5e4986c07ef5a6ea",
+      "gitBlob": "02d8d0a4fc394dbcae463b0510da0c3522e4857c",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/paths.py",
+      "kind": "sources",
+      "bytes": 1539,
+      "sha256": "2accea82871031f1b25f94f5e67c17b3dd7de6198d25d39b9014ee22dd4da8c5",
+      "gitBlob": "e73b7590536c6a903fb225d4bffbf42c2da2325c",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "kind": "sources",
+      "bytes": 11261,
+      "sha256": "864407759cf1fd0fc2be0d8c1c25c0474969a7f8f7425a174e89486693a3a6a2",
+      "gitBlob": "5d3effd7825b83002475d0866bc0125efc5c83d7",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "kind": "sources",
+      "bytes": 18437,
+      "sha256": "122938c40371b755da899a5dbcfece8ddb8a875890f651a959a497f86d1d217f",
+      "gitBlob": "d0d445feb2da244a0995f67bac997384ce5b2deb",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "kind": "sources",
+      "bytes": 13332,
+      "sha256": "377a55cfb2ae0aa24578573f9f2a6f54288b8341f802ca85832eb50e2277d682",
+      "gitBlob": "fccd070ef03c66c146415843b3ad81bda9355804",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "kind": "sources",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38",
+      "gitBlob": "6020317c850e54e696524d544e4b79693462a90f",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "kind": "sources",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c",
+      "gitBlob": "f8b66192a931e5207dce9341ce0c4f5f6b168b1c",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "kind": "sources",
+      "bytes": 9151,
+      "sha256": "0faea33fe37d7b60302af09162a712d3b7f1511484864caf3148567c7cabe5a7",
+      "gitBlob": "6c9e197d27686e94d975772792d2f69997b913b8",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "kind": "sources",
+      "bytes": 11524,
+      "sha256": "79110dbaf5c0d836fb056139feec5863ed6184f7139156688559c24d9bafcb4a",
+      "gitBlob": "2e6ca07a1e2f5ce64dbeaf6d2ba3ba884307b2c4",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_macos_receipt_session.py",
+      "kind": "sources",
+      "bytes": 15519,
+      "sha256": "6b0da063f1ab82dbefb4422600ea388df45b881808786f02324e896500e8e0b1",
+      "gitBlob": "14b995a4ea0050e5f415d80df28d3bc7c1ba13bd",
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/tests/smoke_native_receipts.py",
+      "kind": "sources",
+      "bytes": 7356,
+      "sha256": "b16bf446af62766f4a1512b55fe5ad70e0790f75b4efa26dcdd23cfabd974097",
+      "gitBlob": "bbc6fc25e09d7e7b3e4c0ef88058f6011225be10",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ax.m",
+      "kind": "sources",
+      "bytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "gitBlob": "359e4c3be6f2c40ef54f5f1cd5d32c3086aa637f",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "kind": "sources",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+      "gitBlob": "82ab216b0568f56d92662356d6f0990b33f897d0",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-helper.m",
+      "kind": "sources",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "gitBlob": "6d32ea70c71a62713cb4c10b27330540a09441a0",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "kind": "sources",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "gitBlob": "19fb81e2c29cfe1b050b4ce1bf3f614bbcd26e92",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "kind": "sources",
+      "bytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "gitBlob": "d17d67f9ac2a3a10791a53c3c706a67efc626e60",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record-events.m",
+      "kind": "sources",
+      "bytes": 11119,
+      "sha256": "8a51608e72c75410bb60a7106024b89c9228a5579637d3c7659a54dc69e1e361",
+      "gitBlob": "c9cc7b2cdf624afd9d6950c9aaec215a24fe64ac",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-record.m",
+      "kind": "sources",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+      "gitBlob": "6dbb68dd2c6adb6d6a0a17837d655ce6ebab71e7",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-sequence.m",
+      "kind": "sources",
+      "bytes": 28315,
+      "sha256": "5c5d008fe3919f02cc4a57b80dcf5673e51e365499f4962be6b1f91b3842d7a6",
+      "gitBlob": "5d0c13e99777641a62cb58ad5ace0f0432e423ca",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "kind": "sources",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f",
+      "gitBlob": "b5b4c5305653330d7abdc3c877f30fbe3b421580",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation.h",
+      "kind": "sources",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9",
+      "gitBlob": "f03fead3cd0a5b0f4d29de8a88a330ef24cef632",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "kind": "sources",
+      "bytes": 24177,
+      "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+      "gitBlob": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-automation-helper.js",
+      "kind": "sources",
+      "bytes": 2728,
+      "sha256": "dbd25109cfc07b798fa541ac61574847bc2e428428f65ebbf5017022432d71f3",
+      "gitBlob": "c177ca6ed174c2efa7b42a7da1c90d5e89b506be",
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-process-helper.js",
+      "kind": "sources",
+      "bytes": 1557,
+      "sha256": "161cf7047a8662aa2f135e6b0c3388292092d1406b6ddd68f854332c12a5cabc",
+      "gitBlob": "6a495d8820c057f8ef96758947744a563bd59d38",
+      "matched": true
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-helper",
+      "kind": "artifacts",
+      "bytes": 309344,
+      "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18",
+      "matched": true
+    },
+    {
+      "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "kind": "artifacts",
+      "bytes": 35520,
+      "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e",
+      "matched": true
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "kind": "artifacts",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matched": true
+    }
+  ]
+}

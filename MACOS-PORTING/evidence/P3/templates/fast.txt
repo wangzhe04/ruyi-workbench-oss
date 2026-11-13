@@ -1,0 +1,122 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2509 / ℹ pass 2491 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+(  1/80) [fast] acc-offline-installer.static.e2e.js ... PASS (31ms)
+(  2/80) [fast] action-feedback.static.e2e.js ... PASS (29ms)
+(  3/80) [fast] agent-mode-v2.static.e2e.js ... PASS (104ms)
+(  4/80) [fast] agent-team-budget.static.e2e.js ... PASS (172ms)
+(  5/80) [fast] agent-workflows-polling-visibility.static.e2e.js ... PASS (27ms)
+(  6/80) [fast] architecture-contract-snapshots.static.e2e.js ... PASS (121ms)
+(  7/80) [fast] asr-config-ui.static.e2e.js ... FAIL exit=1 (重跑仍失败, 66ms)
+(  8/80) [fast] browser-mcp.static.e2e.js ... PASS (155ms)
+(  9/80) [fast] c2-evidence-spawn-budget.static.e2e.js ... PASS (28ms)
+( 10/80) [fast] copy-path-guard.static.e2e.js ... PASS (88ms)
+( 11/80) [fast] copy-terms.static.e2e.js ... PASS (61ms)
+( 12/80) [fast] cost-zero.static.e2e.js ... PASS (29ms)
+( 13/80) [fast] css-typography-debt.static.e2e.js ... PASS (28ms)
+( 14/80) [fast] desktop-dpi.static.e2e.js ... PASS (27ms)
+( 15/80) [fast] desktop-shell.static.e2e.js ... PASS (29ms)
+( 16/80) [fast] durable-state-inventory.static.e2e.js ... PASS (100ms)
+( 17/80) [fast] ec-d-closure.static.e2e.js ... PASS (38ms)
+( 18/80) [fast] engine-env-brief.static.e2e.js ... PASS (335ms)
+( 19/80) [fast] eol-policy.static.e2e.js ... PASS (1277ms)
+( 20/80) [fast] facts.static.e2e.js ... PASS (100ms)
+( 21/80) [fast] finalize-segments.static.e2e.js ... PASS (28ms)
+( 22/80) [fast] fixture-home.static.e2e.js ... PASS (790ms)
+( 23/80) [fast] frontend-domains.static.e2e.js ... PASS (39ms)
+( 24/80) [fast] health-i18n.static.e2e.js ... PASS (41ms)
+( 25/80) [fast] i18n-en-terms.static.e2e.js ... PASS (32ms)
+( 26/80) [fast] i18n.static.e2e.js ... PASS (213ms)
+( 27/80) [fast] inline-script-csp-hash.static.e2e.js ... PASS (45ms)
+( 28/80) [fast] kimi-plan-ui.static.e2e.js ... PASS (35ms)
+( 29/80) [fast] live-full-text.static.e2e.js ... PASS (36ms)
+( 30/80) [fast] manifest-ranges.static.e2e.js ... PASS (60ms)
+( 31/80) [fast] mcp-ops-gui.static.e2e.js ... PASS (52ms)
+( 32/80) [fast] memory-toolbox.static.e2e.js ... PASS (31ms)
+( 33/80) [fast] mermaid-render.static.e2e.js ... PASS (369ms)
+( 34/80) [fast] model-menu-classes.static.e2e.js ... PASS (51ms)
+( 35/80) [fast] module-dependency-graph.static.e2e.js ... PASS (577ms)
+( 36/80) [fast] ndjson-line-feeder.static.e2e.js ... PASS (62ms)
+( 37/80) [fast] net-token-replay.static.e2e.js ... PASS (30ms)
+( 38/80) [fast] new-thread-engine-default.static.e2e.js ... PASS (42ms)
+( 39/80) [fast] onboarding.static.e2e.js ... PASS (54ms)
+( 40/80) [fast] overlay-payload-lock.static.e2e.js ... PASS (74ms)
+( 41/80) [fast] overlay-update-gui.static.e2e.js ... PASS (44ms)
+( 42/80) [fast] process-safety.static.e2e.js ... PASS (190ms)
+( 43/80) [fast] progress-events.static.e2e.js ... PASS (193ms)
+( 44/80) [fast] prompt-snapshot.static.e2e.js ... PASS (107ms)
+( 45/80) [fast] provider-reasoning-effort-ui.static.e2e.js ... PASS (26ms)
+( 46/80) [fast] rail-pocket.static.e2e.js ... PASS (31ms)
+( 47/80) [fast] resume-banner-dismiss.static.e2e.js ... PASS (29ms)
+( 48/80) [fast] route-inventory.static.e2e.js ... PASS (572ms)
+( 49/80) [fast] runtime-optimization.static.e2e.js ... PASS (255ms)
+( 50/80) [fast] scheduler-ui.static.e2e.js ... PASS (98ms)
+( 51/80) [fast] session-save-census.static.e2e.js ... PASS (73ms)
+( 52/80) [fast] software-engineering-prompt.static.e2e.js ... PASS (91ms)
+( 53/80) [fast] start-experience.static.e2e.js ... PASS (39ms)
+( 54/80) [fast] steward-avatar.static.e2e.js ... PASS (34ms)
+( 55/80) [fast] steward-board.static.e2e.js ... PASS (59ms)
+( 56/80) [fast] steward-config.static.e2e.js ... PASS (156ms)
+( 57/80) [fast] steward-conversation.static.e2e.js ... PASS (61ms)
+( 58/80) [fast] steward-drawer.static.e2e.js ... PASS (54ms)
+( 59/80) [fast] steward-events.static.e2e.js ... PASS (124ms)
+( 60/80) [fast] steward-runner.static.e2e.js ... PASS (220ms)
+( 61/80) [fast] steward-settings.static.e2e.js ... PASS (69ms)
+( 62/80) [fast] steward-shell.static.e2e.js ... PASS (50ms)
+( 63/80) [fast] steward-tools.static.e2e.js ... PASS (1464ms)
+( 64/80) [fast] steward-walkthrough.static.e2e.js ... PASS (65ms)
+( 65/80) [fast] streaming-responsiveness.static.e2e.js ... PASS (37ms)
+( 66/80) [fast] thinking-boundary.static.e2e.js ... PASS (27ms)
+( 67/80) [fast] thread-brief.static.e2e.js ... PASS (77ms)
+( 68/80) [fast] thread-commission.static.e2e.js ... PASS (58ms)
+( 69/80) [fast] tool-image-inline.static.e2e.js ... PASS (38ms)
+( 70/80) [fast] tool-verb-coverage.static.e2e.js ... PASS (95ms)
+( 71/80) [fast] turn-narrative.static.e2e.js ... PASS (100ms)
+( 72/80) [fast] ui-bugfix.static.e2e.js ... PASS (37ms)
+( 73/80) [fast] ui-v3-p1.static.e2e.js ... PASS (45ms)
+( 74/80) [fast] ui-v3-p2.static.e2e.js ... PASS (49ms)
+( 75/80) [fast] ui-v3-p3a.static.e2e.js ... PASS (62ms)
+( 76/80) [fast] ui-v3-p3b.static.e2e.js ... PASS (58ms)
+( 77/80) [fast] ui-v3-wave1.static.e2e.js ... PASS (49ms)
+( 78/80) [fast] ui-v4-glass.static.e2e.js ... PASS (37ms)
+( 79/80) [fast] v17-review-fixes.static.e2e.js ... PASS (124ms)
+( 80/80) [fast] workflow-editor-v2.static.e2e.js ... PASS (42ms)
+
+# 汇总: 79 pass / 1 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== asr-config-ui.static.e2e.js (exit=1) ===
+    "  gate_unverified: { zh: '质量门的结论缺少验证', next: '让节点真的跑一次验证再下结论' },\n" +
+    "  gate_unpropagated: { zh: '质量门结论没有传到下游', next: '检查下游节点有没有声明依赖' },\n" +
+    "  claude_cli_error: { zh: 'Claude CLI 这一回合非正常退出', next: '看会话里最后的输出;多为 CLI 侧问题,可以重发' },\n" +
+    "  kimi_acp_error: { zh: 'Kimi 这一回合非正常退出', next: '看会话里最后的输出;可以重发' },\n" +
+    "  cli_missing: { zh: '找不到可用的 CLI', next: '到 设置 检查 CLI 路径' },\n" +
+    "  launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },\n" +
+    '  // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。\n' +
+    "  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置 → 模型与服务 → 模型服务商 检查额度或换备用端点' },\n" +
+    '  // 服务商自己报的错(HTTP 5xx / 其它 4xx、流内错误帧、Responses failed、Anthropic 拒答)。修前这些全落成 tool_error「工具执行出错」,\n' +
+    '  // 把人引去查工具;它不是工具的错,也不一定是配置的错(404 / 401 / 403 另有 provider_misconfigured),多半是服务端暂时故障或请求被拒。\n' +
+    "  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置 → 模型与服务 → 模型服务商 检查模型名与地址' },\n" +
+    '};\n' +
+    '\n' +
+    '// ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),\n' +
+    '// 3s timeout, cached 60s. binaries via existsExecutableAsync / probeRgAsync. desktopMcp present/toolCount from the\n' +
+    '// bridged-tool cache; optional{ocr,uia,cv2,playwright} via ONE bridged `diagnostics` call when an\n' +
+    '// ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────\n' +
+    'let _capCache = null; // { at, value }\n' +
+    'let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N'... 132413 more characters,
+  expected: /const PLAYBOOK_REQUIRES = \['network', 'desktopMcp', 'vision'\]/,
+  operator: 'match',
+  diff: 'simple'
+}
+Node.js v24.15.0
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-icTdAZ

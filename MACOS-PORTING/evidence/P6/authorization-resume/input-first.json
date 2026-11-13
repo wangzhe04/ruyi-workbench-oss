@@ -1,0 +1,8 @@
+{
+  "finishedAt": "2026-11-13T02:21:09.626825+00:00",
+  "exitCode": 1,
+  "seconds": 8.313,
+  "testApp": "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app",
+  "log": "input-first.txt",
+  "scope": "Before fixture correction: stable final Full App and bundled ACC/Python, but temporary fresh-source helper override. Denial receipt is preserved, not positive final-bundled-helper qualification."
+}

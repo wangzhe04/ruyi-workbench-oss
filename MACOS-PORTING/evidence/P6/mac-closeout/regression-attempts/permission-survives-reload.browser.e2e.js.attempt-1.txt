@@ -1,0 +1,12 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS R1 回合来要写文件的权限 → 弹窗出来了
+PASS R2 刷新后权限还在服务端等着、回合还活着（/api/interventions 实测 [{"tool":"file_write","deliverable":true,"live":true}]）
+PASS R3 页面回来后，待决的权限重新摆到面前（实测 {"kind":"inline"}；会话 ；会话表 1 条）
+PASS R4 点「允许」→ notes.md 真的写出来了
+PASS F1 零未捕获异常（[]）
+
+PERMISSION SURVIVES RELOAD BROWSER E2E: ALL PASS

@@ -1,0 +1,23 @@
+{
+  "label": "native",
+  "argv": [
+    "node",
+    "dev-harness/macos-native-receipts.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_NATIVE_RECEIPT_REQUIRED": "1",
+    "RUYI_NATIVE_RECEIPT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+    "RUYI_NATIVE_RECEIPT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native"
+  },
+  "startedAt": "2026-11-11T13:41:16.899316+00:00",
+  "freezeSha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c",
+  "attempt": 1,
+  "finishedAt": "2026-11-11T13:41:19.696044+00:00",
+  "elapsedSeconds": 2.7966471249965252,
+  "exitCode": 0,
+  "logSha256": "9e27dc895ace57fed0318dd4fab4470328fdeedf6cd009461201d0bc8c5fe4b5"
+}

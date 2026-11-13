@@ -1,0 +1,76 @@
+{
+  "source_tree": "/tmp/ruyi-p5-manual-worktree",
+  "results": [
+    {
+      "start": {
+        "max_seconds": 30,
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "peer_pointer_recording": {
+        "actions": [
+          {
+            "at": 0.12515904167230474,
+            "button": "left",
+            "clicks": 1,
+            "ended": 0.1418725416660891,
+            "interval": 0,
+            "op": "mouse.click",
+            "x": 560,
+            "y": 742
+          }
+        ],
+        "application": {
+          "bundle_id": "",
+          "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-kernel-y958bp6j/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "complete": true,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "stopped",
+        "input_source": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "mixed_automation": {
+        "actions": [],
+        "application": {
+          "bundle_id": "",
+          "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-manual-kernel-y958bp6j/receiver"
+        },
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "complete": false,
+        "coordinate_space": "macos_global_points",
+        "end_reason": "mixed_automation",
+        "input_source": {
+          "id": "com.apple.inputmethod.SCIM.ITABC",
+          "type": "TISTypeKeyboardInputMode"
+        },
+        "platform": "darwin",
+        "schema": 2,
+        "source": "native_window_events"
+      }
+    }
+  ],
+  "target_pid": 38965
+}

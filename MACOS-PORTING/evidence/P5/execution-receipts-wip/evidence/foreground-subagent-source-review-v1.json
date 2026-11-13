@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "kind": "independent_read_only_foreground_subagent_source_review",
+  "createdAt": "2026-11-11T21:26:33.127277+00:00",
+  "reviewer": "/root/p5_review_resumed",
+  "workspace": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "status": "no_remaining_confirmed_blocking_source_findings_in_reviewed_foreground_slice",
+  "boundary": {
+    "sourceReadOnly": true,
+    "sourceEdits": false,
+    "nativeOrHelperOrGuiExecution": false,
+    "runtimeOrUnitTestsExecutedByReviewer": false,
+    "parentReportedActualSubagentsV6": "116 pass; parent supplied evidence, not independently executed or log-qualified by this review",
+    "isFreeze": false,
+    "isFullP5Acceptance": false,
+    "mainImageFreezeByteEqualityClaim": false,
+    "defaultActivation": "off; opt-in unchanged"
+  },
+  "sourceManifest": [
+    {
+      "file": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 36479,
+      "sha256": "f402d9f45cf7cba5eb3541f2fd4ac2c3fc448705eb3cf7cf135438ff61daf965"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 28506,
+      "sha256": "be11c0405bc2d3884cf65b3099e8aa711ca7b39f97d3f953ff1032fe803a539e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/07-autonomy.js",
+      "bytes": 234429,
+      "sha256": "6f4882baeb99382e4cb21efbf848c7192c703d032b90a5b908186ee1bea932eb"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "bytes": 249802,
+      "sha256": "66604b4a046fb46ef3973ae1c0ca76c43738552bdbb1b2b1fd7c371529c1ac7d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 363559,
+      "sha256": "b4cfee94f659a562e5ca23d974841fe3c11889f03db7f871e715388d19636736"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 11618,
+      "sha256": "411c553288e9960f10d53a6ba04040e3fa1e28da70d37d6b445c2538910e495a"
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12053,
+      "sha256": "dcef62b1ad9b453fa0f74af82d65a9fc4dec644a19c9a3a53d506b18a0601f9d"
+    }
+  ],
+  "closedFindings": [
+    {
+      "id": "F1",
+      "area": "durable node transcript recovery",
+      "result": "Persistent typed nodeDelivery binds locator, scope, history SHA and binding SHA. read/open/guard validate acknowledged actual snapshot. Missing/corrupt history degrades to durable unknown, clears deliverySha256 while retaining original node hashes and first hold reason. Result remains a valid row shape."
+    },
+    {
+      "id": "F2",
+      "area": "bounded delivery slot before dispatch",
+      "result": "prepare creates private exact reservation before state preparation; actual delivery can replace only exact root/admission/ownerEpoch/invocation reservation. markDispatch rereads reservation and rechecks admission/client before commit/send. Known file-count exhaustion now rejects before native dispatch."
+    },
+    {
+      "id": "F3",
+      "area": "sibling returned-to-flush race",
+      "result": "Session dispatch ticket spans prepare through return and strict delivery/unknown; wait occurs outside ledger queue, so held-sibling window cannot race another same-session ACC preparation. Guard uses shared ten-second deadline and recomputes current pending delivery waits."
+    },
+    {
+      "id": "F4",
+      "area": "ticket cancellation and release",
+      "result": "Canceled queued ticket resolves its own held promise without overtaking predecessor; cleanup is idempotent. Invocation errors, strict delivery success, node release and parent release resolve/dequeue retained tickets. Final identity/client checks remain in actual SDK send permit. Unresolved ledger records continue to block after releasing ticket."
+    },
+    {
+      "id": "F5",
+      "area": "real resource waiting",
+      "result": "Private nodeWaiting guards actual per-tool lease wait independently of heartbeat-mutated display state; acquired/catch cleanup restores private flag and releases obtained lease if event callback throws. Public waiting_resource now restores only on actual acquired or tool_result, not heartbeat/mail/steer. permissionWaits also denies nodeCurrent."
+    },
+    {
+      "id": "F6",
+      "area": "exact image history binding",
+      "result": "stageHistory binds current image parts by object identity at newly appended tail rows, preventing prior identical screenshot/note from substituting for current projection. mainDeliveryMatches requires same distinct exact indices and copied bytes. Node delivery scope persists those indices inside binding SHA, and strict historical read verifies exact indexed rows plus whole-history SHA."
+    },
+    {
+      "id": "F7",
+      "area": "uncertainty persistence after failed transitions",
+      "result": "recordUnknown accepts same epoch and no acknowledged delivery even when failed transition removed live permission; it can only downgrade. Already-unknown row returns unchanged first reason. Cross-epoch or acknowledged record refuses. recordResult and both delivery promotion paths still require current live invocation, so this method does not promote uncertainty."
+    },
+    {
+      "id": "F8",
+      "area": "read-only receipt control",
+      "result": "Only exact execution_receipt uses already-established contextless read-only contract, forwards via client.callTool and does not allocate business invocation or record queried historical unknown as a new native action. Existing session guard remains before this branch; other business tools still require opaque context, reservation, peer verification and one-shot send permit. Python implementation accepts control None/readiness only and returns incomplete/unknown as query data without replaying action."
+    }
+  ],
+  "confirmedRemainingBlockingFindings": [],
+  "scopeLimits": [
+    "Qualification is limited to in-process real provider foreground workflow node admissions tied to an actual live parent owner. Background, API turn0, cold resume as independent workflow authority and CLI subagents remain unsupported/refused; do not fabricate turnSettlers or turnSeq.",
+    "Durable objects are batch intent and per-ACC projected-history snapshots. Final assistant text/current postcompaction history persistence, full exact transcript replay after restart and provider consumption are not claimed.",
+    "Historical delivery hashes refer to saved/reloaded snapshots, not necessarily a prefix of current history after later tool insertion or compaction.",
+    "No global ACK/retention confirmation or automatic cleanup is qualified. Existing explicit file/byte/row bounds refuse when exhausted; approximately16GiB snapshot namespace bound is not a measured disk/performance budget.",
+    "Protected ledger reads now validate acknowledged node transcripts. Long-session, large-image, aggregate multi-session IO and throughput remain unqualified.",
+    "Parent-supplied native/test success and raw logs require independent evidence binding/freeze review outside this source-only report. This report does not supersede historical frozen image evidence or full original P5 gate."
+  ]
+}

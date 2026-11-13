@@ -1,0 +1,9 @@
+test_control_uses_only_existing_exact_status_exception (__main__.ExecutionControl.test_control_uses_only_existing_exact_status_exception) ... ok
+test_fixed_control_skips_registered_monitor_dpi_and_browser_dispatch (__main__.ExecutionControl.test_fixed_control_skips_registered_monitor_dpi_and_browser_dispatch) ... ok
+test_only_fixed_control_value_is_accepted_before_reader_or_readiness (__main__.ExecutionControl.test_only_fixed_control_value_is_accepted_before_reader_or_readiness) ... ok
+test_receipt_control_preserves_strict_reader_and_adds_readiness_without_new_contextless_tools (__main__.ExecutionControl.test_receipt_control_preserves_strict_reader_and_adds_readiness_without_new_contextless_tools) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.018s
+
+OK

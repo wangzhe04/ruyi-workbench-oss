@@ -1,0 +1,511 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T15:46:46.747142+00:00",
+  "verdict": "passed_frozen_product_strict_reader_integration_scope",
+  "worktree": "/private/tmp/ruyi-p5-execution-receipts-worktree",
+  "base": "f4f8ba23",
+  "implementationState": "Full execution-receipts feature remains WIP, not submitted to formal four engineering gates or whole original acceptance. Strict reader is now connected to actual execution_receipt; immutable Node preparation remains unactivated in dispatch/durable storage.",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/reader-integration-freeze-v1.json",
+    "bytes": 19462,
+    "sha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab"
+  },
+  "sourceReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/reader-integration-source-review-v1.json",
+    "bytes": 9270,
+    "sha256": "6bc011e82a422753b6c9cee779ec826e9b013c415b426e9831e8467c4124c54a",
+    "outcome": "No new actionable source finding identified within this reader-integration slice."
+  },
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "invocations": [
+    {
+      "label": "node",
+      "argv": [
+        "node",
+        "--test",
+        "dev-harness/unit/execution-preparation.test.js",
+        "dev-harness/unit/execution-arguments.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T15:45:24.997786+00:00",
+      "freezeSha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T15:45:25.155570+00:00",
+      "elapsedSeconds": 0.1576701660233084,
+      "exitCode": 0,
+      "logSha256": "e1e1e6845accfc73e62852e7daa8c126879fa3e149502451d672099ba019bc0b"
+    },
+    {
+      "label": "journal",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_journal.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T15:45:29.814313+00:00",
+      "freezeSha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T15:45:29.960324+00:00",
+      "elapsedSeconds": 0.14585920798708685,
+      "exitCode": 0,
+      "logSha256": "90d7f8cdc9c30dabbf7929bace08040cf605b617c8e5b948ca3285826a7b5587"
+    },
+    {
+      "label": "validation",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T15:45:37.310216+00:00",
+      "freezeSha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T15:45:37.453508+00:00",
+      "elapsedSeconds": 0.14313037498504855,
+      "exitCode": 0,
+      "logSha256": "f070d19f4d5c973a884e40de9996a858e250530b4c594568a2de52b5e63d8b91"
+    },
+    {
+      "label": "context",
+      "argv": [
+        "node",
+        "dev-harness/macos-execution-context.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_EXECUTION_CONTEXT_REQUIRED": "1",
+        "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+        "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "RUYI_EXECUTION_CONTEXT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context"
+      },
+      "startedAt": "2026-11-11T15:45:43.004045+00:00",
+      "freezeSha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab",
+      "attempt": 1,
+      "runtimeVersions": {
+        "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+        "mcpVersion": "1.30.0",
+        "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+        "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+        "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+        "nodeExecutable": "/Users/jiming/.local/bin/node",
+        "nodeVersion": "v24.15.0"
+      },
+      "finishedAt": "2026-11-11T15:45:43.627710+00:00",
+      "elapsedSeconds": 0.6235272079939023,
+      "exitCode": 0,
+      "logSha256": "8ca75dfd236ce98831603c0bcbf3c418fec74bd105f53c3a8ee10ce9ab2f053f"
+    }
+  ],
+  "results": {
+    "nodePreparationAndArguments": {
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1
+    },
+    "pythonJournal": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "newCoverage": "Strict archived JSON rejects hash-matching duplicate terminal keys, duplicate marker keys and nonfinite values without inventing terminal."
+    },
+    "pythonValidation": {
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "reason": "Requalified synthetic causal graph/private-blob validation against the changed strict journal dependency."
+    },
+    "actualSdkContext": {
+      "checksPassed": 33,
+      "checksFailed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": "Real production MCP client/SDK1.30.0→reserved metadata→tool wrappers→native journal/decoder→strict product execution_receipt reader; wait and mouse.position only plus isolated evidence corruption."
+    },
+    "totalPassed": 87,
+    "retries": 0,
+    "allFourTestProcessesExitedNormally0": true
+  },
+  "actualReaderEvidence": {
+    "raw": {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context/results.json",
+      "bytes": 104730,
+      "sha256": "6f6393e9607d7f56397adb1ca82f7615a96104cdcb7a6e9aa2f4998be652ef28"
+    },
+    "corruptPrivateBlob": {
+      "invocation_id": "acef78c03ea6a620a5e1124a1f935476",
+      "ok": false,
+      "code": "execution_receipt_semantics",
+      "outcome": "unknown",
+      "request_terminal_observed": false,
+      "incomplete": true,
+      "semantic_validation": null,
+      "recordsReturned": 0
+    },
+    "duplicateTerminalKeysWithMatchingCommittedHash": {
+      "invocation_id": "ed5d75c72b344da51e2975e4f5a9a4ec",
+      "ok": true,
+      "code": null,
+      "outcome": null,
+      "request_terminal_observed": false,
+      "incomplete": true,
+      "semantic_validation": {
+        "semantic_version": 1,
+        "invocation_id": "ed5d75c72b344da51e2975e4f5a9a4ec",
+        "records_validated": 14,
+        "request_terminal_observed": false,
+        "request_transport_returned": null,
+        "unresolved_operation_ids": [
+          "b5871bd8a64049f2bba7061e420a846b"
+        ],
+        "top_level_tool_observed": true,
+        "lifecycle_unknown": true,
+        "reported_unknown_operation_ids": [],
+        "terminal_flags": {
+          "f15633e4bf584e26ae269b2de229af05": {
+            "stage": "tool_terminal",
+            "flags": {
+              "ok": true
+            }
+          },
+          "bf018f36eeac49228042388a4f449a7c": {
+            "stage": "tool_terminal",
+            "flags": {
+              "ok": true
+            }
+          },
+          "37eba02f604545248db8b8bfc07e58f3": {
+            "stage": "tool_terminal",
+            "flags": {
+              "ok": true
+            }
+          },
+          "217972428a6140b5bfa4d4324334dfd5": {
+            "stage": "native_terminal",
+            "flags": {
+              "ok": true
+            }
+          }
+        }
+      },
+      "recordsReturned": 14
+    },
+    "interpretation": "Corrupt private argument evidence refuses with execution_receipt_semantics/outcome unknown, no terminal and incomplete. Ambiguous JSON may return a valid readable committed prefix with reader ok=true; lifecycle_unknown=true, unresolved request, incomplete and request_terminal_observed=false explicitly prevent lifecycle-success inference.",
+    "preservationMeaning": "The fixture verifies immediately that failed reader validation does not modify/reset the corrupt blob. Successful fixture cleanup then removes the isolated root. This is not an archival promise that corrupt private blob bytes remain on disk after cleanup."
+  },
+  "bindings": {
+    "sourceCount": 72,
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      },
+      {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+        "bytes": 291712,
+        "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+      }
+    ],
+    "checkpointCount": 8,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context-after-binding.json",
+        "bytes": 21977,
+        "sha256": "ffad88950f61f336fa58da0a5f34ea3d1a44cd0aa55f6f89135898e635a3a319",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context-before-binding.json",
+        "bytes": 21977,
+        "sha256": "05576f3eab06c39caed99e50ae20099421435665a405ca273eb5828fef6c67b6",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/journal-after-binding.json",
+        "bytes": 21977,
+        "sha256": "1266e63dbc6cf30920252454373a5cf54f2c8f282a4a1187f5bb59a9caeec525",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/journal-before-binding.json",
+        "bytes": 21977,
+        "sha256": "5e4ca8fd404da194625c7ef651737536c2cba88af1f0cbbc3b4ee99ad2643133",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/node-after-binding.json",
+        "bytes": 21977,
+        "sha256": "0f1ba7ca2ede33863e25523fb4efff3e89c4b170cbfb2ab46909025c5e275bba",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/node-before-binding.json",
+        "bytes": 21977,
+        "sha256": "34a1acbfe4f1c451840801a53891a1e2eaaf540e87588e5beb8d2b6b9c655f56",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/validation-after-binding.json",
+        "bytes": 21977,
+        "sha256": "714ad0fa5dc0285fd1074e2423efa95d9467844260fe54c87f346066ad7c1a73",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/validation-before-binding.json",
+        "bytes": 21977,
+        "sha256": "40152b2b13ca3007b678ae4f1611f0d630a8e44a543a432f999a38be677ecb25",
+        "sources": 72,
+        "artifacts": 3,
+        "allMatched": true
+      }
+    ],
+    "artifactRoles": "Candidate receipt helper and worktree process-helper used by read-only context; original authorized1cc compatibility artifact was hash-bound only, not rerun here."
+  },
+  "cleanup": {
+    "retained": false,
+    "retainedRoot": null,
+    "receipts": [
+      {
+        "killed": [],
+        "scope": "owned-group-and-observed",
+        "incomplete": false,
+        "escapeCoverage": "observed-only",
+        "unconfirmed": 0,
+        "terminated": 2,
+        "alreadyExited": 1,
+        "guardianCleanup": {
+          "incomplete": false,
+          "unconfirmed": 0,
+          "terminated": 0,
+          "alreadyExited": 4,
+          "observed": 4
+        }
+      },
+      {
+        "killed": [],
+        "scope": "owned-group-and-observed",
+        "incomplete": false,
+        "escapeCoverage": "observed-only",
+        "unconfirmed": 0,
+        "terminated": 2,
+        "alreadyExited": 1,
+        "guardianCleanup": {
+          "incomplete": false,
+          "unconfirmed": 0,
+          "terminated": 0,
+          "alreadyExited": 4,
+          "observed": 4
+        },
+        "code": null,
+        "signal": "SIGKILL",
+        "commandExitCode": null,
+        "commandSignal": 9,
+        "status": "terminated"
+      }
+    ],
+    "scope": "Fixture owned-group and observed descendants only; no arbitrary escape coverage or extra external process census claimed."
+  },
+  "boundaries": [
+    "Product strict reader is now integrated and qualified for these exact current72 sources; this supersedes standalone-only status for this reader slice, not the full feature",
+    "Node pure prepare remains undispatched and unpersisted; no ordinary provider durable preparation/actual dispatch/restart reconciliation accepted",
+    "Prior context69 and pure72 freezes retain their own historical bindings; selected context33 and four suites were explicitly rerun under this new freeze, not blanket historical reacceptance",
+    "No protocol/adapter rerun, event posting, GUI/window/clipboard mutation, held fault, OS lock/TCC or App actions",
+    "No process hard-kill/held-release/rescue, unknown automatic continuation/replay guard, macOS14/display/Windows/formal identity or whole-P5 acceptance",
+    "Strict journal qualification does not imply power-loss or whole-system-crash guarantees"
+  ],
+  "actions": {
+    "productOrTestSourceEditsByReviewer": 0,
+    "nativeMutatingActions": 0,
+    "GUIOrClipboardWindowMutations": 0,
+    "heldLockTCCOrAppActions": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "phaseStatus": "in_progress",
+  "fullOriginalGate": "open",
+  "fullP5Acceptance": false,
+  "automaticLockRestoration": "Reserved until full P5 acceptance, not performed at this slice.",
+  "evidence": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context/results.json",
+      "bytes": 104730,
+      "sha256": "6f6393e9607d7f56397adb1ca82f7615a96104cdcb7a6e9aa2f4998be652ef28"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context-after-binding.json",
+      "bytes": 21977,
+      "sha256": "ffad88950f61f336fa58da0a5f34ea3d1a44cd0aa55f6f89135898e635a3a319"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context-before-binding.json",
+      "bytes": 21977,
+      "sha256": "05576f3eab06c39caed99e50ae20099421435665a405ca273eb5828fef6c67b6"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context-invocation.json",
+      "bytes": 1823,
+      "sha256": "58b49fc42cdc9a6ecd5e98c30d3494883bc23ffc8d8d21ac3b33c34612763db9"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context.log",
+      "bytes": 2815,
+      "sha256": "8ca75dfd236ce98831603c0bcbf3c418fec74bd105f53c3a8ee10ce9ab2f053f"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/journal-after-binding.json",
+      "bytes": 21977,
+      "sha256": "1266e63dbc6cf30920252454373a5cf54f2c8f282a4a1187f5bb59a9caeec525"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/journal-before-binding.json",
+      "bytes": 21977,
+      "sha256": "5e4ca8fd404da194625c7ef651737536c2cba88af1f0cbbc3b4ee99ad2643133"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/journal-invocation.json",
+      "bytes": 1579,
+      "sha256": "b4a61b959e3bbf0f2a53b0bcccecf908932f0178c3cfaeef47ada5ea6570c51e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/journal.log",
+      "bytes": 117,
+      "sha256": "90d7f8cdc9c30dabbf7929bace08040cf605b617c8e5b948ca3285826a7b5587"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/node-after-binding.json",
+      "bytes": 21977,
+      "sha256": "0f1ba7ca2ede33863e25523fb4efff3e89c4b170cbfb2ab46909025c5e275bba"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/node-before-binding.json",
+      "bytes": 21977,
+      "sha256": "34a1acbfe4f1c451840801a53891a1e2eaaf540e87588e5beb8d2b6b9c655f56"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/node-invocation.json",
+      "bytes": 1552,
+      "sha256": "6bdc1d1769f34ca27bb7e17a72a38c12dd6b01f6e80376283d9bd2bc49e33de4"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/node.log",
+      "bytes": 1363,
+      "sha256": "e1e1e6845accfc73e62852e7daa8c126879fa3e149502451d672099ba019bc0b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/reader-integration-freeze-v1.json",
+      "bytes": 19462,
+      "sha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/run_once.py",
+      "bytes": 3453,
+      "sha256": "7bba9fbafcc216218e058aab28c1618d3a209f25475d4d118141690baadf363a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/runtime-versions.json",
+      "bytes": 715,
+      "sha256": "556792ed67717c8ac677650e722cd767c48316fd5708880e01bf9a3ae91e062d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/validation-after-binding.json",
+      "bytes": 21977,
+      "sha256": "714ad0fa5dc0285fd1074e2423efa95d9467844260fe54c87f346066ad7c1a73"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/validation-before-binding.json",
+      "bytes": 21977,
+      "sha256": "40152b2b13ca3007b678ae4f1611f0d630a8e44a543a432f999a38be677ecb25"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/validation-invocation.json",
+      "bytes": 1593,
+      "sha256": "4bd1c27fc19a3a8e4f6099d9d5ee14b6a41685ab862927900dd442bb0e465f08"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/validation.log",
+      "bytes": 123,
+      "sha256": "f070d19f4d5c973a884e40de9996a858e250530b4c594568a2de52b5e63d8b91"
+    }
+  ]
+}

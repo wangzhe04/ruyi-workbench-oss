@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T10:51:31.303814+00:00",
+  "verdict": "passed_generated_route_metadata_only_freeze_v4",
+  "scope": "Read-only supplemental metadata review. No GUI/fault/test/build/generator/signature/process invocation was performed. Existing wait-only source review is unchanged and reused by exact source/artifact hashes.",
+  "previousSourceReview": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v2.json",
+    "bytes": 17356,
+    "sha256": "4ba629fc86a76042672fd867ba4da302e2e9d076b7a096a18a4980668c59e239"
+  },
+  "freezeV3": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v3.json",
+    "bytes": 7232,
+    "sha256": "71cc3d0eebd97695a4c3109b35dcbb71a9a5e24061200c08659f389f34ad31f7"
+  },
+  "freezeV4": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+    "bytes": 7579,
+    "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+  },
+  "sourceDelta": {
+    "previousSourceCount": 37,
+    "newSourceCount": 39,
+    "addedPaths": [
+      "docs/architecture/route-inventory.json",
+      "docs/architecture/route-inventory.md"
+    ],
+    "allPrior37RowsIdentical": true,
+    "bothArtifactsIdentical": true,
+    "all39WorkingSourceFilesAnd2ArtifactsMatchV4": true,
+    "waitOnlyJsSha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc",
+    "receiverSha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+  },
+  "generatedFiles": [
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "baseCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+      "baseGitBlob": "0f2eea4dc7aec71160b2f374a6a2362865ce1e2e",
+      "baseSha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b",
+      "current": {
+        "bytes": 208344,
+        "sha256": "5f853e0ed2a29d63e74820f0c028d64ecb51a6af01b26aad06e5a389a37a9f45"
+      },
+      "freezeV4RowMatches": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "baseCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+      "baseGitBlob": "836e0a1fa33ccd4a78ba3099e8e36227322219d2",
+      "baseSha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108",
+      "current": {
+        "bytes": 34115,
+        "sha256": "d4f0c2547799e1664101748eaf20ecb2518c15d47188093957d437762cd116bd"
+      },
+      "freezeV4RowMatches": true
+    }
+  ],
+  "jsonReview": {
+    "onlyTopTimestampAndCoveredByChanged": true,
+    "schemaSourcesSummaryRouteAuthDecisionHandlersDelegationsProblemsWarningsUnchangedAfterRemovingCoverageAndTimestamp": true,
+    "addedCoverageReferences": [
+      {
+        "jsonPath": "root.decisionPoints[44].coveredBy",
+        "oldCount": 67,
+        "newCount": 68,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/mission",
+          "handler": "handleApi",
+          "auth": "body-token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[66].coveredBy",
+        "oldCount": 200,
+        "newCount": 201,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/chat/stream",
+          "handler": "handleApi",
+          "auth": "token-browser"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[67].coveredBy",
+        "oldCount": 24,
+        "newCount": 25,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/tools/",
+          "handler": "handleApi",
+          "auth": "token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[109].coveredBy",
+        "oldCount": 264,
+        "newCount": 265,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/sessions",
+          "handler": "handleSessionApiRoutes",
+          "auth": "token-browser"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[111].coveredBy",
+        "oldCount": 264,
+        "newCount": 265,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/sessions",
+          "handler": "handleSessionApiRoutes",
+          "auth": "token-browser"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[114].coveredBy",
+        "oldCount": 147,
+        "newCount": 148,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/sessions/:id",
+          "handler": "handleSessionApiRoutes",
+          "auth": "token-browser"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[115].coveredBy",
+        "oldCount": 52,
+        "newCount": 53,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token-browser"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[116].coveredBy",
+        "oldCount": 52,
+        "newCount": 53,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[117].coveredBy",
+        "oldCount": 31,
+        "newCount": 32,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions/:missionId",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[118].coveredBy",
+        "oldCount": 31,
+        "newCount": 32,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions/:missionId/threads",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[119].coveredBy",
+        "oldCount": 31,
+        "newCount": 32,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions/:missionId/merge",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[120].coveredBy",
+        "oldCount": 31,
+        "newCount": 32,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions/:missionId/split",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[121].coveredBy",
+        "oldCount": 31,
+        "newCount": 32,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions/:missionId",
+          "handler": "handleMissionsApiRoutes",
+          "auth": "token-browser"
+        }
+      },
+      {
+        "jsonPath": "root.decisionPoints[123].coveredBy",
+        "oldCount": 31,
+        "newCount": 32,
+        "onlyAddedReference": "dev-harness\\macos-neutral-abort.e2e.js",
+        "routeIdentity": {
+          "path": "/api/missions/:missionId/interventions/:interventionId/decision",
+          "handler": "handleInterventionApiRoutes",
+          "auth": "token"
+        }
+      }
+    ],
+    "addedReferenceCount": 14,
+    "noRemovedOrOtherAddedReferences": true
+  },
+  "markdownReview": {
+    "lineCountUnchanged": true,
+    "changes": [
+      {
+        "line": 4,
+        "kind": "generatedAt only"
+      },
+      {
+        "line": 89,
+        "kind": "coverage count+1 only",
+        "method": "GET/POST",
+        "path": "`/api/mission`",
+        "oldCount": 67,
+        "newCount": 68
+      },
+      {
+        "line": 111,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/chat/stream`",
+        "oldCount": 200,
+        "newCount": 201
+      },
+      {
+        "line": 112,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/tools/`",
+        "oldCount": 24,
+        "newCount": 25
+      },
+      {
+        "line": 141,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/missions/:missionId/interventions/:interventionId/decision`",
+        "oldCount": 31,
+        "newCount": 32
+      },
+      {
+        "line": 187,
+        "kind": "coverage count+1 only",
+        "method": "GET",
+        "path": "`/api/missions`",
+        "oldCount": 52,
+        "newCount": 53
+      },
+      {
+        "line": 188,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/missions`",
+        "oldCount": 52,
+        "newCount": 53
+      },
+      {
+        "line": 189,
+        "kind": "coverage count+1 only",
+        "method": "PATCH/POST",
+        "path": "`/api/missions/:missionId`",
+        "oldCount": 31,
+        "newCount": 32
+      },
+      {
+        "line": 190,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/missions/:missionId/threads`",
+        "oldCount": 31,
+        "newCount": 32
+      },
+      {
+        "line": 191,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/missions/:missionId/merge`",
+        "oldCount": 31,
+        "newCount": 32
+      },
+      {
+        "line": 192,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/missions/:missionId/split`",
+        "oldCount": 31,
+        "newCount": 32
+      },
+      {
+        "line": 193,
+        "kind": "coverage count+1 only",
+        "method": "GET",
+        "path": "`/api/missions/:missionId`",
+        "oldCount": 31,
+        "newCount": 32
+      },
+      {
+        "line": 219,
+        "kind": "coverage count+1 only",
+        "method": "GET",
+        "path": "`/api/sessions`",
+        "oldCount": 264,
+        "newCount": 265
+      },
+      {
+        "line": 221,
+        "kind": "coverage count+1 only",
+        "method": "POST",
+        "path": "`/api/sessions`",
+        "oldCount": 264,
+        "newCount": 265
+      },
+      {
+        "line": 224,
+        "kind": "coverage count+1 only",
+        "method": "DELETE/GET/PATCH/POST",
+        "path": "`/api/sessions/:id`",
+        "oldCount": 147,
+        "newCount": 148
+      }
+    ],
+    "onlyGenerationTimeAnd14CoverageCountIncrements": true,
+    "allMethodPathAuthHandlerCellsUnchanged": true
+  },
+  "productRuntimeChangedPaths": [],
+  "history": {
+    "primaryEngineeringV1": "Parent reported syntax1156/build freshness/unit2499+18 existing skips passed; fast79/80 failed the route-inventory generated-coverage sync and its built-in retry still failed. Original failure logs remain retained.",
+    "reasonForChange": "Generator refreshed lexical coveredBy references for the newly added macos-neutral-abort fixture. No E2E/receiver/product behavior was changed by this metadata delta.",
+    "primaryEngineeringV2": "Parent is rerunning full fast, which includes its own unit preflight. This source-only review does not assert that in-progress run passed and does not erase prior fast failure or claim zero reruns.",
+    "engineeringReuseLimit": "Unchanged37 sources and both artifacts allow exact-hash reuse of earlier syntax/build/unit within their recorded scope. Newly added metadata must still pass final generated-inventory/fast verification."
+  },
+  "claimLimits": [
+    "Generated coveredBy is the existing static lexical coverage inventory, not proof that every listed endpoint ran successfully or that the hard-abort gate passed.",
+    "Prior neutral-source review scope remains wait-only/zero input. Approved/pending Node invocation does not itself prove ACC await-entry or durable interrupted attribution.",
+    "No GUI/fault, held input/release/rescue, input/clipboard, TCC/lock, App/provider runtime acceptance or whole-P5 closure is added by this review."
+  ],
+  "unresolvedFindings": [],
+  "actionsThisReview": {
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "generatorRuns": 0,
+    "stagingChanges": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/hard-abort/neutral-metadata-review-v1.json"
+    ]
+  },
+  "phaseStatus": "in_progress"
+}

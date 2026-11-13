@@ -15,12 +15,14 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-tool-loading-cache-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// These schema/loading fixtures model a ready runtime; unavailable hosts have dedicated e2e coverage.
+const capabilities = { network: { online: true }, gitCli: true, runtime: { capabilities: { 'process.supervisor': { ready: true } } } };
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const cfg = srv.defaultConfig();
-const offered = srv.buildOpenAiTools(cfg, null, { skillsEnabled: true });
+const offered = srv.buildOpenAiTools(cfg, capabilities, { skillsEnabled: true });
 const names = state => state.current().map(t => t.function.name);
-const STARTER = ['web_search', 'web_fetch', 'powershell_run'];
+const STARTER = ['web_search', 'web_fetch', process.platform === 'darwin' ? 'shell_run' : 'powershell_run'];
 let keySeq = 0;
 const freshKey = () => `sess_cachetest${process.pid}x${(keySeq += 1)}`;   // 冻结表是进程级的,每条用例一把新钥匙
 
@@ -30,16 +32,17 @@ test('[C1] 起手工具第一发就在;被关掉的、管家会话、full 模式
   assert.ok(!chit.includes('file_read'), 'file_read 仍按需(tool-loading e2e 钉着的那条)');
   // allowCommandTools:false → powershell_run 根本不在目录里,起手也不会带
   const noCmd = { ...cfg, allowCommandTools: false };
-  const noCmdNames = names(srv.createToolLoadingState(noCmd, '你好', null, srv.buildOpenAiTools(noCmd, null, {}), null, null));
+  const noCmdNames = names(srv.createToolLoadingState(noCmd, '你好', null, srv.buildOpenAiTools(noCmd, capabilities, {}), null, null));
   assert.ok(!noCmdNames.includes('powershell_run'));
+  assert.ok(!noCmdNames.includes('shell_run'));
   assert.ok(noCmdNames.includes('web_search'));
   // 管家会话的目录里只有 steward_*,起手工具不会混进来
-  const stewardTools = srv.buildOpenAiTools(cfg, null, { stewardSession: true });
+  const stewardTools = srv.buildOpenAiTools(cfg, capabilities, { stewardSession: true });
   const st = names(srv.createToolLoadingState(cfg, '你好', null, stewardTools, null, null));
   assert.ok(st.length > 0 && st.every(n => n.startsWith('steward_')), st.join(','));
   // full 模式本来就全装,起手工具不影响它
   const full = { ...cfg, toolLoadingMode: 'full' };
-  const fullTools = srv.buildOpenAiTools(full, null, {});
+  const fullTools = srv.buildOpenAiTools(full, capabilities, {});
   assert.equal(names(srv.createToolLoadingState(full, '你好', null, fullTools, null, null)).length, fullTools.length);
 });
 
@@ -82,6 +85,16 @@ test('[C3] 会话工具表跨重启按原序恢复', () => {
   const s4 = srv.createToolLoadingState(cfg, '你好', null, offered, null, null, { restoredNames: ['file_read'] });
   assert.equal(s4.frozenNames(), null);
   assert.ok(!names(s4).includes('file_read'));
+});
+
+test('[C3] legacy PowerShell tool history retains available tools in order when the platform starter changes', () => {
+  const state = srv.createToolLoadingState(cfg, '你好', null, offered, null, freshKey(), { restoredNames: ['powershell_run', 'file_read'] });
+  const got = names(state);
+  if (process.platform === 'darwin') {
+    assert.ok(!got.includes('powershell_run'), 'a restored tool list cannot advertise an unavailable platform tool');
+    assert.equal(got[0], 'file_read');
+  } else assert.deepEqual(got.slice(0, 2), ['powershell_run', 'file_read']);
+  for (const name of STARTER) assert.ok(got.includes(name));
 });
 
 test('[C4] 中途装载只追加在尾部,frozenNames 跟着变', () => {

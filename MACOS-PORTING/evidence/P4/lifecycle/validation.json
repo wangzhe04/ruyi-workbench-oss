@@ -1,0 +1,92 @@
+{
+  "date": "2026-11-07",
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "deliveryState": "uncommitted_worktree",
+  "scope": "P4 combined current macOS27 arm64 local development candidate; partial external acceptance",
+  "checks": [
+    {
+      "name": "complete units",
+      "passed": 2491,
+      "failed": 0,
+      "skipped": 18,
+      "log": "fast-final.txt"
+    },
+    {
+      "name": "complete static",
+      "passed": 80,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "fast-final.txt"
+    },
+    {
+      "name": "independent lifecycle",
+      "passed": 23,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "independent-retest.txt"
+    },
+    {
+      "name": "independent media",
+      "passed": 36,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "../media/combined-independent-final.txt"
+    },
+    {
+      "name": "independent bridge",
+      "passed": 35,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "../bridge/protocol-combined-final.txt"
+    },
+    {
+      "name": "independent host",
+      "passed": 30,
+      "failed": 1,
+      "exitCode": 1,
+      "log": "../bridge/host-combined-final.txt",
+      "failure": "LaunchServices service_start_timeout; owned App and backend exited"
+    },
+    {
+      "name": "existing ASR backend",
+      "passed": 41,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "../media/asr-backend.txt"
+    },
+    {
+      "name": "syntax",
+      "files": 1134,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "syntax-final.txt"
+    },
+    {
+      "name": "backend build freshness",
+      "exitCode": 0,
+      "log": "backend-build-check.txt"
+    },
+    {
+      "name": "diff whitespace",
+      "exitCode": 0,
+      "log": "diff-check.txt"
+    },
+    {
+      "name": "native build inputs and strict development signature",
+      "inputHashes": 6,
+      "matched": 6,
+      "exitCode": 0,
+      "log": "combined-build-metadata.json"
+    }
+  ],
+  "limitations": [
+    "physical sleep/wake unverified; test simulated NSWorkspace callbacks and actually suspended backend",
+    "actual login registration/approval/unregistration unverified; test only read status",
+    "notification allow/recovery/delivery and physical <=3s microphone sample pending manual unlock",
+    "latest LaunchServices failure cause not freshly confirmed; earlier Documents TCC evidence retained",
+    "existing Chrome segment/stream/warmup cases have failures and incomplete ranges; native getUserMedia also pending in isolated worlds",
+    "P4-02 workspace alias duplicate favorite remains a recorded followup",
+    "formal signing identity deferred by user",
+    "minimum macOS14 and related Windows phase gates remain recorded"
+  ]
+}

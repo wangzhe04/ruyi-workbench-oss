@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-11T06:22:54.276481+00:00",
+  "verdict": "passed_independent_physical_record_provenance_review",
+  "scope": "Independent read-only record/source review of the parent-executed standard-mouse physical demonstration. The reviewer did not interact with the GUI, produce physical input, rerun the demonstration, rebuild code or execute runtime tests. This supports this keyboard/standard-pointer projection run only, not pressure-gesture acceptance or full P5 completion.",
+  "artifacts": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/report.json",
+      "bytes": 676586,
+      "sha256": "0eaac7e1265d8e419b5cdc9a84d462bab0ca31138976338ff29da1a424cdf886"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/saved-recording.json",
+      "bytes": 19118,
+      "sha256": "9a9c0dd6a1fbd8e4925bb0034f5bdf307d4020418bee807bf4c93fe34f88fe6d"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/controller.js",
+      "bytes": 10951,
+      "sha256": "285137f0707aa279a9b8409cd96aefe964f3376d1259447ad0909d0f5929e49d"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/receiver-original.m",
+      "bytes": 18974,
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/receiver.m",
+      "bytes": 20144,
+      "sha256": "8d9362004111842a28baeaba9dd9088851c33668883e81da59ead7af40e0d5b8"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/macos-clipboard-fixture.h",
+      "bytes": 1455,
+      "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1.txt",
+      "bytes": 227,
+      "sha256": "7c0a997527f9701c6a37540df090e9d3d83e248148c2dc7d44ebdbccf6c822fa"
+    }
+  ],
+  "candidateBinding": {
+    "physicalFreeze": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v1.json",
+    "physicalFreezeSha256": "a855a64d2feb22bcf277d11a3b128d0ae8a11b7a5d4848d8800f7310d1756090",
+    "priorSourceReview": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/code-review-v1.json",
+      "sha256": "7b28b97a0b62646f98199a7ca25e2476ae37bb5135ed24d59718de17805d7184"
+    },
+    "productionHelper": {
+      "path": "/tmp/ruyi-p5-standard-mouse-helper",
+      "bytes": 291712,
+      "sha256": "a9cdfdb529827a01edf5e5d844f559d4c05f5f3064fe68d31ad96c0889cb0f61",
+      "currentHashMatchesV1": true
+    },
+    "receiverOriginalMatchesFrozenFixture": true,
+    "currentCandidateFilesMatchingV1": 33,
+    "postPhysicalHarnessChange": [
+      {
+        "path": "dev-harness/macos-manual-record.e2e.js",
+        "bytes": 43275,
+        "sha256": "519e0d77063c77c43c1f1b665ebc0e88a8d5dfa282c2def937f9a4c996d8d7f9"
+      }
+    ],
+    "laterFreeze": {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v2.json",
+      "sha256": "db04380ed1dcad757d8381ed0ab21f5955fcd9c2e1f5a696f173e7b02c4acba0"
+    },
+    "bindingInterpretation": "Physical provenance is bound to archived freeze-v1 and its completed 34-file source review. During this evidence review a later freeze-v2 appeared; its sole current difference from v1 is the manual JS harness. All 33 remaining files, runtime and product helper still match v1. No current-34-files-still-v1 claim is made.",
+    "binaryLimit": "The temporary receiver binary was cleaned up, without a separately archived binary hash. Its provenance is supported by exact archived source generation, the controller compile/launch path and matching receiver/application identities."
+  },
+  "controllerFixtureReview": {
+    "archivedControllerMatchesCurrentTmp": true,
+    "generatedReceiverExactlyReconstructed": true,
+    "fixtureHeaderMatchesCandidate": true,
+    "onlyReceiverEdits": [
+      "human-title command changes primary.title",
+      "passive raw-pointer logger before super sendEvent"
+    ],
+    "mouseMovedMaskZeroMeaning": "The logger deliberately writes 0 instead of querying associatedEventsMask on MouseMoved; this is not an observed device mask.",
+    "baseInjectionCommands": "The frozen base contains manual-hover-outside/manual-held-hover-outside/manual-drag-outside synthetic commands, but none appears in any recorded operation. Their generated events are marked with userData and would increment manualPointerTick.",
+    "markerProof": {
+      "reportsWithManualPointerTick": 550,
+      "allTickValuesZero": true,
+      "allManualPointerTypeValuesZero": true,
+      "manualFixturePointerObservedReceipts": 0
+    },
+    "interpretation": "Reviewed controller commands and marker receipts corroborate no controller/fixture-generated keyboard or pointer injection during capture. This is a source/record provenance conclusion, not fresh physical execution."
+  },
+  "captureBoundary": {
+    "startedUTC": "2026-11-11T06:03:24.944Z",
+    "endedUTC": "2026-11-11T06:04:20.044Z",
+    "mcpCalls": [
+      {
+        "name": "list_windows",
+        "at": "2026-11-11T06:03:24.325Z",
+        "phase": "outside-capture",
+        "ok": true
+      },
+      {
+        "name": "focus_window",
+        "at": "2026-11-11T06:03:24.455Z",
+        "phase": "outside-capture",
+        "ok": true
+      },
+      {
+        "name": "mouse_move",
+        "at": "2026-11-11T06:03:24.552Z",
+        "phase": "outside-capture",
+        "ok": true
+      },
+      {
+        "name": "record_start",
+        "at": "2026-11-11T06:03:24.904Z",
+        "phase": "outside-capture",
+        "ok": true
+      },
+      {
+        "name": "record_stop",
+        "at": "2026-11-11T06:04:20.014Z",
+        "phase": "capture",
+        "ok": true
+      },
+      {
+        "name": "list_windows",
+        "at": "2026-11-11T06:04:20.198Z",
+        "phase": "outside-capture",
+        "ok": true
+      },
+      {
+        "name": "macro_run",
+        "at": "2026-11-11T06:04:20.208Z",
+        "phase": "outside-capture",
+        "ok": true
+      }
+    ],
+    "captureMcpCalls": [
+      "record_stop"
+    ],
+    "captureFixtureOperations": {
+      "human-title 录制中：直接输入“你好”，再从当前光标在蓝色区拖动并松手": 1,
+      "state": 538
+    },
+    "captureInjectedCallsIndependentlyRecomputed": false,
+    "allOperationCount": 549,
+    "allReportCount": 652,
+    "ordering": "The sole positioning mouse_move (x560/y915) at 06:03:24.552Z is before standard record_start at 06:03:24.904Z. Capture starts 06:03:24.944Z. record_stop at 06:04:20.014Z finishes before clear-neutral/focus-text and macro_run at 06:04:20.208Z. During capture there are exactly 538 state reads, one title command and one MCP record_stop; no input_sequence/mouse_* or manual-* command."
+  },
+  "savedRecording": {
+    "sha256": "9a9c0dd6a1fbd8e4925bb0034f5bdf307d4020418bee807bf4c93fe34f88fe6d",
+    "bytes": 19118,
+    "equalsCollectedObject": true,
+    "equalsMacroInput": true,
+    "exactBytesEqualActualSaveSerializationOfCollectedObject": true,
+    "canonicalSemanticSha256": "478cb4a8e54897d4e4aff44b3fc53542ed7abbce3f676d77e6dc3e04399e0773",
+    "schema": 3,
+    "pointer_profile": "standard_mouse",
+    "replay_scope": "keyboard_and_standard_mouse",
+    "complete": true,
+    "end_reason": "stopped",
+    "completion_scope": "keyboard_and_standard_mouse",
+    "excluded_features": [
+      "pressure_gestures",
+      "multitouch",
+      "tablet"
+    ],
+    "actions": 6,
+    "events": 57,
+    "eventCounts": {
+      "key_down": 6,
+      "key_up": 6,
+      "move": 8,
+      "mouse_down": 1,
+      "drag": 35,
+      "mouse_up": 1
+    },
+    "allChunksIndependentlyCheckedForTimingAndOwnershipBalance": true,
+    "allPointerRowsInsideSavedBounds": true
+  },
+  "pointerEvidence": {
+    "segmentation": "Receipt array order is segmented between capture-title and post-stop replay-title; raw receipts have no individual timestamps, and none are invented.",
+    "captureRawRows": 45,
+    "captureRawSubtypes": {
+      "3": 45
+    },
+    "captureRawTypes": {
+      "5": 8,
+      "1": 1,
+      "6": 35,
+      "2": 1
+    },
+    "captureButtonRowsWithMask17179869254": 37,
+    "storedPointerRows": 45,
+    "allStoredSourceSubtypes3": true,
+    "allStoredReplaySubtypes0IncludingDefault": true,
+    "allStoredPressureCanonicalBinary": true,
+    "storedAssociationMetadataOnButtonRowsOnly": true,
+    "rawCaptureOrderPositionButtonClickFlagsSourceSubtypeAndAssociationMatchSavedRows": true,
+    "replayRawRows": 45,
+    "replayRawSubtypes": {
+      "0": 45
+    },
+    "replayButtonRowsWithMask70": 37,
+    "rawReplayOrderPositionButtonClickFlagsPressureMatchCanonicalRows": true,
+    "interpretation": "Source subtype3 and Pressure-capable association17179869254 are retained as provenance. Replay raw events show subtype0 and ordinary button association70, confirming that source device capabilities are not reproduced. No pressure stages/gestures are accepted by this result."
+  },
+  "demonstrationAndReplay": {
+    "receiverPid": 47661,
+    "windowHandle": 4508,
+    "targetProcessStart": "1794377002:795916",
+    "inputSource": {
+      "id": "com.apple.inputmethod.SCIM.ITABC",
+      "type": "TISTypeKeyboardInputMode"
+    },
+    "demonstratedText": "你好",
+    "replayedText": "你好",
+    "demonstratedCounts": {
+      "dragged": 35,
+      "key_down": 6,
+      "key_up": 6,
+      "left_down": 1,
+      "left_up": 1
+    },
+    "replayedCounts": {
+      "dragged": 70,
+      "key_down": 12,
+      "key_up": 12,
+      "left_down": 2,
+      "left_up": 2
+    },
+    "clearAfterCollectionObservedWithEmptyText": true,
+    "macro": {
+      "ok": true,
+      "completed": 11,
+      "failed": 0,
+      "sequenceResults": 6,
+      "eachSequenceReportsStandardProfileAndNormalized": true
+    },
+    "balancedEndStates": "Both states have committed 你好, marked=false, leftHeld=false, hidLeft=false, hidShift=false and modifierFlags=0. Raw combined/HID0x20000000 after replay is preserved and is not misreported as a held modifier.",
+    "outcome": "Receiver counts increase from six balanced key presses, one button pair and35 drag events to twelve balanced key presses, two button pairs and70 drag events after replay."
+  },
+  "cleanup": {
+    "mcpCleanup": {
+      "killed": [],
+      "scope": "owned-group-and-observed",
+      "incomplete": false,
+      "escapeCoverage": "observed-only",
+      "unconfirmed": 0,
+      "terminated": 2,
+      "alreadyExited": 1,
+      "guardianCleanup": {
+        "incomplete": false,
+        "unconfirmed": 0,
+        "terminated": 0,
+        "alreadyExited": 4,
+        "observed": 4
+      },
+      "code": null,
+      "signal": "SIGKILL",
+      "commandExitCode": null,
+      "commandSignal": 9,
+      "status": "terminated"
+    },
+    "receiverExit": {
+      "code": 0,
+      "signal": null
+    },
+    "sourceRestore": {
+      "event": "input-source-restore",
+      "restored": true,
+      "skipped_external_change": false
+    },
+    "cleanupErrors": [],
+    "originalInputSourceId": "com.apple.inputmethod.SCIM.ITABC",
+    "selectedInputSourceId": "com.apple.inputmethod.SCIM.ITABC",
+    "sourceMeaning": "Original and selected input sources were both Pinyin. The positive conditional restoration receipt verifies the original source in this run; restoration to a different layout was not exercised.",
+    "processMeaning": "The MCP receipt reports incomplete=false, unconfirmed=0, killed=[], two terminations and one already-exited child; guardian cleanup reports four observed/already-exited identities. Receiver exit0 is independently retained. These are owned-group-and-observed receipts, not a census of arbitrary unobserved escaped processes.",
+    "clipboard": "No clipboard seed/write command occurs; clipboardSnapshot remains false and all observed clipboardVersion values remain634. No clipboard restoration is claimed."
+  },
+  "stdout": {
+    "captureReadyMarker": true,
+    "allPassMarker": true,
+    "finalStatus": "passed",
+    "cleanupErrors": [],
+    "consistentWithFinalReport": true
+  },
+  "unclosedEvidenceFindings": [],
+  "limits": [
+    "Independent record/source review, not a second GUI run or live human observation by this reviewer.",
+    "Accepted scope is keyboard_and_standard_mouse in this owned receiver/current host. Pressure stages/gestures, multitouch and tablet semantics remain excluded.",
+    "Historical failed strict/standard attempts remain separate and are not reclassified by this successful physical-v1 artifact set.",
+    "The prior low-priority before-ready source-receipt observation is not exercised here: ready, selection and positive restoration receipts exist.",
+    "Final independent frozen runtime checks, delivery binding and original P5 remaining-audit requirements remain separate."
+  ],
+  "guiUsedByReviewer": false,
+  "runtimeTestsExecutedByReviewer": false,
+  "candidateModifiedByReviewer": false,
+  "fullP5Completion": false,
+  "phaseStatus": "in_progress",
+  "conclusion": "Archived source generation, capture command provenance, saved bytes, source-device pointer metadata, standard replay receipts and receiver outcomes are mutually consistent. No unclosed evidence inconsistency was found. The records support the parent-executed standard keyboard/mouse demonstration; they do not accept pressure gestures or establish full P5 completion."
+}

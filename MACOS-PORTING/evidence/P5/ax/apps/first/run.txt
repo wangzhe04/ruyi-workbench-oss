@@ -1,0 +1,22 @@
+PASS TextEdit document belongs to a newly created fixture process
+PASS real TextEdit consumes Chinese Unicode events and Cmd+S saves the exact owned UTF-8 document
+PASS TextEdit exposes exactly one writable native AX text area in the owned document
+PASS real TextEdit AXValue edit and normal save persist the exact owned UTF-8 document
+PASS saved TextEdit fixture window closes with verified AX absence
+PASS only the observed new TextEdit process is reaped
+PASS nonactivating fixture preserves the pre-browser clipboard
+PASS browser and descendant creation identities belong to the controlled profile
+PASS active-window query agrees with the actual Chromium window despite decorated AX titles
+PASS real Chromium consumes multiline Chinese Cmd+V and preserves prior clipboard formats
+PASS native logical-point click reaches the Chromium DOM as a trusted event
+FAIL default Chromium accessibility tree exposes the fixture DOM text area
+FAIL Error: Chromium AX area missing or ambiguous {"ok":true,"coordinate_space":"macos_global_points","count":0,"element_ttl_seconds":60,"matches":[],"nodes_scanned":46,"protocolVersion":1,"scope":"window","success":true,"truncated":0,"truncated_by":[],"window":{"application":"Google Chrome for Testing","handle":2137,"height":850,"pid":19251,"process_start":"1794304906:732857","target":{"bounds":{"height":850,"width":1200,"x":22,"y":56},"handle":2137,"pid":19251,"process_start":"1794304906:732857","ref":"FED9C0FF-75B0-4FD3-817F-7436848CE4D1"},"title":"Ruyi P5 Chromium 19171","visible":true,"width":1200,"x":22,"y":56}}
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:240:36
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS all recorded browser and descendant identities are absent before profile removal
+PASS all early-registered TextEdit process identities are absent on final cleanup
+PASS selected-app input MCP and native worker cleanup is confirmed
+PASS selected-app fixture restores the pre-test clipboard
+PASS controlled browser profile is removed after its processes exit
+
+MACOS INPUT APPS E2E: FAIL (2)

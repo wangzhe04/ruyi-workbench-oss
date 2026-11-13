@@ -1,0 +1,13 @@
+✔ trial integrity binds guides, payload, policy, provenance and the one explicit Applications shortcut (4.275583ms)
+✔ new-location installation refuses existing directories and dangling links without changing them (2.926875ms)
+✔ resource-bearing code targets resolve to the correct nearest app/framework container (0.195834ms)
+✔ distribution verification refuses corrupt images, sidecars and provenance before mounting (2.039834ms)
+✔ trial build refuses source overlap and cleans its exclusively reserved output on early failure (1.907584ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49.179584

@@ -1,0 +1,3622 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedUTC": "2026-11-11T07:39:06.990315+00:00",
+  "verdict": "passed_staged_manual_status_and_evidence_review",
+  "scope": "Independent read-only review of the staged manual-recording evidence/documentation commit at implementation HEAD1500b82b. No implementation, GUI, runtime tests, staging or commit was performed by this reviewer. The only new write is this requested review JSON, which is outside its own staged snapshot.",
+  "head": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+  "stagedSnapshot": {
+    "files": 555,
+    "bytes": 26534034,
+    "inventoryCanonicalSha256": "c8cbeed5394ce9c11da90b614a3d3dfefda12bfbe7222f148bd147f7d1ea5d25",
+    "cachedRawDiffSha256": "9130d1b8450b85b42929c1b482d60247c673df15e477c29a55e96a46752e3096",
+    "scope": "Four phase-status documents plus551 files inside MACOS-PORTING/evidence/P5/manual/. No product implementation files.",
+    "allStageBytesMatchWorkingTree": true,
+    "allFilesTextNoNulOrExecutableBinaryPayload": true,
+    "entryIsolationOwnedHelpersExcluded": true,
+    "unstagedOrUntrackedOutsideSnapshot": [
+      "?? MACOS-PORTING/evidence/P5/entry/",
+      "?? MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation/",
+      "?? MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo/"
+    ],
+    "filesInventory": [
+      {
+        "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+        "bytes": 7662,
+        "sha256": "46d64867e6badc17f8a4506984ae4ddcb5ac60b11f53dc820593d6daa547b58f",
+        "gitBlobOID": "215788a41979e7fff7de5379fa1ee588827c469e"
+      },
+      {
+        "path": "MACOS-PORTING/10-TRACKING.md",
+        "bytes": 37045,
+        "sha256": "2b46a8f68d500fc0cbcd51df8fd0b760e22aaa2ede3bab9b22d095677e8db872",
+        "gitBlobOID": "0619df51eaa056c2d9471e026b632dc084f21b23"
+      },
+      {
+        "path": "MACOS-PORTING/README.md",
+        "bytes": 8710,
+        "sha256": "7977f06dd2a806ca7324082b5b08a3dc701b58f036e0d5d9493313e015599610",
+        "gitBlobOID": "8742281ee60616aa50a91e22b93c1df9ab059601"
+      },
+      {
+        "path": "MACOS-PORTING/TASKS.json",
+        "bytes": 91911,
+        "sha256": "a4b5808deb61cb73b199ab4b8e0c77769a2b47aac2e38d86ac0767438411bee3",
+        "gitBlobOID": "76890e9217a17a31e37780b5b3c48106766f41ca"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/NEXT-STEPS.txt",
+        "bytes": 2699,
+        "sha256": "c9f9c6da95f540ce4dccfba166420c6a79c74a363b628c2a0adb3952af48ce5d",
+        "gitBlobOID": "529174e47bbb39ac7bda31c7ee566cddaaf20a60"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/README.md",
+        "bytes": 8408,
+        "sha256": "46e90e6d135c0d0bcfc32961edfc980fd707ad78bb8c8da540e99a579ea02b98",
+        "gitBlobOID": "bbc90657b39449f6bc1e3cd581b5d62c2771e7b1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/artifacts-before.json",
+        "bytes": 661,
+        "sha256": "4c9087f6fec5e6023e0d27239616ad6fb05f58254b32d957c35a24e4d49d0737",
+        "gitBlobOID": "21225df22a71583ed27a57402de5304a8ececcc2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/code-review-development.json",
+        "bytes": 1214,
+        "sha256": "d53172d26004b0927ffce37f13828e262ad02b43bd8f6efac6f70456caa65867",
+        "gitBlobOID": "f5c256fcdf197c8bd38cee9342745d8373a95795"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/code-review-v3.json",
+        "bytes": 16043,
+        "sha256": "7950580dbbf48ea6abcac5faf4d3d16c012c5976caa589bbe676e31fb8aa8448",
+        "gitBlobOID": "f15ae0473123c6b4fbc8e712dee6851ec43c679c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/code-review-v5.json",
+        "bytes": 19921,
+        "sha256": "4b95f0a93723f8f706e1b2eaf051eaa35b69673038258de2401186175c0c61b0",
+        "gitBlobOID": "d1337b7c8ef699f2388357a5a3561f333aad0be9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/code-review-v6.json",
+        "bytes": 15461,
+        "sha256": "988bb0ea0d87042d43f937d0bbf78988a6653c0d28705a65d1a77b7cfbe53c8f",
+        "gitBlobOID": "d8ce131b5d21ce2a58907546557ef88c09f637df"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/commit-binding.json",
+        "bytes": 7903,
+        "sha256": "0f06a2f959b619405132c2deb548a1e0b74970ff0f80bc1175edb7c399ef73fb",
+        "gitBlobOID": "07cb34d7d3f3cca623ccbf4990a12ef13db38449"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+        "bytes": 3434,
+        "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93",
+        "gitBlobOID": "854b681c7eefdf423fd33d2292b83c64deeef128"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/default-helper-status.json",
+        "bytes": 1212,
+        "sha256": "b0cadbbaec1e241cebd0cbce0fd8b6098fe389bbd82bde7fee21c95e0f1b584c",
+        "gitBlobOID": "af82ca6c6042c4a58db33cdb6c3c0bf3cf14dec8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/NEXT-STEPS.txt",
+        "bytes": 3021,
+        "sha256": "7981671a11137f8198524ca024b4ed20fa26e4720609c60a1fb13994e06c692f",
+        "gitBlobOID": "8dca9c2451f0dd5fb6a10fad8cf4e2dc0e08038d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/app-manual-v1.txt",
+        "bytes": 1267,
+        "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee",
+        "gitBlobOID": "3ffa09af6f196a48c0f7b3126bcdc9cbd512a5cb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/app-manual-v1/manual-host.json",
+        "bytes": 13442,
+        "sha256": "d891b7f63b097bbb662bd19e029f4eff2cdaf10c225b89a09df9652bf8e987bf",
+        "gitBlobOID": "9d9f1e6901e58d0629d62f655b9ebfed4df86678"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/app-manual-v2.txt",
+        "bytes": 1267,
+        "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee",
+        "gitBlobOID": "3ffa09af6f196a48c0f7b3126bcdc9cbd512a5cb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/app-manual-v2/manual-host.json",
+        "bytes": 13798,
+        "sha256": "bf7b69c801889e69f88ed8a88e79ed1da36430e083892cc75b67acb2db320ec9",
+        "gitBlobOID": "eb4d2a1c1d13556e929cadffd9361ee4fad9726b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/kernel-first-stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "gitBlobOID": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/kernel-first.json",
+        "bytes": 1968,
+        "sha256": "8d329226ab48bd1ac43017e5eebf1e18fc4f5ac2cbe6dadadc5e1cfb940abacf",
+        "gitBlobOID": "f811be5440850fb0006f794b80b463254565744c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/kernel-probe-source.txt",
+        "bytes": 4039,
+        "sha256": "a1e4e659aab841032d3bda6bc6c7f492bf2b0ccbdee9f06843010b4fb205802f",
+        "gitBlobOID": "1f5947184653d1d4900a5dd69bcb6652ad23e31a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/per-pid-driver-source.txt",
+        "bytes": 4047,
+        "sha256": "011ff14902ae10ae8b165c65cb12a424f9652317a28d3355bc955eb8e079e27e",
+        "gitBlobOID": "65d47946a996b3828426a87a8a76619751c26570"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/per-pid-probe-source.txt",
+        "bytes": 3531,
+        "sha256": "4fe17830959a4c3a68a6492dd96ec3af3780a17cf4b478386967b964ce618959",
+        "gitBlobOID": "9bcaf69a7aeca917c4fffa6d20721b91d913659f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/per-pid-probe-stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "gitBlobOID": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/per-pid-probe.json",
+        "bytes": 5448,
+        "sha256": "680cf4e1f8c1b8b19c29d0c35521700af9e671d632d32a47950c0d27f008c36b",
+        "gitBlobOID": "05c2b744abd405b7679159e9334c3bc96683174b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v1.txt",
+        "bytes": 2229,
+        "sha256": "ad728dfaccce46aabccdcfaef2f181560b987891775610a8c04d62430fb3c56a",
+        "gitBlobOID": "ae9d1e6f4fd2e76d0fcd1217fbed2c3514cbf53b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v1/controller.js",
+        "bytes": 9268,
+        "sha256": "8b88ad7edfa2984596ab2a803805818f40763e0c581217384d9d77e5708547c6",
+        "gitBlobOID": "0aaf5982fe5ec3c7a1db79daba6af692d67dbde5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v1/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "gitBlobOID": "66157f31a6d4182bf74c94135294977b5f80786b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v1/receiver-original.m",
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055",
+        "gitBlobOID": "c51f9a3bfaa67439aab1226c71c35a09408b63ad"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v1/receiver.m",
+        "bytes": 16845,
+        "sha256": "2f380d58ea70d2e1929962e3d22fc87d03d1e1ccdc59c98023c671210997b24b",
+        "gitBlobOID": "d6fb9685677b879a2389d1cc98d4368e583aa606"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v1/report.json",
+        "bytes": 1055414,
+        "sha256": "188c8c0982d64779fdfda7047c4ec32342620f31831c3411f7bb00aa68ac283b",
+        "gitBlobOID": "af7aad04f4fa30b99f704db046e1675ff4633b46"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v2.txt",
+        "bytes": 348,
+        "sha256": "e557ffb090058d984775778765fb0fe2612bf0793091c137c88a3ef9b5dc0fb5",
+        "gitBlobOID": "7f99bf7179ffca211c6cc98045dddae226184548"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v2/controller.js",
+        "bytes": 10358,
+        "sha256": "12b0e2addb943c90d9e455745e918ea1350de0c82121fe642fb4adccb449aa61",
+        "gitBlobOID": "2faacb1e78c53dbc20ef153359668cd6f4efa353"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v2/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "gitBlobOID": "66157f31a6d4182bf74c94135294977b5f80786b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v2/receiver-original.m",
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055",
+        "gitBlobOID": "c51f9a3bfaa67439aab1226c71c35a09408b63ad"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v2/receiver.m",
+        "bytes": 17812,
+        "sha256": "ec868db6f4477c0ffa7aa192b68e1c1b5814e1a7d57b959eb8b4cf9f09ee8c99",
+        "gitBlobOID": "3d239466861f0c5d893d9880171ec4a5978ee49a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v2/report.json",
+        "bytes": 3228312,
+        "sha256": "645f555369bbf0716350e7e4fae57d42a008434ef02b60f65605d23c91c27851",
+        "gitBlobOID": "0db9f5b8aa72184ed673f62a399f9a1b7671a81c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v3.txt",
+        "bytes": 2315,
+        "sha256": "f48aa2c6de81646bc775df5bd5b4cd69b3de8119e93b9c3991efd4484c803321",
+        "gitBlobOID": "e1e45e50b5138bcf70c84368247c9c6ecb756af6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/controller.js",
+        "bytes": 10733,
+        "sha256": "453939927133024ecbf17cffef1e025daf7a5ab8d4177d09af2eba100aa8bcc3",
+        "gitBlobOID": "a23a6d5b115df6072696771a752bd0bd9cde2133"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "gitBlobOID": "66157f31a6d4182bf74c94135294977b5f80786b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/receiver-original.m",
+        "bytes": 16751,
+        "sha256": "4279912ef38ea3a1bca4e38abb81dae67872eef17c1215eae3c16b09335d8055",
+        "gitBlobOID": "c51f9a3bfaa67439aab1226c71c35a09408b63ad"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/receiver.m",
+        "bytes": 17921,
+        "sha256": "8f1c14bb7f1599a3f5769e5c0f5c3fb0bfb8519f0e79cb98249914920efbeb4b",
+        "gitBlobOID": "43df32f30982bf0f98a9d4d357aae7b2612efc45"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/physical-v3/report.json",
+        "bytes": 1340756,
+        "sha256": "52629210885fc63bf6c1a65e0a3471028e932d7d2f0a083820c3cab3605557f9",
+        "gitBlobOID": "e8e1aa536b47b23755755c2bf1740c3af6fa545a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/prototype-state.json",
+        "bytes": 1912,
+        "sha256": "daa78beb6a72c757ccb784109772add4e60e06b92414fc226417c9a1ef6214c7",
+        "gitBlobOID": "70d3ddbb8e45549142475e437715ec8201d5468c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/pure-api-first.txt",
+        "bytes": 4751,
+        "sha256": "8062c406c9a548f55a73eb3873aeeaa63383b10a58d2568ad4223d564c91fc36",
+        "gitBlobOID": "66b49aa932a1d26fea3996c124a5c82a324ec136"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/raw-ime-probe-stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "gitBlobOID": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/raw-ime-probe.json",
+        "bytes": 2695,
+        "sha256": "77bf05b015f6ea8ef20709ae2f8d120d8dfc27f649f5e225e85921ceb4f28e3d",
+        "gitBlobOID": "7a7a3cd555616b26d0c2e0a856aef45669057ec4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/NEXT-STEPS-before-v6.txt",
+        "bytes": 4385,
+        "sha256": "bea2dd69897e49cdc469b9b37637d7d2b083eec82f88823eadc99f1af9345a16",
+        "gitBlobOID": "6fc859fc74c36d2930852af4d8facfbc2e655da7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/app-test-addition.json",
+        "bytes": 566,
+        "sha256": "e10d2c76c2146a678b6077700a9dea644df9f457cb64b8d93702758ed46dea7c",
+        "gitBlobOID": "003d1df6c441cf53d16d890c236dc215280adedb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/cleanup-fault-direct-v1.txt",
+        "bytes": 4893,
+        "sha256": "cbba9b5cd7e4ad3a75e7ee0c5f7959a92519e81e548337f6a56fd8d56b7adcd2",
+        "gitBlobOID": "b1ec3fc26a102852cb392fc7a75b7604c64e80f8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/cleanup-fault-direct-v1/results.json",
+        "bytes": 139505,
+        "sha256": "fe0a9a2b7c28f6fe4caab7f84b342beb2c77f574724203911e08a94e9208007a",
+        "gitBlobOID": "682ce63a07989ed798c513e1e6f746a73b9f7a81"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/cleanup-fault-nested-v1.txt",
+        "bytes": 5139,
+        "sha256": "ebaa4f64a8d45aad96dd6cae9263442323454a9712b9931cbaaa4f181276d800",
+        "gitBlobOID": "8ce8e1d38bb3ab052680d64f975a468a2dfefc1c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/cleanup-fault-nested-v1/results.json",
+        "bytes": 170231,
+        "sha256": "33bc493e96ca152410ac23a6d5f13c51cff8e81bbcce3626ff99cac1b95ad32d",
+        "gitBlobOID": "05cfddebb1a670efd4d4bbcad078bb8b6821855b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v2.json",
+        "bytes": 7702,
+        "sha256": "2d11257d74971f28c6587debf7e542eebfa96e55490f987a205e00d4486c543d",
+        "gitBlobOID": "cedb7b5b147bfcad3782d5de504f764c51faa7e0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v3.json",
+        "bytes": 6443,
+        "sha256": "38af340ac2316c6594f8e670d4e9e107715bb977b6cc4f3e7f1502e8416a52a5",
+        "gitBlobOID": "15eadf7ff32d0929ba56a767f2b691d939345dff"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v4.json",
+        "bytes": 7072,
+        "sha256": "4e6677cf2d31dae675db643a237d2ee80b0477fc9a8c182c11595f12d921cdef",
+        "gitBlobOID": "c3cea7992394c4934f7e065157e8d9a0111b2b59"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v5.json",
+        "bytes": 7010,
+        "sha256": "35aa117b5d71d70332e5add20ba0d383dbf4246590293201379700d174dd0616",
+        "gitBlobOID": "915540b821868f1b9061dd34c3591d7946bc95c2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v6.json",
+        "bytes": 6764,
+        "sha256": "686eccbf2a6d7bbb2470f54c2ea9a63df5d754603f12fbdd49d8636a89c1899a",
+        "gitBlobOID": "ca56b0b11cf23eac4c51cf9358807202987631dd"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-state.json",
+        "bytes": 7118,
+        "sha256": "af1918821de828c2146541f83d86cb4ee23be813b36a872c8a554ee9e1a5596e",
+        "gitBlobOID": "f934efaf37bf176310836a120ef5aa4102c6231a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/build.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/report.json",
+        "bytes": 1294,
+        "sha256": "1cd322b10a1a995c1155306c5570aa378417f1a8b8fbcfb6d9410810c3428103",
+        "gitBlobOID": "6d69214386fcdcf4702276c1a15fac07ac42c2ca"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/static.txt",
+        "bytes": 5813,
+        "sha256": "f170d3191812c0d42db038dcc5b77094c458efebbabee706e0a52bbafde361eb",
+        "gitBlobOID": "185bd1717fb1d7f8acfd637bdc5278c606ea82ae"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/engineering/unit.txt",
+        "bytes": 393232,
+        "sha256": "fe83c75ce1aa81ab0f7d35049ccafb18b8e04670ed388918acf6d8fb5e90ca94",
+        "gitBlobOID": "4357bbf98cabe16c6c0b682870dea07c0128822d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/eof-recovery/ruyi-p5-eof-owned-recovery.log",
+        "bytes": 113,
+        "sha256": "fd4f4b2b7c6cac70eb2b08a278bd8b7da6bdee72ef757bceaf815f06d76a58e4",
+        "gitBlobOID": "756f91f0b01b97e3f984d7b2819bd0c3032ddf35"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/eof-recovery/ruyi-p5-eof-owned-recovery.m",
+        "bytes": 1890,
+        "sha256": "a0d38c35c497c41643f76c76ae2acf07a2af0f2a1a830b44cde753d1fcb97f79",
+        "gitBlobOID": "b41873068d7f158d33e25843f1b4d593746f67ae"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/eof-recovery/ruyi-p5-eof-owned-state.m",
+        "bytes": 528,
+        "sha256": "088e5b8c7c94195b2528cadf0acdc5d04061be621d00f054f308d1678908cb10",
+        "gitBlobOID": "fe6a52a9ce4ed4cc16fca889b9b75a6eb5c0d960"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/eof-recovery/ruyi-p5-eof-probe.c",
+        "bytes": 774,
+        "sha256": "f3e66ae8a442e99d310f31380e2ce9ce0eaa141da9e8e9f6e468d5c713b735cd",
+        "gitBlobOID": "37b205940639837b3dbfe39baa1dea7ba15bb52f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v2.txt",
+        "bytes": 5321,
+        "sha256": "ffa8e420ee836e29b919ea8ecb1fea148ec9aec66213015a1a2f81ad63d5a370",
+        "gitBlobOID": "2a321ad673b36052d3790a8c6673548fca575c27"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v2/results.json",
+        "bytes": 251783,
+        "sha256": "4711cc8ca123d743474382f9c77ecca39c55a2bab1033879c9f7a7ad5c042f1f",
+        "gitBlobOID": "d7c4e807e645e20fb694343bf9240fc5ac52cf61"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v3.txt",
+        "bytes": 5867,
+        "sha256": "a1f845090247bbae750f624375fc310f2c7e339af812b2011638a36ef2380c5e",
+        "gitBlobOID": "2b36fad3354fdfa91eaa52f8c38861b494aec2f2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v3/results.json",
+        "bytes": 244140,
+        "sha256": "b58be02104045229d51fab1332198c185e57d2f15f083905aefb028d64c26579",
+        "gitBlobOID": "503965137bd1151efcd285d862a1ea9b62ad7810"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v4.txt",
+        "bytes": 6219,
+        "sha256": "9d839e3839b6fa20a566cd540f46c9ec4340aea14f063f0142214a0874ee0644",
+        "gitBlobOID": "6157f867ac953c9d8e34b60445cb57388effc967"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v4/results.json",
+        "bytes": 246215,
+        "sha256": "ce97582b6c45911d20c3246b4e40de85f684ba413e3d0226ef13027e14ffdddf",
+        "gitBlobOID": "eb5eacbcbe7a68e370e0c6b93396043a6ed68868"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v5.txt",
+        "bytes": 6205,
+        "sha256": "9b5d9507783b753dc8c90f4aaa3e0d6f955b2caa36b938edb270f95fda3f4cb8",
+        "gitBlobOID": "842d1837ae7cec59fa4ca33b90f17346da1ba8d0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v5/results.json",
+        "bytes": 247183,
+        "sha256": "62fc785aaad7ffaeeb109291d2b80752367e6745bedaffe437fc85c6e4651bf3",
+        "gitBlobOID": "573a8b325053b4576c2296a30edc5a32c1aa6efe"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v6.txt",
+        "bytes": 6477,
+        "sha256": "06d165b46c41a67189cfab41cc8f609e314cd7c126fe39df90a1ee517da74e53",
+        "gitBlobOID": "b9f2939a848767d7202ac6dc6b253dc27c60a454"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v6/results.json",
+        "bytes": 247780,
+        "sha256": "8172e2f356a3c613b03d2c62b36de90c5adde6f039bcd52f56c46d30f4d24f99",
+        "gitBlobOID": "794feccd38c8782debe749864d263ee6fb3efd7f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v7.txt",
+        "bytes": 5515,
+        "sha256": "9f762376bc7c12cd2198a8d1f35ba60075cf1ddb285ae7f407beea2af7dcc43e",
+        "gitBlobOID": "c844b8df8edcff3246f4fb5cf03a6f228d3c0e8f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v7/results.json",
+        "bytes": 396401,
+        "sha256": "486c11674b051629d0281bb34ad8d8f399048f2c446db2df67ae94e6a4fbc7af",
+        "gitBlobOID": "b22bc1fe699683178197755195142c3f4842863c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v8.txt",
+        "bytes": 6477,
+        "sha256": "06d165b46c41a67189cfab41cc8f609e314cd7c126fe39df90a1ee517da74e53",
+        "gitBlobOID": "b9f2939a848767d7202ac6dc6b253dc27c60a454"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/gui-v8/results.json",
+        "bytes": 293442,
+        "sha256": "9fe695e51394d63e185f660f15ddd9a3ff33e46b74fb5ab070b1eb098323b1a8",
+        "gitBlobOID": "f6cee413784fa5c26610e60db1dbca9ae2442026"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/latest-e2e-results.json",
+        "bytes": 37,
+        "sha256": "d3748f094505f4239083938f9765fee0ea5e366a3d52c18fbb64c3afdfeaba0f",
+        "gitBlobOID": "5bc39ac72cc7dd70556886eff62e777d986852a3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pressure-guard-native-v1-error.json",
+        "bytes": 1328,
+        "sha256": "c3a41093c2c9dcbd5cd4f2f418b4ee0f376d7fad6f36a1947f9265c86ba18946",
+        "gitBlobOID": "9f6290c022d6d9326e2ed4845fb657f61fad78c7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pressure-guard-native-v2.json",
+        "bytes": 4366,
+        "sha256": "ad58d70a9311a54cc3e7e15b71bca760e6a6fae9f4bd7b3bac8b466d39b57af2",
+        "gitBlobOID": "342f5e10428947a045da13d4363e5eebe042ee26"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pressure-guard-native-v3.json",
+        "bytes": 10715,
+        "sha256": "f3f38d27399f3f477ada06f4a295dc27f78b124be44247dc5a3e86e9c98625fb",
+        "gitBlobOID": "030e410863cdcb40438412bba11c2be6d45bf24a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-freeze.json",
+        "bytes": 6084,
+        "sha256": "124a24158a3e4c4157586386d237a6be1fbfc77bfe5faecead15f2587dbc71a0",
+        "gitBlobOID": "f28fdcd3f7e9e2965d4eb0d9b3f5d83a804693b7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/report.json",
+        "bytes": 31973,
+        "sha256": "b9325901f1c5c9a3cffd4a152b968c4406279c286452649c67ee9bd37c0cf7d2",
+        "gitBlobOID": "a7928a0a7a8fc3b773461609a2882fe052599213"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "06ccfd3bf80fdc81037ecbc0af14568df7a18cbbd388cc2d5ca60a6c13988e57",
+        "gitBlobOID": "6d9ae8712a17197658fd2429a576b472ba3d2ae4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "771dcb69cad7d0fb2ff1f9f4ec638c5fda9e3b7e7d22095934b5942b2463e021",
+        "gitBlobOID": "c58278189b864d2c38bfd5a6c9e983bf1472c07a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "59fcfd603525941e010a6a8d71ffae3226c3fe1dee47533b24b0e2409312af0b",
+        "gitBlobOID": "6bef452446b48a83196a8096368a1ff96879c262"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "8899f115f44d979b148dd7cfd3d84732fda4214c1161b5a9b2dc6c2f575dcae1",
+        "gitBlobOID": "1a731bd650d55cfad09d59a9044cb8e91267b246"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_events.txt",
+        "bytes": 2015,
+        "sha256": "4fed52d556d6f5a06bac581eb618dbb13de1822ba77b8ba538a47fce238e03b1",
+        "gitBlobOID": "927259b4e6701b9b2c53f35964444d8714825f61"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "67993e30100bbae179306c267a55895a79cb7dce12b630ee6424490ff4e37780",
+        "gitBlobOID": "029b37ce37df41a6848867f2b4c9680e3b1f953f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "69341cd8158ade135a4f9db86b3b6716d36308a3c62d21c6626b5ba36766dd9e",
+        "gitBlobOID": "d72973e670ea43ad456044ab958d09996c46f686"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_sequence.txt",
+        "bytes": 2695,
+        "sha256": "f5a3987b43d971c54d16cb32d9b0764425981ae06e3e1ffc4db87546fc1fa91e",
+        "gitBlobOID": "165e1894f2e6d5697cc5ff1ade918eed1138f64e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "3c03259023a2b7e2f79a86c798340c5e332b82734d1f30d6b76eb0f9f39f3a85",
+        "gitBlobOID": "c62d0b805ee539def4f7093b0d3bfb217c90e57c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/pure-regression/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "b7bf8a1e80652af1b02e43b0ce22a491abbbb17b89df3acb65953ad7cfec9fd1",
+        "gitBlobOID": "1e0ebdae2a106408c3dfd5752dcf8a7dd86ee090"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/python-touch-v1.txt",
+        "bytes": 2877,
+        "sha256": "e14924744c39a843d7871bd99e727f0ec6239f942b12727b4cde07444eb8a235",
+        "gitBlobOID": "01884d5b7e6056ec7af8385599ce4dc02aa821b5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-app-scripts-compiled.txt",
+        "bytes": 486,
+        "sha256": "c5898fc56c0338b23dd9c65ab358dc9e58ec83d04ee86dbe85b1cef2081b55c1",
+        "gitBlobOID": "cb5c9d364cd2230581e1d4f16b39f2e669928b74"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-flags-observe.m.source.txt",
+        "bytes": 512,
+        "sha256": "ce5fdb0793e3efc199caf63b97bf8fca500efabdf7ddf37d994add7e346738fe",
+        "gitBlobOID": "143b239dd1f49abb337b84d64b71f3ffdd305798"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-main-input-baseline.txt",
+        "bytes": 2556,
+        "sha256": "26369e8920cb4e17c9469f9fc5f2f31f673a22ba0ae048ec64aa780dddd81779",
+        "gitBlobOID": "ed641dfd3fafddb5cdf354aaefd35f49d5efe181"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-eighth.txt",
+        "bytes": 723,
+        "sha256": "03d3797698f379977ec48d93d265e798bd0e2dbd969cdf23b9946f776063bc55",
+        "gitBlobOID": "b6a11c43936e91972e4ace9d48c149e2d41dcb6c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-fifth.txt",
+        "bytes": 3824,
+        "sha256": "d257f0073f32ca5561f69ee7e275fba687bbc3df69f9cea23a6b5c0580d690b8",
+        "gitBlobOID": "333e89c2ec6fdcb36583df77488d71a63b561b9d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-first.txt",
+        "bytes": 293,
+        "sha256": "2e93a592efac93ad651fc1265064c917f0dcb219cc8389addc1ff69c04daceba",
+        "gitBlobOID": "11af7b5dc5e11cf6643a965952f49829efb16665"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-fourth.txt",
+        "bytes": 3413,
+        "sha256": "d7669ba6e1030d7aa4ff1f7c4860d4efa3af4710d77cac93b769e84bf4a38d44",
+        "gitBlobOID": "b27785ce1724f8a5cf6652415aeb5336bd2a20be"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-ninth.txt",
+        "bytes": 4163,
+        "sha256": "9ab7d840197ac84f3b3c83dad30fceb5730e885539c4f6494cf943bdd6ee464f",
+        "gitBlobOID": "aee93b1417df8fe81294a2d52af9f8fe8f38ed0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-second.txt",
+        "bytes": 3413,
+        "sha256": "e82c3bfb904d84b260fa646b08d3e3d63514e981f4e9860a88f3c7e6e851cccf",
+        "gitBlobOID": "212a8c48914974def3c57b8f346aced7855d3eee"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-seventh.txt",
+        "bytes": 3579,
+        "sha256": "e0de99da85cabbcc536fa43882e3c7fd834dbff1ad6238b36595f52357d2cd51",
+        "gitBlobOID": "e9ff7777f87c2d63289f6c8255c416ca01b16b11"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-sixth.txt",
+        "bytes": 4163,
+        "sha256": "9ab7d840197ac84f3b3c83dad30fceb5730e885539c4f6494cf943bdd6ee464f",
+        "gitBlobOID": "aee93b1417df8fe81294a2d52af9f8fe8f38ed0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-tenth.txt",
+        "bytes": 125,
+        "sha256": "3e87a4d55f79ec86fc6746de14f6aa9be306d38e922ce98d4ad6faebfd716ded",
+        "gitBlobOID": "3137cff32273a54abacb026758e6562b6f626da3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-dev-e2e-third.txt",
+        "bytes": 3413,
+        "sha256": "1775307c41bc2b7f8ac6504b0ea052681a503a86c58b7cd1f875190da306c2e4",
+        "gitBlobOID": "b06c1ca12291dd4b7ae94cb4fff16843e9b51d46"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-facts-generate.txt",
+        "bytes": 415,
+        "sha256": "2b623e45ff0f70a0d5e0a6a288b53204f7790c6dc6dffc64d2b327924eaad5b4",
+        "gitBlobOID": "ae9927ebefb1f12c0aadc6a1f382fcdbb9e54965"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-facts-static-fixed.txt",
+        "bytes": 2411,
+        "sha256": "1bada2fa2b8970d6b6c2336cba226435e5ed0d2bd44533f920569440265223e1",
+        "gitBlobOID": "a3f2ae33fa7b7f4cd2198de010da96082d2249eb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-facts-static-fixed2.txt",
+        "bytes": 2333,
+        "sha256": "76f42196b3045d700b790737e3f71f7c3277f88dd2ad9b90c9a191ce215f685f",
+        "gitBlobOID": "abe15217eb25e76a63dadf8cb8756cf48c1d6f1c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-gates.txt",
+        "bytes": 784,
+        "sha256": "6f30b6e5be5ef2331d38407de3e34c5856d7cb4e6a7fcf84d70f8cb5f854af5a",
+        "gitBlobOID": "7fecff449ab1085fdaa118696bcb6a198e5e67a9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-input-pure-first.txt",
+        "bytes": 5125,
+        "sha256": "b49970cecb7c7127ad51f69e946372b3a47e21c9d2d4d58f576e24b7056b9092",
+        "gitBlobOID": "93c682eb86ba9bcbfc2a179adfc9263399557d0d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-input-pure-second.txt",
+        "bytes": 2981,
+        "sha256": "854bbc1527ec45c7fff49997305316ebc4d6d528626d5d6b587de9d49ad99604",
+        "gitBlobOID": "a369ef1a35ef4cd69086da4fbb6701e6d4971db9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-native-contracts.txt",
+        "bytes": 756,
+        "sha256": "266f087a3679af38eab9dd4e3b83e0bd392eefa1ac2378f1fdf35d70ceee3c60",
+        "gitBlobOID": "c2a92005b158f241778ddbf2f149154c92d501c2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-process-static-fixed.txt",
+        "bytes": 855,
+        "sha256": "19747cfbc81bed7f7246acc0ae7906dbf706f0d8c9e05b3192d6de9461a3d861",
+        "gitBlobOID": "9ab27d9f8c3ca0e0e30f07279d5ac216fed2bcd3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-pure.txt",
+        "bytes": 4751,
+        "sha256": "8b7b19c3791ab6577c94625d0f7df058202e4437f9be5b3565de91f986b4bf50",
+        "gitBlobOID": "9c09771a28e31070a07204f8ddb93434e6140ec8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-record-pure-latest.txt",
+        "bytes": 4918,
+        "sha256": "c05a906300c2c99de1724ce64850ab5053df38c7061e775166d9ef2ea6a6a8dd",
+        "gitBlobOID": "13a1f9d9245248547fc2b1582177dacebc3ebb54"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-static-first.txt",
+        "bytes": 9903,
+        "sha256": "b7d21e204ef64e5e03fdcc32beaa8402cbb0d0158f8be916c24e54efbaee8ff6",
+        "gitBlobOID": "850a18deba77363359e619c4509efbef033819e0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-syntax-first.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-syntax-latest.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-manual-unit-first.txt",
+        "bytes": 393055,
+        "sha256": "fa7ec9fa058f65563051fbfea1ed1aee9b3192846be9326569b0ca14f2f2ba3d",
+        "gitBlobOID": "8c5a92b92c644b78631fc4bc687d5d92f19c5b9f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-owned-input-recovery.log",
+        "bytes": 113,
+        "sha256": "a60ece8dd8ebe78837b42db9d7cfbecfdddbb82eb90b28799b64a3fccb55cff5",
+        "gitBlobOID": "21f2eb8fa87da61b9e4c74e743177ee02a121851"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-owned-input-recovery.m.source.txt",
+        "bytes": 1579,
+        "sha256": "af3c2d84c85632a6231da9d31dec97c5d48943ce16eb0f641dcfaca300af5f3f",
+        "gitBlobOID": "4b4ff6742fe43071713f73523133798dcb82dc13"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-more-first.log",
+        "bytes": 3890,
+        "sha256": "78a08173aefbdcd61430797fe48cb3d2f01cfd0db7f7d492f8f2eb8538a67d68",
+        "gitBlobOID": "d50d723247d8315729762f36147e537f12041c55"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-more.py.source.txt",
+        "bytes": 5793,
+        "sha256": "529a88bf1528185a586d930998c63e1d3e472993149c3e039915e101bec1caf2",
+        "gitBlobOID": "bf854a7bacfd97c84dea1f48d6dac7f8cb28f1a9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-fifth.txt",
+        "bytes": 2525,
+        "sha256": "0e7a14cf156bb6526a2b6063e04a53c3be4e76d5a8cad4f13475dbcdbcacd12c",
+        "gitBlobOID": "24c3732491fa0feb2402509d1f317409b40fe5aa"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-first.txt",
+        "bytes": 118169,
+        "sha256": "44672038363e3e1eb982d7ac6843f5c2482645b2bcb47a4081627712a82dcd3a",
+        "gitBlobOID": "ec5abdfad0fb28872819182f9386d741bf0c0d62"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-fourth.txt",
+        "bytes": 2325,
+        "sha256": "6995be6202ef618bd77cf43a0f2a92dfce8f181898b134b80d19c6e1d892f685",
+        "gitBlobOID": "fbbfa069aedd952af7d0c323b790d3fd971ba8cb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-latest.txt",
+        "bytes": 2695,
+        "sha256": "78c35e7f1dfaf065b27fd8b799d8c9f4de4affb6804e2fb138d48bf98b3c6c0b",
+        "gitBlobOID": "0d013b23641e2b259b930c4dee7509c889d987d1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-second.txt",
+        "bytes": 1973,
+        "sha256": "78f7482d0eeafb7ae4703720405713d110e5d4adf299ada2814231c0d78045c2",
+        "gitBlobOID": "b1c67890085099991e65a8705f1878703d63dd92"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-sixth.txt",
+        "bytes": 2525,
+        "sha256": "b8d4a251a6a15bc72fa14d06ef185293cf815db04d4ec5bedc1689d2df0e9668",
+        "gitBlobOID": "a867ea9bea118bd8bbdf225de873ec609e652d8b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-pure-third.txt",
+        "bytes": 2325,
+        "sha256": "b05a06a6d02e05dae55e7ed6bc5a598c8f05c5eea485026b565d45f09444853c",
+        "gitBlobOID": "ea97f4df17547990d32df3dee83cb78cc575e485"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-roundtrip-first.log",
+        "bytes": 15991,
+        "sha256": "75c0cbff4d179413f74a03d7ce183bb4d6a38bd961d8e883d8a1716bca8aea64",
+        "gitBlobOID": "f858aecf76a51e56c5b7cfd739b1ce64b7b4df22"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/ruyi-p5-sequence-roundtrip.py.source.txt",
+        "bytes": 5028,
+        "sha256": "3c84e063690b5f4296552191192aadc82ec81c0418b6dd5e7cca1c571e6deb83",
+        "gitBlobOID": "24a3e3a74a8add4cb0417991df231c4195a2c89e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/helper-build-equivalence.json",
+        "bytes": 2566,
+        "sha256": "fda6d908e9fc3a612f532e03595cf322fe0848fcaa519cc75a718a2f73fb6364",
+        "gitBlobOID": "0e0050de884d018038ff9d4202dc0d0cdf14e85e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-commit-binding.json",
+        "bytes": 54220,
+        "sha256": "b780d1f705eeca1205ee3b6356557eb196f1570f85204c461664ad18623d8077",
+        "gitBlobOID": "0ee99ff8ce2079a846615a559c62a34c64d6a253"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/e2e.txt",
+        "bytes": 1267,
+        "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee",
+        "gitBlobOID": "3ffa09af6f196a48c0f7b3126bcdc9cbd512a5cb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/invocation.json",
+        "bytes": 1464,
+        "sha256": "b33636785c9151cf1e9d3e1609aa8c8af36363d06e34659d9b587e6a5b4dfba6",
+        "gitBlobOID": "db98979aeade8928257266da8de26df7347a9e16"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/manual-host.json",
+        "bytes": 15400,
+        "sha256": "853104252cd677d80eaf41012b9676235713fc97dcd44e8aaffaaaa7cd9cdcc3",
+        "gitBlobOID": "e6de6d81a52fc35d7987611a9e6e6e7ef691b0da"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/observed-owned-processes.json",
+        "bytes": 2412,
+        "sha256": "f0833ff43d05c21b110f6240fc781fc61b2490bde3d8e1f6e2fd2a0c2bfef9ba",
+        "gitBlobOID": "7818bf9db8f7147221d1d93bfa821832d7f71953"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/app/report.json",
+        "bytes": 9970,
+        "sha256": "46312d0f5b61c8ba052569f84fc16d806688cf6a96af9e1774273d058b048922",
+        "gitBlobOID": "cbcf061b67b72c4ba047fd13de1a5f696bb05a11"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/artifact-signatures.json",
+        "bytes": 1022,
+        "sha256": "b5ff0801f500465e5fec6e7bd2c527599666354030bf8efd8625077e04c77410",
+        "gitBlobOID": "9868ac7a3f45416e295d6bcce62a211c8c607e63"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui/e2e.txt",
+        "bytes": 6477,
+        "sha256": "06d165b46c41a67189cfab41cc8f609e314cd7c126fe39df90a1ee517da74e53",
+        "gitBlobOID": "b9f2939a848767d7202ac6dc6b253dc27c60a454"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui/invocation.json",
+        "bytes": 1375,
+        "sha256": "573a1cb6b69be9878e8aef0e079967f826c1055ae1ad81f788c48bb2fc7e9c53",
+        "gitBlobOID": "375488f3459f65c98d6dfb7dd5bced646c01e221"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui/observed-owned-processes.json",
+        "bytes": 15988,
+        "sha256": "fd710dc9bb8014d54f3af28fc48baba2e99576128cce96f4e9fab5d4289c1952",
+        "gitBlobOID": "744ece8b4e7e898681428a66beab209facbfb273"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui/report.json",
+        "bytes": 18634,
+        "sha256": "c6191e754c8617bbd66406b3f1cc25fbba8e8ad2560cf50a4da78d3b8b5b4dfd",
+        "gitBlobOID": "caa5586d6ac5200bbcd2c97f514a462d71999260"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/gui/results.json",
+        "bytes": 290474,
+        "sha256": "99a432c9824e8bdd778d6cfb602d538b8a79900167d249e61002e5ddeab3ef62",
+        "gitBlobOID": "5954ab1ad22654f1fc99bc59c619578d8ffbbba8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/report.json",
+        "bytes": 33772,
+        "sha256": "6a691fffb41cc6ed1273b8ab5d32546c469f2f708577ee3a26cbebbd5e9e432a",
+        "gitBlobOID": "15c563ca0e894b94b860007fecc5ec06b44597f1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/results.json",
+        "bytes": 29713,
+        "sha256": "32ce8129e07250adf74ffd4f11bc661d33ee38a80ccae43f2b39e3f7020cf593",
+        "gitBlobOID": "331a1017ce105591017cc0473b93f73592f06808"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/runner.py",
+        "bytes": 11295,
+        "sha256": "f177669d9f285cedc0ecaf82131d58ec648e82b97cd386d4075f9addc965a5dd",
+        "gitBlobOID": "b723fc4f53e3507dc1877980f2324195e3d0fe22"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/source-artifact-checks.json",
+        "bytes": 82637,
+        "sha256": "dd42cd591c23f11b74e2aff27d1545f5369e37af26d55893d08741db1a616341",
+        "gitBlobOID": "17e2a2299515ac3e2a299fa29bf2bba338aeb506"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/artifacts.json",
+        "bytes": 573,
+        "sha256": "e7859a5e21377d80e07671fad63c15359467d24f90a11edaedd8cd3c50b6d65e",
+        "gitBlobOID": "aaba56598c7812cdecb767754d38096377dc9a0b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/build-normal.txt",
+        "bytes": 136,
+        "sha256": "9b9e5782118a3366e6269e19d680af524210da1ef95f5a1d4a307c621cdc3ce7",
+        "gitBlobOID": "6a58efabaf1d61468dbd4b96142e46af4e111a11"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/build-testing.txt",
+        "bytes": 137,
+        "sha256": "4df0f210e76891c5213f99843ad2333783a0175f098483bfb1c382abf2ed57d7",
+        "gitBlobOID": "cdd3d190f081b87670f59d41f34eac4b8c0ba466"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/fullunit.txt",
+        "bytes": 392941,
+        "sha256": "8cb817b54d2ef97cf61d82ceadd3665b7e966cb4669948700dd3fd13794509aa",
+        "gitBlobOID": "81ae45cd60979c1c29ab0170159848816187437d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/report.json",
+        "bytes": 8713,
+        "sha256": "6a1a167054bd2f594223738eb156214bbb394516f40dcd6558b64e019d6cb8b5",
+        "gitBlobOID": "91a8e2daf529c98fa5c727a479f5fc1462a229ca"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/results.json",
+        "bytes": 6036,
+        "sha256": "b90035fd62ca63f60268b0f941b2b3a2f6cb70e90c48c7804f3e19660bb453b1",
+        "gitBlobOID": "0685b785932cc0dce00d11e5d835686dc2112111"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/run-all-fast.txt",
+        "bytes": 5749,
+        "sha256": "d48876da1a9b992aea7acdd870ba33b696fb6b95067f2c7f3ca7ba477363bcc3",
+        "gitBlobOID": "37b2a750dd19969b3632577334f8225cbf3f80d8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/runner.py",
+        "bytes": 6017,
+        "sha256": "abb6b341abd353c14044a2c037fbf7296386215d60fdf0eb04c2ff11fc18827e",
+        "gitBlobOID": "cc239183604b4edb5e483027a909f5680d4e1b75"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/corrected-engineering/source-checks.json",
+        "bytes": 82575,
+        "sha256": "e3d11b9b28b41c88c122f75599ca61e0d1a1422fad87f2309b6118503c76f469",
+        "gitBlobOID": "d7fd167a91989994df803fdcee47d0539fc9b056"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/fullunit.txt",
+        "bytes": 402632,
+        "sha256": "ff6d22bd20d151793084d0d9c151c4cb0b0119413855abd4fa67246038de76b3",
+        "gitBlobOID": "782acfc3ee44b8f7850fc98a0b41fc249de8be7b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/interrupted-report.json",
+        "bytes": 229127,
+        "sha256": "c9888f364437dd91e1827e9c37b260761ae19894fdf036c91faf2986a8ac3cb7",
+        "gitBlobOID": "8695ebb4957dd3f9260c92cc3b800b7ebc2cc004"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-assertions.json",
+        "bytes": 1105,
+        "sha256": "76afa2852f24b48f1b58766c9582eb2e776cf20efc3ee1d7f41f3e02728eab57",
+        "gitBlobOID": "70e33840c2377506a94e2a1e9123e98de36859ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-bool.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-device.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-repeat.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-scroll.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-invalid-unmatched.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-raw-flags.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-release-allocation.txt",
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856",
+        "gitBlobOID": "b3954a43d68d6de0061cf2d8b9ff87c2d90e00b7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/native-stopped-mutations.txt",
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb",
+        "gitBlobOID": "193415555156edb852d98337de2b77977b182593"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_release_allocation.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_stall_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_stopped_mutations.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/normal-excludes-test_validate_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/report.json",
+        "bytes": 86954,
+        "sha256": "b999f0c745185dc68af2bf911a2dcc2a84a0b5b55f3d5d0cee9730ff294c58fb",
+        "gitBlobOID": "aeb5c96ceb60f6e65bc3bc299d155badaf69219b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/runner-first.py",
+        "bytes": 9378,
+        "sha256": "7cda515aae501eae08e2be49065834ec92c95c384af0739de3a432baef8d2b68",
+        "gitBlobOID": "b8a0421139e58f527a64520907e1499b22008ef5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/runner.py",
+        "bytes": 10169,
+        "sha256": "398123dd2750f00ec2c23edab14f6509b7405e11a5687c997e3aebf78023582c",
+        "gitBlobOID": "65c47173d2046d6f9cfad6b0c4a9083f9bd7820a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "bbe160581fea12f445cdfb9bdb55ef8bac7199f46b53f59e2962b801c46eac22",
+        "gitBlobOID": "bb5470b13bee8bffe51cc58c0e3fc7ac1388df72"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "771dcb69cad7d0fb2ff1f9f4ec638c5fda9e3b7e7d22095934b5942b2463e021",
+        "gitBlobOID": "c58278189b864d2c38bfd5a6c9e983bf1472c07a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "9356ca700a7be2c84b09721dd953fd6db65c0359ae8a9e073474d37413de216b",
+        "gitBlobOID": "0889fb0af916d79aa5822320aea4549659469dfb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "084277824c09c37ec821a8d1395371fbef90e3b01906926f7f5a775233a6e709",
+        "gitBlobOID": "6b315804792a5793660ad3c04f7fc1d5fa90b91a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_events.txt",
+        "bytes": 2172,
+        "sha256": "f44fbdb0ff1c373bf1b6fc83d6635265af0453ba78a63121dae701497960f3e0",
+        "gitBlobOID": "ad4334eb11d267d03e369764ef6b95435c39154b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "83a914e1ce217c475ab2a8a891a36e1bf6271cb20ab14b0f756130bbbfddbe44",
+        "gitBlobOID": "6b7f0a6b18876be27b3bbf816f1fbaba2d75d9b6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "33800c9d7f5fa041492ad74e1aa7698467661417f8cf573f1beea0f2e7f6b772",
+        "gitBlobOID": "0c459631d9754d9329feae8233577eed31c26645"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_sequence.txt",
+        "bytes": 2695,
+        "sha256": "c666b5fd1a0805a9e001ad498b59f01193dc030f392a63bd978e716d0d4860a0",
+        "gitBlobOID": "6ba776eef84decfa3b8efdfdda0b6fc775daecd2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "543f02fc207662680cfbaf36a22ba218a38ae0a5b2fab1eda97683fa8a2e5559",
+        "gitBlobOID": "197353817e761cb575ac97a9721a442a8aa32ee3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "c8c04baf7840ee494fd660976d3e8e48be92b1ac62cdea157ca970398bd5ec41",
+        "gitBlobOID": "dc6c88196769015a381ca56107423c315db82331"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/source-checks.json",
+        "bytes": 798950,
+        "sha256": "9a9cd8a4238ad047ae72403737e23b6a43a70c3cbcd88b7969e10d5f70db55dd",
+        "gitBlobOID": "fa2ab677a097fc2426693d40b8d27ed21bdcb3bb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/steps.json",
+        "bytes": 79713,
+        "sha256": "cb68d85c1745450fef91e407676210d668df810ffd628ef1d539e69d35235b02",
+        "gitBlobOID": "ef2d1403411058373bc8e78b7876e4583b2fc99f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/artifacts.json",
+        "bytes": 385,
+        "sha256": "b03c0f8a0fe8b9944e798ac73f44e688da3b7b73e238a2f8aab6b6c69a2a42bd",
+        "gitBlobOID": "7e31b4e83640b8784f07afdc17c0b036cd8d10ec"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/build-normal.txt",
+        "bytes": 42,
+        "sha256": "2ddcfa81067a506c1c13e4e655d305fbc1173220b34fa37b1f1819d2fbcac403",
+        "gitBlobOID": "27f7bce5eb019012b4fff2f7ca18370cf89134d1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/build-testing.txt",
+        "bytes": 43,
+        "sha256": "50973c127e849a6c3bc2cf7df828cefbffbdc90c55617a4acace2ff3b5d0b50a",
+        "gitBlobOID": "af6da0ce5b84fea23672e99f3b6383c90ea891d5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/fullunit.txt",
+        "bytes": 392960,
+        "sha256": "fc7cd6b61717d5399c38d2619bb075586446d40c45a51f00c24b3ab774e75298",
+        "gitBlobOID": "e199b1e99fc87f4774c1e32d7a6b2800acd24f05"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-assertions.json",
+        "bytes": 1105,
+        "sha256": "76afa2852f24b48f1b58766c9582eb2e776cf20efc3ee1d7f41f3e02728eab57",
+        "gitBlobOID": "70e33840c2377506a94e2a1e9123e98de36859ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-invalid-bool.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-invalid-device.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-invalid-repeat.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-invalid-scroll.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-invalid-unmatched.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-raw-flags.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-release-allocation.txt",
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856",
+        "gitBlobOID": "b3954a43d68d6de0061cf2d8b9ff87c2d90e00b7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/native-stopped-mutations.txt",
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb",
+        "gitBlobOID": "193415555156edb852d98337de2b77977b182593"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/normal-excludes-test_release_allocation.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/normal-excludes-test_stall_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/normal-excludes-test_stopped_mutations.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/normal-excludes-test_validate_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/queued-bootstrap-results.json",
+        "bytes": 1985,
+        "sha256": "6fb832c6c4e016110e4330f46f02497f7933e9d53251a17df546870b99cd920d",
+        "gitBlobOID": "d50d3838e1ee4a491987cce7e108af99f2789b55"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/queued-bootstrap.py",
+        "bytes": 4344,
+        "sha256": "20cf5dbffde89c8f979c73da5b017da891749f7813601c0c5a857f3c92f7f33b",
+        "gitBlobOID": "79a8a72bbb0301679c343e8c00737ee1cfb9811a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/queued-source-checks.json",
+        "bytes": 82379,
+        "sha256": "a6c15a990f8f47f26fdef992cab05960a05232cdebb475b0397f6f7a00c49db8",
+        "gitBlobOID": "3cc2e2d3f345a94e4a00947585c26e39202ded49"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/report.json",
+        "bytes": 90583,
+        "sha256": "b8706d5380fe5a863f820566eae196be85cb95097022b3e730927546b1b0ac1c",
+        "gitBlobOID": "40bcabed77089fbe62c779836537c842fbc40a4b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/run-all-fast.txt",
+        "bytes": 5753,
+        "sha256": "5e46c89d1f07f23e5aaf123d153a31e0d431efcb2a825c082a971a4f825e827e",
+        "gitBlobOID": "98b4fb49aae8cc3cdc05cb3f62fbf29c2eb7fb09"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/runner.py",
+        "bytes": 13057,
+        "sha256": "b70dc1c84f2734f9e1aa41e41a3bfdccba499b43805264322b4efa33c2facb75",
+        "gitBlobOID": "663d385ad110dec4101758fa4b938ffa1d26af69"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-production-create.txt",
+        "bytes": 2924,
+        "sha256": "d5b7dbac430344cfa2add8796f1748981f5c093353a8e80cae0dd8566f1d8195",
+        "gitBlobOID": "1f690306458fd1dbb697f75fc22ed4d6f7c64dc5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-production-register.txt",
+        "bytes": 2926,
+        "sha256": "6e3358bad7ca3f18e342cf88abb5dd8798351ae06221ba4c7cd7112a17fcc6e0",
+        "gitBlobOID": "a193bff5bc2a0d8870b3f492c458c0b8990cfa52"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-production-wait.txt",
+        "bytes": 2922,
+        "sha256": "d4a9e56e843d19dc3e19a4fe89615822ae364a15006cbb8378ed40a7ead01202",
+        "gitBlobOID": "3b85b557e41b31b6a6a43543c027c59d67d0bea9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-testing-create.txt",
+        "bytes": 222,
+        "sha256": "f3542f6825a6a504e610c7615fa86b45bbc865f2a86987b83f22cc336daaa462",
+        "gitBlobOID": "f6bc37842169ce741e845598d886429102b0494b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-testing-queued-create.json",
+        "bytes": 922,
+        "sha256": "0ae2338584c8e1d7fd79ad04e5ce09b120fa7c575bd763122825bfcf2e227d43",
+        "gitBlobOID": "a0c5b0706544b2dd5806a55c4a45d730a5ec7ec3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-testing-queued-register.json",
+        "bytes": 926,
+        "sha256": "0a81e7c4bd1c80c9b2e6b5d577e14aec5d74695d4ceedb4f87c922ed3433c908",
+        "gitBlobOID": "895d5bb6440c06cc20aab11239bc3d7d76ad7513"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-testing-register.txt",
+        "bytes": 224,
+        "sha256": "caace5447ad50d613bce4532965654b730a9c019ef1ea8ade5820a3f130a9031",
+        "gitBlobOID": "088b9310ebea285a6a12a5d2652f8d0442d6199d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/session-testing-wait.txt",
+        "bytes": 220,
+        "sha256": "1d7d0187d0702ea50f6c67e4f47cbf8ee0d532019b55f398af3fbc29fd218d91",
+        "gitBlobOID": "c2b78ea6b8f6b8db2bddb45f9028ba696f5f4eed"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "71e9ddd646090e690638e583a4bf446083493d3cda0b310864be6a4e25ae6ae9",
+        "gitBlobOID": "4104c3bce78054a074942a0e5fe14860594a2221"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "22f4a0b15a5aab355cde7038609d677ca01c9687250a5df929ac29249ac4e041",
+        "gitBlobOID": "0a4839e675ce9227502756ff3eb8f3a8ec4fd795"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "67fbefa695b12ed0671006bc38c9bf243be799f1b3a20e02d657718ac88d6733",
+        "gitBlobOID": "ca3f167c120e3016c0e23ef7e7ae50b4197c1939"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "2a45bc324868548faf8342c2a225a3d422f03c78adf933e72cb268af7229fe3a",
+        "gitBlobOID": "a7b7be6b46a3f677fdef60e98dec8a492ad314aa"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_events.txt",
+        "bytes": 2172,
+        "sha256": "76218f2844ec571f10ff3e64e2d0aa5a078ca21d382d40641b4f9e4fb37eaf9c",
+        "gitBlobOID": "cc7916d8cc4512964595bfbccd719de891f00068"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "be0bbad1ac8334a7b36a0c2d6d264495b025f636ed6e891d3eb34609a6816b8a",
+        "gitBlobOID": "0ef32223f5d736a2f71bd398c2d4871221bfc0d5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "fb1347f12ca272d426de43012525580d06f1fd34343259d6e3dfee92b908148f",
+        "gitBlobOID": "12d52bd67ee438ae519b18366950b0e85344c0ac"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_sequence.txt",
+        "bytes": 2695,
+        "sha256": "c144dea5926d342e13e18b80c28736de6915d81c412d81cad216f1776366789b",
+        "gitBlobOID": "01aeb861bd0d8cfd7e3fb768314882b63cdf7c69"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "0836cec7b6760d816511830bd956ec34b3055a0751f25f2b09f9f1ccd03d2bd3",
+        "gitBlobOID": "21cba119d3c0230a78bbc9d8555469068641419b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "526acc4c51c591fedd0cebcd92e0809b4f66b0a3773b847866d9651bd9773099",
+        "gitBlobOID": "41973367119590cc9ab603ee3dc42c6864fc5de7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/source-checks.json",
+        "bytes": 964307,
+        "sha256": "3e2ddd8f219401c48af3fc1db2e15db87102ab431307a716b0db7e34d7e90b6e",
+        "gitBlobOID": "243fb23d9bac1bca0fb70f65cb4504947872e324"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/steps.json",
+        "bytes": 79393,
+        "sha256": "7d7c3e8a229ed401315e24edfccdef666e2604498943c6c9d1264c46c27853bc",
+        "gitBlobOID": "f3911f197ecd8b0abf347a36eb24cad8d4499ec5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v3/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/artifacts.json",
+        "bytes": 385,
+        "sha256": "3ae5ccad509b2b0587105a0762d479451cf755a68b3680cdf0505ffee6d62027",
+        "gitBlobOID": "b372695eb26131a6d03e84ad82afdf9ab4169325"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/build-normal.txt",
+        "bytes": 42,
+        "sha256": "757f87e40c2c97afa35c180eafc869ae129b3386ed735a15ed85d137ce7185e9",
+        "gitBlobOID": "dd22f8b979d365e1a04823d80d30ca596b88c809"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/build-testing.txt",
+        "bytes": 43,
+        "sha256": "17d07918b6d239fd124a80273104361eeab8a7c4d5324c9b97162c3b72d1b045",
+        "gitBlobOID": "972838a6e41f2958963f857363e2e159748e562b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/fullunit.txt",
+        "bytes": 393048,
+        "sha256": "06cba1b84ce38c5e3015bee178d36593aa104f147ba1739aa1842e13bab95b98",
+        "gitBlobOID": "8e190aa3c4726cc5043082f16c5ff33394a37a3c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/interrupted-report.json",
+        "bytes": 512631,
+        "sha256": "604fda55c6861c28f27d0c94e9b92c447543ab2322d7d4bc9d514d1243d8ecc2",
+        "gitBlobOID": "7f9e3ae0259d7df0eaeed1c1cbe4fc5de92b319e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-assertions.json",
+        "bytes": 1105,
+        "sha256": "76afa2852f24b48f1b58766c9582eb2e776cf20efc3ee1d7f41f3e02728eab57",
+        "gitBlobOID": "70e33840c2377506a94e2a1e9123e98de36859ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-bool.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-device.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-repeat.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-scroll.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-false.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-fraction.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-large-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-negative.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-null.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-proximity.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-string.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-tablet.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-subtype-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-invalid-unmatched.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-pointer-subtypes.json",
+        "bytes": 6102,
+        "sha256": "89debb6a185fba9848b204b94783c3c147cdd31ba21e32aae1356991e1dcfa26",
+        "gitBlobOID": "7b16a46b23f5f04f49d41ffde532f8f965ce70c5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-pointer-subtypes.txt",
+        "bytes": 3754,
+        "sha256": "ddb9c793b0b363cf2ddb7308cb570ac8759056f6036f8a6d18d929f6fc1e872a",
+        "gitBlobOID": "3a2d225559cf8cbf7295d8ac890f0b9c3cd8c754"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-raw-flags.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-release-allocation.txt",
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856",
+        "gitBlobOID": "b3954a43d68d6de0061cf2d8b9ff87c2d90e00b7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-stopped-mutations.txt",
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb",
+        "gitBlobOID": "193415555156edb852d98337de2b77977b182593"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-subtype-omitted.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-subtype-touch-float.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-subtype-touch.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-subtype-zero-float.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/native-subtype-zero.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/normal-excludes-test_pointer_subtypes.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/normal-excludes-test_release_allocation.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/normal-excludes-test_stall_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/normal-excludes-test_stopped_mutations.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/normal-excludes-test_validate_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/python-subtype-parity.py",
+        "bytes": 584,
+        "sha256": "4d69046a2b8b67dbb4b1b52baee1de24c767a5b6a6a42a7e032989b591110cce",
+        "gitBlobOID": "dd8dd7db2201786b52685bc50372a58eeb782845"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/python-subtype-parity.txt",
+        "bytes": 4725,
+        "sha256": "de6e389924ddf20c31386adf98f30127176a501a9ef0547747694eb0d4ac315e",
+        "gitBlobOID": "b7ac90c684b6db863d7fa0bf5e3ff86779ff830e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/queued-bootstrap-results.json",
+        "bytes": 1986,
+        "sha256": "b5d013fe2a7388e094dedea22b4f86e1ec57ed56577e1eed407c166eeeeb82da",
+        "gitBlobOID": "f284cf8b1209ca469e47de4e029f70c048215485"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/queued-bootstrap.py",
+        "bytes": 4344,
+        "sha256": "d21dc7f09202abe092a5ef618c4edad7a136fdfacada9c2835e17439e2319f59",
+        "gitBlobOID": "96645912b34d20f55e573ec875f801634a8261b6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/queued-source-checks.json",
+        "bytes": 82379,
+        "sha256": "3ddb4bb85c22a49a78929ac9a0981fd46d75f4280faaff04810108bf7418aa3d",
+        "gitBlobOID": "8087c63447f5f92e0fcd597744acb0e766bcf39b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/report.json",
+        "bytes": 152801,
+        "sha256": "14ade4556d1b314e7ca610b46c418c890b73f852f61bd0383ff6de5a14639e9d",
+        "gitBlobOID": "299393d69fb699e01aefe2430c061c000495ac08"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/run-all-fast.txt",
+        "bytes": 5750,
+        "sha256": "75354c214cc7198c6c5d93fcd37459405d2593a80a9c33cc90159653c08e7f5a",
+        "gitBlobOID": "b72ba673ac0b834781be8e0c4fdf7936264d6179"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/runner-first.py",
+        "bytes": 16073,
+        "sha256": "b0f805ff09bf64fd54a8489129023bfad3afaf5b10abd4e79888bb1c678f49ac",
+        "gitBlobOID": "382af8bb3740a083c0ef42da5b40c853d71f5823"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/runner.py",
+        "bytes": 16868,
+        "sha256": "ed158df639dabf86ebbcc5f42eb60bd18d5b8067854e5cb275c3c0190e13ac8e",
+        "gitBlobOID": "2dcb0a5bbb6ae0c8210fc362ea380bdd19b7c5db"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-production-create.txt",
+        "bytes": 3658,
+        "sha256": "dd792f3868c0e7a33f143412a5a07a57cd037f15256639c8672bcd7cbbe021f7",
+        "gitBlobOID": "d7b84af5176a78a20bc1c81bf47fb6accca8916f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-production-register.txt",
+        "bytes": 3660,
+        "sha256": "96c08ae60496591ba6b581bd11699286576ed99072fa95eb3218ed556cf84415",
+        "gitBlobOID": "eb338b2fae29e4761d29d15419c540e1ffbff8e4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-production-wait.txt",
+        "bytes": 3656,
+        "sha256": "246c066cadbf079190896ffd3e17baf4efc21e52478e2dfcc88a77901b98d09c",
+        "gitBlobOID": "e438ab11844f49a6ee3d643f3eb8279ac9a12c25"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-testing-create.txt",
+        "bytes": 222,
+        "sha256": "f3542f6825a6a504e610c7615fa86b45bbc865f2a86987b83f22cc336daaa462",
+        "gitBlobOID": "f6bc37842169ce741e845598d886429102b0494b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-testing-queued-create.json",
+        "bytes": 922,
+        "sha256": "2399b148be32ace009306972fa90a57532feaa8171f943afcc0ff5dd73dcbfc8",
+        "gitBlobOID": "cab26252f89fa3f6e967a76e6c5a32ca5d7149ea"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-testing-queued-register.json",
+        "bytes": 927,
+        "sha256": "9bc9b8e870a0db87eab0a6b6ec9ec5f35a3b0730641fa1444bbeaf4a28cd36b7",
+        "gitBlobOID": "32af9781a61d236b14239c7ace1e82be1a07bd2d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-testing-register.txt",
+        "bytes": 224,
+        "sha256": "caace5447ad50d613bce4532965654b730a9c019ef1ea8ade5820a3f130a9031",
+        "gitBlobOID": "088b9310ebea285a6a12a5d2652f8d0442d6199d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/session-testing-wait.txt",
+        "bytes": 220,
+        "sha256": "1d7d0187d0702ea50f6c67e4f47cbf8ee0d532019b55f398af3fbc29fd218d91",
+        "gitBlobOID": "c2b78ea6b8f6b8db2bddb45f9028ba696f5f4eed"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "b54b901f70fc83fd2cdb5cfcda42bb13be5067036cdcdd2dbe225bf6902534aa",
+        "gitBlobOID": "78f9aaa46b86789b461b1a94ce7c39f114edda34"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "365fb2767464d5bc4d952304776db8b00578282ee9b0e1e9bb245ef879321a03",
+        "gitBlobOID": "7e87fcefe6b9962227605bc9d93bb51c1ea7e311"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "70b8fc802696978aa93b1458c28f592899963bf3040660328275e08064ceda86",
+        "gitBlobOID": "2f0431448c496be9fb3eca6b9137ec882fb166db"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "f52fc233f13e746c3d9a3cb365e746816b24dfb2e92febf8567c246f5b2e30a7",
+        "gitBlobOID": "c79fad4b10690d0e4389c7c05b658418d13cef35"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_events.txt",
+        "bytes": 2172,
+        "sha256": "f0d622b88b3788eb536abafe61aef5c0caee3e6c0421b7f88ce4261e4e42818a",
+        "gitBlobOID": "e346bf853440829a50dc0df7e1d6c1138b6525ac"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "83a914e1ce217c475ab2a8a891a36e1bf6271cb20ab14b0f756130bbbfddbe44",
+        "gitBlobOID": "6b7f0a6b18876be27b3bbf816f1fbaba2d75d9b6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "596a67506844ad357917774f97619c3bbe685e9029ad130fd578efa7276efe9c",
+        "gitBlobOID": "0e87736d789f34fe69aed0f421d62c1cf7aa71c1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_sequence.txt",
+        "bytes": 2877,
+        "sha256": "f8e0bb8386aca509ad52aa3fe571b04ce55adfca7d70c554e00d47998892a177",
+        "gitBlobOID": "8f3a6a4d8c66adbbbfa1fb54e992ee1c6127e3db"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "9623634d8dd06fa2c84b085a9a027fe98107cdaf14a135b30723dbcd25e35eb5",
+        "gitBlobOID": "08add4d31e0fe75b77accf1e4baa26a6d030e800"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "06b2fa48bfd4f5996df9e10e23e864cd0b197c81a5235f93d7d611dcc1a5abaf",
+        "gitBlobOID": "24c75c9a9a491c0bfc84476de82ac3269a38ffee"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/source-checks.json",
+        "bytes": 1488009,
+        "sha256": "babc91205e8ebed3ef6cb48219450ac0c2dab76945be9d0d85c5df42b8217998",
+        "gitBlobOID": "b48322578c3bcbf726eeaa806386c31357454d7d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/steps.json",
+        "bytes": 124378,
+        "sha256": "b80e90ebad0b4eb474e3feb891c3f16cfce58029611d252da514a0e061fe90a2",
+        "gitBlobOID": "b44d4f2ed45a305903f4b56d95d5f5bf6c9a4b50"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/subtype-native-python-parity.json",
+        "bytes": 6849,
+        "sha256": "64459a91ee2108e760be4774fb0ccfcee545d2c018e15ac79fa966b836c5f538",
+        "gitBlobOID": "c1b27de32ff1255b804f6cbb82bb7e0c9eff2035"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/subtype-parity-input.json",
+        "bytes": 5959,
+        "sha256": "c828d1e822459400e1dffab5e32d6d3d2ea6e8c9472cec9969ddb3bf2a1a7d6d",
+        "gitBlobOID": "39a1df59aeab8625c469a24234edd8b5c0cebf2a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v4/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/artifacts.json",
+        "bytes": 385,
+        "sha256": "c4fc6cd150b0bd0efe55340dbce6688dd3fad6286801a472875445d45e4005e3",
+        "gitBlobOID": "7a74b85cece18e5c07bf7fa3968d168290beb5fc"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/build-normal.txt",
+        "bytes": 42,
+        "sha256": "2e79e58a2c9ef2e34730d5080ced4654adf0df76a5ca879bb9321bf8ce3f1586",
+        "gitBlobOID": "a10f5bbb6e915c3cfccae81d6fd2f7b91b7579f3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/build-testing.txt",
+        "bytes": 43,
+        "sha256": "b90369496d94f7a76c7d00fc69a79731a70a958a8ac6242a3d34850cf2e76619",
+        "gitBlobOID": "39838a48896e00ab70c3256f81963125d3f58e22"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/fullunit.txt",
+        "bytes": 392964,
+        "sha256": "c2c6978cd10246477a63a94e612af46376ac97ee937eae812c7c44d1c41da6a4",
+        "gitBlobOID": "94e05ecf4e2ae749b620c3a3fc6567bc183a4a37"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/interrupted-report.json",
+        "bytes": 524322,
+        "sha256": "437a54c82b6e42adc203f30209ac08c12f7cfbfd6e6db8784f4029fcef183b03",
+        "gitBlobOID": "2bed2164e6f5a99aeff698f136f18feb94ecc488"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-assertions.json",
+        "bytes": 1105,
+        "sha256": "76afa2852f24b48f1b58766c9582eb2e776cf20efc3ee1d7f41f3e02728eab57",
+        "gitBlobOID": "70e33840c2377506a94e2a1e9123e98de36859ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-bool.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-device.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-repeat.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-scroll.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-false.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-fraction.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-large-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-negative.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-null.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-proximity.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-string.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-tablet.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-unmatched.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-pointer-subtypes.json",
+        "bytes": 15230,
+        "sha256": "ad7472bc74da0aa42581c9f2ffbd3454c3d18f3b436e3f2894dfb0ee65fd59dd",
+        "gitBlobOID": "92fb9a524e4740753882f14849740c2ad3c21248"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-pointer-subtypes.txt",
+        "bytes": 9380,
+        "sha256": "cc24ca945b7d2cd18bea3ab8aa168c0f7c5ed32555608a81c54ec89ebf56ef19",
+        "gitBlobOID": "72ac847b4fbadb0c2d55c750d5cda0dd4aef2420"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-raw-flags.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-release-allocation.txt",
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856",
+        "gitBlobOID": "b3954a43d68d6de0061cf2d8b9ff87c2d90e00b7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-stopped-mutations.txt",
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb",
+        "gitBlobOID": "193415555156edb852d98337de2b77977b182593"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-omitted.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-touch-float.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-touch.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-zero-float.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-zero.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_pointer_subtypes.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_release_allocation.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_stall_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_stopped_mutations.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_validate_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/python-subtype-parity.py",
+        "bytes": 584,
+        "sha256": "4d69046a2b8b67dbb4b1b52baee1de24c767a5b6a6a42a7e032989b591110cce",
+        "gitBlobOID": "dd8dd7db2201786b52685bc50372a58eeb782845"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/python-subtype-parity.txt",
+        "bytes": 4725,
+        "sha256": "de6e389924ddf20c31386adf98f30127176a501a9ef0547747694eb0d4ac315e",
+        "gitBlobOID": "b7ac90c684b6db863d7fa0bf5e3ff86779ff830e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/queued-bootstrap-results.json",
+        "bytes": 1985,
+        "sha256": "45c251dda22bfec089650879c11388120697c9a2af1b989ba3bcda15bc45f7a0",
+        "gitBlobOID": "e5b99900ec4438d2e9e051ddf10a80b51224eb20"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/queued-bootstrap.py",
+        "bytes": 4344,
+        "sha256": "9fefe46d9ec1d2d0dfe73e8c8a8f223d661b003a27aa2e5a930ff268d110ee0b",
+        "gitBlobOID": "3a6050422d7d0520f97a40d45dabf3d090cde070"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/queued-source-checks.json",
+        "bytes": 82379,
+        "sha256": "8747c632deb5deec8c70c58420a5fbacd998ce3a3a8f50251c5ab66adde8746d",
+        "gitBlobOID": "086f118349c4e4ad901278f8614fcb6d56d751bb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/report.json",
+        "bytes": 171954,
+        "sha256": "d1561e73b071cdc85510723225f27fcd707184f6df99b2dee4b9594bd4fbaab2",
+        "gitBlobOID": "1857bf8925a3d7f1f37d767867f7eed927b6995e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/run-all-fast.txt",
+        "bytes": 5752,
+        "sha256": "9d3e01059ea7cbce189f4091dee52f1dc9e77a432be3a529ba4cfbbd96dbbed8",
+        "gitBlobOID": "0d555c5a4ee13e24a62454266b7bcad80be1a7dc"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/runner-first.py",
+        "bytes": 16340,
+        "sha256": "70a88387fd91c1a85f88860fa292ce0904338b2ebaab045f3ac10d1ce8544f57",
+        "gitBlobOID": "a5200e7db926b28098900acfc9cebc0bf346629c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/runner.py",
+        "bytes": 17271,
+        "sha256": "0fa7bfb987c4a4161a43552d744594e5724a0b542a9e3aa222798e75d6b0c4f0",
+        "gitBlobOID": "bfb2bc8ce7f2d23a8f688904d381a4e74c8c9fdb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-production-create.txt",
+        "bytes": 2924,
+        "sha256": "cc1767f11dcf25b69dd1966c33a16fb4e8fdc0b0bedea41aff95a9b2674e6cee",
+        "gitBlobOID": "aa3dc7df9221eaf6b5b94aefda05939ed55ce17e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-production-register.txt",
+        "bytes": 2926,
+        "sha256": "9d932c6dfc315d88200ea8ea270d860bbf2c6b3802e46905da35bf2733c23031",
+        "gitBlobOID": "df6e72676e6bab9ac546ea646916887578e0a700"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-production-wait.txt",
+        "bytes": 2922,
+        "sha256": "607b004a9028a2bdcc45d3b16fe002fb4b4db7107252e34f0b6669cacc0646e2",
+        "gitBlobOID": "7941dfa4bd1f6c3eeab3577a6a10e8382fded94b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-create.txt",
+        "bytes": 222,
+        "sha256": "f3542f6825a6a504e610c7615fa86b45bbc865f2a86987b83f22cc336daaa462",
+        "gitBlobOID": "f6bc37842169ce741e845598d886429102b0494b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-queued-create.json",
+        "bytes": 922,
+        "sha256": "e61836492f7c7b73a696002341c3a87e79eadb1b3835549da7c3673a25d5af12",
+        "gitBlobOID": "b67798382c3c7aba232c407de1a6a80b2b17081a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-queued-register.json",
+        "bytes": 926,
+        "sha256": "a91b51167efb3a41a67ae8414f475f2dda4b3856877ed841a369156db4cd68d1",
+        "gitBlobOID": "2f8a67a1fae824136c1006c3e6f9c767b05798eb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-register.txt",
+        "bytes": 224,
+        "sha256": "caace5447ad50d613bce4532965654b730a9c019ef1ea8ade5820a3f130a9031",
+        "gitBlobOID": "088b9310ebea285a6a12a5d2652f8d0442d6199d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-wait.txt",
+        "bytes": 220,
+        "sha256": "1d7d0187d0702ea50f6c67e4f47cbf8ee0d532019b55f398af3fbc29fd218d91",
+        "gitBlobOID": "c2b78ea6b8f6b8db2bddb45f9028ba696f5f4eed"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "7c4cc4a924a8ce0f600097d06d11b720c35825856e0c55f64b10e153c9d89cb7",
+        "gitBlobOID": "dc3d5ac26e61e8e8c38f943368cc6b060d045368"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "4615428c9fcaf97b8b03bc36e63a8cb21e854f7234c4b4fb809796c765299838",
+        "gitBlobOID": "0c31a55f4dbef978f0c3e866693b0b9bb941ce66"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "79d7e711453e90faf7effc5a335687854f0aa81b266cbd68da593db8ae1a2b99",
+        "gitBlobOID": "3cf0f669baeb0b1b18423dc6c61f5e83b7175306"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "1add3db34a0d2391f55f63d4b44ef2ed2ccf86cb51f9f1fcfb6fa34b6435000b",
+        "gitBlobOID": "00b0a77bb38b9a80360f7ba34d2ed5702aac1a68"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_events.txt",
+        "bytes": 2172,
+        "sha256": "aa3e4aa870774dadc5326849e04019a3600e07c6535985033b73617a7cfbd081",
+        "gitBlobOID": "9751c3ec274086fc2b871192e80d86c0cbbe312e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "55e63931470e85b4e2d467d49744dda2f957e3873d6f1e80951216043593eb3a",
+        "gitBlobOID": "babc96c7854b13e648a87816a9bd7d77f9ef2a11"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "d2fe77fdbc552b5bef114071b6b6a4127c8e71aa2368566d5a152276184b2eaa",
+        "gitBlobOID": "f12317f4d6bbcc11b555bb0de07c19374e8f39b1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_sequence.txt",
+        "bytes": 2877,
+        "sha256": "273740f9b61ba72a12ceb60b13ce4fdd7be47ae8a4caa4bf0ce12ff5a0d16878",
+        "gitBlobOID": "65fd92e6a85220df5cac46fc3548d6c1faeef4d8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "883b46144965062e8e44907216f580603fe3d3cf2911d27630fecf314b75b4f1",
+        "gitBlobOID": "13662df78207fb25de0f57168120707df13793da"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "4d31c3990e16c3b96d56057b2bc0bfccd2334b0d9b3673f385b3cd85b1c95e2a",
+        "gitBlobOID": "122a0686fcacdc92e93fe4a5bd6bd4ba5469507e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/source-checks.json",
+        "bytes": 1488009,
+        "sha256": "d6ca5d9e6f47bc654d161e364f18685500eea7019a1bca6a6767c53eecf29ed9",
+        "gitBlobOID": "2d6805dfacc7a6fd0bbb219378119f6a5417f37a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/steps.json",
+        "bytes": 132701,
+        "sha256": "b0f742def4c99ccb022b3e600a9f9370dc40abd7d6e439f13d933cd5b8e64893",
+        "gitBlobOID": "ab908456fee174b9f61cf18a167e89a9b63839d9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/subtype-native-python-parity.json",
+        "bytes": 6849,
+        "sha256": "64459a91ee2108e760be4774fb0ccfcee545d2c018e15ac79fa966b836c5f538",
+        "gitBlobOID": "c1b27de32ff1255b804f6cbb82bb7e0c9eff2035"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/subtype-parity-input.json",
+        "bytes": 5959,
+        "sha256": "c828d1e822459400e1dffab5e32d6d3d2ea6e8c9472cec9969ddb3bf2a1a7d6d",
+        "gitBlobOID": "39a1df59aeab8625c469a24234edd8b5c0cebf2a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fast.txt",
+        "bytes": 5750,
+        "sha256": "a179834b68c242eac5adca6fd023acffaa10d0d1665f697c95cfac0d69fc4bc6",
+        "gitBlobOID": "f6900a2854fdc7ad116a28c17fbab5980b64d47b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/fullunit.txt",
+        "bytes": 392990,
+        "sha256": "46f717819164c2474b07e47325ddac39f5f662472bbea11817158359d8656ac2",
+        "gitBlobOID": "c4902db28e590c905a6457543ef600fe74956ec8"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/report.json",
+        "bytes": 36979,
+        "sha256": "3a3890f63e91f593a2f8e7efbd44b6b417d1ba5acecee8547974e04db1d23609",
+        "gitBlobOID": "e672477166e763bbb9e37ee9e7d24f018a66fcc2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/results.json",
+        "bytes": 5730,
+        "sha256": "bfe72e7b7a70a5a2c66f2a4cf4ed8f740b7d330aec4cc39d80102a6a788f16c6",
+        "gitBlobOID": "2b218913a314fd25fbb82d6a047bc0933952ba1a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/runner.py",
+        "bytes": 8437,
+        "sha256": "46e285e603a3289ef4473807892bb289eeaa9bac3d4bdc19d1dbe9e8ff8c908b",
+        "gitBlobOID": "12ec4a3fb8fe6090a62cdbbb87f3ea179d3a2181"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/source-checks.json",
+        "bytes": 137965,
+        "sha256": "af77310a1cd96abab4279bbbb39c31eba295d0b77ee56b1ad996f86083045a78",
+        "gitBlobOID": "65efbb31560858be985262b00b6180aef9a07ee0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/source-delta-binding.json",
+        "bytes": 27882,
+        "sha256": "d25a022fd35f94e81a80f58bc94db49ea9ea967b00c26115a0de6fd8065c4e87",
+        "gitBlobOID": "5417f9a3dc7bba24340d6a32c354c7098069719b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/owned-process-check.json",
+        "bytes": 275,
+        "sha256": "336df617375932cdd77f35365b430f0ea3a78be0b4fa7b70179eb24467d08c87",
+        "gitBlobOID": "e6a84ca4f9170bc792326c7335f31de3b36d3ded"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/report.json",
+        "bytes": 26085,
+        "sha256": "4b0910dc309b9731bfac27777cabc462565c059fbe8a99cf200cdbb0f6ff2640",
+        "gitBlobOID": "fd8343b2e49dd90553c232478f10791b3974f581"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/results.json",
+        "bytes": 24396,
+        "sha256": "c393dfcc1bf32b39eaa672f9e2d3f0661bb36d71e058b41616bb729864834131",
+        "gitBlobOID": "c9757dbc7d348239c8b462e03d76ecebeacf8e27"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "9c7e75764c68d55587b830d7db2b804426fe5d8aae7e9416d6f25cfa433ba90f",
+        "gitBlobOID": "3931eb4385efb17595ac46fbbe0ff2fffb6cd7cb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "4a8e9255aace292f21f8d97c13d6a371fb2f5f6bc519a6749c8120d2e184423f",
+        "gitBlobOID": "7e4e78efd9aa5756930bd763a995ce80487a9f13"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "95cd6c5dcf6b641fe4546d788821ec5d36104f502fe1afe43d8e588cca61dd3b",
+        "gitBlobOID": "8c86e8e935ca8ff79075a0ebd242aaf5e3c9dd68"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "b638f829dfbefbdeea055d209e1693a0341c32ced1073227c03cc54e470b6d7a",
+        "gitBlobOID": "06a4cd598cee010249596ea2aa59246ce0923332"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_events.txt",
+        "bytes": 2172,
+        "sha256": "2b07098ca06d872ebebb7d8f7535d0c5379140e5bac2e541765d9f6ab58e9d46",
+        "gitBlobOID": "412f2037209aa798260c7ffe45fd1c82655deeda"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "0201afda9644d39a48cd0b29ce304a85a17524ed75bec67289124d95c3e80203",
+        "gitBlobOID": "7a9213141955b6631d0694cbb4a0a5314fbe17b3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "182ecf072301c1fade2b4c9161330b418dd4c20e4755744d2fe673716c577e30",
+        "gitBlobOID": "5913e1c86c1895296fcbe147623db71d1bbab997"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_sequence.txt",
+        "bytes": 2695,
+        "sha256": "14f8d873492dc6571f0c22793d1317457e53b486f89f6a47747115a415b388e1",
+        "gitBlobOID": "22567d3011757071358ef1966ea631e00c09de34"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "0480073b86ce0c134d125d7a3b973fc411b2aee1eeedbd253d6523c2138b27a3",
+        "gitBlobOID": "c7800c530916b77152881d7164d402d01e0d8523"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "809a1f811ed7b08ae3f5d38c07abb74675e0a14087004c9bcdd48b10ef8fa78e",
+        "gitBlobOID": "29b548b227ec23b6a06456fc6bd5564ca8c4e207"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/source-after.json",
+        "bytes": 12756,
+        "sha256": "463ee6b3b4ad47f2b5b1ac9b48e86657bbc6bc4c671ad988db358794c2d913a3",
+        "gitBlobOID": "605809d0988976aad29646440740a352d5b5bb4d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-pure/source-before.json",
+        "bytes": 12729,
+        "sha256": "a0fb714cc534d8e751306b9c25e1024136a0d7e692fe1036f411882ab079feb2",
+        "gitBlobOID": "1fb1fe2b867c3669234fe368f3323db72b9caedb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/README.md",
+        "bytes": 5281,
+        "sha256": "f567e028eb3574193b2caa98504f35a57e0d4584f3b2bafff053c31962ad5b3e",
+        "gitBlobOID": "b604caccf3bed3780cfa1c1e0c442f8314706e3e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/code-review-v1.json",
+        "bytes": 23702,
+        "sha256": "7b28b97a0b62646f98199a7ca25e2476ae37bb5135ed24d59718de17805d7184",
+        "gitBlobOID": "38db30da6f5748e34b239c73223010ebefe2e92d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/code-review-v2.json",
+        "bytes": 12953,
+        "sha256": "22f5c199a2a576fef8cf868c3380f3e639d4b3ddd3f49d05350e9d747fd9b21e",
+        "gitBlobOID": "47b397902d508bc866d6606b1ee39f9e399c0ecb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/commit-binding.json",
+        "bytes": 9406,
+        "sha256": "2b277dc80b463ee7a9bd93cae4ee028bac6fd949e09e730008a43fdbf44c54ad",
+        "gitBlobOID": "4409000bc06478da03084739afe3f4d58d3e7fd1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/default-helper-status.json",
+        "bytes": 1269,
+        "sha256": "989316cd6574fe7e76789c91a7625b5013c82bcb8ae1648b977ab9fb98f0ebd6",
+        "gitBlobOID": "b0c3958d474873404ec8547370f2c1350eeb4cef"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/app-v1.txt",
+        "bytes": 1437,
+        "sha256": "f211982eb45099719fd400cc03d11fc5808f27aef26b827050442dc14a4d7266",
+        "gitBlobOID": "f5681c195590ff290fcdc054ef59cfe6b463f972"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/app-v1/manual-host.json",
+        "bytes": 15561,
+        "sha256": "6a7142238f68ca08dc5c0ad07d23648c21a43851f404e8b9ce67352369c72ac1",
+        "gitBlobOID": "a9dae8cd71ee9b11fb1435362701dcc5d564feb6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v1.txt",
+        "bytes": 1752,
+        "sha256": "c1bc95423244fb44e7f10b28df9cee4843c9afb94bfee220a2540e280b0c787c",
+        "gitBlobOID": "72db9a6a7b1f4f219e4951a1319960e2aa0e0b03"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v1/results.json",
+        "bytes": 3703,
+        "sha256": "09a0e9704c02226d290f757b0fbb6af73bf6832384c0b8ff4f2e8007ff7bfeda",
+        "gitBlobOID": "9dbb2373d42d2aa4d51651b9b80f9278a0b5daca"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v2.txt",
+        "bytes": 7384,
+        "sha256": "b45146d5bf04452aff5eb8f487db03da5ca77973781a637ecc646141a0f6b511",
+        "gitBlobOID": "eb20f62bbae7e689329964e72af54f556bf905b9"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v2/results.json",
+        "bytes": 358501,
+        "sha256": "3a7b22f9f7729833441b97036b9a6ad653a79f81aa704ef3dc65d40c9c2c09aa",
+        "gitBlobOID": "b1a077ecbb68cac38923456bead192d1fc1cc336"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v3.txt",
+        "bytes": 7488,
+        "sha256": "33a2bfd0457eae1aee323a7974b3c8e1f6f91f34bd5b1ae66a768a92537be2db",
+        "gitBlobOID": "ab074f2379ea548f170bb695ee8144b244d24e1e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/gui-v3/results.json",
+        "bytes": 379786,
+        "sha256": "5ce2099d74c741669b36b73e498866e9d881896e2bda5c520e8c6967ce87cbf9",
+        "gitBlobOID": "9ad2cfe7d4712416961642c07ef95f23ea21f801"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1.txt",
+        "bytes": 227,
+        "sha256": "7c0a997527f9701c6a37540df090e9d3d83e248148c2dc7d44ebdbccf6c822fa",
+        "gitBlobOID": "addb113f71e534cb0a20fbaaedb653937297cac3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/controller.js",
+        "bytes": 10951,
+        "sha256": "285137f0707aa279a9b8409cd96aefe964f3376d1259447ad0909d0f5929e49d",
+        "gitBlobOID": "68875eea2aec50c947871e6f5886e18864c9e0fb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/macos-clipboard-fixture.h",
+        "bytes": 1455,
+        "sha256": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+        "gitBlobOID": "66157f31a6d4182bf74c94135294977b5f80786b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/receiver-original.m",
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211",
+        "gitBlobOID": "fbf9031954580f6eddf3eef3546fc6c97fc83290"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/receiver.m",
+        "bytes": 20144,
+        "sha256": "8d9362004111842a28baeaba9dd9088851c33668883e81da59ead7af40e0d5b8",
+        "gitBlobOID": "44a87244ab427026d2ff8a343e104ddbc27300c0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/report.json",
+        "bytes": 676586,
+        "sha256": "0eaac7e1265d8e419b5cdc9a84d462bab0ca31138976338ff29da1a424cdf886",
+        "gitBlobOID": "215d64135293ef337680213353ab28d79b31b766"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/saved-recording.json",
+        "bytes": 19118,
+        "sha256": "9a9c0dd6a1fbd8e4925bb0034f5bdf307d4020418bee807bf4c93fe34f88fe6d",
+        "gitBlobOID": "3daf9c587d3d0f76ef4a0f4f08411812a9f81ae6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v1.json",
+        "bytes": 7709,
+        "sha256": "a855a64d2feb22bcf277d11a3b128d0ae8a11b7a5d4848d8800f7310d1756090",
+        "gitBlobOID": "65b940053f381b6b86587fd646ca0af7e0e33b5c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v2.json",
+        "bytes": 8015,
+        "sha256": "db04380ed1dcad757d8381ed0ab21f5955fcd9c2e1f5a696f173e7b02c4acba0",
+        "gitBlobOID": "4d892408dfbcae21bdcebec1e1836ac9c5be4f27"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/helper-build-equivalence.json",
+        "bytes": 2584,
+        "sha256": "beb6750df4cc0a26983e0c91b98213144b9fae5a02446f1d8a8aebb3ef1aeebc",
+        "gitBlobOID": "6ee55744e57b33137d7be53ec716d13e8e573246"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-commit-binding.json",
+        "bytes": 68097,
+        "sha256": "53724889d50db8f5802788247eff6160e0198fd91cca394f61b0c58036ce2896",
+        "gitBlobOID": "ae4054ad8e1d7e8ca23be97f699108bc22aa070a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact/e2e.txt",
+        "bytes": 1267,
+        "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee",
+        "gitBlobOID": "3ffa09af6f196a48c0f7b3126bcdc9cbd512a5cb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact/invocation.json",
+        "bytes": 1563,
+        "sha256": "47f5dd418a0b948dcd9110a89347776d1106b6c3ed08eb851ba3e3185cb37d63",
+        "gitBlobOID": "7e9893a2199a91397c85d8db2120e12c547241e3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact/manual-host.json",
+        "bytes": 16343,
+        "sha256": "efb68c9ce00de4a3e79a4de6062a05bf43411c55e2e9a7d4f02730c211fff26e",
+        "gitBlobOID": "a06e20b899c9676aa8b13863dc60db5c41dea9cc"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact/observed-owned-processes.json",
+        "bytes": 2340,
+        "sha256": "96e37498e280d0838c8262f90d2fca7dedfb725d84332ffcaf5e29c6c6bf58d8",
+        "gitBlobOID": "24eb80897e1f6de1180994761560a23e40ff3b96"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact/report.json",
+        "bytes": 10369,
+        "sha256": "3dcf2c23c9835afe3ca80c82dab8903d510eb7df9db8c8c134729b8a20f5497a",
+        "gitBlobOID": "d9c17b6e971e5f10f9a95224eac5f6dba142d2b0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/e2e.txt",
+        "bytes": 1437,
+        "sha256": "f211982eb45099719fd400cc03d11fc5808f27aef26b827050442dc14a4d7266",
+        "gitBlobOID": "f5681c195590ff290fcdc054ef59cfe6b463f972"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/invocation.json",
+        "bytes": 1575,
+        "sha256": "d04724d2d9a797b524e14c87c76ed43b358a761f8d1566dde297197530f02048",
+        "gitBlobOID": "44e7a3e7bbfafc61ad5dbe779b22cd18e6b8c551"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/manual-host.json",
+        "bytes": 18356,
+        "sha256": "6036fd6692b3ee30052466146d0bbfb6306d406369b93a15b81a72af41f2ef49",
+        "gitBlobOID": "85f832a3f3aa0adfe6651aff9f7e2cac617adb62"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/observed-owned-processes.json",
+        "bytes": 2340,
+        "sha256": "4928b949729b03ef39b8aae5a6bd704c06937925c884360b202ce8e2470956c5",
+        "gitBlobOID": "02746aec67fc3e84d3a24ffdaccf70d9335dda49"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/report.json",
+        "bytes": 11058,
+        "sha256": "f0ab95c01c04221fa96c7392a3aa89879500e19e974f2b36be176611b3b6c147",
+        "gitBlobOID": "b1ce2b2d86f3aed39cb675084cbc40b098b2cf4a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/artifact-signatures.json",
+        "bytes": 1032,
+        "sha256": "93ad4009dcb8cdc61f49220ca4cc3caf6f4eb7b300e3672918103c3f75fcc177",
+        "gitBlobOID": "4e849be0599136020a0be5097a517f3215ad9aba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/delta-engineering.json",
+        "bytes": 44540,
+        "sha256": "9eed4881bc7887dccca66fbb965760c3acd12ab1b7c38725087816726eca5ad2",
+        "gitBlobOID": "6d070736c7d500ddecf1dcde3d6f98996ceec3c4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/delta-results.json",
+        "bytes": 1994,
+        "sha256": "12c69bd7d0b9a97fdc29a603542bbe91c81fcd75f50fa8e0df4cbfe47b0da346",
+        "gitBlobOID": "03072be7bc1cad6c0ba15e78636bf33220113899"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/delta-runner.py",
+        "bytes": 5990,
+        "sha256": "b41e99be457b444d11b4b5a920180760bc185d23536ecc1872648428e7c63ab6",
+        "gitBlobOID": "958d137bc6cb44073c11402cb3fbc45ac62a1e58"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/delta-source-checks.json",
+        "bytes": 82791,
+        "sha256": "39f569b14a8fa41625cab28bf4a3015bc628c9b9e602982248d6be1833c392be",
+        "gitBlobOID": "9b5fd710168386a3d97ad1a2b39125296c7304ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/e2e.txt",
+        "bytes": 7488,
+        "sha256": "33a2bfd0457eae1aee323a7974b3c8e1f6f91f34bd5b1ae66a768a92537be2db",
+        "gitBlobOID": "ab074f2379ea548f170bb695ee8144b244d24e1e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/invocation.json",
+        "bytes": 1424,
+        "sha256": "4ccb9db0bc3d61912c99e22a8ac2d91846579fe354f2018efc39808f457a43be",
+        "gitBlobOID": "0547911323f1060223cf227128b18f7f27d8d590"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/observed-owned-processes.json",
+        "bytes": 10203,
+        "sha256": "b3787a97e14c32cd9260dea47cce03200338ea53c4dc5b457a1c0f6df7fb3be3",
+        "gitBlobOID": "b2b46c27f4e38eb67694a1f1b36aebbae19b7b5d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/report.json",
+        "bytes": 13993,
+        "sha256": "11c64e4b3b0d52ad8dcb8edf6b1f77b08a2b8602722c07c60e7fe10d4a5f7ec7",
+        "gitBlobOID": "bff085f575119ebe6db70ba3abebafeba079b279"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/results.json",
+        "bytes": 374675,
+        "sha256": "75cefab912925553797acfa414fb91e29268d8ee5f7c48ee68c07e319ed599a8",
+        "gitBlobOID": "13a1f5eba7be51877063532ebce4c0e1934eca90"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/report.json",
+        "bytes": 49636,
+        "sha256": "ed424c291a1e68daa63be26c890eeed84d39202106630459ec2e93e30c85ce0b",
+        "gitBlobOID": "a3c1efc08bbb0d994f11bbfef59c7cd4f3a7a182"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/results.json",
+        "bytes": 37418,
+        "sha256": "cd270afe8577698854484b78d44ce00c9f1a6a22f2ab7f6813cf18071691521e",
+        "gitBlobOID": "f878f869086e7c052273f19fd1179b6bb93bbf29"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/runner.py",
+        "bytes": 12392,
+        "sha256": "3721100347b853e0754172320302ec0131d63274a12a1aced5bacf03bb285497",
+        "gitBlobOID": "08323ff7fe8680d229be8657b6aa1b7284b08dce"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/source-artifact-checks.json",
+        "bytes": 110230,
+        "sha256": "ef41b3c75f59f71736b275538117cb4dfc0e65345ce15d8cfa516895c941cecd",
+        "gitBlobOID": "d573f467dacbc172e6e0992c601c2e54f031d8ef"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/source-delta-binding.json",
+        "bytes": 39405,
+        "sha256": "f886a2d7094c6059a51e8499550027d95d66d7788db974b83707b08c63d4166c",
+        "gitBlobOID": "f88eba3321d836fdb4231de577a4618de405514b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/artifacts.json",
+        "bytes": 395,
+        "sha256": "00ed6ee353df94190435788cd12ddb06dd748feabf9e79fa2e82b9250f451619",
+        "gitBlobOID": "d545d3caf1285bb2fcd7d91760a4b07c6d3df3d4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/build-check.txt",
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "gitBlobOID": "9df2c0ca4603fcdda9bc9213816c9872830f2e64"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/build-production.txt",
+        "bytes": 47,
+        "sha256": "5c1b66ca686aad99330a3e171098b37769b41f11c86197d0bc522fafe20c3c51",
+        "gitBlobOID": "8dadc69a25010255371cf58a4dbdf351ad0cc1ec"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/build-testing.txt",
+        "bytes": 44,
+        "sha256": "c376f7ecc1e7863b39c19968f7f9c7f1dc90ff0d51f1f0969e43e185d02ee69d",
+        "gitBlobOID": "7c8c6310b236540026c45fa1022eec80dec5b186"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fast.txt",
+        "bytes": 5749,
+        "sha256": "2b7ad4c8cdbf8fa5b02d20d704e9c8cd94bd3586b712a4ae3066cb0a41de3459",
+        "gitBlobOID": "2c6e1eb006c74986d721d6d3fef572ec626a1a22"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/field-matrix-input.json",
+        "bytes": 40587,
+        "sha256": "7b3f2960847bdb4402b436f209d39280026d7841ce1b3c5dbd2f9497c44dfdd5",
+        "gitBlobOID": "db943c72448d5b6317ec9c3fc015398c1b204301"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/field-native-python-parity.json",
+        "bytes": 43983,
+        "sha256": "9433e9b25f519f02579398e7af22e9a33c76b3fafb57eed2ad24ea0ee792d1cd",
+        "gitBlobOID": "2283d63c40104965571ba93f844be1a5be77c534"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/fullunit.txt",
+        "bytes": 393046,
+        "sha256": "d40ed7ab762e1563875e37bdc41db2af088c7b564919c226aaa270a39c6a4191",
+        "gitBlobOID": "424e4bf26f9d29d5a63e3506aa4b21424ae2c2a3"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-false.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-float-zero.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-null.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-string.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-tablet.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-touch.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-canonical-subtype-zero.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-half.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-null.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-down-pressure-zero.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-drag-canonical.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-drag-wrong-pressure.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-exact-associated-zero.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-exact-legacy-pressure.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-exact-source-metadata.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-all-allowed.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-false.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-float.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-max-json.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-negative.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-null.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-string.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-unknown-bit.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-unknown-high.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-unsafe-range.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-mask-zero.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-move-mask-zero.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-move-pressure-one.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-move-source-touch.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-dict.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-exact.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-false.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-list.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-none.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-number.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-profile-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-false.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-float-touch.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-fraction.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-negative.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-null.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-proximity.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-string.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-tablet.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-touch.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-true.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-unknown.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-source-subtype-zero.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-standard-base.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-standard-no-provenance.txt",
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394",
+        "gitBlobOID": "fe6b29cc9ece6280849716a750fd9d99598b1876"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/matrix-up-pressure-one.txt",
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641",
+        "gitBlobOID": "ce2a193a1f429df89dbe3b26bfdba52d1eb3eec0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-action-override-exact-root.txt",
+        "bytes": 108,
+        "sha256": "46efd1be6cab89876c0f02ad251afff2393b93b49e661e0cbe9243bb14f89628",
+        "gitBlobOID": "e006078ba42d70ca646f55613b0cbc4f051e3019"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-action-override-omitted-root.txt",
+        "bytes": 108,
+        "sha256": "46efd1be6cab89876c0f02ad251afff2393b93b49e661e0cbe9243bb14f89628",
+        "gitBlobOID": "e006078ba42d70ca646f55613b0cbc4f051e3019"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-action-override-standard-root.txt",
+        "bytes": 108,
+        "sha256": "46efd1be6cab89876c0f02ad251afff2393b93b49e661e0cbe9243bb14f89628",
+        "gitBlobOID": "e006078ba42d70ca646f55613b0cbc4f051e3019"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-contracts.json",
+        "bytes": 85234,
+        "sha256": "b000181f93153e1893b16b34b80396d296d1af8e017238aeb69630de97381d85",
+        "gitBlobOID": "4663bc1faed588e2b23f34247e53d02cee436026"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-exact-subtypes.txt",
+        "bytes": 9380,
+        "sha256": "cc24ca945b7d2cd18bea3ab8aa168c0f7c5ed32555608a81c54ec89ebf56ef19",
+        "gitBlobOID": "72ac847b4fbadb0c2d55c750d5cda0dd4aef2420"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-owned-release.txt",
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856",
+        "gitBlobOID": "b3954a43d68d6de0061cf2d8b9ff87c2d90e00b7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-standard-projection.txt",
+        "bytes": 4384,
+        "sha256": "3839e52742a2514d625b51987e23f620e1d7e5d6b9c42a2f3fac536b28049757",
+        "gitBlobOID": "dc9dfbf28910f1e86efcd0e6e2ddefc2581dc7aa"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/native-stopped-mutations.txt",
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb",
+        "gitBlobOID": "193415555156edb852d98337de2b77977b182593"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_pointer_projection.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_pointer_subtypes.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_release_allocation.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_stall_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_stopped_mutations.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/production-excludes-test_validate_sequence.txt",
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0",
+        "gitBlobOID": "fa3251d9d2895d83859b6ac31e4f8fa5cad80e0c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/python-field-parity.py",
+        "bytes": 647,
+        "sha256": "9dd70d5af92408b33b0c1949231916807029123f8dc5fd68bd9cc899e60173d7",
+        "gitBlobOID": "7aa14c5831cec553ff531905654b836dba0a1190"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/python-field-parity.txt",
+        "bytes": 30219,
+        "sha256": "0840ac8d019729e805622cf1603288dd10dcb3aea601c7fa4410c466eef6d09e",
+        "gitBlobOID": "500b71f6633fa4a9e03fc5d520cff825f6fdb5ce"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/python-schema-contracts.py",
+        "bytes": 3413,
+        "sha256": "ef29831154e257781f24353d2188a0d2212d510289aa5559c6da5fd281ca182e",
+        "gitBlobOID": "9b3f1dead83c21c22fd5c2bd0d2af4b25f8dbc31"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/python-schema-contracts.txt",
+        "bytes": 1083,
+        "sha256": "c68cba55b2bfc2eca3611d096623a5db431f56e71b668b3bd98b21fbd8672f6c",
+        "gitBlobOID": "76c356ab0a256f4b704ddc92e59473f90b1f060c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/report.json",
+        "bytes": 320089,
+        "sha256": "3660ddc10c3ac3af854a68e5382f12b8ffbd8edc46c2e4dda532374a816e38a4",
+        "gitBlobOID": "f6299ff19293ba71eb97a7c4deccf15974689e32"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/runner.py",
+        "bytes": 18924,
+        "sha256": "4e52bd287f214ad885f1e4b435ea3cee8545395c4c1bad3303adc849f904a97d",
+        "gitBlobOID": "6551413fbd422c83844f39951c6e2971c7dbc0cf"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/schema-contracts.json",
+        "bytes": 1327,
+        "sha256": "d7c6ac5ee34b0f6503fd39456b15e4c0ef03a0e05fa0ebd71a9a9c2f4e007d8a",
+        "gitBlobOID": "2b52ef9f9d7fa10f785b93524fbba61dd11034fa"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_audit_cancellation.txt",
+        "bytes": 2085,
+        "sha256": "7e4722abca3715af49d5ebf613b3000603343f1584a214641ed845539517c549",
+        "gitBlobOID": "6c162967afe92d6587678838503337df4dd08fe1"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_ax.txt",
+        "bytes": 106,
+        "sha256": "6a38c2110cec8227870179c8ea3ab6eb5ad9f5abac4cb6a2c94a37affbfac6cc",
+        "gitBlobOID": "3205d21f25315971cb2e81a1e180699add7ad0be"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_capture.txt",
+        "bytes": 1799,
+        "sha256": "f8249183978f531708bc8335ffec3f6508897bdbf91a2f1f2592b27871fe2d95",
+        "gitBlobOID": "4a370d7ae71ca6388abf6f9811ac9f340e601552"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_composed.txt",
+        "bytes": 115,
+        "sha256": "084277824c09c37ec821a8d1395371fbef90e3b01906926f7f5a775233a6e709",
+        "gitBlobOID": "6b315804792a5793660ad3c04f7fc1d5fa90b91a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_events.txt",
+        "bytes": 2172,
+        "sha256": "2c8574b2c00b8cd261d1d729706856b8f633a7ec2a89007c520b1d83f6b2a279",
+        "gitBlobOID": "cd5334b6a468a2aa9c99a04c06b2b4866012480d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_input.txt",
+        "bytes": 2980,
+        "sha256": "ecfc8bb133a40e6e855a96272a29e6d6763e8eff9ff93ef7d15a83f0c8d563e3",
+        "gitBlobOID": "fba1faeaf3f3d20715e494d697194493b89dc0d5"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_record.txt",
+        "bytes": 4918,
+        "sha256": "1e4acb9c97e8356a0e5c3497ffec1d979afcbfed65f419f4de124d980171183a",
+        "gitBlobOID": "e0ea9f2a8dfd58ff3eb018e2cd96a0bbc0dede1a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_sequence.txt",
+        "bytes": 3421,
+        "sha256": "0321c31d42977eab641d963d5b4d2587a654976eed2bf59703f414379d8b2972",
+        "gitBlobOID": "e291eb97dccf7ed0ddb845edd5cf821786403215"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_shared.txt",
+        "bytes": 1152,
+        "sha256": "203c0996531be434604f3e91f18529f0165a013a73fbbb3237c35a97953eb47b",
+        "gitBlobOID": "15fd777bb69ebe9cb84579f52c3538733fc4e21b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/smoke_macos_visual.txt",
+        "bytes": 124,
+        "sha256": "4f057f37c9cf86e98fcb8001b63923537988b4d6b8a576c6734c445f227af8df",
+        "gitBlobOID": "d3d4d94c6bf50012ad2b4370e6b575b3697a724c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/source-checks.json",
+        "bytes": 2425546,
+        "sha256": "fa481ed69d076252abbab2cee2faa11d3fc796f86877091facddf8b4f6d870c4",
+        "gitBlobOID": "019c1ba5e4dd40188efef32113de9c2728fa658a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/steps.json",
+        "bytes": 210497,
+        "sha256": "afe912eb5457af63a5578ca73193e66e0ca965d8a0b0691373b2ad74c54e9d0e",
+        "gitBlobOID": "85e22a8871dab0155f4a126d748eca4d4bcf251a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/syntax.txt",
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad",
+        "gitBlobOID": "062caee2e637ef46d6b80efbd5911a913740c82c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+        "bytes": 13527,
+        "sha256": "8b991d0c89a43180a8496aa2bb8be879d71c13d7be32311070cda7fbc67721ba",
+        "gitBlobOID": "3b70a88436be0877b4826f66a146295323f69c93"
+      }
+    ]
+  },
+  "reviewedDocuments": [
+    {
+      "path": "MACOS-PORTING/06-P5-AUTOMATION.md",
+      "bytes": 7662,
+      "sha256": "46d64867e6badc17f8a4506984ae4ddcb5ac60b11f53dc820593d6daa547b58f"
+    },
+    {
+      "path": "MACOS-PORTING/10-TRACKING.md",
+      "bytes": 37045,
+      "sha256": "2b46a8f68d500fc0cbcd51df8fd0b760e22aaa2ede3bab9b22d095677e8db872"
+    },
+    {
+      "path": "MACOS-PORTING/README.md",
+      "bytes": 8710,
+      "sha256": "7977f06dd2a806ca7324082b5b08a3dc701b58f036e0d5d9493313e015599610"
+    },
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "bytes": 91911,
+      "sha256": "a4b5808deb61cb73b199ab4b8e0c77769a2b47aac2e38d86ac0767438411bee3"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/README.md",
+      "bytes": 8408,
+      "sha256": "46e90e6d135c0d0bcfc32961edfc980fd707ad78bb8c8da540e99a579ea02b98"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/README.md",
+      "bytes": 5281,
+      "sha256": "f567e028eb3574193b2caa98504f35a57e0d4584f3b2bafff053c31962ad5b3e"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/NEXT-STEPS.txt",
+      "bytes": 2699,
+      "sha256": "c9f9c6da95f540ce4dccfba166420c6a79c74a363b628c2a0adb3952af48ce5d"
+    }
+  ],
+  "findings": [
+    {
+      "id": "STATUS-EXACT-STANDARD-PROSE",
+      "status": "closed_in_reviewed_staged_revision",
+      "problem": "The first staged manual README described schema2/association refusal/subtype3 reconstruction without qualifying exact, conflicting with latest standard schema3/canonical subtype0 behavior.",
+      "resolution": "The revised staged text explicitly assigns schema2 to default exact manual mode, names standard_mouse/schema3 separately, and labels association refusal/subtype3 reconstruction as exact rules. The standard README retains canonical subtype0/binary pressure and provenance-only source metadata."
+    }
+  ],
+  "unclosedBlockingFindings": [],
+  "implementationBindings": [
+    {
+      "implementationCommit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+      "parentCommit": "057878f2e769abedbf12f4b133c5eab688e9536e",
+      "sourceFiles": 34,
+      "sourceBytes": 7623524,
+      "allCommittedRawBytesAndIndependentGitOIDsMatch": true,
+      "actualChangedFileCount": 34,
+      "manifest": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v6.json",
+      "manifestSha256": "686eccbf2a6d7bbb2470f54c2ea9a63df5d754603f12fbdd49d8636a89c1899a",
+      "primaryBinding": "MACOS-PORTING/evidence/P5/manual/commit-binding.json",
+      "independentBinding": "MACOS-PORTING/evidence/P5/manual/independent-commit-binding.json"
+    },
+    {
+      "implementationCommit": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+      "parentCommit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+      "sourceFiles": 34,
+      "sourceBytes": 7651532,
+      "allCommittedRawBytesAndIndependentGitOIDsMatch": true,
+      "actualChangedFileCount": 16,
+      "manifest": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v2.json",
+      "manifestSha256": "db04380ed1dcad757d8381ed0ab21f5955fcd9c2e1f5a696f173e7b02c4acba0",
+      "primaryBinding": "MACOS-PORTING/evidence/P5/manual/standard-mouse/commit-binding.json",
+      "independentBinding": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-commit-binding.json"
+    }
+  ],
+  "committedRawSourceTotals": {
+    "files": 68,
+    "bytes": 15275056,
+    "note": "Counts include inherited files in both independently verified implementation snapshots."
+  },
+  "evidenceIntegrity": {
+    "independentBindingReferencedEvidenceDigestsVerified": 22,
+    "referencedEvidence": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v6.json",
+        "bytes": 6764,
+        "sha256": "686eccbf2a6d7bbb2470f54c2ea9a63df5d754603f12fbdd49d8636a89c1899a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/code-review-v5.json",
+        "bytes": 19921,
+        "sha256": "4b95f0a93723f8f706e1b2eaf051eaa35b69673038258de2401186175c0c61b0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/code-review-v6.json",
+        "bytes": 15461,
+        "sha256": "988bb0ea0d87042d43f937d0bbf78988a6653c0d28705a65d1a77b7cfbe53c8f"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v5/report.json",
+        "bytes": 171954,
+        "sha256": "d1561e73b071cdc85510723225f27fcd707184f6df99b2dee4b9594bd4fbaab2"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-offline-v6/report.json",
+        "bytes": 36979,
+        "sha256": "3a3890f63e91f593a2f8e7efbd44b6b417d1ba5acecee8547974e04db1d23609"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/independent-gui-v6/report.json",
+        "bytes": 33772,
+        "sha256": "6a691fffb41cc6ed1273b8ab5d32546c469f2f708577ee3a26cbebbd5e9e432a"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/commit-binding.json",
+        "bytes": 7903,
+        "sha256": "0f06a2f959b619405132c2deb548a1e0b74970ff0f80bc1175edb7c399ef73fb"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/helper-build-equivalence.json",
+        "bytes": 2566,
+        "sha256": "fda6d908e9fc3a612f532e03595cf322fe0848fcaa519cc75a718a2f73fb6364"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+        "bytes": 3434,
+        "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/default-helper-status.json",
+        "bytes": 1212,
+        "sha256": "b0cadbbaec1e241cebd0cbce0fd8b6098fe389bbd82bde7fee21c95e0f1b584c"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/freeze-v2.json",
+        "bytes": 8015,
+        "sha256": "db04380ed1dcad757d8381ed0ab21f5955fcd9c2e1f5a696f173e7b02c4acba0"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/code-review-v1.json",
+        "bytes": 23702,
+        "sha256": "7b28b97a0b62646f98199a7ca25e2476ae37bb5135ed24d59718de17805d7184"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/code-review-v2.json",
+        "bytes": 12953,
+        "sha256": "22f5c199a2a576fef8cf868c3380f3e639d4b3ddd3f49d05350e9d747fd9b21e"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-offline-v1/report.json",
+        "bytes": 320089,
+        "sha256": "3660ddc10c3ac3af854a68e5382f12b8ffbd8edc46c2e4dda532374a816e38a4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/report.json",
+        "bytes": 49636,
+        "sha256": "ed424c291a1e68daa63be26c890eeed84d39202106630459ec2e93e30c85ce0b"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+        "bytes": 13527,
+        "sha256": "8b991d0c89a43180a8496aa2bb8be879d71c13d7be32311070cda7fbc67721ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/commit-binding.json",
+        "bytes": 9406,
+        "sha256": "2b277dc80b463ee7a9bd93cae4ee028bac6fd949e09e730008a43fdbf44c54ad"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/helper-build-equivalence.json",
+        "bytes": 2584,
+        "sha256": "beb6750df4cc0a26983e0c91b98213144b9fae5a02446f1d8a8aebb3ef1aeebc"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/compare-helper-builds.js",
+        "bytes": 3434,
+        "sha256": "227ade6459a69666fe72bb1b9ce3b8f2010cc8d4767788db564a7cdd0338da93"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/default-helper-status.json",
+        "bytes": 1269,
+        "sha256": "989316cd6574fe7e76789c91a7625b5013c82bcb8ae1648b977ab9fb98f0ebd6"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+        "bytes": 13527,
+        "sha256": "8b991d0c89a43180a8496aa2bb8be879d71c13d7be32311070cda7fbc67721ba"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/saved-recording.json",
+        "bytes": 19118,
+        "sha256": "9a9c0dd6a1fbd8e4925bb0034f5bdf307d4020418bee807bf4c93fe34f88fe6d"
+      }
+    ],
+    "physicalReviewReferencedArtifactsVerified": 7,
+    "physicalArtifactPaths": [
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/report.json",
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/saved-recording.json",
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/controller.js",
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/receiver-original.m",
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/receiver.m",
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1/macos-clipboard-fixture.h",
+      "MACOS-PORTING/evidence/P5/manual/standard-mouse/development/physical-v1.txt"
+    ],
+    "localMarkdownLinksResolvedInIndex": 215,
+    "tasksEvidenceLinksResolvedInIndex": 20,
+    "missingLinks": [],
+    "finalIndependentLogs": [
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/e2e.txt",
+        "sha256": "33a2bfd0457eae1aee323a7974b3c8e1f6f91f34bd5b1ae66a768a92537be2db",
+        "pass": 88,
+        "fail": 0,
+        "skip": 0,
+        "allPassMarker": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-exact/e2e.txt",
+        "sha256": "6c07b114501b83734c31ffccc112d8bf4f3ffe6d5a540415abf0019a9fddf5ee",
+        "pass": 17,
+        "fail": 0,
+        "skip": 0,
+        "allPassMarker": true
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/app-standard/e2e.txt",
+        "sha256": "f211982eb45099719fd400cc03d11fc5808f27aef26b827050442dc14a4d7266",
+        "pass": 19,
+        "fail": 0,
+        "skip": 0,
+        "allPassMarker": true
+      }
+    ],
+    "rawLogPolicy": "Original .txt/.log bytes were read and hashed, never trimmed or rewritten. Staged bytes equal working bytes, and retained binding/physical digest references match. Historical failed, interrupted and rerun artifacts remain present rather than overwritten.",
+    "diffWhitespaceCheck": {
+      "exitCode": 0,
+      "checkedSourceJsonMarkdownAndCurrentNextSteps": 196,
+      "rawTextLogFilesExcluded": 359,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "statusAndScopeAssessment": {
+    "phaseStatuses": [
+      {
+        "id": "P5",
+        "status": "in_progress"
+      },
+      {
+        "id": "P5-05",
+        "status": "in_progress"
+      }
+    ],
+    "commits": "0d054b04 is the34-source bounded exact implementation, parent057878f2;1500b82b is its16-file standard projection followup with34 manifest sources. Both are actual ancestor/current Git commits, not uncommitted candidate names.",
+    "latestAcceptedScope": "User-selected keyboard_and_standard_mouse projection, schema3 with explicit profile/replay_scope. Pressure stages/gestures, stage1/2 telemetry, multitouch/tablet and pressure-driven application state remain excluded; no exhaustive pressure-gesture detection is promised.",
+    "history": "The exact record keeps physicalInputAcceptance=false and its three failed physical attempts. Standard followup separately records successful parent-executed physical input and independent provenance review, not independent reexecution. Development failures, missing-helper startup, script interruptions and the unresolved historical nested held timeout remain clearly historical.",
+    "executionVsReuse": "Final GUI88/App exact17/App standard19 logs match docs. Native/Python170 and complete engineering evidence are explicitly bound/reused across v1/v2 unchanged runtime; final syntax/build and desktop runs have separate receipts. No current default-helper new-GUI claim is made.",
+    "binaryIdentity": "Raw default helper1cc945... is distinguished from developmenta9cdf... and independent49b6.... The documented whole-Mach-O equivalence excludes exactly UUID16 and signature allocation848, including structured826+tail22. It is limited code/data equivalence, not raw/TCC identity. The App executable/build.json were not rebuilt/re-signed. This review reads the existing independent equivalence record rather than rerunning its parser or signatures.",
+    "nextSlice": "NEXT-STEPS identifies entry development as preliminary and excluded from this commit; entry/ and isolated helper/runtime directories are indeed untracked outside the staged set. Approval, checkpoint/rollback, revoke/action-time lock, selected-app bindings, readiness/hidden paths and original environment/formal identity gates remain open. P5/P5-05 remain in_progress."
+  },
+  "verification": {
+    "guiUsedByReviewer": false,
+    "runtimeTestsExecutedByReviewer": false,
+    "implementationChangedByReviewer": false,
+    "gitIndexChangedByReviewer": false,
+    "commitCreatedByReviewer": false,
+    "stagedRawDiffStableDuringReview": true
+  },
+  "fullP5Completion": false,
+  "conclusion": "The staged status documentation and555-file evidence set accurately bind the exact and standard implementation commits, preserve their distinct scopes/history and leave P5 active. The identified exact/standard wording ambiguity was fixed in the reviewed staged revision. No blocking issue remains in this evidence/status commit scope."
+}

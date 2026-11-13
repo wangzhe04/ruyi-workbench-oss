@@ -18,6 +18,7 @@
 //   health.item.<id>.hint.<variant>
 //   health.item.<id>.next.<variant>
 export const HEALTH_ID_LABELS = Object.freeze({
+  'process-supervisor': 'health.item.process-supervisor.label',
   'agent-cli': 'health.item.agent-cli.label',
   'claude-cli': 'health.item.claude-cli.label',
   'data-writable': 'health.item.data-writable.label',
@@ -52,6 +53,7 @@ export const HEALTH_PREFIX_STATES = Object.freeze({
 //   · server-source 的 ok:false 只表示「以打包好的程序运行」,那是发布件的正常形态,不是故障 -> 恒 ok。
 //   · agent-cli 缺失不是死路:配一个 API 服务商同样能用 -> warn 而不是 error。
 const HEALTH_SEVERITY = Object.freeze({
+  'process-supervisor': Object.freeze({ ok: 'ok', bad: 'error' }),
   'agent-cli': Object.freeze({ ok: 'ok', bad: 'warn' }),
   'claude-cli': Object.freeze({ ok: 'ok', bad: 'warn' }),
   'data-writable': Object.freeze({ ok: 'ok', bad: 'error' }),

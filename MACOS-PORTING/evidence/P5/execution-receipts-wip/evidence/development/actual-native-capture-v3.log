@@ -1,0 +1,37 @@
+PASS owned OCR scene starts without injected input
+PASS NATIVE_WINDOW_CAPTURE actual root turn completes
+PASS NATIVE_WINDOW_CAPTURE all actual SDK results have strict receipts and saved deliveries
+PASS NATIVE_WINDOW_CAPTURE actual next model request follows durable deliveries
+PASS NATIVE_WINDOW_CAPTURE native chain is bound to actual root preparation screenshot
+PASS NATIVE_WINDOW_CAPTURE real native handlers enter exact requested operations screenshot
+PASS NATIVE_WINDOW_CAPTURE exact native frames have terminal receipts before SDK completion screenshot
+PASS NATIVE_WINDOW_CAPTURE native chain is bound to actual root preparation get_screen_info
+PASS NATIVE_WINDOW_CAPTURE real native handlers enter exact requested operations get_screen_info
+PASS NATIVE_WINDOW_CAPTURE exact native frames have terminal receipts before SDK completion get_screen_info
+PASS real native screenshot reaches exactly one saved image row
+PASS actual screenshot retains PNG image transport
+PASS independently decoded screenshot dimensions cover the owned window
+PASS NATIVE_IMAGE_OCR actual root turn completes
+PASS NATIVE_IMAGE_OCR all actual SDK results have strict receipts and saved deliveries
+PASS NATIVE_IMAGE_OCR actual next model request follows durable deliveries
+PASS NATIVE_IMAGE_OCR native chain is bound to actual root preparation ocr_image
+PASS NATIVE_IMAGE_OCR real native handlers enter exact requested operations ocr_image
+PASS NATIVE_IMAGE_OCR exact native frames have terminal receipts before SDK completion ocr_image
+PASS NATIVE_IMAGE_OCR native chain is bound to actual root preparation ocr_image
+PASS NATIVE_IMAGE_OCR real native handlers enter exact requested operations ocr_image
+PASS NATIVE_IMAGE_OCR exact native frames have terminal receipts before SDK completion ocr_image
+PASS NATIVE_IMAGE_OCR native chain is bound to actual root preparation ocr_available_languages
+PASS NATIVE_IMAGE_OCR real native handlers enter exact requested operations ocr_available_languages
+PASS NATIVE_IMAGE_OCR exact native frames have terminal receipts before SDK completion ocr_available_languages
+PASS real Vision recognizes English and Chinese through saved root result native_local_ocr
+PASS real Vision recognizes English and Chinese through saved root result native_capture_ocr
+PASS NATIVE_CAPTURE_REFUSAL actual root turn completes
+PASS NATIVE_CAPTURE_REFUSAL all actual SDK results have strict receipts and saved deliveries
+PASS NATIVE_CAPTURE_REFUSAL actual next model request follows durable deliveries
+PASS NATIVE_CAPTURE_REFUSAL native chain is bound to actual root preparation screenshot
+PASS NATIVE_CAPTURE_REFUSAL real native handlers enter exact requested operations screenshot
+PASS NATIVE_CAPTURE_REFUSAL exact native frames have terminal receipts before SDK completion screenshot
+PASS missing owned window produces a real native failure with no invented image
+PASS capture and OCR leave owned controls unchanged
+
+MACOS EXECUTION CAPTURE E2E: ALL PASS

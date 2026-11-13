@@ -1,0 +1,23 @@
+PASS ① workbench started on :63984
+PASS ① UI token scraped
+PASS ① three sessions created via POST /api/sessions
+PASS ② 用户那条会话确实是「普通会话」形状(kind=quick_ask/无 stewardQuick/无 launchedBy/missionId 指回自己)
+PASS ② workbench restarted (fresh projection index)
+PASS ③ GET /api/missions?limit=200 -> 200(实 200)
+PASS ③ 【有】管家开的速查线程在 /api/missions 里(sess_531062641d9c2218;行数 3)
+PASS ③ 121-K3:用户自己聊的普通会话【进】/api/missions(sess_07e2b595d18aea23;行数 3)
+PASS ③ 121-K3:但它 watched=false、origin=user —— 进索引不等于管家在盯它(实 watched=false origin=user)
+PASS ③ 121-K3:「速查线程」这个身份仍然分得开 —— 它住在卡片的 quick 格上,不再跟 kind 混为一谈(普通会话 quick=false / 真速查 quick=true)
+PASS ③ 121-K3(说明为什么需要上面那一格):两者的 kind 现在【一样】都是 quick_ask(第 70 波的「纯问答默认档」是档位不是身份),光看 kind 区分不开
+PASS ③ 对照组:kind=mission 的会话照旧在(既有行为零回归)
+PASS ④ 速查行的 kind 如实是 quick_ask(实 quick_ask)
+PASS ④ 跑完的速查线程五态落在 done(已收工;实 done)
+PASS ④ 组标题的 aggregateState 与行上五态一致,不再互相打脸(实 aggregate=done / row=done)
+PASS ④ 它是一条「未归类」的派生行(derived:true、missionId 指回自己)—— 与 13g:1852 那句注释一致
+PASS ⑤ 抽屉第二发 GET /api/missions/<速查线程> -> 200(实 200)
+PASS ⑤ 详情快照 kind 也如实是 quick_ask(实 quick_ask)
+PASS ⑥ 速查线程的回合真的在飞(行上 activeTurn=true)
+PASS ⑥ 在跑的速查线程,行上五态是 running(实 running)—— 修前恒是 quick_ask,状态行「A 条在跑」永远数不到它
+PASS ⑥ 它所在组的 aggregateState 也是 running(实 running)—— 修前 aggregateMissionState([quick_ask]) 恒落 stopped,组标题「已停工」压着组内「速查中」
+PASS ⑥ 在跑时 kind 仍如实是 quick_ask(速查是 kind 不是 state;徽标读它)
+STEWARD QUICKASK BOARD E2E: ALL PASS

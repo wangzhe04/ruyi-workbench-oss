@@ -1,0 +1,60 @@
+[
+  {
+    "label": "delta-syntax",
+    "command": [
+      "node",
+      "--check",
+      "dev-harness/macos-native-entry.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.0267641544342041
+  },
+  {
+    "label": "static-syntax",
+    "command": [
+      "node",
+      "--check",
+      "dev-harness/fixture-home.static.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.026302099227905273
+  },
+  {
+    "label": "build",
+    "command": [
+      "node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "exitCode": 0,
+    "seconds": 0.15531325340270996
+  },
+  {
+    "label": "fast",
+    "command": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 0,
+    "seconds": 128.93804788589478
+  },
+  {
+    "label": "checkpoint-mcpchild",
+    "command": [
+      "node",
+      "dev-harness/checkpoint-mcpchild.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 0.982710599899292
+  },
+  {
+    "label": "tool-loading",
+    "command": [
+      "node",
+      "dev-harness/tool-loading.e2e.js"
+    ],
+    "exitCode": 0,
+    "seconds": 1.286503791809082
+  }
+]

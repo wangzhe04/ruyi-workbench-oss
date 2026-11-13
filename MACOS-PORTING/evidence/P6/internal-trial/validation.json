@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P6-02",
+  "status": "passed_user_authorized_local_internal_trial_scope",
+  "date": "2026-11-12",
+  "implementationCommit": "3279b83d880a84be1e4fa86ae4e1aed80ef740bc",
+  "applicationSourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "userDecision": {
+    "releaseScope": "本地／内部试用版",
+    "standardUserAnswer": "暂没有，先做隔离安装验收"
+  },
+  "environment": {
+    "os": "macOS 27.0.1 (26A434)",
+    "arch": "arm64",
+    "node": "24.15.0",
+    "uid": 501,
+    "memberOfAdminGroup": true,
+    "installScope": "temporary isolated HOME/Applications; no elevation or account changes"
+  },
+  "artifacts": [
+    {
+      "variant": "full",
+      "path": "ruyi-workbench/dist/Ruyi-macos-arm64-full-internal-trial/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a",
+      "imageBytes": 584255996,
+      "appTreeSha256": "73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d",
+      "nativeCount": 209,
+      "signatureRepairCount": 28,
+      "metadata": "artifacts/full/distribution.json"
+    },
+    {
+      "variant": "slim",
+      "path": "ruyi-workbench/dist/Ruyi-macos-arm64-slim-internal-trial/Ruyi-macos-arm64-slim-internal-trial.dmg",
+      "imageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+      "imageBytes": 51621693,
+      "appTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "nativeCount": 6,
+      "signatureRepairCount": 0,
+      "metadata": "artifacts/slim/distribution.json"
+    }
+  ],
+  "checks": [
+    {
+      "executor": "main",
+      "variant": "full",
+      "installation": {
+        "log": "install-full-final.txt",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "offlineJourney": {
+        "log": "runs/main-full/offline-journey.txt",
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      "reports": "runs/main-full/",
+      "imageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a"
+    },
+    {
+      "executor": "main",
+      "variant": "slim",
+      "installation": {
+        "log": "install-slim-final.txt",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "offlineJourney": {
+        "log": "runs/main-slim/offline-journey.txt",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      "reports": "runs/main-slim/",
+      "imageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9"
+    },
+    {
+      "executor": "independent",
+      "variant": "full",
+      "installation": {
+        "log": "independent-full.txt",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "offlineJourney": {
+        "log": "runs/independent-full/offline-journey.txt",
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      "reports": "runs/independent-full/",
+      "imageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a"
+    },
+    {
+      "executor": "independent",
+      "variant": "slim",
+      "installation": {
+        "log": "independent-slim.txt",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      "offlineJourney": {
+        "log": "runs/independent-slim/offline-journey.txt",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      "reports": "runs/independent-slim/",
+      "imageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9"
+    }
+  ],
+  "engineering": {
+    "unitPassed": 2645,
+    "unitSkipped": 18,
+    "unitFailed": 0,
+    "staticPassed": 80,
+    "staticFailed": 0,
+    "liveSkipped": 14,
+    "newUnitPassed": 5,
+    "logs": [
+      "engineering-current.txt",
+      "unit-all.txt",
+      "unit-current.txt",
+      "syntax-current.txt",
+      "build-check.txt"
+    ]
+  },
+  "independentReview": {
+    "report": "review-final.json",
+    "passed": true,
+    "codeFindingsResolved": [
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5",
+      "R6"
+    ],
+    "negativeControls": {
+      "nativeInventoryAndSymlinkOverlap": 4,
+      "realMountCleanup": 2
+    }
+  },
+  "build": {
+    "publicOutboundDenied": true,
+    "logs": [
+      "build-full-final.txt",
+      "build-slim-final.txt"
+    ]
+  },
+  "integrity": "integrity-final.json",
+  "cleanup": "cleanup-final.json",
+  "notAccepted": [
+    "Developer ID身份及正式分发签名",
+    "Apple公证与stapling",
+    "hardened runtime正式资格",
+    "实际浏览器下载/quarantine来源的Gatekeeper首次允许",
+    "真实干净标准用户及无开发工具另一台Mac",
+    "macOS14实际运行",
+    "正式身份Keychain/TCC及升级权限稳定性",
+    "P6-03升级、回退与数据迁移",
+    "Windows同候选回归与P6-04最终全量回归",
+    "P5原未验环境及故障恢复范围"
+  ],
+  "securityPolicyChanges": [],
+  "fullOriginalScopeAccepted": false
+}

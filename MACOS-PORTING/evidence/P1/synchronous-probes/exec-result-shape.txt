@@ -1,0 +1,22 @@
+✔ [S1] 大 stdout + 末尾 stderr:结果头+尾,stderr 与退出码在 stdout 之前,整体远低于 60K (63.569458ms)
+✔ [S1] 小输出原样不变(无省略字段) (61.982334ms)
+✔ [S2] `\r` 进度条折叠成最终一行 (52.9795ms)
+✔ [S3] 一次性运行的 stdin 是 EOF:读 stdin 的程序立刻返回而不是挂到超时 (59.085459ms)
+✔ [S4] 主进程退出后,占着输出管道的脱离孙进程不拖住工具调用 (3129.071167ms)
+✔ [S5] timeoutMs 非数字:分发层按 schema 拒并点名字段;非正数用默认值,不再 9ms 就被杀 (3213.95625ms)
+✔ [S5] 超时结果:error + hint + 已产生的部分输出 (1229.074958ms)
+✔ [S6] cwd 不存在:明说「工作目录不存在」,不是 spawn ENOENT (2.126ms)
+✔ [S7] python 子进程环境:PYTHONUTF8=1 / PYTHONIOENCODING=utf-8 (41.4455ms)
+✔ [S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(powershell_run 与 script_run) (641.498083ms)
+✔ [S9] shell_poll:状态字段在前、输出封顶(头+尾)、可用 cursor 分页读回中间 (368.752542ms)
+✔ [S9] shell_poll waitMs:有新输出或进程退出就提前返回 (1726.47225ms)
+✔ [S9] 后台任务:主进程退出、孙进程占着管道 → 及时 running:false(不永久占名额) (623.2825ms)
+✔ [S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在秒级到达,不是等满 30 秒 (1083.164625ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26442.456125

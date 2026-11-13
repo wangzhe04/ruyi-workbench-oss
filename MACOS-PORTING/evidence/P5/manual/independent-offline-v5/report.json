@@ -1,0 +1,5101 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T05:11:48.591376+00:00",
+  "status": "passed_v5_offline_subset",
+  "scope": "Independent v5 offline subset: memory-only native fixtures with no down/up posts; testing monitor create/register/wait faults before frames; production variable exclusion with read-only window.list/EOF. No GUI, default helper/App rebuild or system-setting mutations.",
+  "freezePath": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v5.json",
+  "freezeSha256": "35aa117b5d71d70332e5add20ba0d383dbf4246590293201379700d174dd0616",
+  "frozenFiles": 34,
+  "checkpoints": 108,
+  "allSourceChecksMatched": true,
+  "manualRetries": 0,
+  "acceptanceHarnessInterruption": {
+    "count": 1,
+    "reason": "Testing-only Objective-C logical-expression boxing produced JSON integer 1 for pressure_association_refused. Initial Python is True assertion was overstrict. Accepted bool/int equal to 1 after parent confirmation; public event subtype bool refusal remains strict. Raw output reused, no scenario repeated.",
+    "actualJSONType": "int",
+    "actualValue": 1,
+    "originalReport": "interrupted-report.json",
+    "originalRunner": "runner-first.py"
+  },
+  "expectedNativeNegativeExitOne": 20,
+  "expectedMonitorNegativeExitSeventy": 3,
+  "unexpectedCommandExits": 0,
+  "nativeAssertions": [
+    {
+      "assertion": "cleanup_refused",
+      "passed": true
+    },
+    {
+      "assertion": "ownership_retained",
+      "passed": true
+    },
+    {
+      "assertion": "permission_ownership_retained",
+      "passed": true
+    },
+    {
+      "assertion": "cross_tool_blocked",
+      "passed": true
+    },
+    {
+      "assertion": "18 stopped mutations false and not_dispatched",
+      "passed": true
+    },
+    {
+      "assertion": "raw flags 0x20000000 valid",
+      "passed": true
+    },
+    {
+      "assertion": "reject unmatched",
+      "passed": true
+    },
+    {
+      "assertion": "reject repeat",
+      "passed": true
+    },
+    {
+      "assertion": "reject scroll",
+      "passed": true
+    },
+    {
+      "assertion": "reject device",
+      "passed": true
+    },
+    {
+      "assertion": "reject bool",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_release_allocation",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_stopped_mutations",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_validate_sequence",
+      "passed": true
+    },
+    {
+      "assertion": "normal excludes test_stall_sequence",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "mode": "normal",
+      "path": "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+      "bytes": 291344,
+      "sha256": "7e600a4f39a1a786cc1b1c8005c228a473ca54db5d35de1154396398a226e147"
+    },
+    {
+      "mode": "testing",
+      "path": "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+      "bytes": 308736,
+      "sha256": "fa43e7fb08b8d6b0e91a7cbf354dbb6b2c9dba79ac3431b8f88922f5eb53eba0"
+    }
+  ],
+  "steps": [
+    {
+      "name": "build-normal",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "-e",
+        "const b=require('./ruyi-workbench/tools/build-macos-automation-helper.js');console.log(b.buildMacAutomationHelper({output:\"/tmp/ruyi-v5-build-xl_hmwrb/normal-helper\",testing:false}));"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:36.611521+00:00",
+      "elapsedSeconds": 2.936,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-5q2xzsm6/home",
+        "USERPROFILE": "/tmp/ruyi-v5-5q2xzsm6/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-5q2xzsm6/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-5q2xzsm6/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-5q2xzsm6/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-5q2xzsm6/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-5q2xzsm6/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-5q2xzsm6/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-5q2xzsm6/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/build-normal.txt",
+      "logDigest": {
+        "bytes": 42,
+        "sha256": "2e79e58a2c9ef2e34730d5080ced4654adf0df76a5ca879bb9321bf8ce3f1586"
+      }
+    },
+    {
+      "name": "build-testing",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "-e",
+        "const b=require('./ruyi-workbench/tools/build-macos-automation-helper.js');console.log(b.buildMacAutomationHelper({output:\"/tmp/ruyi-v5-build-xl_hmwrb/testing-helper\",testing:true}));"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:39.569500+00:00",
+      "elapsedSeconds": 3.053,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-ihehfpwd/home",
+        "USERPROFILE": "/tmp/ruyi-v5-ihehfpwd/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-ihehfpwd/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-ihehfpwd/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-ihehfpwd/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-ihehfpwd/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-ihehfpwd/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-ihehfpwd/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-ihehfpwd/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/build-testing.txt",
+      "logDigest": {
+        "bytes": 43,
+        "sha256": "b90369496d94f7a76c7d00fc69a79731a70a958a8ac6242a3d34850cf2e76619"
+      }
+    },
+    {
+      "name": "native-release-allocation",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:42.643591+00:00",
+      "elapsedSeconds": 0.614,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-cb16w8pn/home",
+        "USERPROFILE": "/tmp/ruyi-v5-cb16w8pn/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-cb16w8pn/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-cb16w8pn/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-cb16w8pn/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-cb16w8pn/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-cb16w8pn/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-cb16w8pn/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-cb16w8pn/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_release_allocation"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-release-allocation.txt",
+      "logDigest": {
+        "bytes": 144,
+        "sha256": "bec55c4631a2ef0f99c1c70b4b7be66d4a31f022c54766c30a1ddbc7313a3856"
+      },
+      "nativeResult": {
+        "cleanup_refused": true,
+        "cross_tool_blocked": true,
+        "ok": true,
+        "ownership_retained": true,
+        "permission_ownership_retained": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-stopped-mutations",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.280491+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-oxrc6qui/home",
+        "USERPROFILE": "/tmp/ruyi-v5-oxrc6qui/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-oxrc6qui/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-oxrc6qui/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-oxrc6qui/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-oxrc6qui/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-oxrc6qui/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-oxrc6qui/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-oxrc6qui/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_stopped_mutations"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-stopped-mutations.txt",
+      "logDigest": {
+        "bytes": 3175,
+        "sha256": "7e34b9d30341a7d969c0b55b976dff14fb196c80f36ff3d1d94955c15558f2cb"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1,
+        "results": [
+          {
+            "op": "window.focus",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.move",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.resize",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.maximize",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.minimize",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "window.close",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "clipboard.set",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "clipboard.image.set",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "application.launch",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "keyboard.text",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "keyboard.chord",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.click",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.move",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.drag",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "mouse.scroll",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "input.sequence",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "ax.invoke",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          },
+          {
+            "op": "record.start",
+            "result": {
+              "acted": false,
+              "action_sent": false,
+              "code": "input_cancelled",
+              "error": "Native input session is stopping",
+              "ok": false,
+              "outcome": "not_dispatched"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "native-raw-flags",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.311039+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-o7nkl3u0/home",
+        "USERPROFILE": "/tmp/ruyi-v5-o7nkl3u0/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-o7nkl3u0/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-o7nkl3u0/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-o7nkl3u0/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-o7nkl3u0/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-o7nkl3u0/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-o7nkl3u0/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-o7nkl3u0/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 536870912,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 536870912,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-raw-flags.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-invalid-unmatched",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.342684+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-fi3s9unz/home",
+        "USERPROFILE": "/tmp/ruyi-v5-fi3s9unz/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-fi3s9unz/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-fi3s9unz/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-fi3s9unz/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-fi3s9unz/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-fi3s9unz/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-fi3s9unz/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-fi3s9unz/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_up",
+            "at_us": 0,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-unmatched.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-repeat",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.374233+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-u23nm2xy/home",
+        "USERPROFILE": "/tmp/ruyi-v5-u23nm2xy/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-u23nm2xy/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-u23nm2xy/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-u23nm2xy/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-u23nm2xy/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-u23nm2xy/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-u23nm2xy/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-u23nm2xy/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 1
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-repeat.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-scroll",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.405037+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-jbgrridm/home",
+        "USERPROFILE": "/tmp/ruyi-v5-jbgrridm/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-jbgrridm/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-jbgrridm/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-jbgrridm/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-jbgrridm/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-jbgrridm/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-jbgrridm/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-jbgrridm/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "scroll",
+            "at_us": 0,
+            "flags": 0,
+            "x": 1,
+            "y": 1,
+            "delta": [
+              1,
+              0,
+              0
+            ],
+            "fixed": [
+              1,
+              0,
+              0
+            ],
+            "point": [
+              1,
+              0,
+              0
+            ],
+            "continuous": true,
+            "phase": 2,
+            "momentum": 0,
+            "scroll_count": 1
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-scroll.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-device",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.436006+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-iidzykzi/home",
+        "USERPROFILE": "/tmp/ruyi-v5-iidzykzi/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-iidzykzi/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-iidzykzi/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-iidzykzi/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-iidzykzi/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-iidzykzi/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-iidzykzi/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-iidzykzi/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 2,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-device.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-bool",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.466612+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-qpmaldo8/home",
+        "USERPROFILE": "/tmp/ruyi-v5-qpmaldo8/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-qpmaldo8/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-qpmaldo8/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-qpmaldo8/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-qpmaldo8/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-qpmaldo8/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-qpmaldo8/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-qpmaldo8/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "key_down",
+            "at_us": 0,
+            "flags": 0,
+            "keycode": false,
+            "keyboard_type": 0,
+            "repeat": 0
+          },
+          {
+            "type": "key_up",
+            "at_us": 10,
+            "flags": 0,
+            "keycode": 0,
+            "keyboard_type": 0,
+            "repeat": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-bool.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_release_allocation",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.497845+00:00",
+      "elapsedSeconds": 0.402,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-qfgurpsp/home",
+        "USERPROFILE": "/tmp/ruyi-v5-qfgurpsp/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-qfgurpsp/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-qfgurpsp/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-qfgurpsp/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-qfgurpsp/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-qfgurpsp/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-qfgurpsp/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-qfgurpsp/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_release_allocation"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_release_allocation.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_stopped_mutations",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.926417+00:00",
+      "elapsedSeconds": 0.02,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-bd2arznn/home",
+        "USERPROFILE": "/tmp/ruyi-v5-bd2arznn/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-bd2arznn/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-bd2arznn/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-bd2arznn/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-bd2arznn/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-bd2arznn/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-bd2arznn/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-bd2arznn/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_stopped_mutations"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_stopped_mutations.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_validate_sequence",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:43.970562+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-3lrv7che/home",
+        "USERPROFILE": "/tmp/ruyi-v5-3lrv7che/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-3lrv7che/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-3lrv7che/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-3lrv7che/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-3lrv7che/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-3lrv7che/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-3lrv7che/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-3lrv7che/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_validate_sequence.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "normal-excludes-test_stall_sequence",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:44.004544+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-fyw5rm62/home",
+        "USERPROFILE": "/tmp/ruyi-v5-fyw5rm62/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-fyw5rm62/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-fyw5rm62/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-fyw5rm62/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-fyw5rm62/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-fyw5rm62/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-fyw5rm62/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-fyw5rm62/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_stall_sequence"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_stall_sequence.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-pointer-subtypes",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:05:44.037894+00:00",
+      "elapsedSeconds": 0.04,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-ek4r5jm5/home",
+        "USERPROFILE": "/tmp/ruyi-v5-ek4r5jm5/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-ek4r5jm5/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-ek4r5jm5/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-ek4r5jm5/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-ek4r5jm5/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-ek4r5jm5/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-ek4r5jm5/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-ek4r5jm5/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_pointer_subtypes"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-pointer-subtypes.txt",
+      "logDigest": {
+        "bytes": 9380,
+        "sha256": "cc24ca945b7d2cd18bea3ab8aa168c0f7c5ed32555608a81c54ec89ebf56ef19"
+      },
+      "nativeResult": {
+        "cases": [
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "move",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 5
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "mouse_down",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 1
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "mouse_up",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 2
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "drag",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 6
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 1,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "mouse_down",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 3
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 1,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "mouse_up",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 4
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 1,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "drag",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 7
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 2,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "mouse_down",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 25
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 2,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "mouse_up",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 26
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 2,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "type": "drag",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 0,
+            "type": 27
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 5
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 1
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 2
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 6
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 3
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 4
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 7
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 25
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 26
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 1,
+            "type": 27
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 5
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 1
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 2
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 6
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 3
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 4
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 7
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 25
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 26
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 2,
+            "type": 27
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "move",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 5
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "mouse_down",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 1
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "mouse_up",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 2
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 0,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "drag",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 6
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 1,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "mouse_down",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 3
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 1,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "mouse_up",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 4
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 1,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "drag",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 7
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 2,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "mouse_down",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 25
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 2,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "mouse_up",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 26
+          },
+          {
+            "failure": {},
+            "matched": true,
+            "row": {
+              "at_us": 0,
+              "button": 2,
+              "click_state": 2,
+              "delta_x": 7,
+              "delta_y": -4,
+              "flags": 0,
+              "pressure": 0.4980392156862745,
+              "subtype": 3,
+              "type": "drag",
+              "x": 25,
+              "y": 35
+            },
+            "subtype": 3,
+            "type": 27
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 5
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 1
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 2
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 6
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 3
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 4
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 7
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 25
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 26
+          },
+          {
+            "failure": {
+              "code": "pointer_event_unsupported",
+              "error": "Unsupported pointer subtype requires additional native fields",
+              "ok": false
+            },
+            "matched": true,
+            "row": {},
+            "subtype": 4,
+            "type": 27
+          }
+        ],
+        "ok": true,
+        "pressure_association_refused": 1,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "normal-excludes-test_pointer_subtypes",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.144128+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-jpdxc4hq/home",
+        "USERPROFILE": "/tmp/ruyi-v5-jpdxc4hq/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-jpdxc4hq/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-jpdxc4hq/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-jpdxc4hq/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-jpdxc4hq/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-jpdxc4hq/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-jpdxc4hq/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-jpdxc4hq/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_pointer_subtypes"
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/normal-excludes-test_pointer_subtypes.txt",
+      "logDigest": {
+        "bytes": 67,
+        "sha256": "aaf79bd97ef39f42292632d48554ea4ed60cf5940a44c876f87b0dc89ec946b0"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Unsupported operation",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-subtype-omitted",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.179224+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-qqp738t_/home",
+        "USERPROFILE": "/tmp/ruyi-v5-qqp738t_/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-qqp738t_/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-qqp738t_/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-qqp738t_/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-qqp738t_/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-qqp738t_/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-qqp738t_/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-qqp738t_/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-omitted.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-subtype-zero",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.216839+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-3qv_bjoq/home",
+        "USERPROFILE": "/tmp/ruyi-v5-3qv_bjoq/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-3qv_bjoq/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-3qv_bjoq/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-3qv_bjoq/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-3qv_bjoq/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-3qv_bjoq/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-3qv_bjoq/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-3qv_bjoq/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-zero.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-subtype-touch",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.253120+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-nnag0eu9/home",
+        "USERPROFILE": "/tmp/ruyi-v5-nnag0eu9/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-nnag0eu9/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-nnag0eu9/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-nnag0eu9/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-nnag0eu9/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-nnag0eu9/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-nnag0eu9/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-nnag0eu9/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 3
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-touch.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-subtype-zero-float",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.288799+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-rhk97s0j/home",
+        "USERPROFILE": "/tmp/ruyi-v5-rhk97s0j/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-rhk97s0j/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-rhk97s0j/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-rhk97s0j/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-rhk97s0j/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-rhk97s0j/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-rhk97s0j/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-rhk97s0j/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 0.0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-zero-float.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-subtype-touch-float",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.323989+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-j6l7fyak/home",
+        "USERPROFILE": "/tmp/ruyi-v5-j6l7fyak/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-j6l7fyak/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-j6l7fyak/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-j6l7fyak/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-j6l7fyak/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-j6l7fyak/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-j6l7fyak/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-j6l7fyak/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 3.0
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-subtype-touch-float.txt",
+      "logDigest": {
+        "bytes": 32,
+        "sha256": "fe58b777376326557320030f0dbbafb83695f6fbc93b13854a24d997f05ed394"
+      },
+      "nativeResult": {
+        "ok": true,
+        "protocolVersion": 1
+      }
+    },
+    {
+      "name": "native-invalid-subtype-tablet",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.359893+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-ol85_kem/home",
+        "USERPROFILE": "/tmp/ruyi-v5-ol85_kem/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-ol85_kem/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-ol85_kem/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-ol85_kem/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-ol85_kem/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-ol85_kem/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-ol85_kem/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-ol85_kem/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 1
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-tablet.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-proximity",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.394643+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-u84da7q8/home",
+        "USERPROFILE": "/tmp/ruyi-v5-u84da7q8/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-u84da7q8/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-u84da7q8/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-u84da7q8/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-u84da7q8/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-u84da7q8/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-u84da7q8/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-u84da7q8/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 2
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-proximity.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-unknown",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.428943+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-og5cszc3/home",
+        "USERPROFILE": "/tmp/ruyi-v5-og5cszc3/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-og5cszc3/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-og5cszc3/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-og5cszc3/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-og5cszc3/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-og5cszc3/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-og5cszc3/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-og5cszc3/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 4
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-unknown.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-negative",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.462760+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-x8lhwr45/home",
+        "USERPROFILE": "/tmp/ruyi-v5-x8lhwr45/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-x8lhwr45/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-x8lhwr45/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-x8lhwr45/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-x8lhwr45/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-x8lhwr45/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-x8lhwr45/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-x8lhwr45/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": -1
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-negative.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-large-unknown",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.497356+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-owl_id90/home",
+        "USERPROFILE": "/tmp/ruyi-v5-owl_id90/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-owl_id90/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-owl_id90/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-owl_id90/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-owl_id90/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-owl_id90/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-owl_id90/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-owl_id90/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 255
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-large-unknown.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-true",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.531558+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-637j0lg2/home",
+        "USERPROFILE": "/tmp/ruyi-v5-637j0lg2/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-637j0lg2/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-637j0lg2/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-637j0lg2/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-637j0lg2/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-637j0lg2/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-637j0lg2/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-637j0lg2/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": true
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-true.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-false",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.566429+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-89g6hmxm/home",
+        "USERPROFILE": "/tmp/ruyi-v5-89g6hmxm/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-89g6hmxm/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-89g6hmxm/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-89g6hmxm/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-89g6hmxm/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-89g6hmxm/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-89g6hmxm/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-89g6hmxm/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": false
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-false.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-null",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.601315+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-l8n1ejjx/home",
+        "USERPROFILE": "/tmp/ruyi-v5-l8n1ejjx/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-l8n1ejjx/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-l8n1ejjx/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-l8n1ejjx/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-l8n1ejjx/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-l8n1ejjx/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-l8n1ejjx/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-l8n1ejjx/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": null
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-null.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-string",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.636272+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-1agm0ez3/home",
+        "USERPROFILE": "/tmp/ruyi-v5-1agm0ez3/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-1agm0ez3/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-1agm0ez3/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-1agm0ez3/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-1agm0ez3/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-1agm0ez3/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-1agm0ez3/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-1agm0ez3/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": "3"
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-string.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "native-invalid-subtype-fraction",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.671186+00:00",
+      "elapsedSeconds": 0.01,
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-1esti39c/home",
+        "USERPROFILE": "/tmp/ruyi-v5-1esti39c/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-1esti39c/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-1esti39c/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-1esti39c/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-1esti39c/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-1esti39c/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-1esti39c/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-1esti39c/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": {
+        "version": 1,
+        "op": "test_validate_sequence",
+        "events": [
+          {
+            "type": "move",
+            "at_us": 0,
+            "flags": 0,
+            "x": 25,
+            "y": 35,
+            "button": 0,
+            "click_state": 2,
+            "pressure": 0.5,
+            "delta_x": 7,
+            "delta_y": -4,
+            "subtype": 3.5
+          }
+        ]
+      },
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/native-invalid-subtype-fraction.txt",
+      "logDigest": {
+        "bytes": 122,
+        "sha256": "0e4c83c208eb4b8dde07f9f00dd8fe4fc18f3cc30671de4c4eb43fe9cf1de641"
+      },
+      "nativeResult": {
+        "code": "invalid_args",
+        "error": "Pass a balanced sequence of 1-512 supported events over at most five seconds",
+        "ok": false
+      }
+    },
+    {
+      "name": "python-subtype-parity",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/python-subtype-parity.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.706773+00:00",
+      "elapsedSeconds": 0.04,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-x0n__sh6/home",
+        "USERPROFILE": "/tmp/ruyi-v5-x0n__sh6/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-x0n__sh6/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-x0n__sh6/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-x0n__sh6/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-x0n__sh6/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-x0n__sh6/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-x0n__sh6/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-x0n__sh6/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/python-subtype-parity.txt",
+      "logDigest": {
+        "bytes": 4725,
+        "sha256": "de6e389924ddf20c31386adf98f30127176a501a9ef0547747694eb0d4ac315e"
+      }
+    },
+    {
+      "name": "session-testing-create",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+        "--input-session"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.772391+00:00",
+      "elapsedSeconds": 0.01,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-l9u7o7xy/home",
+        "USERPROFILE": "/tmp/ruyi-v5-l9u7o7xy/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-l9u7o7xy/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-l9u7o7xy/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-l9u7o7xy/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-l9u7o7xy/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-l9u7o7xy/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-l9u7o7xy/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-l9u7o7xy/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1",
+        "RUYI_TEST_SESSION_MONITOR_FAILURE": "create"
+      },
+      "tmpdirPathBytes": 25,
+      "exitCode": 70,
+      "expectedExitCode": 70,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-create.txt",
+      "logDigest": {
+        "bytes": 222,
+        "sha256": "f3542f6825a6a504e610c7615fa86b45bbc865f2a86987b83f22cc336daaa462"
+      },
+      "sessionResult": {
+        "mode": "testing",
+        "fault": "create",
+        "exitCode": 70,
+        "expectedExitCode": 70,
+        "request": null,
+        "response": null,
+        "framesWritten": 0,
+        "stdinOpenAtExit": true,
+        "stdoutAfterResponse": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "session-testing-register",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+        "--input-session"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.807630+00:00",
+      "elapsedSeconds": 0.01,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-ouh6q_ed/home",
+        "USERPROFILE": "/tmp/ruyi-v5-ouh6q_ed/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-ouh6q_ed/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-ouh6q_ed/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-ouh6q_ed/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-ouh6q_ed/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-ouh6q_ed/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-ouh6q_ed/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-ouh6q_ed/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1",
+        "RUYI_TEST_SESSION_MONITOR_FAILURE": "register"
+      },
+      "tmpdirPathBytes": 25,
+      "exitCode": 70,
+      "expectedExitCode": 70,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-register.txt",
+      "logDigest": {
+        "bytes": 224,
+        "sha256": "caace5447ad50d613bce4532965654b730a9c019ef1ea8ade5820a3f130a9031"
+      },
+      "sessionResult": {
+        "mode": "testing",
+        "fault": "register",
+        "exitCode": 70,
+        "expectedExitCode": 70,
+        "request": null,
+        "response": null,
+        "framesWritten": 0,
+        "stdinOpenAtExit": true,
+        "stdoutAfterResponse": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "session-testing-wait",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+        "--input-session"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.842462+00:00",
+      "elapsedSeconds": 0.077,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-830560n7/home",
+        "USERPROFILE": "/tmp/ruyi-v5-830560n7/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-830560n7/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-830560n7/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-830560n7/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-830560n7/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-830560n7/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-830560n7/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-830560n7/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1",
+        "RUYI_TEST_SESSION_MONITOR_FAILURE": "wait"
+      },
+      "tmpdirPathBytes": 25,
+      "exitCode": 70,
+      "expectedExitCode": 70,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-testing-wait.txt",
+      "logDigest": {
+        "bytes": 220,
+        "sha256": "1d7d0187d0702ea50f6c67e4f47cbf8ee0d532019b55f398af3fbc29fd218d91"
+      },
+      "sessionResult": {
+        "mode": "testing",
+        "fault": "wait",
+        "exitCode": 70,
+        "expectedExitCode": 70,
+        "request": null,
+        "response": null,
+        "framesWritten": 0,
+        "stdinOpenAtExit": true,
+        "stdoutAfterResponse": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "session-production-create",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+        "--input-session"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:10.947669+00:00",
+      "elapsedSeconds": 0.104,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-jf3lxjlb/home",
+        "USERPROFILE": "/tmp/ruyi-v5-jf3lxjlb/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-jf3lxjlb/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-jf3lxjlb/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-jf3lxjlb/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-jf3lxjlb/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-jf3lxjlb/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-jf3lxjlb/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-jf3lxjlb/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1",
+        "RUYI_TEST_SESSION_MONITOR_FAILURE": "create"
+      },
+      "tmpdirPathBytes": 25,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-production-create.txt",
+      "logDigest": {
+        "bytes": 2924,
+        "sha256": "cc1767f11dcf25b69dd1966c33a16fb4e8fdc0b0bedea41aff95a9b2674e6cee"
+      },
+      "sessionResult": {
+        "mode": "production",
+        "fault": "create",
+        "exitCode": 0,
+        "expectedExitCode": 0,
+        "request": {
+          "version": 1,
+          "op": "window.list",
+          "id": 23
+        },
+        "response": {
+          "coordinate_space": "macos_global_points",
+          "count": 4,
+          "id": 23,
+          "ok": true,
+          "partial": 0,
+          "protocolVersion": 1,
+          "windows": [
+            {
+              "application": "ChatGPT",
+              "handle": 122,
+              "height": 986,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "target": {
+                "bounds": {
+                  "height": 986,
+                  "width": 1710,
+                  "x": 0,
+                  "y": 34
+                },
+                "handle": 122,
+                "pid": 1626,
+                "process_start": "1794280929:783739",
+                "ref": "CAE03C0D-ADFB-4507-97C6-18437E614AD4"
+              },
+              "title": "\u68b3\u7406\u5982\u610f\u5de5\u4f5c\u53f0 Mac \u672c\u5730\u5316 P5",
+              "visible": true,
+              "width": 1710,
+              "x": 0,
+              "y": 34
+            },
+            {
+              "application": "\u5fae\u4fe1",
+              "handle": 1356,
+              "height": 839,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "target": {
+                "bounds": {
+                  "height": 839,
+                  "width": 986,
+                  "x": 215,
+                  "y": 136
+                },
+                "handle": 1356,
+                "pid": 68646,
+                "process_start": "1794296727:896050",
+                "ref": "BE732109-3AEB-46FC-9DA5-ED516018C8F7"
+              },
+              "title": "\u5fae\u4fe1",
+              "visible": true,
+              "width": 986,
+              "x": 215,
+              "y": 136
+            },
+            {
+              "application": "QQ",
+              "handle": 3448,
+              "height": 774,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "target": {
+                "bounds": {
+                  "height": 774,
+                  "width": 1023,
+                  "x": 102,
+                  "y": 90
+                },
+                "handle": 3448,
+                "pid": 85159,
+                "process_start": "1794318212:381639",
+                "ref": "F1ED2F8C-2C99-44DD-B0F9-0F686E9DC621"
+              },
+              "title": "QQ",
+              "visible": true,
+              "width": 1023,
+              "x": 102,
+              "y": 90
+            },
+            {
+              "application": "\u7cfb\u7edf\u8bbe\u7f6e",
+              "handle": 535,
+              "height": 625,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "target": {
+                "bounds": {
+                  "height": 625,
+                  "width": 754,
+                  "x": 126,
+                  "y": 115
+                },
+                "handle": 535,
+                "pid": 44893,
+                "process_start": "1794290149:736919",
+                "ref": "BF269B43-EEDA-4183-851C-77F155020875"
+              },
+              "title": "\u8bbe\u5907\u63a7\u5236\u548c\u6570\u636e\u8bbf\u95ee",
+              "visible": true,
+              "width": 754,
+              "x": 126,
+              "y": 115
+            }
+          ]
+        },
+        "framesWritten": 1,
+        "stdinOpenAtExit": false,
+        "stdoutAfterResponse": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "session-production-register",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+        "--input-session"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:11.078591+00:00",
+      "elapsedSeconds": 0.11,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-0uphvd5x/home",
+        "USERPROFILE": "/tmp/ruyi-v5-0uphvd5x/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-0uphvd5x/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-0uphvd5x/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-0uphvd5x/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-0uphvd5x/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-0uphvd5x/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-0uphvd5x/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-0uphvd5x/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1",
+        "RUYI_TEST_SESSION_MONITOR_FAILURE": "register"
+      },
+      "tmpdirPathBytes": 25,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-production-register.txt",
+      "logDigest": {
+        "bytes": 2926,
+        "sha256": "9d932c6dfc315d88200ea8ea270d860bbf2c6b3802e46905da35bf2733c23031"
+      },
+      "sessionResult": {
+        "mode": "production",
+        "fault": "register",
+        "exitCode": 0,
+        "expectedExitCode": 0,
+        "request": {
+          "version": 1,
+          "op": "window.list",
+          "id": 23
+        },
+        "response": {
+          "coordinate_space": "macos_global_points",
+          "count": 4,
+          "id": 23,
+          "ok": true,
+          "partial": 0,
+          "protocolVersion": 1,
+          "windows": [
+            {
+              "application": "ChatGPT",
+              "handle": 122,
+              "height": 986,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "target": {
+                "bounds": {
+                  "height": 986,
+                  "width": 1710,
+                  "x": 0,
+                  "y": 34
+                },
+                "handle": 122,
+                "pid": 1626,
+                "process_start": "1794280929:783739",
+                "ref": "776CB9BC-7E90-4C75-9A62-75A6C54AC0BB"
+              },
+              "title": "\u68b3\u7406\u5982\u610f\u5de5\u4f5c\u53f0 Mac \u672c\u5730\u5316 P5",
+              "visible": true,
+              "width": 1710,
+              "x": 0,
+              "y": 34
+            },
+            {
+              "application": "\u5fae\u4fe1",
+              "handle": 1356,
+              "height": 839,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "target": {
+                "bounds": {
+                  "height": 839,
+                  "width": 986,
+                  "x": 215,
+                  "y": 136
+                },
+                "handle": 1356,
+                "pid": 68646,
+                "process_start": "1794296727:896050",
+                "ref": "BD709838-43C5-4714-87FC-2A049DC50450"
+              },
+              "title": "\u5fae\u4fe1",
+              "visible": true,
+              "width": 986,
+              "x": 215,
+              "y": 136
+            },
+            {
+              "application": "QQ",
+              "handle": 3448,
+              "height": 774,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "target": {
+                "bounds": {
+                  "height": 774,
+                  "width": 1023,
+                  "x": 102,
+                  "y": 90
+                },
+                "handle": 3448,
+                "pid": 85159,
+                "process_start": "1794318212:381639",
+                "ref": "E6A799AB-37CF-4120-BBB0-63208E6092C2"
+              },
+              "title": "QQ",
+              "visible": true,
+              "width": 1023,
+              "x": 102,
+              "y": 90
+            },
+            {
+              "application": "\u7cfb\u7edf\u8bbe\u7f6e",
+              "handle": 535,
+              "height": 625,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "target": {
+                "bounds": {
+                  "height": 625,
+                  "width": 754,
+                  "x": 126,
+                  "y": 115
+                },
+                "handle": 535,
+                "pid": 44893,
+                "process_start": "1794290149:736919",
+                "ref": "64EA9ECF-D8CF-434C-8C8D-616C17BA1C8A"
+              },
+              "title": "\u8bbe\u5907\u63a7\u5236\u548c\u6570\u636e\u8bbf\u95ee",
+              "visible": true,
+              "width": 754,
+              "x": 126,
+              "y": 115
+            }
+          ]
+        },
+        "framesWritten": 1,
+        "stdinOpenAtExit": false,
+        "stdoutAfterResponse": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "session-production-wait",
+      "command": [
+        "/tmp/ruyi-v5-build-xl_hmwrb/normal-helper",
+        "--input-session"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:11.216385+00:00",
+      "elapsedSeconds": 0.111,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-pl3tvzif/home",
+        "USERPROFILE": "/tmp/ruyi-v5-pl3tvzif/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-pl3tvzif/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-pl3tvzif/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-pl3tvzif/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-pl3tvzif/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-pl3tvzif/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-pl3tvzif/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-pl3tvzif/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1",
+        "RUYI_TEST_SESSION_MONITOR_FAILURE": "wait"
+      },
+      "tmpdirPathBytes": 25,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/session-production-wait.txt",
+      "logDigest": {
+        "bytes": 2922,
+        "sha256": "607b004a9028a2bdcc45d3b16fe002fb4b4db7107252e34f0b6669cacc0646e2"
+      },
+      "sessionResult": {
+        "mode": "production",
+        "fault": "wait",
+        "exitCode": 0,
+        "expectedExitCode": 0,
+        "request": {
+          "version": 1,
+          "op": "window.list",
+          "id": 23
+        },
+        "response": {
+          "coordinate_space": "macos_global_points",
+          "count": 4,
+          "id": 23,
+          "ok": true,
+          "partial": 0,
+          "protocolVersion": 1,
+          "windows": [
+            {
+              "application": "ChatGPT",
+              "handle": 122,
+              "height": 986,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "target": {
+                "bounds": {
+                  "height": 986,
+                  "width": 1710,
+                  "x": 0,
+                  "y": 34
+                },
+                "handle": 122,
+                "pid": 1626,
+                "process_start": "1794280929:783739",
+                "ref": "E25DE914-CCFC-49D3-B85A-AFC80CD0261B"
+              },
+              "title": "\u68b3\u7406\u5982\u610f\u5de5\u4f5c\u53f0 Mac \u672c\u5730\u5316 P5",
+              "visible": true,
+              "width": 1710,
+              "x": 0,
+              "y": 34
+            },
+            {
+              "application": "\u5fae\u4fe1",
+              "handle": 1356,
+              "height": 839,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "target": {
+                "bounds": {
+                  "height": 839,
+                  "width": 986,
+                  "x": 215,
+                  "y": 136
+                },
+                "handle": 1356,
+                "pid": 68646,
+                "process_start": "1794296727:896050",
+                "ref": "97584771-A737-4955-924F-AAC876EF8A75"
+              },
+              "title": "\u5fae\u4fe1",
+              "visible": true,
+              "width": 986,
+              "x": 215,
+              "y": 136
+            },
+            {
+              "application": "QQ",
+              "handle": 3448,
+              "height": 774,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "target": {
+                "bounds": {
+                  "height": 774,
+                  "width": 1023,
+                  "x": 102,
+                  "y": 90
+                },
+                "handle": 3448,
+                "pid": 85159,
+                "process_start": "1794318212:381639",
+                "ref": "637DA7DC-B79F-4578-8850-465C191BEA5C"
+              },
+              "title": "QQ",
+              "visible": true,
+              "width": 1023,
+              "x": 102,
+              "y": 90
+            },
+            {
+              "application": "\u7cfb\u7edf\u8bbe\u7f6e",
+              "handle": 535,
+              "height": 625,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "target": {
+                "bounds": {
+                  "height": 625,
+                  "width": 754,
+                  "x": 126,
+                  "y": 115
+                },
+                "handle": 535,
+                "pid": 44893,
+                "process_start": "1794290149:736919",
+                "ref": "ABB087B4-AFA8-453B-BA01-1AF9D2065A6C"
+              },
+              "title": "\u8bbe\u5907\u63a7\u5236\u548c\u6570\u636e\u8bbf\u95ee",
+              "visible": true,
+              "width": 754,
+              "x": 126,
+              "y": 115
+            }
+          ]
+        },
+        "framesWritten": 1,
+        "stdinOpenAtExit": false,
+        "stdoutAfterResponse": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "smoke_audit_cancellation",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_audit_cancellation.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:11.354472+00:00",
+      "elapsedSeconds": 0.445,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-_xc0roqr/home",
+        "USERPROFILE": "/tmp/ruyi-v5-_xc0roqr/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-_xc0roqr/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-_xc0roqr/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-_xc0roqr/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-_xc0roqr/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-_xc0roqr/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-_xc0roqr/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-_xc0roqr/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_audit_cancellation.txt",
+      "logDigest": {
+        "bytes": 2085,
+        "sha256": "7c4cc4a924a8ce0f600097d06d11b720c35825856e0c55f64b10e153c9d89cb7"
+      },
+      "tests": 12,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_record",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_record.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:11.831230+00:00",
+      "elapsedSeconds": 0.344,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-4_ma_qf0/home",
+        "USERPROFILE": "/tmp/ruyi-v5-4_ma_qf0/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-4_ma_qf0/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-4_ma_qf0/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-4_ma_qf0/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-4_ma_qf0/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-4_ma_qf0/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-4_ma_qf0/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-4_ma_qf0/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_record.txt",
+      "logDigest": {
+        "bytes": 4918,
+        "sha256": "d2fe77fdbc552b5bef114071b6b6a4127c8e71aa2368566d5a152276184b2eaa"
+      },
+      "tests": 31,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_sequence",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_sequence.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:12.204109+00:00",
+      "elapsedSeconds": 0.563,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-_7mvqjjn/home",
+        "USERPROFILE": "/tmp/ruyi-v5-_7mvqjjn/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-_7mvqjjn/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-_7mvqjjn/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-_7mvqjjn/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-_7mvqjjn/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-_7mvqjjn/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-_7mvqjjn/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-_7mvqjjn/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_sequence.txt",
+      "logDigest": {
+        "bytes": 2877,
+        "sha256": "273740f9b61ba72a12ceb60b13ce4fdd7be47ae8a4caa4bf0ce12ff5a0d16878"
+      },
+      "tests": 17,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_composed",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_composed.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:12.794076+00:00",
+      "elapsedSeconds": 0.726,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-kisgpimc/home",
+        "USERPROFILE": "/tmp/ruyi-v5-kisgpimc/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-kisgpimc/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-kisgpimc/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-kisgpimc/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-kisgpimc/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-kisgpimc/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-kisgpimc/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-kisgpimc/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_composed.txt",
+      "logDigest": {
+        "bytes": 115,
+        "sha256": "1add3db34a0d2391f55f63d4b44ef2ed2ccf86cb51f9f1fcfb6fa34b6435000b"
+      },
+      "tests": 16,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_visual",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_visual.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:13.549280+00:00",
+      "elapsedSeconds": 0.837,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-dgoj9d3r/home",
+        "USERPROFILE": "/tmp/ruyi-v5-dgoj9d3r/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-dgoj9d3r/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-dgoj9d3r/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-dgoj9d3r/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-dgoj9d3r/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-dgoj9d3r/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-dgoj9d3r/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-dgoj9d3r/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_visual.txt",
+      "logDigest": {
+        "bytes": 124,
+        "sha256": "4d31c3990e16c3b96d56057b2bc0bfccd2334b0d9b3673f385b3cd85b1c95e2a"
+      },
+      "tests": 25,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_capture",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_capture.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:14.417848+00:00",
+      "elapsedSeconds": 2.486,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-lzd1kb5x/home",
+        "USERPROFILE": "/tmp/ruyi-v5-lzd1kb5x/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-lzd1kb5x/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-lzd1kb5x/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-lzd1kb5x/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-lzd1kb5x/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-lzd1kb5x/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-lzd1kb5x/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-lzd1kb5x/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_capture.txt",
+      "logDigest": {
+        "bytes": 1799,
+        "sha256": "79d7e711453e90faf7effc5a335687854f0aa81b266cbd68da593db8ae1a2b99"
+      },
+      "tests": 13,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_shared",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_shared.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:16.937533+00:00",
+      "elapsedSeconds": 2.126,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-nfcbtb8r/home",
+        "USERPROFILE": "/tmp/ruyi-v5-nfcbtb8r/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-nfcbtb8r/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-nfcbtb8r/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-nfcbtb8r/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-nfcbtb8r/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-nfcbtb8r/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-nfcbtb8r/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-nfcbtb8r/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_shared.txt",
+      "logDigest": {
+        "bytes": 1152,
+        "sha256": "883b46144965062e8e44907216f580603fe3d3cf2911d27630fecf314b75b4f1"
+      },
+      "tests": 8,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_input",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_input.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:19.091967+00:00",
+      "elapsedSeconds": 8.555,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-_5r63cdh/home",
+        "USERPROFILE": "/tmp/ruyi-v5-_5r63cdh/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-_5r63cdh/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-_5r63cdh/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-_5r63cdh/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-_5r63cdh/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-_5r63cdh/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-_5r63cdh/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-_5r63cdh/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_input.txt",
+      "logDigest": {
+        "bytes": 2980,
+        "sha256": "55e63931470e85b4e2d467d49744dda2f957e3873d6f1e80951216043593eb3a"
+      },
+      "tests": 21,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_events",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_events.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:27.677749+00:00",
+      "elapsedSeconds": 0.348,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-6ljr1i46/home",
+        "USERPROFILE": "/tmp/ruyi-v5-6ljr1i46/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-6ljr1i46/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-6ljr1i46/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-6ljr1i46/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-6ljr1i46/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-6ljr1i46/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-6ljr1i46/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-6ljr1i46/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_events.txt",
+      "logDigest": {
+        "bytes": 2172,
+        "sha256": "aa3e4aa870774dadc5326849e04019a3600e07c6535985033b73617a7cfbd081"
+      },
+      "tests": 16,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "smoke_macos_ax",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/tests/smoke_macos_ax.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control",
+      "startedAt": "2026-11-11T05:07:28.059260+00:00",
+      "elapsedSeconds": 0.348,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-45m9sc2b/home",
+        "USERPROFILE": "/tmp/ruyi-v5-45m9sc2b/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-45m9sc2b/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-45m9sc2b/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-45m9sc2b/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-45m9sc2b/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-45m9sc2b/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-45m9sc2b/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-45m9sc2b/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/smoke_macos_ax.txt",
+      "logDigest": {
+        "bytes": 106,
+        "sha256": "4615428c9fcaf97b8b03bc36e63a8cb21e854f7234c4b4fb809796c765299838"
+      },
+      "tests": 8,
+      "skipped": 0,
+      "unittestOK": true
+    },
+    {
+      "name": "syntax",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:28.439936+00:00",
+      "elapsedSeconds": 27.637,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-gokv7nbh/home",
+        "USERPROFILE": "/tmp/ruyi-v5-gokv7nbh/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-gokv7nbh/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-gokv7nbh/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-gokv7nbh/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-gokv7nbh/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-gokv7nbh/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-gokv7nbh/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-gokv7nbh/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/syntax.txt",
+      "logDigest": {
+        "bytes": 60,
+        "sha256": "4267d38aacc0fb37992d1448cf42c474eee3ad016aafb1c97dc4e79c09a294ad"
+      },
+      "summaryLines": []
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:56.108625+00:00",
+      "elapsedSeconds": 0.185,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-shb03bnq/home",
+        "USERPROFILE": "/tmp/ruyi-v5-shb03bnq/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-shb03bnq/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-shb03bnq/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-shb03bnq/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-shb03bnq/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-shb03bnq/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-shb03bnq/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-shb03bnq/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/build-check.txt",
+      "logDigest": {
+        "bytes": 69,
+        "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+      },
+      "summaryLines": []
+    },
+    {
+      "name": "fullunit",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "--test",
+        "dev-harness/unit/*.test.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:07:56.325245+00:00",
+      "elapsedSeconds": 110.232,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-cv6m_emb/home",
+        "USERPROFILE": "/tmp/ruyi-v5-cv6m_emb/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-cv6m_emb/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-cv6m_emb/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-cv6m_emb/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-cv6m_emb/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-cv6m_emb/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-cv6m_emb/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-cv6m_emb/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/fullunit.txt",
+      "logDigest": {
+        "bytes": 392964,
+        "sha256": "c2c6978cd10246477a63a94e612af46376ac97ee937eae812c7c44d1c41da6a4"
+      },
+      "summaryLines": [
+        "\ufe63 configured batch launcher waits for actual async executable verification and keeps original disk spelling (0.061917ms) # SKIP",
+        "\ufe63 failed shim verification preserves the configured fallback and missing discoveries remain empty (0.075083ms) # SKIP",
+        "\ufe63 compiled desktop isolates explicit data roots and retains default desktop compatibility (0.2755ms) # SKIP",
+        "PASS S1 http attempts = logical + failover retry",
+        "\u2714 unexpected runner exceptions are unknown without retry advice or replay, and structured action facts remain distinct from a completed turn (4.586042ms)",
+        "\u2714 failed older page keeps existing messages and cursor available for manual retry (0.328291ms)",
+        "\u2714 server epoch invalidates pending write without retrying it (0.637416ms)",
+        "\ufe63 [P1] dry:\u649e\u53f7\u7684\u964c\u751f\u4eba\u4e0d\u7b97\u5b50\u5b59,conhost \u4e0d\u6740,\u6839\u6700\u5148\u3001\u6df1\u7684\u5148\u6740 (0.312917ms) # SKIP",
+        "\ufe63 [P2] dry:\u6839\u4e0d\u5728\u8868\u91cc \u21d2 \u4ec0\u4e48\u90fd\u4e0d\u6740 (0.043375ms) # SKIP",
+        "\ufe63 [R1] \u771f\u8fdb\u7a0b killOwnProcessTree:\u6839\u4e0e detached \u5b59\u5b50\u90fd\u6536\u6389 (0.038166ms) # SKIP",
+        "\ufe63 [R2] \u771f\u8fdb\u7a0b killChildTree(\u53d1\u51fa\u53bb\u5c31\u7b97):\u51e0\u79d2\u5185\u6839\u4e0e detached \u5b59\u5b50\u90fd\u6ca1\u4e86 (0.032459ms) # SKIP",
+        "\ufe63 [R3] Linux \u771f\u8fdb\u7a0b killChildTree:\u6839\u4e0e detached \u5b59\u5b50\u90fd\u6ca1\u4e86 (0.035541ms) # SKIP",
+        "\ufe63 PDF text + rendered scan/chart pages and page continuation (0.07725ms) # SKIP",
+        "\ufe63 BMP/TIFF/ICO convert to provider-compatible PNG without desktop tools (0.039375ms) # SKIP",
+        "\ufe63 \u79bb\u7ebf\u5305\u53ea\u643a\u5e26\u72ec\u7acb\u56de\u8c03\u7f51\u5173\u5e76\u80fd\u7528\u968f\u5305 Node \u8fd0\u884c\u5e2e\u52a9 (0.377542ms) # SKIP",
+        "\ufe63 \u79bb\u7ebf\u6253\u5305\u5728\u4f9d\u8d56\u3001EXE \u6216\u684c\u9762\u7f16\u8bd1\u5931\u8d25\u65f6\u62d2\u7edd\u65e7\u4ea7\u7269 (0.047959ms) # SKIP",
+        "\u25b6 marked.parse() (SKIPPED \u2014 marked not installed)",
+        "\u2714 marked.parse() (SKIPPED \u2014 marked not installed) (0.039958ms)",
+        "\u2714 [A] TLS \u5931\u8d25\u662f\u786e\u5b9a\u6027\u7684\u8fdc\u7aef\u95ee\u9898 \u2192 remote_blocked,\u4e0d\u662f retry_once (0.059958ms)",
+        "\u2714 [A] \u8fde\u63a5\u7c7b failClass:\u8bfb\u5de5\u5177 \u2192 transient_read(retry_once) (0.099917ms)",
+        "\u2714 [A] \u7528\u6237\u4e2d\u65ad(failClass:aborted)\u8bfb\u5de5\u5177\u4e0d\u662f\u6545\u969c,\u4e0d\u8d34 retry_once;\u6539\u52a8\u7c7b\u4ecd side_effect_unknown (0.095167ms)",
+        "\u2714 [safety] \u4efb\u4f55 edit/exec \u6863\u7684\u7ed3\u679c\u90fd\u4e0d\u4f1a\u5f97\u5230 retry_once (0.140709ms)",
+        "\u2714 [U7] 06j:onFailure \u53ea\u8ba4 notify(retry-once \u65e0\u4eba\u5b9e\u73b0,\u56de\u843d);\u9519\u8bef\u4fe1\u606f\u4e0d\u5e26\u5185\u90e8\u6587\u6863\u53f7 / \u6ce2\u6b21 (0.260167ms)",
+        "\u2714 same-target concurrent stops share one write; other targets do not wait; lost responses never retry (0.87275ms)",
+        "\u2714 [R6b] \u771f openAiStreamOnce:429 \u7684 Retry-After(\u79d2 / HTTP \u65e5\u671f)\u88ab\u5e26\u51fa\u4e3a retryAfterMs,\u5c01\u9876 30 s (5.785833ms)",
+        "\ufe63 [Q6] \u4ec5 Windows:\u7ecf cmd.exe /d /s /c + .cmd \u57ab\u7247,node \u6536\u5230\u7684 argv \u4e0e\u539f\u53c2\u6570\u9010\u5b57\u76f8\u7b49 (0.055083ms) # SKIP",
+        "\u2139 tests 2517",
+        "\u2139 suites 192",
+        "\u2139 pass 2499",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 18",
+        "\u2139 todo 0"
+      ]
+    },
+    {
+      "name": "run-all-fast",
+      "command": [
+        "/Users/jiming/.local/bin/node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "cwd": "/tmp/ruyi-p5-manual-worktree",
+      "startedAt": "2026-11-11T05:09:46.598882+00:00",
+      "elapsedSeconds": 121.972,
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "tmpdirPathBytes": 25,
+      "environment": {
+        "HOME": "/tmp/ruyi-v5-a4f8i8ws/home",
+        "USERPROFILE": "/tmp/ruyi-v5-a4f8i8ws/userprofile",
+        "APPDATA": "/tmp/ruyi-v5-a4f8i8ws/appdata",
+        "LOCALAPPDATA": "/tmp/ruyi-v5-a4f8i8ws/localappdata",
+        "WCW_DATA_DIR": "/tmp/ruyi-v5-a4f8i8ws/wcw-data",
+        "RUYI_HOME": "/tmp/ruyi-v5-a4f8i8ws/ruyi-home",
+        "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-a4f8i8ws/win-claude-home",
+        "TMPDIR": "/tmp/ruyi-v5-a4f8i8ws/tmp",
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONPATH": "/tmp/ruyi-p5-manual-worktree/mcp/ai-computer-control/src",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-v5-a4f8i8ws/absent-native-helper",
+        "ACC_HIDE_TOOLS": "",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "request": null,
+      "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/independent-offline-v5/run-all-fast.txt",
+      "logDigest": {
+        "bytes": 5752,
+        "sha256": "9d3e01059ea7cbce189f4091dee52f1dc9e77a432be3a529ba4cfbbd96dbbed8"
+      },
+      "summaryLines": [
+        "# \u4ef6\u6570: 80 ran / 7 skipped(live)",
+        "# \u6c47\u603b: 80 pass / 0 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped"
+      ]
+    }
+  ],
+  "pythonTests": 167,
+  "pythonSkipped": 0,
+  "pending": [
+    "Expanded real GUI manual E2E",
+    "Real Ruyi App manual chain",
+    "Physical human input",
+    "Original P5 remaining audit and external gates"
+  ],
+  "limitations": "These results do not establish manual recording full acceptance or P5 completion. Previous v2 invalid-environment logs remain unchanged and do not characterize this candidate. Fast runner automatic retry/skip statistics are retained in raw logs.",
+  "pointerSubtypeNativeCases": [
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "move",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 5
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "mouse_down",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 1
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "mouse_up",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 2
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "drag",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 6
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 1,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "mouse_down",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 3
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 1,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "mouse_up",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 4
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 1,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "drag",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 7
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 2,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "mouse_down",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 25
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 2,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "mouse_up",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 26
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 2,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "type": "drag",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 0,
+      "type": 27
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 5
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 1
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 2
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 6
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 3
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 4
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 7
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 25
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 26
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 1,
+      "type": 27
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 5
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 1
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 2
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 6
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 3
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 4
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 7
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 25
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 26
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 2,
+      "type": 27
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "move",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 5
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "mouse_down",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 1
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "mouse_up",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 2
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 0,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "drag",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 6
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 1,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "mouse_down",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 3
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 1,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "mouse_up",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 4
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 1,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "drag",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 7
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 2,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "mouse_down",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 25
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 2,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "mouse_up",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 26
+    },
+    {
+      "failure": {},
+      "matched": true,
+      "row": {
+        "at_us": 0,
+        "button": 2,
+        "click_state": 2,
+        "delta_x": 7,
+        "delta_y": -4,
+        "flags": 0,
+        "pressure": 0.4980392156862745,
+        "subtype": 3,
+        "type": "drag",
+        "x": 25,
+        "y": 35
+      },
+      "subtype": 3,
+      "type": 27
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 5
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 1
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 2
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 6
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 3
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 4
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 7
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 25
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 26
+    },
+    {
+      "failure": {
+        "code": "pointer_event_unsupported",
+        "error": "Unsupported pointer subtype requires additional native fields",
+        "ok": false
+      },
+      "matched": true,
+      "row": {},
+      "subtype": 4,
+      "type": 27
+    }
+  ],
+  "pressureAssociationRefused": 1,
+  "pointerSubtypeNativePythonParity": [
+    {
+      "label": "omitted",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4
+        }
+      ],
+      "expectedAccepted": true,
+      "nativeAccepted": true,
+      "nativeCode": null,
+      "pythonAccepted": true,
+      "pythonCode": null
+    },
+    {
+      "label": "zero",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 0
+        }
+      ],
+      "expectedAccepted": true,
+      "nativeAccepted": true,
+      "nativeCode": null,
+      "pythonAccepted": true,
+      "pythonCode": null
+    },
+    {
+      "label": "touch",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 3
+        }
+      ],
+      "expectedAccepted": true,
+      "nativeAccepted": true,
+      "nativeCode": null,
+      "pythonAccepted": true,
+      "pythonCode": null
+    },
+    {
+      "label": "zero-float",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 0.0
+        }
+      ],
+      "expectedAccepted": true,
+      "nativeAccepted": true,
+      "nativeCode": null,
+      "pythonAccepted": true,
+      "pythonCode": null
+    },
+    {
+      "label": "touch-float",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 3.0
+        }
+      ],
+      "expectedAccepted": true,
+      "nativeAccepted": true,
+      "nativeCode": null,
+      "pythonAccepted": true,
+      "pythonCode": null
+    },
+    {
+      "label": "tablet",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 1
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "proximity",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 2
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "unknown",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 4
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "negative",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": -1
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "large-unknown",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 255
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "true",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": true
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "false",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": false
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "null",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": null
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "string",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": "3"
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    },
+    {
+      "label": "fraction",
+      "events": [
+        {
+          "type": "move",
+          "at_us": 0,
+          "flags": 0,
+          "x": 25,
+          "y": 35,
+          "button": 0,
+          "click_state": 2,
+          "pressure": 0.5,
+          "delta_x": 7,
+          "delta_y": -4,
+          "subtype": 3.5
+        }
+      ],
+      "expectedAccepted": false,
+      "nativeAccepted": false,
+      "nativeCode": "invalid_args",
+      "pythonAccepted": false,
+      "pythonCode": "invalid_args"
+    }
+  ],
+  "queuedBootstrapSupplement": {
+    "scope": "Two additional queued-frame bootstrap scenarios requested after the idle bootstrap checks had already run; independent new cases, no retries or log replacement. window.list JSONL bytes were written into each stdin pipe before exec; parent kept the writer open until the child naturally exited.",
+    "results": [
+      {
+        "name": "session-testing-queued-create",
+        "command": [
+          "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+          "--input-session"
+        ],
+        "request": {
+          "version": 1,
+          "op": "window.list",
+          "id": 71
+        },
+        "framePrequeuedBeforeSpawn": true,
+        "frameBytes": 46,
+        "stdinWriterOpenAtExit": true,
+        "exitCode": 70,
+        "expectedExitCode": 70,
+        "stdout": "",
+        "stderr": "",
+        "elapsedSeconds": 0.01,
+        "environment": {
+          "HOME": "/tmp/ruyi-v5-q-yaxvuipe/h",
+          "USERPROFILE": "/tmp/ruyi-v5-q-yaxvuipe/u",
+          "APPDATA": "/tmp/ruyi-v5-q-yaxvuipe/a",
+          "LOCALAPPDATA": "/tmp/ruyi-v5-q-yaxvuipe/l",
+          "WCW_DATA_DIR": "/tmp/ruyi-v5-q-yaxvuipe/w",
+          "RUYI_HOME": "/tmp/ruyi-v5-q-yaxvuipe/r",
+          "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-q-yaxvuipe/c",
+          "TMPDIR": "/tmp/ruyi-v5-q-yaxvuipe/t",
+          "RUYI_TEST_SESSION_MONITOR_FAILURE": "create"
+        },
+        "tmpdirPathBytes": 25,
+        "isolationRootOutsideGit": true
+      },
+      {
+        "name": "session-testing-queued-register",
+        "command": [
+          "/tmp/ruyi-v5-build-xl_hmwrb/testing-helper",
+          "--input-session"
+        ],
+        "request": {
+          "version": 1,
+          "op": "window.list",
+          "id": 71
+        },
+        "framePrequeuedBeforeSpawn": true,
+        "frameBytes": 46,
+        "stdinWriterOpenAtExit": true,
+        "exitCode": 70,
+        "expectedExitCode": 70,
+        "stdout": "",
+        "stderr": "",
+        "elapsedSeconds": 0.01,
+        "environment": {
+          "HOME": "/tmp/ruyi-v5-q-n1paac5s/h",
+          "USERPROFILE": "/tmp/ruyi-v5-q-n1paac5s/u",
+          "APPDATA": "/tmp/ruyi-v5-q-n1paac5s/a",
+          "LOCALAPPDATA": "/tmp/ruyi-v5-q-n1paac5s/l",
+          "WCW_DATA_DIR": "/tmp/ruyi-v5-q-n1paac5s/w",
+          "RUYI_HOME": "/tmp/ruyi-v5-q-n1paac5s/r",
+          "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-v5-q-n1paac5s/c",
+          "TMPDIR": "/tmp/ruyi-v5-q-n1paac5s/t",
+          "RUYI_TEST_SESSION_MONITOR_FAILURE": "register"
+        },
+        "tmpdirPathBytes": 25,
+        "isolationRootOutsideGit": true
+      }
+    ],
+    "checkpoints": 6,
+    "allSourceChecksMatched": true
+  },
+  "expectedMonitorNegativeExitSeventyIncludingSupplement": 5,
+  "totalAcceptanceCommandInvocationsIncludingSupplement": 54,
+  "engineeringSummary": {
+    "nodeVersion": "v24.15.0",
+    "syntax": {
+      "exitCode": 0,
+      "files": 1151
+    },
+    "buildCheck": {
+      "exitCode": 0
+    },
+    "fullunit": {
+      "exitCode": 0,
+      "tests": 2517,
+      "suites": 192,
+      "pass": 2499,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 18,
+      "todo": 0
+    },
+    "fast": {
+      "exitCode": 0,
+      "pass": 80,
+      "fail": 0,
+      "knownFail": 0,
+      "unexpectedPass": 0,
+      "flaky": 0,
+      "ran": 80,
+      "skipped": 7,
+      "nestedUnitPreflight": {
+        "tests": 2517,
+        "pass": 2499,
+        "fail": 0,
+        "skipped": 18
+      },
+      "automaticRetriesObserved": 0,
+      "retryLines": []
+    }
+  },
+  "ownIsolationProcessObservation": {
+    "at": "2026-11-11T05:12:49.262019+00:00",
+    "rootsCount": 54,
+    "matchingProcessCommands": [],
+    "observedAbsent": true
+  },
+  "allExpectedExitCodesMatched": true,
+  "automaticRetriesObserved": 0,
+  "scopeBoundary": "Fresh v5 offline subset only. Native fixtures allocate/rebuild CGEvents in memory and never post events. Pressure-association refusal is a testing-only mask override; no actual Force Touch/pressure sequence is generated. No physical/App/GUI acceptance claim or claim for later source edits. Prior v3/v4 results and development SIGABRT do not establish the v5 outcome.",
+  "pointerSummary": {
+    "nativeFixtureCases": 50,
+    "nativeFixtureMatched": 50,
+    "eventTypes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      25,
+      26,
+      27
+    ],
+    "subtypes": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "nativePythonValidationCases": 15,
+    "nativePythonAllMatched": true,
+    "pressureAssociationRefused": true,
+    "pressureAssociationRawValue": 1,
+    "pressureAssociationRawJSONType": "int",
+    "productionTestOperationRejected": true,
+    "pressureRoundtripComparedByNativeFixture": true,
+    "inputSubtypeBooleanRefusalRemainsStrict": true,
+    "testScenarioRepeats": 0
+  },
+  "sourceGuardReview": {
+    "scope": "Read-only inspection of the frozen sequence.m plus independent runtime memory fixtures",
+    "associatedEventsMask": "Read only for button sequences; MouseMoved skips this property and checks subtype. Supported 50-case matrix did not abort.",
+    "refusal": "Code rejects Pressure association and mismatched association masks/subtypes; memory fixture forces the Pressure bit and observes refusal. No separate forced non-pressure mask mismatch or actual hardware pressure event was executed."
+  }
+}

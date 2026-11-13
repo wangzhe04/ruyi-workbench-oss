@@ -1,0 +1,73 @@
+PASS bridgedToolTier exported
+PASS P1#3 ocr_find_text → exec(带 click 物理点击,read 子代理不得拿到、非 bypass 点击前弹窗)
+PASS P1#3 ocr_screen/ocr_image 仍 read(纯只读文本定位保留)
+PASS P1#3 screenshot/find_on_screen 仍 read(无 click)
+PASS P1#3 明确点击类工具仍 exec
+PASS P1#3 用户显式 config.bridgedToolTiers 覆盖仍生效(知情自担风险)
+PASS normalizeConfig exported
+PASS P2#4 老配置(无迁移标记)的 none → builtin(开箱即用一次性迁移)
+PASS P2#4 迁移后置 searchBackendMigrated=true
+PASS P2#4 已迁移后用户显式选 none 正常持久化(气隙产品能真关掉联网)
+PASS P2#4 其它 backend 从不被折叠
+PASS P2#4 defaultConfig 仍 builtin 且【不】预置迁移标记(否则老配置 none 永不迁移)
+PASS P1#2 isSensitiveDataPath + pathWithinRoot 可抽取
+PASS P1#2 config.json(明文 provider 密钥)拒
+PASS P1#2 runtime.json(明文 WCW_TOKEN)拒 ← 对抗轮补漏
+PASS P1#2 sessions/ 完整 transcript 拒
+PASS P1#2 memory/ 跨会话记忆 拒
+PASS P1#2 generated/ 会话 MCP 配置(含 token)拒
+PASS P1#2 uploads/ 产物 允许(不误伤合法读)
+PASS P1#2 checkpoints/ 内容 允许
+PASS P1#2 junction 部署: 以 realpath 后根表达的 config.json 仍拒 ← 对抗轮补漏
+PASS P1#2 junction 部署: 以词法根表达的 config.json 仍拒(双根前缀)
+PASS P1#2 3.0 改名: 经旧目录名联接(dataRootAliases)的词法路径同样拒
+PASS P1#2 3.0 改名: 经旧目录名的 uploads/ 产物照样允许
+PASS P2#5 超时把实际child对象交给按出生身份核验的整树清理,不再只杀直接子进程
+PASS P2#5 单次结算门 finish() 防重复 resolve(close/error/超时兜底共用)
+PASS P2#5 超时后设二次硬兜底(整树杀后 close 仍不触发也不悬挂 promise)
+PASS P2#6a 回合失败分类新增 provider_misconfigured 分支
+PASS P2#6a 401/403 命中鉴权分支(在 network/tool_error 之前)
+PASS P2#7 续跑把 'interrupted' 死状态并入 reset 重新入队(修「依赖图存在环」误诊)
+PASS P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)
+PASS P2#8 writeConfigAtomic 委托 atomicWriteJson + 全局写链
+PASS P2#8b writeConfigAtomic 写 config.json 用 0600(S11)
+PASS P2#8 atomicWriteJson 用 pid+随机 tmp 名(不变量中心化)
+PASS P2#8 atomicWriteJson 失败清 tmp(唯一名无覆写自愈路径)
+PASS P2#9 DAG透传sub.degraded且清理未确认时不得伪装降级成功
+PASS BUG 修: 回合内 orchestrate 不再用 subagentTurnCap(=subagentMaxPerTurn)做节点数上限
+PASS BUG 修: in-turn 与 launch 两条 orchestrate 路径都用 agentWorkflowMaxNodes 作节点上限(口径统一,内置模板不再被卡)
+PASS 迁移: 存量 subagentMaxPerTurn=4(旧默认)→ 32 + 置 migrated 标记
+PASS 迁移: 用户显式低值(2)不被误迁(仅迁恰为旧默认 4 的)
+PASS 迁移: 置位后显式 4 被尊重(不重复迁)
+PASS 上限放宽: 节点数 clamp 上限 32→64
+PASS 默认 agentWorkflowMaxNodes 调高至 48
+PASS 角色库共 10 个内置角色(含 Coder 与 planner/researcher/critic/synthesizer/analyst),实 10
+PASS 新角色存在: coder
+PASS 新角色存在: planner
+PASS 新角色存在: researcher
+PASS 新角色存在: critic
+PASS 新角色存在: synthesizer
+PASS 新角色存在: analyst
+PASS 内置模板 8 个(含新 data-insights),实 8
+PASS 每个模板节点引用的 role 都在角色库内(否则运行时「引用了不存在的角色」)
+PASS data-insights 模板用到 analyst + critic 等新角色
+PASS workbench listening on :63952
+PASS runtime.json token 读到
+PASS P1#1 GET /api/sessions + 浏览器指纹 + 无 token → 403(挡住 DNS-rebinding 页读走 transcript)
+PASS P1#1 GET /api/sessions 无浏览器头(e2e/CLI 回环)→ 200(本地工具照常,不破坏)
+PASS P1#1 GET /api/sessions + 浏览器指纹 + 合法 token → 200(真 UI 照常)
+PASS P1#1 GET /api/skills + 浏览器指纹 + 无 token → 403(技能注册表含项目路径)
+PASS P1#1 GET /api/sessions/<id>(完整 transcript)+ 浏览器指纹 + 无 token → 403
+PASS P1#1 对照: /api/status(非敏感)+ 浏览器指纹无 token → 200(不误伤非敏感 GET)
+PASS P1#2 file_read 读 <dataRoot>/config.json(明文密钥)被拒
+PASS P1#2 密钥内容确未随响应外泄
+PASS P1#2 对照: file_read 读工作区内普通文件 → 成功(不误伤合法读)
+PASS P1#2 file_read 读 runtime.json(明文 WCW_TOKEN)被拒 ← 补漏
+PASS P1#2 file_search 遍历 dataRoot 不漏 config.json 密钥内容 ← 补漏(blocker)
+PASS P1#2 对照: file_search 仍能命中工作区内普通文件(遍历未被过度阻断)
+PASS P1#2 file_list dataRoot 不列出 config/runtime/sessions ← 补漏
+PASS P1#2 /api/file/preview 拒 config.json(切断 runtime.json→token→preview 读密钥链)← 补漏
+PASS P2#6b provider/test 遇 401 → errorClass=provider_misconfigured
+PASS P2#6b provider/test 401 返回结构化的人话错误
+
+AUDIT W23 E2E: ALL PASS

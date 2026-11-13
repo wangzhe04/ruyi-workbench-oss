@@ -1,0 +1,24 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS L1a 工作台视角
+PASS L1b 麦克风能录(配了语音识别)
+PASS L2a 点麦克风进入录音态
+PASS L2b 转写落进输入框(实得 "先把刀客装好再说")
+PASS L3 发送时交给服务端的是「机器写的那一句 ＋ 发出去的字」(实得 {"sentences":[{"text":"先把刀客装好再说","first":"先把刀客装好再说"}],"final":"先把Docker装好再说"})
+PASS L4a 提示一句「记住了：刀客 → Docker（可在 设置 → 模型与服务 → 语音识别 → 语音词库 里管理）」(实得 toasts=["记住了：刀客 → Docker（可在 设置 → 模型与服务 → 语音识别 → 语音词库 里管理）"])
+PASS L4b 盘上 Docker 是学来的、带错听样子(实得 {"docker":{"term":"Docker","heard":["刀客"],"src":"learned","n":1,"at":"2026-11-08T06:44:01.535Z","off":false}})
+PASS L5a 语音词库卡:文本框里有「Docker = 刀客」、「从我的修改里学」勾着(实得 {"text":"Docker = 刀客","learn":true})
+PASS L5b 计数说了学来几个(实得 "共 1 个词（学来的 1 个，打字里收的 0 个；还在攒证据的 0 个）")
+PASS L5c 开关排在保存那一行之后、内置表开关之前(实得 |field-help muted|asr-lexicon-text|asr-lexicon-actions|asr-lexicon-toggle asr-lexicon-learn|asr-lexicon-toggle asr-lexicon-base|asr-lexicon-view-base|asr-lexicon-base-list|field-help muted)
+PASS L6a 取消勾选 → 落盘 learn:false
+PASS L6b 提示「已关闭」
+PASS L6c0 关掉设置
+PASS L6c 关着时:没用麦克风的消息照样交(只有打的字)、服务端回 learn:false、盘上不变(实得 {"ok":true,"learn":false,"learned":[],"reversed":0})
+PASS L7a 管家视角
+PASS L7b 管家输入行发送也交给服务端(实得 {"sentences":[],"final":"管家这边也说一句"})
+PASS L8 零未捕获异常(实得 [])
+
+VOICE LEARN BROWSER E2E: ALL PASS

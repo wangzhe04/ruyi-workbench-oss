@@ -1,0 +1,14 @@
+PASS H1 冷启动只建基线,第 1 回合不倒灌
+PASS H2 第 2 回合收了、后台还在跑 → 0 行(got 0;修前当场报一次)
+PASS H3 游标基线停在已报过的第 1 回合(got 1)
+PASS H2b 后台还在跑的第二轮照样不报
+PASS H4 后台跑完 → 正好一行,第 2 回合(got [["done",2]])
+PASS H5 再跑两轮仍然一行(不重复)
+PASS H6 没交给管家看管的线程一行都不报(看管判据没变)
+PASS S1 「后台还在跑」读进程内真值:后台命令表 + 活着的 agent run(不读盘、不猜时间)
+PASS S2 班组收工与本线程回合报告是同一件事:回合报告在箱里或被按住时,done 不单独叫醒管家
+PASS S3 交付卡只挂真回合;仅无正文且无本轮产物时撤掉,有产物时保留交付面板
+PASS S4 后台任务完成回执不进对话流(数据仍在,模型下一回合照读)
+PASS P1 visibleSessionMessageEntries 滤掉回执行,别的原样(got [0,2])
+
+STEWARD BACKGROUND HOLD E2E: ALL PASS

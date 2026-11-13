@@ -1,0 +1,1 @@
+{"long":{"path":"/tmp/rra-probe-18s8phau/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/s.sock","utf8Bytes":141,"ok":false,"code":"EINVAL","errno":-22,"syscall":"listen"},"short":{"path":"/tmp/rra-probe-18s8phau/s.sock","utf8Bytes":30,"ok":true}}

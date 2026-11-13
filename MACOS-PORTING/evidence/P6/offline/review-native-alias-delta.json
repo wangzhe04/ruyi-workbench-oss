@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_review",
+  "baseCommit": "b33d1c6a",
+  "reviewedAt": "2026-11-12T07:38:18.496269+00:00",
+  "conclusion": "No remaining blocking finding in the direct-path/private-alias native inspector correction",
+  "sourceSha256": {
+    "ruyi-workbench/tools/macos-offline-lib.js": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+    "dev-harness/unit/macos-offline-package.test.js": "3f2541e8f8a662c620359f91247e61909e2ef9bb99ce4cc8c4adc902fe186ddb",
+    "dev-harness/unit/macos-offline-native.test.js": "cb8f12cf6d2631ba964a35da1e2b8db60098592dbca0f9b4a1112308a394cf21"
+  },
+  "change": "Ordinary file paths go directly to selected CLT tools. Parenthesis paths use a private /tmp hardlink alias; simulated EXDEV falls back to byte-verified clone/copy; private alias directories are always removed. Native dependency ownership continues to use original logical paths.",
+  "qualification": {
+    "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P6/offline/independent-native-alias-delta.txt",
+    "tests": 13,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0,
+    "independentNewControls": [
+      "Simulated cross-volume fallback produces a qualified image and removes all aliases",
+      "Deliberately corrupt fallback copy is rejected by hash and its private directory is removed",
+      "Original executable hash is unchanged in both controls"
+    ]
+  },
+  "failureResolution": "The earlier 180-second independent /dev/fd/3 lipo timeout and parent exact-file path-vs-fd controls identify a real inherited-descriptor compatibility defect in the new audit code. The initial selector-path change alone was insufficient; no failure is counted as accepted.",
+  "scopeLimits": [
+    "Cross-volume fallback was exercised via injected EXDEV, not a physical second filesystem",
+    "Committed new-SHA Full/Slim artifact acceptance remains pending",
+    "Developer ID/notarization, clean-user installation, actual macOS14, Windows same-candidate qualification remain outside this work-package acceptance"
+  ]
+}

@@ -1,0 +1,2358 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-13",
+  "baselineCommit": "f5223548",
+  "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
+  "effortUnit": "person_day",
+  "dayDefinition": "8 小时项目工作；包含实现、相关测试、缺陷修复、文档和复核响应",
+  "estimateType": "源码审计后的粗估区间，非统计置信区间或交付承诺",
+  "totalBaseDays": {
+    "low": 60,
+    "high": 96
+  },
+  "riskReserve": {
+    "lowRate": 0.2,
+    "highRate": 0.3,
+    "appliedOnce": true
+  },
+  "totalBudgetDays": {
+    "low": 72,
+    "high": 125
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "title": "基线与方案冻结",
+      "document": "01-P0-BASELINE.md",
+      "dependsOn": [],
+      "status": "done",
+      "effortDays": {
+        "low": 4,
+        "high": 6
+      },
+      "tasks": [
+        {
+          "id": "P0-01",
+          "title": "建立 Mac/Windows 基线",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "记录环境和同一 SHA 的通过/失败/skip；定位 Windows 夹具依赖；Mac CI 先运行确认可行的构建与纯函数集合。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P0/baseline-catalog.json",
+            "evidence/P0/ci-local/report.json",
+            "evidence/P0/upstream-ci.json"
+          ],
+          "completedDate": "2026-10-30"
+        },
+        {
+          "id": "P0-02",
+          "title": "冻结平台与能力契约",
+          "effortDays": {
+            "low": 1,
+            "high": 1
+          },
+          "deliverable": "确定接口、错误形状、平台能力目录、arm64 首发/最低系统范围、数据根与 Windows 兼容策略。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "11-P0-DECISIONS.md"
+          ],
+          "completedDate": "2026-10-30"
+        },
+        {
+          "id": "P0-03",
+          "title": "做高风险探针",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "限时验证 WKWebView SSE/媒体、本地鉴权、AX/截图权限归属、Keychain helper、Python 3.12 与核心 wheels；记录失败和备选。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P0/README.md",
+            "probes/README.md"
+          ],
+          "completedDate": "2026-10-30"
+        },
+        {
+          "id": "P0-04",
+          "title": "拆分工单并冻结验收样例",
+          "effortDays": {
+            "low": 1,
+            "high": 1
+          },
+          "deliverable": "确定测试应用/输入文件、发布身份、资源供应者；更新任务依赖和估算，不把探针当正式功能。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "11-P0-DECISIONS.md",
+            "09-EFFORT-ESTIMATE.md",
+            "10-TRACKING.md"
+          ],
+          "completedDate": "2026-10-30"
+        }
+      ],
+      "completedDate": "2026-10-30",
+      "owner": "Codex（实施）；/root/p0_review（独立复核）",
+      "completionScope": "设计、探针与证据基线完成；最低系统、正式签名/权限、新远程 CI 等开放项见 11-P0-DECISIONS.md O1–O8，不代表产品 Mac 兼容完成",
+      "evidence": [
+        "evidence/P0/README.md",
+        "11-P0-DECISIONS.md",
+        "evidence/P0/review.json"
+      ]
+    },
+    {
+      "id": "P1",
+      "title": "运行时与系统边界",
+      "document": "02-P1-RUNTIME.md",
+      "dependsOn": [
+        "P0"
+      ],
+      "status": "done",
+      "effortDays": {
+        "low": 8,
+        "high": 12
+      },
+      "tasks": [
+        {
+          "id": "P1-01",
+          "title": "平台启动与依赖定位",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "新增集中平台层；Mac 启动入口、--open、Finder reveal、Node/Python/rg 探测；适配干净 PATH，不 source 用户 profile。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/README.md",
+            "evidence/P1/summary.json",
+            "evidence/P1/ownership/README.md",
+            "evidence/P1/ownership/summary.json",
+            "evidence/P1/ownership/review.json",
+            "evidence/P1/opener-completion/README.md",
+            "evidence/P1/controlled-layout/README.md",
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/closeout/README.md"
+          ],
+          "startedDate": "2026-10-31",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "implementedScope": [
+            "集中平台启动策略和干净 PATH",
+            "Mac .command 入口与 --open",
+            "Finder reveal 与固定目录打开，保留路径和鉴权护栏",
+            "POSIX Node/Python 候选及 rg PATH 来源",
+            "Mac 内核文件锁与专属短路径，覆盖跨 TMPDIR 互斥",
+            "有身份记录的旧 socket 崩溃恢复与退出写入保护",
+            "Mac宿主打开统一/usr/bin/open完成语义，规范路径与file URL，脚本/应用包别名不执行，超时仅停止launcher"
+          ],
+          "remainingAcceptance": [],
+          "review": {
+            "scope": "startup ownership, socket recovery and associated path guards",
+            "reviewer": "/root/ownership_review",
+            "status": "passed_targeted_rereview",
+            "resolvedFindings": 4,
+            "openerIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/opener-completion/review.json"
+            },
+            "controlledLayoutIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/controlled-layout/review.json"
+            }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
+        },
+        {
+          "id": "P1-02",
+          "title": "文件与系统路径策略",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "定义 Mac 受保护路径；复核 realpath、大小写敏感卷、符号链接、POSIX 绝对路径、原子写与回退；修复对应测试夹具。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/files/README.md",
+            "evidence/P1/files/review.json",
+            "evidence/P1/write-queue-cancellation/README.md",
+            "evidence/P1/atomic-write-cancellation/README.md",
+            "evidence/P1/file-mutation-recovery/README.md",
+            "evidence/P1/temporary-cleanup/README.md",
+            "evidence/P1/provider-stop/README.md",
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/closeout/README.md"
+          ],
+          "startedDate": "2026-11-02",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "remaining": [],
+          "review": {
+            "reviewer": "/root/ownership_review",
+            "status": "passed_targeted_review",
+            "record": "evidence/P1/files/review.json",
+            "atomicWriteIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/atomic-write-cancellation/review.json"
+            },
+            "mutationRecoveryIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/file-mutation-recovery/review.json"
+            },
+            "temporaryCleanupIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/temporary-cleanup/review.json"
+            },
+            "providerStopIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/provider-stop/review.json"
+            }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
+        },
+        {
+          "id": "P1-03",
+          "title": "一次性与常驻 shell",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "实现平台默认 shell、显式脚本语言和非 TTY 常驻会话；同步 schema、bash 别名、命令长度、Unicode、输出上限与取消语义。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/shell/README.md",
+            "evidence/P1/shell/review.json",
+            "evidence/P1/helper-gate/README.md",
+            "evidence/P1/helper-loss/README.md",
+            "evidence/P1/capabilities/README.md",
+            "evidence/P1/discovery-ui/README.md",
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/closeout/README.md"
+          ],
+          "startedDate": "2026-11-02",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "implementedScope": [
+            "shell_run 平台默认入口与显式语言，Mac script_run 默认 bash",
+            "无 profile/启动注入的 /bin/bash，非 TTY 常驻与后台作业",
+            "私有FD完成状态、cwd/变量保留、命令串行/忙状态、输出上限与取消",
+            "exec/目录权限/会话归属、schema/prompt/ledger/工具发现同步",
+            "版本化helper能力探针、缓存撤销及Mac受管新执行失败关闭",
+            "v2 guardian保留进程组锚点，单helper故障真实停止及最终清理确认",
+            "异步运行时快照与缓存撤销接入原生provider工具发现/提示词/状态API/体检",
+            "CLI/MCP完整与adaptive发现接入runtime gate，能力弹层实时状态及真实Chrome验证"
+          ],
+          "remainingAcceptance": [],
+          "review": {
+            "scope": "Mac one-shot/bash scripting and persistent/background shell with native private fd",
+            "status": "passed_targeted_rereview",
+            "reviewer": "/root/ownership_review",
+            "helperGateIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-gate/review.json"
+            },
+            "helperLossIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-loss/review.json"
+            },
+            "capabilityIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/capabilities/review.json"
+            },
+            "discoveryUiIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/discovery-ui/review.json"
+            }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
+        },
+        {
+          "id": "P1-04",
+          "title": "自有进程树治理",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "统一 CLI/MCP/shell/toolbox 的启动登记与停止；替代 /proc 假设；覆盖子孙、父进程先退出、身份校验；同步测试清理器。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/processes/README.md",
+            "evidence/P1/processes/review.json",
+            "evidence/P1/supervisor/README.md",
+            "evidence/P1/process-integration/README.md",
+            "evidence/P1/git-runtime/README.md",
+            "evidence/P1/shell/README.md",
+            "evidence/P1/helper-gate/README.md",
+            "evidence/P1/helper-loss/README.md",
+            "evidence/P1/capabilities/README.md",
+            "evidence/P1/discovery-ui/README.md",
+            "evidence/P1/worktree-runtime/README.md",
+            "evidence/P1/cli-model-probe/README.md",
+            "evidence/P1/process-handles/README.md",
+            "evidence/P1/document-reader/README.md",
+            "evidence/P1/media-runtime/README.md",
+            "evidence/P1/rg-runtime/README.md",
+            "evidence/P1/executable-probes/README.md",
+            "evidence/P1/python-probes/README.md",
+            "evidence/P1/synchronous-probe-audit/README.md",
+            "evidence/P1/synchronous-probes/README.md",
+            "evidence/P1/overlay-boundary/README.md",
+            "evidence/P1/opener-completion/README.md",
+            "evidence/P1/search-cancellation/README.md",
+            "evidence/P1/path-cancellation/README.md",
+            "evidence/P1/write-queue-cancellation/README.md",
+            "evidence/P1/execution-entry-audit.md",
+            "evidence/P1/final-review.json",
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/media-repeat-audit/README.md",
+            "evidence/P1/closeout/README.md"
+          ],
+          "startedDate": "2026-11-02",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "implementedScope": [
+            "libproc 精确启动时间与自有直接子树快照清理",
+            "Mac 测试清理器和既有 git/MCP/CLI/shell 停止入口接入",
+            "真实ChildProcess安全兜底与清理范围/不完整结果传播",
+            "ProcessRuntime 不透明句柄与启动前身份登记，DesktopShell 一次性入口接入",
+            "原生 supervisor 在主命令退出或 owner 控制通道断开后清理自有组及已观察后代",
+            "MCP、Claude/Kimi 主 CLI、Kimi terminal/web、子 agent、toolbox 服务启动接入并关联 owner",
+            "MCP 并发取消、toolbox 停止与 Kimi terminal/主回合收尾传播真实清理结果",
+            "外部清理器收集已核验 session leader 锚定组的孤儿进程",
+            "Mac git 监督捕获，保留二进制/UTF8/字节预算与超时语义，清理失败优先传播",
+            "工具调用 AsyncLocalStorage owner 上下文，git 与一次性执行继承会话/工具/调用身份",
+            "常驻/后台 shell 启动与停止接入监督，私有FD模式和清理结果贯通",
+            "版本化helper能力探针、缓存撤销及Mac受管新执行失败关闭",
+            "v2 guardian保留进程组锚点，单helper故障真实停止及最终清理确认",
+            "异步运行时快照与缓存撤销接入原生provider工具发现/提示词/状态API/体检",
+            "CLI/MCP完整与adaptive发现接入runtime gate，能力弹层实时状态及真实Chrome验证",
+            "隔离worktree Git监督执行；清理不确定停止自动重试；applying意图与仓库级应用串行防重放",
+            "Kimi模型发现probe监督执行、UTF8字节预算、超时/异常/管道收尾",
+            "Mac旧式清理拒绝裸PID和普通PID对象，真实ChildProcess与内核身份校验保持",
+            "Mac文档读取Python监督执行、取消/30秒预算/双流16MiB上限，清理确认后解析与候选回退",
+            "Mac媒体/语法/依赖探针监督执行与ctx.signal取消，流式测量与有界收尾，嵌套清理失败停止探测",
+            "Mac rg异步版本、主搜索及非UTF8补扫监督执行，确认清理后回退JS，不完整清理与输出管道失败中止搜索",
+            "Mac异步CLI/可执行文件版本探针监督执行，保留ok/missing/slow判据，清理不完整中止候选扫描",
+            "Mac异步Python导入探针监督执行、Full/Core选择与64KiB预算，清理不完整阻止候选回退及缓存写入",
+            "同步probe基础：v2原生deadline入口与guardian兜底，经spawnSync FD3回传完整/不完整清理帧；产品同步入口已由后续接入批完成",
+            "Mac同步CLI/Git/rg/Python探针接入原生deadline与共享严格帧校验，清理不完整停止扫描/缓存，helper恢复避免rg永久空缓存",
+            "剩余执行入口审计补齐Mac Windows-overlay拒绝边界，HTTP鉴权保持、零PowerShell/解压副作用、界面中英不可用状态",
+            "Mac宿主打开统一/usr/bin/open完成语义，规范路径与file URL，脚本/应用包别名不执行，超时仅停止launcher",
+            "file_search/docs_search取消贯通遍历与内容regex worker，终止确认与不完整失败，rg共享探针独立服务owner及可取消等待",
+            "路径matcher共享worker退出确认、取消与批次间错误收尾，file_list/glob/project_snapshot传入signal并阻止部分结果发布"
+          ],
+          "remainingAcceptance": [],
+          "review": {
+            "scope": "observed-tree foundation",
+            "status": "passed_targeted_rereview",
+            "reviewer": "/root/ownership_review",
+            "resolvedFindings": 5,
+            "supervisorIncrement": {
+              "scope": "DesktopShell start/stop, native supervisor and opaque handles",
+              "status": "passed_targeted_rereview",
+              "reviewer": "/root/ownership_review",
+              "evidence": "evidence/P1/supervisor/review.json"
+            },
+            "integrationIncrement": {
+              "scope": "CLI/MCP/toolbox startup integration; anchored group cleanup; Kimi canonical plan boundary",
+              "status": "passed_targeted_rereview",
+              "reviewer": "/root/ownership_review",
+              "evidence": "evidence/P1/process-integration/review.json"
+            },
+            "gitIncrement": {
+              "scope": "Mac git capture/supervision and tool invocation owner context",
+              "status": "passed_targeted_rereview",
+              "reviewer": "/root/ownership_review",
+              "evidence": "evidence/P1/git-runtime/review.json"
+            },
+            "helperGateIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-gate/review.json"
+            },
+            "helperLossIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-loss/review.json"
+            },
+            "capabilityIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/capabilities/review.json"
+            },
+            "discoveryUiIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/discovery-ui/review.json"
+            },
+            "worktreeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/worktree-runtime/review.json"
+            },
+            "cliModelProbeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/cli-model-probe/review.json"
+            },
+            "processHandlesIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/process-handles/review.json"
+            },
+            "documentReaderIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/document-reader/review.json"
+            },
+            "mediaRuntimeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/media-runtime/review.json"
+            },
+            "rgRuntimeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/rg-runtime/review.json"
+            },
+            "executableProbeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/executable-probes/review.json"
+            },
+            "pythonProbeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/python-probes/review.json"
+            },
+            "syncSupervisorIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/synchronous-probe-audit/review.json"
+            },
+            "syncProbeIntegrationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/synchronous-probes/review.json"
+            },
+            "overlayBoundaryIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/overlay-boundary/review.json"
+            },
+            "openerIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/opener-completion/review.json"
+            },
+            "searchCancellationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/search-cancellation/review.json"
+            },
+            "writeQueueCancellationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/write-queue-cancellation/review.json"
+            },
+            "pathCancellationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/path-cancellation/review.json"
+            }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
+        }
+      ],
+      "owner": "Codex",
+      "startedDate": "2026-10-31",
+      "validation": {
+        "macEvidence": "evidence/P1/frozen-mac-regression/README.md",
+        "finalCodeReview": "evidence/P1/final-review.json",
+        "selectedSuites": 29,
+        "selectedAssertions": 818,
+        "unitPassed": 2491,
+        "unitSkipped": 18,
+        "staticPassed": 80,
+        "unreproducedMediaFailure": true,
+        "windowsActual": "not_verified_user_waived_P1_gate",
+        "finderVisible": "not_verified_handoff_P4-02_V10"
+      },
+      "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+      "completedDate": "2026-11-03",
+      "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+      "closeoutEvidence": "evidence/P1/closeout/README.md",
+      "acceptanceDecision": {
+        "date": "2026-11-03",
+        "userInstruction": "不需要Windows回归，收尾P1",
+        "windowsRegression": "waived_for_this_P1_closeout",
+        "finderVisible": "handoff_P4-02_V10",
+        "mediaAnomaly": "known_observation_root_cause_unconfirmed"
+      },
+      "knownLimitations": [
+        "媒体单次语法超时失败根因未确认，后续五次完整媒体专项与八次独立实验通过",
+        "Finder可见实机验收交接P4-02/V10",
+        "macOS14及干净机器离线包按P3/P6验证",
+        "557件默认e2e未在Mac全量执行",
+        "observed-only、单helper故障模型、非TTY与未知socket拒绝边界"
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "Agent、凭据与核心业务",
+      "document": "03-P2-AGENT-CORE.md",
+      "dependsOn": [
+        "P1"
+      ],
+      "status": "done",
+      "effortDays": {
+        "low": 8,
+        "high": 12
+      },
+      "tasks": [
+        {
+          "id": "P2-01",
+          "title": "CLI 与平台能力贯通",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "适配 Claude/Kimi 发现、启动、恢复、权限与停止；同步 MCP 清单与模型提示，移除 Mac 上的 Windows 路径要求和无实现工具。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/cli/README.md",
+            "evidence/P2/cli/review.json",
+            "evidence/P2/cli/validation.json",
+            "evidence/P2/cli/source-fingerprint.json",
+            "evidence/P2/cli-live/README.md",
+            "evidence/P2/cli-live/review.json",
+            "evidence/P2/cli-live/validation.json",
+            "evidence/P2/cli-live/source-fingerprint.json",
+            "evidence/P2/kimi-lifecycle/README.md",
+            "evidence/P2/kimi-lifecycle/review.json",
+            "evidence/P2/kimi-lifecycle/validation.json",
+            "evidence/P2/kimi-lifecycle/source-fingerprint.json",
+            "evidence/P2/claude-live/README.md",
+            "evidence/P2/claude-live/review.json",
+            "evidence/P2/claude-live/validation.json",
+            "evidence/P2/claude-live/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
+          ],
+          "baselineSha": "f4fc6852",
+          "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
+          "incrementalImplementationCommits": [
+            "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
+            "921e6a89795bb4069941dfe53a8c1b94247d776d",
+            "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7"
+          ],
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "真实Claude/Kimi账号服务联调",
+            "Windows同候选实机/CI验收"
+          ],
+          "laterPhaseCarryover": []
+        },
+        {
+          "id": "P2-02",
+          "title": "Keychain 保护器与恢复",
+          "effortDays": {
+            "low": 3,
+            "high": 4
+          },
+          "deliverable": "实现并测试结构化 helper/Keychain 接口；替换 DPAPI 能力判断、保存/启用门、恢复路径；覆盖拒绝、锁定、数据损坏和身份变化。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/keychain/README.md",
+            "evidence/P2/keychain/review.json",
+            "evidence/P2/keychain/validation.json",
+            "evidence/P2/keychain/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
+          ],
+          "baselineSha": "d4e99e22",
+          "implementationCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005",
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "登录Keychain实际授权/拒绝交互及恢复",
+            "Windows同候选实机/CI验收"
+          ],
+          "laterPhaseCarryover": [
+            "正式签名身份及helper升级ACL稳定性：P4/P6"
+          ]
+        },
+        {
+          "id": "P2-03",
+          "title": "核心业务端到端回归",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "验证 Provider、会话/检查点、管家、多 Agent/工作流、记忆、用量与应用内调度；定义错过任务和重启去重，修复本阶段适配造成的问题。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/core/README.md",
+            "evidence/P2/core/review.json",
+            "evidence/P2/core/validation.json",
+            "evidence/P2/core/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
+          ],
+          "baselineSha": "ce5a7db3",
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
+          "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "Windows同候选实机/CI验收",
+            "真实账号服务见P2-01"
+          ],
+          "laterPhaseCarryover": [
+            "真实OS睡眠唤醒：P4"
+          ]
+        },
+        {
+          "id": "P2-04",
+          "title": "机器人与后台连接适配",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "贯通外部机器人本地凭据、环境变量引用、配置/重连及退出回收；网络协议用假端点验证，真实服务另记录联调状态。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/bots/README.md",
+            "evidence/P2/bots/review.json",
+            "evidence/P2/bots/validation.json",
+            "evidence/P2/bots/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
+          ],
+          "baselineSha": "0af25d60",
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
+          "implementationCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "真实QQ/飞书账号服务联调",
+            "Windows同候选实机/CI验收",
+            "登录Keychain交互见P2-02"
+          ],
+          "laterPhaseCarryover": [
+            "正式签名/升级ACL沿P2-02交P4/P6"
+          ]
+        }
+      ],
+      "startedAt": "2026-11-06",
+      "evidence": [
+        "evidence/P2/README.md",
+        "evidence/P2/acceptance/HANDOFF.md",
+        "evidence/P2/acceptance/readiness.json",
+        "evidence/P2/acceptance/review.json",
+        "evidence/P2/local-closeout.json",
+        "evidence/P2/final-acceptance/acceptance.json",
+        "evidence/P2/final-acceptance/validation.json",
+        "evidence/P2/final-acceptance/review.json",
+        "evidence/P2/final-acceptance/source-audit.json",
+        "evidence/P2/final-acceptance/source-fingerprint.json",
+        "evidence/P2/final-acceptance/README.md"
+      ],
+      "progress": "P2四个工作包按用户指定排除暂缓项的范围验收完成；当前候选完整单元2490通过/18跳过、80静态通过、31组相关e2e通过。独立评审无未解决发现；路由清册和重启令牌夹具问题已修复并复验。",
+      "externalAcceptance": {
+        "status": "deferred_by_user",
+        "handoff": "evidence/P2/acceptance/HANDOFF.md",
+        "readiness": "evidence/P2/acceptance/readiness.json",
+        "unresolvedCodeFindings": 0,
+        "independentLocalWorkRemaining": false,
+        "userDecision": "暂不可用，先完成本地实现与离线验证",
+        "decisionDate": "2026-11-06",
+        "acceptanceDecision": "除既有暂缓项外，P2整体验收完成；暂缓项未计通过",
+        "finalScopeEvidence": "evidence/P2/final-acceptance/acceptance.json"
+      },
+      "localDelivery": {
+        "status": "done",
+        "completedDate": "2026-11-06",
+        "scope": "本地实现、离线验证与独立评审；真实环境验收按用户安排暂缓",
+        "evidence": "evidence/P2/local-closeout.json"
+      },
+      "completedDate": "2026-11-06",
+      "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+      "acceptanceScope": {
+        "userDecision": "除了暂缓部分，整体验收P2",
+        "date": "2026-11-06",
+        "status": "passed",
+        "excludedDeferredIds": [
+          "D1",
+          "D2",
+          "D3"
+        ],
+        "evidence": "evidence/P2/final-acceptance/acceptance.json"
+      },
+      "review": {
+        "reviewer": "/root/p2_cli_audit",
+        "status": "passed",
+        "evidence": "evidence/P2/final-acceptance/review.json"
+      }
+    },
+    {
+      "id": "P3",
+      "title": "文档、浏览器与模板",
+      "document": "04-P3-DOCUMENT-BROWSER.md",
+      "dependsOn": [
+        "P1"
+      ],
+      "status": "done",
+      "effortDays": {
+        "low": 6,
+        "high": 10
+      },
+      "tasks": [
+        {
+          "id": "P3-01",
+          "title": "拆分 ACC 平台依赖与注册",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "pywin32/winsdk/UIA 条件化；共享模块可独立安装，失败隔离且报告真实能力；为 Mac 文件工具补保护规则。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/acc-shared/README.md",
+            "evidence/P3/acc-shared/validation.json",
+            "evidence/P3/acc-shared/review.json",
+            "evidence/P3/acc-shared/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
+          ],
+          "implementationCommit": "f135bda1c4bb9703ccbb926f36d99f855ad0f63c",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "Mac共享ACC子集开发与单独本地验收；Windows实机/CI回归未执行，保留P3整体阶段关口，并未获豁免。",
+          "pendingPhaseAcceptance": [],
+          "laterPhaseCarryover": [
+            "macOS14 arm64最低系统与wheel部署目标继续P3/P6验证；当前不宣称已兼容"
+          ],
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
+        },
+        {
+          "id": "P3-02",
+          "title": "文档与图表生成/读取",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "验证 docx/xlsx/pptx/pdf 与图片提取、图表、中文字体；把依赖清单和最小样例固定下来，保证检查点与写入审计。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/office/README.md",
+            "evidence/P3/office/validation.json",
+            "evidence/P3/office/review.json",
+            "evidence/P3/office/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
+          ],
+          "startedDate": "2026-11-06",
+          "progress": "真实MCP24项、独立产物24项、116 Office/98读取/43图表检查、锁定60依赖的新环境断网重放与六页视觉检查通过；独立复核无剩余发现。",
+          "implementationCommit": "bd2eb093fc85e05dfb36f63c9254fb24c271bfde",
+          "continuedDate": "2026-11-07",
+          "completedDate": "2026-11-07",
+          "localDeliveryStatus": "done",
+          "completionScope": "Mac文档/图表/字体开发与单独本地验收；Windows同候选实际回归未执行，仍保留P3阶段关口，未豁免。",
+          "pendingPhaseAcceptance": [],
+          "laterPhaseCarryover": [
+            "macOS14 arm64与wheel部署目标、签名发行保持原阶段交接"
+          ],
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
+        },
+        {
+          "id": "P3-03",
+          "title": "Playwright 与浏览器运行时",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "验证 Mac Chromium、独立 profile、离线浏览器缓存路径、标签页/输入/截图和退出清理；区别原生打开 URL 与浏览器自动化。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/browser/README.md",
+            "evidence/P3/browser/validation.json",
+            "evidence/P3/browser/review.json",
+            "evidence/P3/browser/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
+          ],
+          "implementationCommit": "35ce93b9106d331472ea94f49dfd82e9968f2da4",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-07",
+          "completionScope": "Mac浏览器运行时开发与单独本地验收；Windows实际同候选回归未执行且未豁免。",
+          "pendingPhaseAcceptance": [],
+          "laterPhaseCarryover": [
+            "macOS14、签名/干净机离线发行与默认有界面模式用户可见交互待受控实机验收"
+          ],
+          "progress": "真实MCP与全新离线wheel重放各25项、8项生命周期及98读取回归通过；独立复核修复两项真实取消驱动泄漏。完整单元2490通过/18既有跳过；静态首轮78/80，两个工程门修复定向通过。",
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
+        },
+        {
+          "id": "P3-04",
+          "title": "平台模板与能力文案",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "逐项检查 16 个 Playbook、离线技能/角色及示例命令；为 PowerShell/Windows 控制模板提供 Mac 路径或禁用条件；更新中英文说明。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/templates/README.md",
+            "evidence/P3/templates/validation.json",
+            "evidence/P3/templates/review.json",
+            "evidence/P3/templates/content-audit.json",
+            "evidence/P3/templates/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
+          ],
+          "implementationCommit": "2f45aba4a916b6ff321c5318c4d79ba953d734a3",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-07",
+          "completionScope": "Mac平台模板/能力文案开发与单独本地验收；71项内容审计不等于每种模型任务都已实跑。Windows同候选实际回归未执行且未豁免。",
+          "pendingPhaseAcceptance": [],
+          "laterPhaseCarryover": [
+            "macOS14、正式签名/干净机离线发行、默认有界面浏览器用户交互维持原阶段交接；Mac桌面/OCR待P5、废纸篓能力待P6"
+          ],
+          "progress": "71项资源独立审计；真实模板38、中英UI18、Playbooks94、能力56、权限37、技能工具26项通过。独立复核三项状态/缓存缺陷关闭；完整单元2491通过/18既有跳过，静态79/80，旧枚举锁更新后定向通过。",
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
+        }
+      ],
+      "owner": "Codex",
+      "startedDate": "2026-11-06",
+      "progress": "按用户最新Mac端范围完成P3最终验收。59项命令最终通过，完整单元2491通过/18跳过、80静态通过，真实Provider到ACC有窗口/无窗口链路各27项通过，6页新Office渲染通过，独立复核无剩余代码发现。",
+      "pendingPhaseAcceptance": [],
+      "localDelivery": {
+        "status": "done",
+        "completedDate": "2026-11-07",
+        "scope": "四工作包Mac本地开发、专项验证与逐包独立复核验收；不等于P3阶段/M1或正式发行验收",
+        "evidence": "evidence/P3/README.md"
+      },
+      "acceptanceFollowup": {
+        "status": "done_in_Mac_scope",
+        "pullRequest": "https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1",
+        "firstCiCandidate": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+        "handoff": "evidence/P3/acceptance/HANDOFF.md",
+        "minimumStaticEvidence": "evidence/P3/acceptance/minimum/README.md",
+        "windowsEvidence": "evidence/P3/acceptance/windows-e844/summary.json",
+        "finalMacEvidence": "evidence/P3/final-mac-acceptance/README.md"
+      },
+      "completedDate": "2026-11-07",
+      "completionScope": "P3-01 through P3-04, current macOS27.0.1 arm64 development environment, including real Workbench/ACC combined workflow",
+      "acceptanceScope": {
+        "status": "passed",
+        "userDecision": "继续完成P3最终验收，只需要Mac端",
+        "date": "2026-11-07",
+        "evidence": "evidence/P3/final-mac-acceptance/acceptance.json",
+        "excludedIds": [
+          "Windows"
+        ],
+        "scope": "P3-01 through P3-04, current macOS27.0.1 arm64 development environment, including real Workbench/ACC combined workflow"
+      },
+      "review": {
+        "reviewer": "/root/p3_01_review",
+        "status": "passed",
+        "evidence": "evidence/P3/final-mac-acceptance/review.json"
+      },
+      "externalAcceptance": {
+        "status": "excluded_by_user_this_round",
+        "Windows": "failed_pending_not_passed",
+        "evidence": "evidence/P3/acceptance/windows-e844/summary.json"
+      },
+      "laterPhaseCarryover": [
+        {
+          "id": "O2",
+          "requirement": "Actual macOS14 arm64 execution and system-symbol/runtime closure",
+          "phase": "P6",
+          "status": "pending",
+          "staticEvidence": "evidence/P3/acceptance/minimum/README.md"
+        },
+        {
+          "id": "P4",
+          "requirement": "Mac App host lifecycle, Finder visibility, notification, voice and signed identity revalidation",
+          "status": "planned"
+        },
+        {
+          "id": "P5",
+          "requirement": "Mac desktop input, AX and OCR",
+          "status": "planned"
+        },
+        {
+          "id": "P6",
+          "requirement": "Signing/notarization, clean-machine offline release, upgrade/rollback and Trash",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "Mac 桌面壳",
+      "document": "05-P4-DESKTOP-APP.md",
+      "dependsOn": [
+        "P2",
+        "P3"
+      ],
+      "status": "done",
+      "effortDays": {
+        "low": 10,
+        "high": 16
+      },
+      "tasks": [
+        {
+          "id": "P4-01",
+          "title": "App 宿主与服务管理",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "新增拟议 desktop-macos 宿主；窗口/WebView、单实例、Node 启动/健康、错误页面、窗口状态；按 P0 结论选一种技术栈。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/host/README.md",
+            "evidence/P4/host/validation.json",
+            "evidence/P4/host/review.json",
+            "evidence/P4/host/source-fingerprint.json"
+          ],
+          "completedDate": "2026-11-07",
+          "completionScope": "P4-01 current macOS27.0.1 arm64 development host; source-bound ad-hoc App",
+          "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+          "deliveryState": "implementation_committed_local",
+          "review": {
+            "reviewer": "/root/p4_host_review",
+            "status": "passed",
+            "remainingCodeFindings": 0,
+            "evidence": "evidence/P4/host/review.json"
+          },
+          "latestValidation": {
+            "passed": 31,
+            "failed": 0,
+            "evidence": "evidence/P4/media/physical/reporting-delay/host-after-permission-independent.txt"
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified"
+        },
+        {
+          "id": "P4-02",
+          "title": "受控系统桥与交互",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "原生文件选择器、Finder/编辑器、菜单栏、通知、Cmd 快捷键与安全的 URL 打开；验证页面来源/消息 schema。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/bridge/README.md",
+            "evidence/P4/bridge/ui-progress.json",
+            "evidence/P4/bridge/protocol-independent.txt",
+            "evidence/P4/bridge/host-after-tcc-fix.txt",
+            "evidence/P4/bridge/host-combined-final.txt",
+            "evidence/P4/bridge/combined-source-fingerprint.json",
+            "evidence/P4/bridge/workspace-alias/README.md",
+            "evidence/P4/bridge/workspace-alias/independent-final.txt",
+            "evidence/P4/bridge/workspace-alias/review.json",
+            "evidence/P4/bridge/workspace-alias/fast-final.txt",
+            "evidence/P4/bridge/unlocked-recovery/README.md",
+            "evidence/P4/bridge/editor-diff/README.md",
+            "evidence/P4/current-candidate/README.md",
+            "evidence/P4/bridge/native-drop/validation.json",
+            "evidence/P4/bridge/native-drop/review.json"
+          ],
+          "acceptanceCarryover": [
+            {
+              "from": "P1-01",
+              "requirement": "Finder实际窗口及选中对象可见验收",
+              "matrix": "V10",
+              "status": "passed_current_host",
+              "permissionPreflight": -1744,
+              "evidence": "evidence/P4/bridge/ui-progress.json",
+              "completedDate": "2026-11-07"
+            }
+          ],
+          "openObservations": [
+            {
+              "id": "P4-02-path-alias",
+              "status": "closed_local",
+              "issue": "native folder aliases may duplicate lexical workspace favorites",
+              "evidence": "evidence/P4/bridge/workspace-alias/README.md"
+            }
+          ],
+          "localIncrementalValidation": {
+            "date": "2026-11-08",
+            "mainPassed": 50,
+            "independentPassed": 50,
+            "failed": 0,
+            "unitPassed": 2491,
+            "unitSkipped": 18,
+            "staticPassed": 80,
+            "syntaxFiles": 1134,
+            "remainingCodeFindings": 0,
+            "evidence": "evidence/P4/bridge/workspace-alias/review.json",
+            "visibleFinalCandidate": "normal_API_diff_visible_two_columns_41_to_42"
+          },
+          "systemRecoveryValidation": {
+            "date": "2026-11-08",
+            "independentHostPassed": 31,
+            "independentHostFailed": 0,
+            "documentsAccess": "authorized_and_verified",
+            "notificationPermission": "granted_after_refusal",
+            "notificationDelivery": "system_usernoted_delivery_and_banner",
+            "actualEditorDiff": "passed_normal_API_and_visible_two_columns",
+            "statusMenu": "user_assisted_settings_action_and_native_activation_verified",
+            "externalLink": "passed_real_WK_target_blank_to_default_Safari",
+            "nativeDrag": "passed_user_assisted_3_file_and_3_directory_events",
+            "nativeDragScope": "cancellation user report and trace/source support; no selected-session cwd snapshot immediately before cancel"
+          },
+          "completedDate": "2026-11-08",
+          "completionScope": "current macOS27.0.1 arm64 development App native bridge and interactions, including user-assisted actual file/directory drag",
+          "deliveryState": "implementation_committed_local",
+          "review": {
+            "reviewer": "/root/p4_host_review",
+            "status": "passed_current_local_scope",
+            "remainingCodeFindings": 0,
+            "evidence": "evidence/P4/bridge/native-drop/review.json"
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified"
+        },
+        {
+          "id": "P4-03",
+          "title": "麦克风与媒体兼容",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "按 WebView 实际能力选择录音格式或 PCM；测试授权、拒绝、重试、语音流式路径和资源释放，保留 ASR 协议与词库。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/media/README.md",
+            "evidence/P4/media/media-final.txt",
+            "evidence/P4/media/combined-independent-final.txt",
+            "evidence/P4/media/asr-backend.txt",
+            "evidence/P4/media/chrome-native-gum.json",
+            "evidence/P4/media/fast-final.txt",
+            "evidence/P4/media/physical/README.md",
+            "evidence/P4/media/native-gum-stages/README.md",
+            "evidence/P4/current-candidate/README.md",
+            "evidence/P4/media/physical/reporting-delay/README.md"
+          ],
+          "progress": "真实WK合成36项、ASR后端41项、CFT148完整voice98/stream39/warmup58独立通过。当前LS真实麦克风有效非零WAV647.5ms，tracks1110ms，原生stop完成1417.118ms，无保护触发且最终none，回填零发送和进程清理经独立复核通过。真实拒绝恢复证据为WebKit来源层。",
+          "completedDate": "2026-11-08",
+          "completionScope": "current macOS27.0.1 arm64 local development App, synthetic WK media and real LS microphone plus CFT148 existing browser regressions",
+          "deliveryState": "implementation_committed_local",
+          "review": {
+            "reviewer": "/root/p4_host_review",
+            "status": "passed_reviewed_local_scope",
+            "evidence": "evidence/P4/media/physical/reporting-delay/review.json"
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified"
+        },
+        {
+          "id": "P4-04",
+          "title": "生命周期与签名身份复验",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "关闭窗口/退出/登录启动的明确设置；睡眠唤醒、调度恢复、MCP/CLI 回收；用拟发行身份验证 Keychain/TCC，提前准备签名。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/lifecycle/README.md",
+            "evidence/P4/lifecycle/independent-retest.txt",
+            "evidence/P4/lifecycle/review.json",
+            "evidence/P4/lifecycle/validation.json",
+            "evidence/P4/lifecycle/combined-source-fingerprint.json",
+            "evidence/P4/lifecycle/physical-system/README.md",
+            "evidence/P4/current-candidate/README.md"
+          ],
+          "systemValidation": {
+            "physicalSleep": "one_2.816s_Software_Sleep_DarkWake_recovered",
+            "postWakeSSE": "reconnected_200_lastEventId_2_new_thread_event_3_visible",
+            "loginStartup": "registered_visible_then_unregistered_status_0",
+            "formalIdentity": "deferred_by_user",
+            "limitations": [
+              "deep_or_long_sleep_unverified",
+              "physical_cycle_scheduler_disabled",
+              "precise_presleep_cursor_continuity_unverified"
+            ]
+          },
+          "localDelivery": {
+            "status": "done",
+            "date": "2026-11-08",
+            "scope": "current-host lifecycle, scheduler recovery and own process cleanup, real short sleep and login register/unregister",
+            "formalIdentity": "deferred_by_user",
+            "evidence": [
+              "evidence/P4/media/physical/reporting-delay/review.json",
+              "evidence/P4/lifecycle/physical-system/validation.json"
+            ]
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified",
+          "completionScope": "当前主机生命周期验收完成；正式签名身份复验按用户决定保留待办，交接P6。"
+        }
+      ],
+      "acceptanceScope": {
+        "status": "done_in_user_approved_current_Mac_scope",
+        "userDecision": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+        "date": "2026-11-08",
+        "formalIdentity": "deferred_by_user",
+        "formalIdentityDecision": "先完成本地开发与独立验收，正式身份复验保留待办",
+        "interactivePermissions": {
+          "status": "authorized_by_user",
+          "date": "2026-11-07",
+          "scope": "Notification allow/refuse recovery and microphone capture no longer than 3 seconds; isolated local audio and fake loopback ASR endpoint"
+        },
+        "desktopAccess": "current_host_UI_acceptance_completed; latest physical evidence reused; task-owned caffeinate stopped by user request 2026-11-08",
+        "documentsFolderAccess": "authorized_by_user_2026-11-08_and_verified_TCC_grant_and_LaunchServices_ready",
+        "lifecyclePermissions": {
+          "date": "2026-11-08",
+          "status": "authorized_by_user",
+          "scope": "temporary development App login registration, cancel registration after validation; one physical system sleep and manual user wake/unlock",
+          "result": "one_short_software_sleep_recovered; login_item_registered_then_unregistered_status_0"
+        },
+        "Windows": "deferred_by_user_this_round_unverified"
+      },
+      "laterPhaseCarryover": [
+        {
+          "id": "O3",
+          "requirement": "正式bundle ID、Team ID、Developer ID身份下的Keychain/TCC与升级访问复验",
+          "status": "deferred_by_user",
+          "phase": "P4-04/P6",
+          "date": "2026-11-07"
+        }
+      ],
+      "progress": "P4四包当前macOS27.0.1 arm64本地实现与独立验收完成。最新独立host31/media36/lifecycle23/bridge47及workspace38通过，单元2491通过/18跳过、静态80、语法1134及构建新鲜度通过。真实通知恢复、菜单设置、Safari外链、IDE双栏Diff、647.5ms物理PCM、登录项注册后注销、短时真实睡眠/SSE及用户辅助原生文件/目录拖放均有证据。用户确认本轮按Mac范围收尾，P4及四包登记done。Windows同候选回归保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6，三项均未验收。 2026-11-08按用户要求停止本任务防休眠并完整复验Mac功能，主轮16组629项及工程门通过，补齐自动化取消状态不变性，修复四个既有验收文件的Mac隔离及启动暂态等待。真实交互复用同冻结App既有独立证据，最新结果见full-mac-acceptance。 首发视角修正后的最终冻结候选19条命令均自然退出0，16组专项630项通过，所有53项源码指纹逐件核验。 独立8组255项自然退出0，全部53源指纹无漂移，自有进程身份回收通过。",
+      "evidence": [
+        "evidence/P4/current-candidate/README.md",
+        "evidence/P4/lifecycle/physical-system/README.md",
+        "evidence/P4/bridge/editor-diff/README.md",
+        "evidence/P4/media/physical/README.md",
+        "evidence/P4/frozen-local-regression/README.md",
+        "evidence/P4/bridge/native-drop/README.md",
+        "evidence/P4/local-closeout.json",
+        "evidence/P4/full-mac-acceptance/README.md"
+      ],
+      "latestNativeAcceptance": {
+        "date": "2026-11-08",
+        "candidate": "full-mac-acceptance_final_frozen_frontend_with_same_native_bundle",
+        "hostPassed": 31,
+        "hostFailed": 0,
+        "mediaPassed": 36,
+        "lifecyclePassed": 23,
+        "bridgePassed": 53,
+        "physical": "passed_LaunchServices_valid_647_5ms_PCM_native_stop_1417_118ms_cleanup_verified",
+        "evidence": "evidence/P4/full-mac-acceptance/README.md",
+        "hostAfterPermission": "passed_31_exit0_original30_1_failure_retained",
+        "priorHostFailure": "new_adhoc_code_requirement_mismatch_with_Documents_authorization_prompt"
+      },
+      "completionAudit": {
+        "date": "2026-11-08",
+        "reviewer": "/root/p4_host_review",
+        "status": "passed_user_approved_current_Mac_scope_with_full_functional_reacceptance",
+        "sources": [
+          "05-P4-DESKTOP-APP.md",
+          "08-VALIDATION.md",
+          "evidence/P4/current-candidate/review.json",
+          "evidence/P4/media/physical/reporting-delay/validation.json",
+          "evidence/P4/bridge/native-drop/review.json",
+          "evidence/P4/local-closeout.json",
+          "evidence/P4/full-mac-acceptance/validation.json"
+        ],
+        "requirements": [
+          {
+            "id": "P4-01",
+            "state": "passed_current_after_permission_recovery",
+            "proof": "evidence/P4/host/README.md",
+            "latest": "evidence/P4/full-mac-acceptance/macos-desktop-host-fixed.txt"
+          },
+          {
+            "id": "P4-02-bridge",
+            "state": "passed_current_53_with_3_notification_conditionals_unexecuted",
+            "proof": "evidence/P4/full-mac-acceptance/macos-desktop-bridge-fixed.txt"
+          },
+          {
+            "id": "V10-interactions",
+            "state": "passed_reviewed_scopes",
+            "proof": [
+              "evidence/P4/bridge/ui-progress.json",
+              "evidence/P4/bridge/unlocked-recovery/README.md",
+              "evidence/P4/bridge/editor-diff/README.md",
+              "evidence/P4/lifecycle/physical-system/README.md"
+            ],
+            "scope": "chooser, Finder reveal, Cmd shortcuts, notification refusal/recovery/delivery, user-assisted status menu Settings, external link, actual editor diff"
+          },
+          {
+            "id": "V10-drop",
+            "state": "passed_current_host_user_assisted",
+            "required": [
+              "real Finder file drop into WK, attachment/upload visible and no automatic send",
+              "real Finder directory drop into WK, entry/readEntries, resolve confirmation or cancellation, session cwd and config persistence"
+            ],
+            "proof": "evidence/P4/bridge/native-drop/review.json",
+            "scope": "6 trusted real events, 3 matching local uploads, actual directory children/resolution, current-session persistence and cleanup",
+            "limitation": "Cancellation supported by user report and trace/source; selected-session cwd was not captured immediately before cancellation",
+            "priorAvailable": "HTTP workspace-resolve regression and static app.js handlers, insufficient for native drop",
+            "available": [
+              "evidence/P4/bridge/native-drop/trace.json",
+              "evidence/P4/bridge/native-drop/after-confirm.json",
+              "evidence/P4/bridge/native-drop/cleanup.json",
+              "evidence/P4/bridge/native-drop/review.json"
+            ],
+            "supplementalCancellation": "New synthetic WK body drop, real fingerprint HTTP and actual Cancel; explicit current-session/config/frontend before-after invariant and persisted sparse config verified. Historical real Finder cancellation snapshot limitation retained."
+          },
+          {
+            "id": "P4-03-synthetic",
+            "state": "passed_current",
+            "proof": "evidence/P4/full-mac-acceptance/macos-desktop-media-fixed.txt"
+          },
+          {
+            "id": "P4-03-browser",
+            "state": "passed_CFT148_only_Chrome156_hang_retained",
+            "proof": "evidence/P4/full-mac-acceptance/validation.json"
+          },
+          {
+            "id": "P4-03-physical",
+            "state": "passed_current",
+            "required": [
+              "LS attribution to development App",
+              "valid nonzero 16kHz mono 16bit PCM <=3 sec",
+              "tracks ended <=3 sec",
+              "same-run native stop completion <=3 sec, no deadline fired",
+              "final reported none and no stop in flight",
+              "local fake ASR insertion, sends0, owned process cleanup"
+            ],
+            "proof": "evidence/P4/media/physical/reporting-delay/review.json",
+            "denialScope": "Real WebKit origin denial/retry covered by old attempt. OS-level microphone denial/recovery is not claimed."
+          },
+          {
+            "id": "P4-04-lifecycle",
+            "state": "passed_current_automated_and_prior_real_short_sleep",
+            "proof": [
+              "evidence/P4/media/physical/reporting-delay/lifecycle-independent.txt",
+              "evidence/P4/lifecycle/physical-system/validation.json"
+            ],
+            "limit": "physical Software Sleep/DarkWake about2.816 sec, physical fixture scheduler disabled, separate automated late-run/skip and real process cleanup",
+            "latest": "evidence/P4/full-mac-acceptance/macos-desktop-lifecycle-fixed.txt"
+          },
+          {
+            "id": "V07-formal-identity",
+            "state": "deferred_by_user",
+            "requirement": "formal bundle ID/Team ID/Developer ID Keychain/TCC and upgrade access"
+          },
+          {
+            "id": "O2-macOS14",
+            "state": "unverified_P6_carryover"
+          },
+          {
+            "id": "V14-Windows",
+            "state": "deferred_by_user_this_round_unverified"
+          },
+          {
+            "id": "candidate-records",
+            "state": "local_implementation_and_reviewed_evidence_committed",
+            "requirement": "final source/build fingerprints, relevant gates, independent review closure and truthful TASKS/tracking evidence",
+            "proof": "evidence/P4/local-closeout.json",
+            "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+          }
+        ],
+        "remainingLocal": [],
+        "fullPhaseComplete": false,
+        "approvedScopeComplete": true,
+        "fullPhaseCompleteMeaning": "All originally planned environment and formal identity gates, including deferred items. Current user-approved Mac scope is complete.",
+        "finalScopeReview": "evidence/P4/final-scope-review.json",
+        "latestFullMacAcceptance": "evidence/P4/full-mac-acceptance/validation.json"
+      },
+      "latestEngineeringValidation": {
+        "date": "2026-11-08",
+        "unitPassed": 2491,
+        "unitSkipped": 18,
+        "unitFailed": 0,
+        "staticPassed": 80,
+        "syntaxFiles": 1134,
+        "buildFresh": true,
+        "sourceSnapshot": "evidence/P4/full-mac-acceptance/source-fingerprint.json",
+        "evidence": "evidence/P4/full-mac-acceptance/validation.json",
+        "postDocumentationGate": {
+          "unitPassed": 2491,
+          "unitSkipped": 18,
+          "staticPassed": 80,
+          "evidence": "evidence/P4/full-mac-acceptance/fixed-engineering-fixed.txt"
+        }
+      },
+      "continuationState": {
+        "status": "completed_current_Mac_functional_reacceptance",
+        "date": "2026-11-08",
+        "priorBlockerResolved": "user completed native file/directory drag and left confirmation; normal confirmation/persistence and cleanup verified",
+        "evidence": "evidence/P4/bridge/native-drop/validation.json",
+        "userDecision": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+        "next": "P5 remains planned; Windows, formal identity and actual macOS14 are retained as unverified carryovers"
+      },
+      "localDelivery": {
+        "status": "done",
+        "completedDate": "2026-11-08",
+        "scope": "P4-01 through P4-04 current macOS27.0.1 arm64 development App local implementation and independent acceptance; formal identity deferred by user",
+        "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+        "deliveryState": "committed_local",
+        "evidence": "evidence/P4/local-closeout.json",
+        "reviewer": "/root/p4_host_review",
+        "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+        "branch": "codex/p4-macos-desktop",
+        "independentReview": "evidence/P4/local-closeout-review.json",
+        "commitBindingReview": "evidence/P4/commit-binding-review.json",
+        "finalScopeReview": "evidence/P4/final-scope-review.json",
+        "fullMacReview": "evidence/P4/full-mac-acceptance/review.json"
+      },
+      "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+      "completedDate": "2026-11-08",
+      "completionScope": "按用户“本轮按 Mac 范围收尾，Windows 保留后续待验”的决定，完成当前macOS27.0.1 arm64开发App的P4四包本地开发与独立验收；正式身份暂缓，macOS14实际运行交接O2/P6。",
+      "deferredAcceptance": [
+        "V14 same-candidate Windows regression deferred by user this round; unverified",
+        "Formal signed identity Keychain/TCC and upgrade access deferred by user; P4-04/P6",
+        "Actual macOS14 runtime O2/P6 carryover"
+      ],
+      "fullMacAcceptance": {
+        "date": "2026-11-08",
+        "status": "passed_current_Mac_functional_acceptance",
+        "userInstruction": "停止防休眠，完整验收P4 Mac端",
+        "scope": "current macOS27.0.1 arm64 development App, existing user-approved carryovers retained",
+        "evidence": "evidence/P4/full-mac-acceptance/validation.json",
+        "review": "evidence/P4/full-mac-acceptance/review.json",
+        "mainSuites": 16,
+        "mainPassed": 630,
+        "mainFailed": 0,
+        "unitPassed": 2491,
+        "unitSkipped": 18,
+        "staticPassed": 80,
+        "syntaxFiles": 1134,
+        "sourceFingerprint": "evidence/P4/full-mac-acceptance/source-fingerprint.json",
+        "power": "task-owned caffeinate6773 stopped, its assertions absent",
+        "realInteractions": "reuse previously reviewed same-native-App bridge/media/drop/sleep evidence with original source binding; fresh native/browser tests cover the narrow SSE delta",
+        "testOnlyDeltaFiles": 4,
+        "productionDelta": "One frontend SSE lens-provider expression plus matching comments, independently reviewed. Native App inputs unchanged.",
+        "independentSuites": 8,
+        "independentPassed": 255,
+        "independentFailed": 0,
+        "reviewer": "/root/p4_host_review",
+        "sourceFiles": 53,
+        "cleanup": "observed owned process identities absent; task-owned caffeinate stopped"
+      }
+    },
+    {
+      "id": "P5",
+      "title": "Mac 桌面自动化",
+      "document": "06-P5-AUTOMATION.md",
+      "dependsOn": [
+        "P4"
+      ],
+      "status": "done",
+      "effortDays": {
+        "low": 16,
+        "high": 26
+      },
+      "tasks": [
+        {
+          "id": "P5-01",
+          "title": "屏幕/窗口捕获与坐标",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "使用适合最低系统版本的截图后端；建立逻辑点/像素/缩放/原点契约；处理 Retina、多屏、负坐标和权限拒绝。",
+          "status": "done",
+          "owner": "Codex（实施）；/root/p5_acceptance（独立验收）",
+          "evidence": [
+            "evidence/P5/capture/README.md",
+            "evidence/P5/transition/README.md",
+            "evidence/P5/transition/independent-v1/report.json",
+            "evidence/P5/transition/commit-binding.json",
+            "evidence/P5/transition/independent-commit-binding.json",
+            "evidence/P5/closeout/acceptance.json"
+          ],
+          "startedDate": "2026-11-08",
+          "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+          "implementationCommit": "0de6d03e",
+          "implementationScope": "当前macOS27.0.1 arm64单Retina主机实现与独立复核完成；物理多屏、撤权、实际显示拓扑变化、Windows同候选继续待验；1b03da04当前源码的真实窗口水平平移捕获已独立18项通过，8次均有实际位置见证的window_changed拒绝，静止前后坐标/Retina比例/像素通过，不计resize或动态成功origin。",
+          "windowTranslationCaptureSlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_owned_horizontal_translation_refusal",
+            "testImplementationCommit": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+            "productRuntimeSourceChanged": false,
+            "sourceFiles": 12,
+            "changedFiles": 6,
+            "independentAssertions": 18,
+            "motionRequests": 8,
+            "witnessedWindowChangedRefusals": 8,
+            "movingSuccesses": 0,
+            "independentRetries": 0,
+            "nativeHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+            "commitBinding": "evidence/P5/transition/commit-binding.json",
+            "independentBinding": "evidence/P5/transition/independent-commit-binding.json",
+            "evidence": "evidence/P5/transition/independent-v1/report.json",
+            "limits": [
+              "Actual owned horizontal translation only, no window resize or physical display reconfiguration",
+              "Moving-success branch not executed; no instant origin tracking claim",
+              "Raw production capture helper only, no new provider/App/TCC/lock/input/clipboard or Windows runtime acceptance"
+            ]
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
+        },
+        {
+          "id": "P5-02",
+          "title": "输入、剪贴板与窗口操作",
+          "effortDays": {
+            "low": 3,
+            "high": 4
+          },
+          "deliverable": "Mac 键位、Cmd 粘贴、中文输入、鼠标/滚轮、文本与图片剪贴板、应用启动和窗口动作；保护焦点和目标身份。",
+          "status": "done",
+          "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
+          "evidence": [
+            "evidence/P5/input/README.md",
+            "evidence/P5/closeout/acceptance.json"
+          ],
+          "startedDate": "2026-11-10",
+          "baselineCommit": "0de6d03e",
+          "progress": "窗口与剪贴板首批已提交并独立验收。键盘、中文Unicode/Cmd+V、键鼠与LaunchServices切片完成当前主机独立验收，最终51项源指纹零漂移，当前功能套件212条Node与44项Python、夹具静态33项通过。工程单元2491通过/18既有跳过、静态80/80、语法1143及构建新鲜度通过，默认helper已重建并确认授权就绪。保留一次无输入发送的TextEdit焦点变化拒绝（原样复跑通过，原因未定）与历史剪贴板事故，P5-02整体仍进行中。",
+          "firstSlice": {
+            "scope": "window_and_clipboard_current_host",
+            "status": "committed_current_host",
+            "date": "2026-11-10",
+            "baselineCommit": "0de6d03e",
+            "review": "evidence/P5/input/independent/review.json",
+            "sourceFingerprint": "evidence/P5/input/source-fingerprint.json",
+            "engineering": "evidence/P5/input/engineering.json",
+            "sourceFiles": 37,
+            "nodeAssertions": 120,
+            "pythonTests": 29,
+            "realIdleExpiryWaitMs": 302000,
+            "implementationCommit": "fc74153d145acba7519fb5c133691017ab00964e"
+          },
+          "currentInputSlice": {
+            "status": "committed_current_host",
+            "baselineCommit": "af7485ce",
+            "date": "2026-11-10",
+            "evidence": "evidence/P5/input/events/README.md",
+            "implemented": "Native guarded keyboard/Unicode/Cmd+V, pointer click/move/drag/scroll, LaunchServices app launch, owned state and conditional clipboard cleanup",
+            "mainRealEventEvidence": "evidence/P5/input/events/events-final.txt",
+            "mainPythonContracts": "evidence/P5/input/events/smoke_macos_events-latest.txt",
+            "pending": [
+              "Existing Windows, physical/display, live revocation/lock, input method, macOS14 and formal signing carryovers"
+            ],
+            "mainRealEventAssertions": 42,
+            "pythonContractTests": 15,
+            "codeReview": "evidence/P5/input/events/code-review.json",
+            "clipboardTestIncident": "evidence/P5/input/events/clipboard-test-incident.json",
+            "sourceFingerprint": "evidence/P5/input/events/source-fingerprint-commit.json",
+            "sourceFiles": 51,
+            "appUnicodeAssertions": 13,
+            "appPasteAssertions": 16,
+            "selectedApplicationAssertions": 19,
+            "windowClipboardRegressionAssertions": 37,
+            "independentReview": "evidence/P5/input/events/independent/review.json",
+            "engineering": "evidence/P5/input/events/engineering.json",
+            "independentNodeAssertions": 212,
+            "independentPythonTests": 44,
+            "independentFixtureContractAssertions": 33,
+            "executedSourceFingerprint": "evidence/P5/input/events/source-fingerprint-final.json",
+            "whitespaceOnlyBinding": "evidence/P5/input/events/whitespace-only-binding.json",
+            "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+            "commitBinding": "evidence/P5/input/events/commit-binding.json",
+            "finderFollowup": "evidence/P5/ax/apps/independent-completion/review.json"
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
+        },
+        {
+          "id": "P5-03",
+          "title": "AX 元素后端",
+          "effortDays": {
+            "low": 5,
+            "high": 8
+          },
+          "deliverable": "实现元素查询、定位、支持的动作；处理失效元素、超时/深度/数量上限与应用不支持；替代 UIA 特定属性映射。",
+          "status": "done",
+          "owner": "Codex（实施）；/root/p5_review_resumed（独立复核及验收）",
+          "evidence": [
+            "evidence/P5/ax/README.md",
+            "evidence/P5/ax/apps/README.md",
+            "evidence/P5/selected-current/README.md",
+            "evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+            "evidence/P5/selected-current/current-source-binding.json",
+            "evidence/P5/selected-current/independent-source-binding.json",
+            "evidence/P5/closeout/acceptance.json"
+          ],
+          "startedDate": "2026-11-10",
+          "baselineCommit": "c1b90ad2",
+          "progress": "真实应用切片当前主机实现已提交649556f0，63份提交blob独立逐项匹配交付指纹。有效350条E2E、8项focused unit、62项Python及三负向通过，完整单元2499通过/18既有跳过、静态80/80、语法1146和构建新鲜度通过。三层测试/清册差异及提交前校验缓冲失败后的补验均登记。Chromium页面AX动作限制、历史未定启动挂起与原环境门保留，P5-03整体in_progress。 当前5e246343源码在76248e2b执行HEAD补验选定应用，独立默认31/renderer33/Finder10共74项各首跑通过；106来源与两提交raw blob、六次成功场景12个前后快照一致。实际临时helper与默认1cc限定字节等价，非raw/TCC identity。原Finder前置拒绝与用户关闭窗口后的环境变化保留。",
+          "coreSlice": {
+            "status": "committed_current_host",
+            "baselineCommit": "c1b90ad2",
+            "sourceFingerprint": "evidence/P5/ax/source-fingerprint-final.json",
+            "sourceFiles": 56,
+            "codeReview": "evidence/P5/ax/code-review.json",
+            "mainNativeAssertions": 36,
+            "mainAppAXAssertions": 12,
+            "mainPythonTests": 61,
+            "pending": [
+              "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity"
+            ],
+            "historicalEngineering": "evidence/P5/ax/engineering.json",
+            "finalEngineeringPending": false,
+            "finalIndependent": "evidence/P5/ax/independent-final/review.json",
+            "engineering": "evidence/P5/ax/engineering-final.json",
+            "independentNodeAssertions": 263,
+            "independentPythonTests": 61,
+            "realAXExpiryWaitMs": 62000,
+            "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
+            "commitBinding": "evidence/P5/ax/commit-binding.json"
+          },
+          "applicationSlice": {
+            "status": "committed_current_host",
+            "baselineCommit": "d1b01adb",
+            "evidence": "evidence/P5/ax/apps/README.md",
+            "sourceFingerprint": "evidence/P5/ax/apps/source-fingerprint-final-delivery.json",
+            "sourceFiles": 63,
+            "codeReview": "evidence/P5/ax/apps/code-review.json",
+            "mainDefaultAXAssertions": 31,
+            "mainRendererAXAssertions": 33,
+            "mainFinderAssertions": 10,
+            "chromiumRendererAXActions": "blocked_by_verified_asymmetric_provider_membership",
+            "finderScope": "explicit opt-in, initially windowless Finder, exact controlled content URLs, shared process retained",
+            "pending": [
+              "Live permission revocation/lock, physical displays/input methods, Windows same candidate, macOS14 and formal identity",
+              "Chromium renderer AX actions under the existing bidirectional membership contract"
+            ],
+            "historicalIndependent": [
+              "evidence/P5/ax/apps/independent/review.json",
+              "evidence/P5/ax/apps/independent-final/review.json",
+              "evidence/P5/ax/apps/independent-bounded/review.json",
+              "evidence/P5/ax/apps/independent-selected-apps/review.json"
+            ],
+            "finalIndependent": "evidence/P5/ax/apps/independent-completion/review.json",
+            "launchPathCorrection": "AX fixture resolves actual binary before launch after CFT symlink-relative Frameworks failure; final independent validation in progress",
+            "boundedWaitReview": "evidence/P5/ax/apps/bounded-wait/code-review.json",
+            "boundedWaitMainUnitTests": 8,
+            "knownHistoricalFailure": "CFT startup stalled before CDP, root cause undetermined. Deadline logic fixed separately; clipboard restored after identity-checked browser-only intervention.",
+            "captureFixturePlacement": "Diagnosed layer-8 system overlay over one desktop marker. Owned fixture placed lower, original four marker assertions retained; current independent validation pending.",
+            "nodeEvidence": "evidence/P5/ax/apps/independent-selected-apps/review.json",
+            "sourceBinding": "350 E2E assertions and 8 focused unit tests bind selected-apps fingerprint; final Python batch binds worker-ready fingerprint. Only the isolated Python fixture differs, with 60 common sources byte-identical.",
+            "functionalFinalFingerprint": "evidence/P5/ax/apps/source-fingerprint-worker-ready.json",
+            "nodeFingerprint": "evidence/P5/ax/apps/source-fingerprint-selected-apps.json",
+            "independentNodeE2EAssertions": 350,
+            "independentFocusedNodeUnitTests": 8,
+            "independentPythonTests": 62,
+            "effectiveCommands": 23,
+            "intentionalNegativeCommands": 3,
+            "inventoryReview": "evidence/P5/ax/apps/inventory-sync/code-review.json",
+            "engineering": "evidence/P5/ax/apps/engineering-final.json",
+            "deliveryReview": "evidence/P5/ax/apps/final-delivery-review.json",
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringStaticTotal": 80,
+            "engineeringSyntaxFiles": 1146,
+            "helperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029",
+            "implementationCommit": "649556f0d5aeaf587d1b73337aa5b3da0833fe0c",
+            "commitBinding": "evidence/P5/ax/apps/commit-binding.json",
+            "commitBindingReview": "evidence/P5/ax/apps/commit-binding-review.json"
+          },
+          "currentSourceSelectedScenes": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_selected_scenes",
+            "runtimeImplementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+            "executionHead": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+            "sourceFiles": 106,
+            "independentDefaultAssertions": 31,
+            "independentRendererAssertions": 33,
+            "independentFinderAssertions": 10,
+            "independentScenarioRuns": 3,
+            "independentRetries": 0,
+            "newProductCode": false,
+            "sourceBinding": "evidence/P5/selected-current/current-source-binding.json",
+            "independentBinding": "evidence/P5/selected-current/independent-source-binding.json",
+            "evidence": "evidence/P5/selected-current/independent-v1/aggregate-v2.json",
+            "limits": [
+              "Only three unchanged selected scenes refreshed; old350 core suite not rerun",
+              "Actual per-case helper normalized full-byte equality to default1cc excludes UUID/signature, not raw/TCC identity",
+              "Renderer AXValue/AXPress remain refused as element_stale",
+              "App LaunchServices, TCC revoke, lock and original environment gates not covered"
+            ]
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
+        },
+        {
+          "id": "P5-04",
+          "title": "OCR 与视觉组合",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "Vision 或验证通过的离线引擎；中英识别、文字定位、坐标回映射与点击；保留图像算法，改接 Mac 截图。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P5/ocr/README.md",
+            "evidence/P5/ocr/code-review.json",
+            "evidence/P5/ocr/independent/report.json",
+            "evidence/P5/ocr/acceptance/engineering/results.json",
+            "evidence/P5/closeout/acceptance.json"
+          ],
+          "currentHostAcceptance": {
+            "date": "2026-11-10",
+            "implementationCommit": "b09b1f4f51b7e3e3db35242ee61edb3e9e0b880f",
+            "commitBindingReview": "evidence/P5/ocr/commit-binding-review.json",
+            "status": "passed_current_host_scope",
+            "nodeE2EAssertions": 215,
+            "pythonTests": 87,
+            "commands": 14,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 80,
+            "binaryArtifacts": 3,
+            "helperSha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1147,
+            "independent": "evidence/P5/ocr/independent/report.json",
+            "deliveryFingerprint": "evidence/P5/ocr/source-fingerprint-final-delivery.json"
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
+        },
+        {
+          "id": "P5-05",
+          "title": "宏录制和执行后验证",
+          "effortDays": {
+            "low": 2,
+            "high": 4
+          },
+          "deliverable": "受控输入录制/停止/重放与组合动作；串联 observe/act_and_verify；测试焦点变化、锁屏/权限撤销；同步工具目录和能力状态。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P5/composed/README.md",
+            "evidence/P5/composed/code-review.json",
+            "evidence/P5/composed/independent/report.json",
+            "evidence/P5/record/README.md",
+            "evidence/P5/record/code-review.json",
+            "evidence/P5/record/independent/report.json",
+            "evidence/P5/remaining-audit.json",
+            "evidence/P5/audit/README.md",
+            "evidence/P5/audit/code-review.json",
+            "evidence/P5/audit/independent/report.json",
+            "evidence/P5/manual/README.md",
+            "evidence/P5/manual/code-review-v6.json",
+            "evidence/P5/manual/independent-offline-v6/report.json",
+            "evidence/P5/manual/independent-gui-v6/report.json",
+            "evidence/P5/manual/commit-binding.json",
+            "evidence/P5/manual/independent-commit-binding.json",
+            "evidence/P5/manual/standard-mouse/README.md",
+            "evidence/P5/manual/standard-mouse/independent-final-v2/report.json",
+            "evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+            "evidence/P5/manual/standard-mouse/independent-commit-binding.json",
+            "evidence/P5/entry/README.md",
+            "evidence/P5/entry/code-review-v1.json",
+            "evidence/P5/entry/independent-v1/report.json",
+            "evidence/P5/entry/commit-binding.json",
+            "evidence/P5/entry/independent-commit-binding.json",
+            "evidence/P5/remaining-resolution-2026-11-11.json",
+            "evidence/P5/readiness/README.md",
+            "evidence/P5/readiness/code-review-v3.json",
+            "evidence/P5/readiness/independent-v1/report.json",
+            "evidence/P5/readiness/commit-binding.json",
+            "evidence/P5/readiness/independent-commit-binding.json",
+            "evidence/P5/closeout/acceptance.json"
+          ],
+          "composedSliceAcceptance": {
+            "date": "2026-11-10",
+            "status": "passed_current_host_scope",
+            "nodeE2EAssertions": 244,
+            "pythonTests": 103,
+            "commands": 17,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 88,
+            "binaryArtifacts": 3,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1148,
+            "helperSha256": "d46352387964c9a1ef95cc766bd26af92c7a5c1df0a22283c9204e0a48b656c9",
+            "recordingStatus": "following_slice",
+            "implementationCommit": "d1b30f6099be9e40d2c838a0d22a955662180840",
+            "commitBinding": "evidence/P5/composed/commit-binding.json",
+            "commitBindingReview": "evidence/P5/composed/independent-commit-binding.json"
+          },
+          "controlledRecordingSlice": {
+            "status": "passed_current_host_scope",
+            "source": "controlled_native_requests",
+            "mainNodeE2EAssertions": 23,
+            "mainAppE2EAssertions": 18,
+            "mainPythonTests": 24,
+            "physicalInputListening": "required_pending_implementation",
+            "externalGates": "retained",
+            "date": "2026-11-10",
+            "nodeE2EAssertions": 303,
+            "pythonTests": 127,
+            "commands": 21,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 94,
+            "binaryArtifacts": 3,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1149,
+            "helperSha256": "be795f51b5b068507b7f8d7b0dd01e8a3314955b8e8fca175b19830ec3186809",
+            "implementationCommit": "0585c5ca3ebd6682a2b0a7350c6c5f1434decfe6",
+            "commitBinding": "evidence/P5/record/commit-binding.json",
+            "commitBindingReview": "evidence/P5/record/independent-commit-binding.json"
+          },
+          "cancellationAuditSlice": {
+            "status": "passed_current_host_cooperative_cancellation_scope",
+            "mainNodeE2EAssertions": 23,
+            "mainPythonTests": 12,
+            "scope": "cooperative MCP cancellation; per-tool dispatched state and unknown enclosing macro outcome",
+            "manualInputRecording": "required_local_gap",
+            "workbenchAbortKillAudit": "pending_separate_validation",
+            "date": "2026-11-11",
+            "nodeE2EAssertions": 326,
+            "pythonTests": 147,
+            "commands": 24,
+            "unexpectedFailures": 0,
+            "skipped": 0,
+            "automaticRetries": 0,
+            "sourceFiles": 100,
+            "binaryArtifacts": 3,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1150,
+            "implementationCommit": "280d148b92f0dd9fe7b2151b73ff6b5866183a0f",
+            "commitBinding": "evidence/P5/audit/commit-binding.json",
+            "commitBindingReview": "evidence/P5/audit/independent-commit-binding.json"
+          },
+          "progress": "组合、受控录制、取消审计、严格事件录制及用户确认的标准鼠标投影均已提交并完成各自当前主机范围独立验收。标准投影真实你好/触控板拖拽保存回放通过，来源由独立审查核验；压力手势和压力驱动应用状态明确不在投影范围。正常会话审批allow/deny/待审批cancel及两图片writer新建/覆盖检查点与真实回滚已在5e246343完成当前主机独立验收，离线13/真实桌面31/静态80通过。缺helper readiness、真实registry-hidden保存宏/batch以及Node桌面/命令总闸普通会话拒绝已在229a9021独立40项通过；CLI仅验证实际生成配置。实际撤权/拒权readiness、动作中锁屏、硬杀及原环境门继续开放；自有窗口平移捕获18项复验见P5-01。当前选定应用74项复验另见P5-03。",
+          "manualEventSlice": {
+            "status": "implemented_independently_validated_supported_subset",
+            "date": "2026-11-11",
+            "source": "native_window_events",
+            "pointerProfile": "exact",
+            "schema": 2,
+            "implementationCommit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+            "commitBinding": "evidence/P5/manual/commit-binding.json",
+            "commitBindingReview": "evidence/P5/manual/independent-commit-binding.json",
+            "sourceFiles": 34,
+            "independentGUIAssertions": 78,
+            "independentAppAssertions": 17,
+            "pythonTests": 167,
+            "pythonReuse": "v5 byte-identical runtime; v6 only diagnostic fixture differs",
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringSyntaxFiles": 1151,
+            "physicalInputAcceptance": false,
+            "limits": [
+              "Pressure-associated physical trackpad remains unsupported in exact profile",
+              "Historical development GUI v7 timeout cause undetermined",
+              "Original phase approval/checkpoint/revoke/lock/application/environment gates retained"
+            ],
+            "standardMouseFollowup": {
+              "status": "passed_current_host_standard_mouse_projection",
+              "userDecision": "支持标准点击和拖拽，压力手势明确不支持",
+              "pointerProfile": "standard_mouse",
+              "replayScope": "keyboard_and_standard_mouse",
+              "worktree": "/tmp/ruyi-p5-touch-worktree",
+              "branch": "codex/p5-manual-touch",
+              "accepted": true,
+              "primaryGUIAssertions": 87,
+              "primaryAppAssertions": 19,
+              "physicalEvidence": "evidence/P5/manual/standard-mouse/development/physical-v1/report.json",
+              "scopeNote": "Explicit keyboard/standard mouse projection only; pressure stages and pressure-driven application state are excluded, not exhaustively detected",
+              "implementationCommit": "1500b82b9d8ee54f285d1b316d87067a7b430c52",
+              "parentCommit": "0d054b04b7cd7d97fe163ca7177c165a38020693",
+              "schema": 3,
+              "sourceFiles": 34,
+              "changedFiles": 16,
+              "independentGUIAssertions": 88,
+              "independentAppExactAssertions": 17,
+              "independentAppStandardAssertions": 19,
+              "pythonTests": 170,
+              "physicalPrimaryPassed": true,
+              "physicalIndependentReexecution": false,
+              "physicalProvenanceReview": "evidence/P5/manual/standard-mouse/physical-evidence-review-v1.json",
+              "commitBinding": "evidence/P5/manual/standard-mouse/commit-binding.json",
+              "commitBindingReview": "evidence/P5/manual/standard-mouse/independent-commit-binding.json",
+              "defaultHelperSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+            }
+          },
+          "ordinarySessionEntrySlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_ordinary_session_scope",
+            "implementationCommit": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+            "commitBinding": "evidence/P5/entry/commit-binding.json",
+            "commitBindingReview": "evidence/P5/entry/independent-commit-binding.json",
+            "sourceFiles": 15,
+            "changedFiles": 12,
+            "independentOfflineAssertions": 13,
+            "independentNativeAssertions": 31,
+            "independentStaticCases": 80,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticLiveSkipped": 7,
+            "independentManualRetries": 0,
+            "independentAutomaticRetries": 0,
+            "checkpointCases": 4,
+            "scope": "Node-launched Workbench ordinary default-mode provider sessions -> proxy -> actual ACC/native helper; permission allow/deny/pending-cancel and both image writers create/overwrite rollback",
+            "limits": [
+              "No LaunchServices App acceptance or rebuild/re-sign in this slice",
+              "Pending-permission cancellation does not establish action-time hard-kill cleanup",
+              "No actual TCC revoke/OS lock or Windows runtime in this slice",
+              "Master-switch/hidden-tool missing-helper paths later pass the readiness slice; actual permission revocation readiness remains open; selected application refresh is tracked in P5-03"
+            ],
+            "evidence": "evidence/P5/entry/independent-v1/report.json"
+          },
+          "readinessAndNestedPolicySlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_missing_helper_hidden_registry_and_node_policy_scope",
+            "testImplementationCommit": "229a9021f2ae96e493b9a10c99ea1d50ea22b619",
+            "productRuntimeSourceChanged": false,
+            "sourceFiles": 14,
+            "changedFiles": 8,
+            "independentAssertions": 40,
+            "independentRetries": 0,
+            "independentObservedIdentities": 61,
+            "sourceBinding": "evidence/P5/readiness/commit-binding.json",
+            "independentBinding": "evidence/P5/readiness/independent-commit-binding.json",
+            "evidence": "evidence/P5/readiness/independent-v1/report.json",
+            "engineeringSyntaxFiles": 1154,
+            "engineeringUnitPassed": 2499,
+            "engineeringUnitExistingSkipped": 18,
+            "engineeringStaticPassed": 80,
+            "engineeringStaticLiveSkipped": 7,
+            "limits": [
+              "CLI policy is actual generated configuration only, not runtime execution",
+              "No actual TCC revoke/denied-state or OS lock test",
+              "No clipboard snapshot/restoration assertion",
+              "Node launch only; no new App LaunchServices/signing acceptance",
+              "Original display/OS/Windows/formal identity and other phase gates remain"
+            ]
+          },
+          "neutralAbortCalibrationSlice": {
+            "status": "passed_current_host_zero_input_calibration_total_gate_open",
+            "date": "2026-11-11",
+            "testImplementationCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+            "productRuntimeSourceChanged": false,
+            "primaryAssertions": 12,
+            "independentAssertions": 12,
+            "independentRetries": 0,
+            "scope": "Approved/pending ordinary wait-only call root-only SIGKILL, observed process cleanup,zero input,GET-only restart. Permission intent persists; dispatch/wait-entry/terminal execution attribution unconfirmed. No held-state or full hard-abort gate pass.",
+            "evidence": "evidence/P5/hard-abort/README.md",
+            "independentReport": "evidence/P5/hard-abort/independent-v1/report.json",
+            "commitBinding": "evidence/P5/hard-abort/commit-binding.json"
+          },
+          "providerHistoryDurabilitySlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_provider_main_turn_intents_and_received_prefixes",
+            "implementationCommit": "7f95d654",
+            "productRuntimeSourceChanged": true,
+            "scope": "Strict committed requested model tool intent before local preexecution/approval, received prefixes before next calls, honest unknown vs not_dispatched, bounded parallel display/native images attachments. Node provider main turn, not ACC dispatch/entry/terminal or App/held/automatic continuation acceptance.",
+            "independentCases": {
+              "newUnit": 9,
+              "offlineProcessCrash": 11,
+              "zeroInputNative": 12,
+              "ordinaryEntry": 31
+            },
+            "finalEngineering": {
+              "syntax": 1158,
+              "unitPassed": 2508,
+              "unitExistingSkipped": 18,
+              "fastPassed": 80,
+              "fastFlaky": 0
+            },
+            "evidence": "evidence/P5/durable-history/README.md",
+            "independentReport": "evidence/P5/durable-history/independent-v1/report.json",
+            "commitBinding": "evidence/P5/durable-history/commit-binding.json"
+          },
+          "compoundEffectLedgerSlice": {
+            "date": "2026-11-11",
+            "status": "passed_current_host_returned_effect_summary_scope",
+            "implementationCommit": "75c593e3",
+            "productRuntimeSourceChanged": true,
+            "scope": "Bounded raw-result projection before display shrinking; returned compound children and known conditional leaves; reported/unknown and incomplete fields preserved through fold/API. Python invocation attempt metadata is not native dispatch/body-entry/terminal proof.",
+            "independentCases": {
+              "unit": 13,
+              "python": 5,
+              "offline": 16,
+              "nativeEntry": 34
+            },
+            "independentLaunchHistory": "First Python launch failed in dyld before tests due missing runner loader environment; corrected environment executed5 tests once. Original failure preserved.",
+            "finalEngineering": {
+              "syntax": 1161,
+              "unitPassed": 2521,
+              "unitExistingSkipped": 18,
+              "fastPassed": 80,
+              "fastFlaky": 0
+            },
+            "evidence": "evidence/P5/tool-effect-audit/README.md",
+            "independentReport": "evidence/P5/tool-effect-audit/independent-report-v1.json",
+            "commitBinding": "evidence/P5/tool-effect-audit/commit-binding.json",
+            "remainingRequirementMapping": "evidence/P5/remaining-resolution-2026-11-11-effects.json"
+          },
+          "desktopExecutionReceiptsSlice": {
+            "date": "2026-11-12",
+            "status": "passed_default_off_core_and_positive_turn_foreground_provider_slice_full_P5_open",
+            "implementationCommit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+            "productionDefault": "off",
+            "scope": "Root-owned actual provider/foreground node ACC correlation, native input-worker entry/terminal, strict result/projected image-history delivery and uncertainty barriers. Synthetic PNG actual SDK chains; native screenshot/OCR and wider execution modes remain open.",
+            "sourceReview": "evidence/P5/execution-receipts-wip/evidence/foreground-subagent-source-review-v3.json",
+            "sourceCoverage": "evidence/P5/execution-receipts-wip/evidence/foreground-subagent-review-coverage-v1.json",
+            "independentReport": "evidence/P5/execution-receipts-wip/evidence/independent-foreground-subagent-v1/report.json",
+            "independentCommands": 13,
+            "independentFailure": 0,
+            "independentSkipped": 0,
+            "independentRetries": 0,
+            "independentCases": {
+              "foregroundNodes": 117,
+              "mainSyntheticImages": 26,
+              "mainDispatch": 32,
+              "requiredContext": 38,
+              "pythonControl": 4,
+              "targetedUnit": 78
+            },
+            "defaultOffCompatibility": {
+              "fixtures": 5,
+              "assertions": 85,
+              "failed": 0
+            },
+            "engineering": {
+              "fullUnitPassed": 2626,
+              "unitExistingSkipped": 18,
+              "syntax": 1178,
+              "staticPassed": 80,
+              "centralLiveSkipped": 12,
+              "buildFresh": true
+            },
+            "evidence": "evidence/P5/execution-receipts-wip/current-state.json",
+            "fullP5Accepted": false,
+            "open": [
+              "independent background/API0/resume workflow authority",
+              "authenticated CLI relay and manual API admission",
+              "native capture/OCR receipts; balanced input and reviewed held-state rescue",
+              "historical reconciliation/retention/global quotas/delete/rewind",
+              "original10 local+4external gates preserved"
+            ]
+          },
+          "nativeCaptureReceiptsSlice": {
+            "date": "2026-11-12",
+            "status": "passed_default_off_selected_native_capture_Vision_receipt_scope_full_P5_open",
+            "implementationCommit": "b7930bde0ad44e4f50f0b5553f206623433f3079",
+            "candidateSourceCommit": "56c970cf885de4a249c637fe10d3419115ffa979",
+            "productionDefault": "off",
+            "scope": "Node serve plus exact frozen helper: explicit generic4 feature negotiation, async captured-frame native completion, real owned-window screenshot and local/captured Vision, actual node small PNG delivery/model request/cold reopen, selected rootStop/terminalEIO/historyEIO and16MiB real native node-image quota refusal. No posted input or held root fault, not App/release identity acceptance.",
+            "sourceReview": "evidence/P5/execution-receipts-wip/evidence/native-capture-source-review-v2.json",
+            "freeze": "evidence/P5/execution-receipts-wip/evidence/native-capture-freeze-v2.json",
+            "independentReport": "evidence/P5/execution-receipts-wip/evidence/independent-native-capture-v1/report.json",
+            "independentCommands": 18,
+            "failures": 0,
+            "skips": 0,
+            "retries": 0,
+            "bindings": {
+              "sourceFiles": 125,
+              "artifacts": 4,
+              "beforeAfterSnapshots": 36,
+              "allMatched": true
+            },
+            "cases": {
+              "actualNativeCaptureVisionAndFaults": 87,
+              "nativeProtocol": 51,
+              "adapter": 23,
+              "pureNative": 16,
+              "pureRequired": 12,
+              "journal": 18,
+              "control": 4,
+              "contextRegression": 38,
+              "mainImageRegression": 26,
+              "mainDispatchRegression": 32,
+              "foregroundSubagentRegression": 117
+            },
+            "engineering": {
+              "unitPassed": 2626,
+              "unitExistingSkipped": 18,
+              "unitFailed": 0,
+              "staticPassed": 80,
+              "centralLiveSkipped": 13,
+              "syntax": 1179,
+              "buildFresh": true
+            },
+            "sourceOnlyBoundaries": [
+              "forced native duplicate/old-frame callback safety",
+              "native OCR watchdog >12s and <60s timing branch; actual shorter caller deadline separately tested"
+            ],
+            "interpretation": "Root Stop proves cleanup and unknown before terminal observation, not interruption of capture body. Active generic shares input lock; legacy contextless one-shot2slots unchanged.",
+            "originalRequirementMapping": "evidence/P5/execution-receipts-wip/../remaining-resolution-2026-11-11-effects.json",
+            "fullP5Accepted": false
+          },
+          "balancedInputReceiptsSlice": {
+            "date": "2026-11-12",
+            "status": "passed_default_off_selected_normal_balanced_root_input_scope_full_P5_open",
+            "testImplementationCommit": "2d3d725e5dbb0f679c10788dfe589dc54c41bd26",
+            "candidateSourceCommit": "f1feed3f6e9df7cd975a4997cd97c2584aaf8d1a",
+            "productRuntimeSourceChanged": false,
+            "productionDefault": "off",
+            "scope": "Ordinary positive-turn provider/default-permission Node serve and named helper;genuine same-turn target-list worker then one owned balanced middle pair;deny/predispatch cancel no input;actual receipt/receiver/history/effect/API/cold no-replay.",
+            "sourceReview": "evidence/P5/execution-receipts-wip/evidence/root-input-harness-source-review-v4.json",
+            "fixtureSourceReview": "evidence/P5/execution-receipts-wip/evidence/balanced-input-window-source-review-v3.json",
+            "freeze": "evidence/P5/execution-receipts-wip/evidence/balanced-input-freeze-v4.json",
+            "independentReport": "evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/report.json",
+            "commitBinding": "evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/postqualification-commit-binding.json",
+            "independentCommands": 1,
+            "independentAssertions": 51,
+            "failures": 0,
+            "skips": 0,
+            "retries": 0,
+            "bindings": {
+              "sourceFiles": 127,
+              "namedArtifacts": 4,
+              "beforeAfterSnapshots": 2,
+              "allMatched": true
+            },
+            "receiverArtifact": "Separate compiled owned receiver;pre-spawn hash;independent and development bytes match6bd5137175517b5724c94fa4a54ed23160bc0daa5e7e175cce2c97f68cebc4da.",
+            "engineering": {
+              "unitPassed": 2626,
+              "unitExistingSkipped": 18,
+              "unitFailed": 0,
+              "staticPassed": 80,
+              "centralLiveSkipped": 14,
+              "syntax": 1180,
+              "buildFresh": true
+            },
+            "timing": "40000us is planned relative event offset;independent actual CG interval28221708ns. No40ms measuredSLA.",
+            "limits": [
+              "No active-input Stop/fault,held/root hard abort or external rescue qualification.",
+              "No new App/release identity or all-application acceptance.",
+              "Background/API0/resume/CLI/manual authority,reconciliation/retention/capacity and all original10local+4external gates remain.",
+              "Candidate default-off;fullP5 still in_progress;restore automatic lock only after whole-phase acceptance."
+            ],
+            "evidence": "evidence/P5/execution-receipts-wip/current-state.json",
+            "fullP5Accepted": false
+          },
+          "completedDate": "2026-11-12",
+          "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。"
+        }
+      ],
+      "startedDate": "2026-11-08",
+      "owner": "Codex",
+      "unattendedExecution": {
+        "instruction": "后续开发无人值守，你完成后整体验收P5，然后恢复自动锁屏",
+        "status": "scoped_delivery_completed_followup_retained",
+        "restoreAutomaticLockAfter": "full_P5_acceptance",
+        "restorationStatus": "restored_under_later_explicit_P6_instruction",
+        "evidence": "evidence/P5/unattended-instruction-2026-11-11.json",
+        "restorationEvidence": "evidence/P6/mac-closeout/power-release.json",
+        "supersededBy": "Latest P6 user instruction explicitly requests release and sleep after unattended work; original full P5 gate remains unaccepted."
+      },
+      "completedDate": "2026-11-12",
+      "acceptanceScope": "用户明确选择：按此前独立验收通过的当前Mac功能切片交付；原完整P5门槛与默认关闭回执的后续工作保留待验，不宣称全范围通过。",
+      "acceptanceEvidence": "evidence/P5/closeout/acceptance.json",
+      "fullOriginalScopeAccepted": false
+    },
+    {
+      "id": "P6",
+      "title": "离线打包与发行",
+      "document": "07-P6-RELEASE.md",
+      "dependsOn": [
+        "P5"
+      ],
+      "status": "in_progress",
+      "effortDays": {
+        "low": 8,
+        "high": 14
+      },
+      "tasks": [
+        {
+          "id": "P6-01",
+          "title": "arm64 离线依赖与包布局",
+          "effortDays": {
+            "low": 2,
+            "high": 4
+          },
+          "deliverable": "打包 Node/Python/rg/必要 wheels 与浏览器；区分各发行变体承诺能力、许可、hash 校验和版本锁；不打入官方 Agent CLI。",
+          "status": "done",
+          "owner": "Codex; independent p6_review",
+          "evidence": [
+            "evidence/P6/offline/README.md",
+            "evidence/P6/offline/validation.json",
+            "evidence/P6/offline/review-final.json",
+            "evidence/P6/offline/archives.json"
+          ],
+          "progress": "固定源码、禁公网构建、独立运行时与许可/版本/hash闭包完成；Full/Slim各经主执行和独立实包复验19/7项，原路径native209/6及484源码绑定通过，ZIP解压载荷一致。原生审计FD超时已修复为稳定路径，失败历史保留。",
+          "commit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+          "completionScope": "arm64当前macOS27.0.1上的自包含Full/Slim开发候选实现与验证；最低macOS14仅部署声明静态检查，不代表实际运行。",
+          "notAccepted": [
+            "P6-02 正式签名、公证、Gatekeeper与干净标准用户安装",
+            "P6-03 升级/回退/数据迁移验收",
+            "P6-04 macOS14实际运行、同候选Windows及最终全量发行回归",
+            "P5原未验环境及held故障恢复门槛"
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json"
+        },
+        {
+          "id": "P6-02",
+          "title": "签名、公证与安装",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "递归处理 App/helper/原生依赖签名、hardened runtime 与必要 entitlement；公证与票据附加；干净标准用户安装/首次运行验证。",
+          "status": "done",
+          "owner": "Codex; independent p6_02_review",
+          "evidence": [
+            "evidence/P6/internal-trial/README.md",
+            "evidence/P6/internal-trial/validation.json",
+            "evidence/P6/internal-trial/review-final.json",
+            "evidence/P6/internal-trial/integrity-final.json"
+          ],
+          "scopeDecision": {
+            "date": "2026-11-12",
+            "userRequest": "进行本地／内部试用版的P6-02的实现和验收",
+            "standardUserAnswer": "暂没有，先做隔离安装验收",
+            "acceptedScope": "ad-hoc 内部DMG、当前账号隔离安装与离线业务验证",
+            "deferred": [
+              "Developer ID、公证与票据",
+              "真实下载来源Gatekeeper首次手动允许",
+              "干净标准用户/无开发工具另一主机",
+              "正式身份Keychain/TCC及升级稳定性"
+            ]
+          },
+          "fullOriginalScopeAccepted": false,
+          "commit": "3279b83d880a84be1e4fa86ae4e1aed80ef740bc",
+          "completionScope": "用户授权的本地／内部试用版：ad-hoc Full/Slim DMG、当前账号隔离安装与实际离线业务验收。原正式发行范围未验收。",
+          "progress": "冻结P6-01输入不改动；补齐18个unsigned原生对象与10个Chromium容器资源封印，逐项验证209/6原生清点。禁公网出站构建Full/Slim只读DMG，主执行/独立各12项安装与19/7项离线业务通过；原生和LaunchServices推出镜像后运行，拒绝覆盖、保留数据卸载及清理通过。独立R1–R6已关闭，工程单元2645通过/18跳过、静态80通过。",
+          "notAccepted": [
+            "Developer ID身份及正式分发签名",
+            "Apple公证与stapling",
+            "hardened runtime正式资格",
+            "实际浏览器下载/quarantine来源的Gatekeeper首次允许",
+            "真实干净标准用户及无开发工具另一台Mac",
+            "macOS14实际运行",
+            "正式身份Keychain/TCC及升级权限稳定性",
+            "P6-03升级、回退与数据迁移",
+            "Windows同候选回归与P6-04最终全量回归",
+            "P5原未验环境及故障恢复范围"
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json"
+        },
+        {
+          "id": "P6-03",
+          "title": "更新、回退与数据迁移",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "首发支持整包替换升级和保留旧包的回退；Mac Trash 语义、路径映射、旧配置与凭据恢复文档；旧 Windows overlay 明确不可用。",
+          "status": "done",
+          "owner": "Codex; independent p6_02_review",
+          "evidence": [
+            "evidence/P6/final/README.md",
+            "evidence/P6/final/validation.json",
+            "evidence/P6/final/review-final.json",
+            "evidence/P6/final/REGRESSION.md",
+            "evidence/P6/authorization-resume/normal-full-upgrade/index.json",
+            "evidence/P6/authorization-resume/normal-full-upgrade-independent/review.json"
+          ],
+          "completedDate": "2026-11-12",
+          "commit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+          "completionScope": "当前macOS27.0.1 arm64内部试用版：同3.0.1不同构建整包替换、保留旧App与完整数据快照恢复，真实Mac Trash及迁移/凭据说明。",
+          "fullOriginalScopeAccepted": false,
+          "progress": "Full/Slim最终冻结DMG各经主执行与独立升级/快照回退14项、安装后原生Trash12项通过；坏分发/不完整暂存拒绝、保留旧App与升级后数据、恢复到新数据根均已验证。",
+          "notAccepted": [
+            "任意未来schema直接降级",
+            "正式身份下Keychain/TCC升级恢复稳定性",
+            "Windows至Mac实际业务数据与凭据迁移验收"
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json",
+          "currentCandidateQualification": "Full and Slim ordinary-copy upgrade/rollback14 each, main and independent; earlier Full clone15 and ENOSPC histories retained."
+        },
+        {
+          "id": "P6-04",
+          "title": "最终回归与交付文档",
+          "effortDays": {
+            "low": 2,
+            "high": 4
+          },
+          "deliverable": "全量适用回归和受控真机验收；更新中英文用户/管理/离线部署说明及兼容清单；记录候选 SHA、版本、hash、测试和独立复核。",
+          "status": "in_progress",
+          "owner": "Codex; independent p6_02_review",
+          "evidence": [
+            "evidence/P6/final/README.md",
+            "evidence/P6/final/validation.json",
+            "evidence/P6/final/review-final.json",
+            "evidence/P6/final/REGRESSION.md",
+            "evidence/P6/mac-closeout/README.md",
+            "evidence/P6/mac-closeout/validation.json",
+            "evidence/P6/mac-closeout/regression-composite.json",
+            "evidence/P6/mac-closeout/independent-closeout/review.json",
+            "evidence/P6/mac-closeout/independent-packages/review.json",
+            "evidence/P6/authorization-resume/README.md",
+            "evidence/P6/authorization-resume/validation.json",
+            "evidence/P6/authorization-resume/regression-composite.json",
+            "evidence/P6/authorization-resume/independent/review.json",
+            "evidence/P6/authorization-resume/normal-full-upgrade-independent/review.json"
+          ],
+          "commit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "implementationCompleted": true,
+          "currentLocalTrialAssessmentCompleted": true,
+          "completionScope": "当前Mac内部试用范围完成：固定Full真实授权截图／基本输入、Full/Slim实包和普通升级回退、合并回归及文档收尾；原正式发行和其他环境门继续开放。",
+          "fullOriginalScopeAccepted": false,
+          "progress": "2026-11-13 当前Mac内部试用范围收尾完成。应用／包装74d57c88，验收夹具f3237570。固定安装Full本人授权后，主执行及独立录屏7、输入14通过，实际绑定包内helper；Full普通复制升级／完整快照回退主执行及独立各14项通过，原ENOSPC与拒权日志保留。Full/Slim既有安装13、离线19/7、Trash12及Slim普通升级14继续有效。逐件合并594退出成功，保留32件历史内部SKIP、14live排除；不是最终候选594件整轮重跑。currentMacTrialStatus=done；P6及P6-04原正式范围仍in_progress。见evidence/P6/authorization-resume/README.md。",
+          "notAccepted": [
+            "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+            "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+            "real clean standard-user installation or clean second Mac without developer tools",
+            "macOS14 actual runtime",
+            "formal-identity Keychain/TCC upgrade/recovery stability",
+            "arbitrary future-schema direct backward compatibility",
+            "Windows same-candidate full regression",
+            "original unverified P5 environments; no new waiver inferred"
+          ],
+          "currentArtifactSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+          "currentArtifactEvidence": "evidence/P6/authorization-resume/validation.json",
+          "acceptanceFixtureCommit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+          "automatableCloseoutCompleted": true,
+          "currentMacTrialStatus": "done",
+          "currentMacTrialCompletedDate": "2026-11-13",
+          "additionalLimits": [
+            "Slim positive App-origin capture/input qualification was not repeated in this resumed window.",
+            "Input Monitoring/event listening/manual recording is not qualified by a granted listen diagnostic alone.",
+            "No fresh final-candidate 594-file full run; 32 historical internal-SKIP files and 14 excluded live files remain explicit.",
+            "Permission revocation, locked-session and original P5 fault/environment scenarios remain bounded by their historical evidence."
+          ]
+        }
+      ],
+      "owner": "Codex",
+      "progress": "2026-11-13 当前Mac内部试用范围收尾完成。应用／包装74d57c88，验收夹具f3237570。固定安装Full本人授权后，主执行及独立录屏7、输入14通过，实际绑定包内helper；Full普通复制升级／完整快照回退主执行及独立各14项通过，原ENOSPC与拒权日志保留。Full/Slim既有安装13、离线19/7、Trash12及Slim普通升级14继续有效。逐件合并594退出成功，保留32件历史内部SKIP、14live排除；不是最终候选594件整轮重跑。currentMacTrialStatus=done；P6及P6-04原正式范围仍in_progress。见evidence/P6/authorization-resume/README.md。",
+      "applicationSourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "packagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "fullOriginalScopeAccepted": false,
+      "currentLocalTrialArtifactAcceptancePassed": true,
+      "acceptanceEvidence": "evidence/P6/authorization-resume/validation.json",
+      "remainingGates": [
+        "Developer ID identity, notarization/stapling and formal hardened-runtime qualification",
+        "actual browser-downloaded/quarantined-origin Gatekeeper first approval",
+        "real clean standard-user installation or clean second Mac without developer tools",
+        "macOS14 actual runtime",
+        "formal-identity Keychain/TCC upgrade/recovery stability",
+        "arbitrary future-schema direct backward compatibility",
+        "Windows same-candidate full regression",
+        "original unverified P5 environments; no new waiver inferred"
+      ],
+      "acceptanceFixtureCommit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+      "automatableCloseoutCompleted": true,
+      "unattendedExecution": {
+        "instruction": "修复Mac端的问题并收尾P6。接下来无人值守，设置防锁屏进行最终验收，完成后释放并休眠",
+        "status": "protection_released_sleep_queued",
+        "powerEvidence": "evidence/P6/mac-closeout/power-release.json",
+        "sleepEvidence": "evidence/P6/mac-closeout/sleep-request.json",
+        "manualAuthorizationAccepted": false,
+        "screensaverIdleTime": 300,
+        "ownedAssertionReleased": true,
+        "sleepQueued": true,
+        "sleepScheduledForUTC": "2026-11-12T16:09:56.689913+00:00",
+        "observedAsleep": false,
+        "historicalRecord": true,
+        "laterPersonalAuthorizationEvidence": "evidence/P6/authorization-resume/independent/review.json"
+      },
+      "currentMacTrialStatus": "done",
+      "currentMacTrialCompletedDate": "2026-11-13",
+      "additionalLimits": [
+        "Slim positive App-origin capture/input qualification was not repeated in this resumed window.",
+        "Input Monitoring/event listening/manual recording is not qualified by a granted listen diagnostic alone.",
+        "No fresh final-candidate 594-file full run; 32 historical internal-SKIP files and 14 excluded live files remain explicit.",
+        "Permission revocation, locked-session and original P5 fault/environment scenarios remain bounded by their historical evidence."
+      ],
+      "authorizationResume": {
+        "personallyCompletedByUser": true,
+        "fixedFullPositiveCaptureAndBasicInputAccepted": true,
+        "evidence": "evidence/P6/authorization-resume/independent/review.json"
+      }
+    }
+  ],
+  "estimateCheckpoint": {
+    "date": "2026-11-03",
+    "completedPhases": [
+      "P0",
+      "P1"
+    ],
+    "remainingPhases": [
+      "P2",
+      "P3",
+      "P4",
+      "P5",
+      "P6"
+    ],
+    "remainingBaseDays": {
+      "low": 48,
+      "high": 78
+    },
+    "remainingBudgetDays": {
+      "low": 58,
+      "high": 102
+    },
+    "actualPersonDays": null,
+    "rationale": "P1按用户调整后的验收边界收尾。剩余区间为P2–P6既有估算之和；原全项目预算保留，实际人工投入未核算。Finder可见验收归P4/V10，最低系统与离线包归P3/P6。"
+  }
+}

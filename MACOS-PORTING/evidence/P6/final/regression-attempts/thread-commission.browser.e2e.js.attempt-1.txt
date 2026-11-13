@@ -1,0 +1,31 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 用户自己开的线程已建（sess_2d1286683b8505f9）
+PASS A4 管家开出线程（sess_3b4b2ea53744acaf）
+PASS A5 服务端落盘的 brief.userText 就是用户原话逐字（13k 的铁律 ①）
+PASS A6 落盘的 brief.supplement 里有「验收项」那几行（06i buildStewardBrief 拼的）
+PASS A6b 管家递的那一回合已经跑完（线程上有了第一条助手消息）
+PASS A7 Edge/Chrome found
+PASS A8 browser target available
+PASS A9 首屏就绪（config 真到达、线程头与那组 chip 已挂上）
+PASS A10 工作台视角打开管家开的那条线程
+PASS A11 委托书横幅不在 DOM 里（2026-09-22 退役：委托内容留在历史第一条消息里）
+PASS B9-shot 折叠块实拍已存（/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-7jFEvA/ruyi-thread-commission-pRf2Mb/thread-commission-fold.png）
+PASS B9a 第一条气泡正文【只有】用户原话（实得 "把三份季度报表放一起比一比，把口径不一致的地方列出来，最后给我一页结论 📊，别只丢一堆数字给我"）
+PASS B9b 管家补充收在折叠块里、默认合上、围栏标签不上屏（实得 {"hasFence":true,"fenceOpen":false,"bodyShown":false,"screenHasTag":false}）
+PASS B9c **改的是显示、不是数据**：state 里那条消息仍是整段原件（182 字），折叠块里是逐字的补充
+PASS B10a summary 可点
+PASS B10b 点开 summary：折叠块打开、逐字的管家补充在屏上、围栏标签仍不上屏（实得 {"fenceOpen":true,"bodyShown":true}）
+PASS B10c 再点一下收得回去（实得 {"fenceOpen":false,"bodyShown":false}）
+PASS B10d 切到用户自己开的那条线程（sess_2d1286683b8505f9）
+PASS B10e 换回管家开的那条
+PASS B10f 换走再换回来，这条线程上已展开的管家补充仍然开着（实得 fenceOpen=true）
+PASS B8a 线程 S 已灌到 18 条消息
+PASS B8b0 后台回合推送到达时仍能切到另一条线程
+PASS B8b 重新打开线程 S
+PASS B8c 消息窗真的起作用了：画了 12 / 共 18 条，第一条（委托书原件）在窗外
+PASS B8d 「展开全部」后第一条（委托书原件）回到屏上
+PASS B8e 长会话里折叠块仍完好：原话逐字、补充逐字（实得 {"commissioned":true,"hasFence":true}）
+SHOTS /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-7jFEvA/ruyi-thread-commission-pRf2Mb/thread-commission-fold.png
+
+THREAD COMMISSION BROWSER E2E: ALL PASS

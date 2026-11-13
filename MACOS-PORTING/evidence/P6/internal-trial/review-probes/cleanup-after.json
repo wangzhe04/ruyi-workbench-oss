@@ -1,0 +1,17 @@
+{
+  "sourceHash": "431cdd9632dcc8b3b7ad98cd305e3ad03f7872f244bd8c7cae3932631323a7a5",
+  "work": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p602-review-cleanup-cPMEX4",
+  "probes": [
+    {
+      "name": "output reservation before try",
+      "error": "injected temporary-directory allocation failure",
+      "outputRemains": false
+    },
+    {
+      "name": "attach plist conversion failure",
+      "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+      "stillMounted": false
+    }
+  ],
+  "sourceUnchanged": true
+}

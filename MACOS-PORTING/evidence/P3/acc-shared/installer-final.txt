@@ -1,0 +1,56 @@
+PASS builder pins CPython 3.12 with a published winsdk wheel
+PASS builder requires the exact cp312 winsdk wheel and imports the real Windows.Media.Ocr projection
+PASS builder converts dependencies to a wheel-only cache
+PASS builder performs a binary-only no-index replay
+PASS empty-target probe excludes hydrated packages while honoring target wheel .pth files
+PASS builder emits a checksummed manifest
+PASS installer verifies the offline manifest before activation
+PASS installer turns incomplete extraction into an actionable first-run error
+PASS installer persists first-run diagnostics instead of losing the underlying exception
+PASS long Full verification emits unbuffered progress so first launch does not look frozen
+PASS installer verifies and copies deep Chromium trees with Win32 extended paths
+PASS installer import probes are isolated from ambient packages and cannot mutate the signed payload with bytecode
+PASS installer atomically deploys the pre-hydrated runtime
+PASS installer supports an idempotent fast first-launch ensure mode
+PASS installer refuses cached, bundled, copied, or fallback runtimes without the Full OCR capability
+PASS legacy fallback refuses source archives and compilation
+PASS fallback installs the full feature requirements plus ACC wheel
+PASS one-click launcher prefers bundled Python over system Python
+PASS incremental offline updater finds Full wheel caches and installs winsdk with UIA dependencies
+PASS code overlays auto-repair and verify the pinned WinSDK OCR runtime instead of silently succeeding without it
+PASS Ruyi full packager requires or builds a verified ACC payload
+PASS Ruyi refuses misleading source-only full packages
+PASS full-package launcher keeps the signed payload immutable while installing and registering ACC
+PASS Full launcher exposes the verified embedded Python to ordinary offline task commands
+PASS server boot exposes bundled Python for direct Ruyi.exe and bundled-Node startup paths
+PASS Full and Slim launchers preflight missing extraction files with a clear recovery path
+PASS ACC setup failure degrades to the base Workbench instead of blocking first launch
+PASS packager and launcher require the bundled Node runtime for deterministic Slim and Full startup
+PASS both packages include visible extract-before-running instructions
+PASS every offline variant includes only the standalone callback gateway at its documented tools path
+PASS offline packages do not include the developer tools directory recursively
+PASS full-package assembly handles Chromium paths beyond legacy MAX_PATH
+PASS offline ZIP avoids Explorer-invisible dot entries and verifies every archive before release
+PASS packager rejects release names that make deep ACC paths unsafe for Windows Explorer
+PASS full-package assembly verifies the signed ACC manifest before release
+PASS Ruyi Full packager requires the OCR wheel, live imports, and manifest coverage before emitting a ZIP
+PASS long-path cleanup is constrained to the package output root
+PASS full package excludes nested local ACC zip build artifacts
+PASS a Full-labeled package cannot be emitted without ACC and WinSDK
+PASS SkipExeBuild cannot package a stale dist/Ruyi.exe
+PASS ACC metadata supports the bundled Python 3.12 runtime
+PASS ACC pins the compatible MCP 1.x API instead of accepting the breaking MCP 2.x surface
+PASS Full offline requirements pin the verified winsdk cp312 release exactly
+PASS WinSDK release pin accepts the Windows-only marker and rejects other platforms or floating versions
+PASS Windows Full packager recognizes the same exact pin with its optional Windows-only marker
+PASS builder and target installer agree that Full covers the common document runtime, not only ACC core
+PASS Full offline requirements include common data, PDF, HTTP, and HTML parsing libraries
+PASS default offline packaging means Full, with explicit fresh-Full and Slim commands
+PASS desktop MCP autodetection prefers bundled then installed WinSDK-capable runtimes over core-only system Python
+PASS ACC setup failure is only remembered (RUYI_ACC_FAILED); it still never blocks the base Workbench
+PASS the failure notice runs AFTER the desktop shell / hidden node was started, on both start paths
+PASS the notice names acc-install-latest.log and keeps the window up (timeout, any key skips); a no-op when setup succeeded
+PASS packager validates the node.exe it bundles (version >= 20, real binary rather than a version-manager shim) before copying it
+PASS package.json engines still says node >=20 (the version floor the packager enforces)
+
+ACC OFFLINE INSTALLER CONTRACT: ALL PASS

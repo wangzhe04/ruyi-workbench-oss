@@ -1,0 +1,74 @@
+[
+  {
+    "name": "bridge-final",
+    "command": [
+      "node",
+      "dev-harness/macos-desktop-bridge.e2e.js"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:53:04.856296+00:00",
+    "endedAt": "2026-11-08T06:53:09.173984+00:00",
+    "log": "bridge-final.txt",
+    "passRows": 53,
+    "failRows": 0,
+    "logSHA256": "5b6cc9e69f513fd155fd8b8e1526001022c87bd21e8bc71047fc5a7c77b984f5"
+  },
+  {
+    "name": "replay-final",
+    "command": [
+      "node",
+      "dev-harness/event-stream-replay.browser.e2e.js"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:53:09.174978+00:00",
+    "endedAt": "2026-11-08T06:53:20.702489+00:00",
+    "log": "replay-final.txt",
+    "passRows": 24,
+    "failRows": 0,
+    "logSHA256": "1d7c501a72e25781e15db4a3e6e6a057b9058a331357c37744609173b00ff723"
+  },
+  {
+    "name": "engineering-final",
+    "command": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:53:20.702974+00:00",
+    "endedAt": "2026-11-08T06:55:26.825435+00:00",
+    "log": "engineering-final.txt",
+    "passRows": 0,
+    "failRows": 0,
+    "logSHA256": "bf50fda9e786e513b9a17e879c58f79897b8de3687c618311a4f333c3a175e42"
+  },
+  {
+    "name": "syntax-final",
+    "command": [
+      "node",
+      "dev-harness/syntax-gate.js"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:55:26.826157+00:00",
+    "endedAt": "2026-11-08T06:55:52.144594+00:00",
+    "log": "syntax-final.txt",
+    "passRows": 0,
+    "failRows": 0,
+    "logSHA256": "05f11292350b59bfceb94708246fcbd811c7e6d16753722f1337c72be02ba150"
+  },
+  {
+    "name": "freshness-final",
+    "command": [
+      "node",
+      "ruyi-workbench/app/build.js",
+      "--check"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-08T06:55:52.144867+00:00",
+    "endedAt": "2026-11-08T06:55:52.288761+00:00",
+    "log": "freshness-final.txt",
+    "passRows": 0,
+    "failRows": 0,
+    "logSHA256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+  }
+]

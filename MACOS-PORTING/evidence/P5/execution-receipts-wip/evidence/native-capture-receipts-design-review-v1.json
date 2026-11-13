@@ -1,0 +1,349 @@
+{
+  "schema": 1,
+  "kind": "independent_read_only_native_capture_ocr_receipts_design_review",
+  "createdAt": "2026-11-11T21:59:12.400480+00:00",
+  "workspace": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "baseline": {
+    "commit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+    "freeze": "/tmp/ruyi-p5-receipts-evidence/foreground-subagent-freeze-v3.json",
+    "freezeSha256": "90007518e0f98107132094d6566ad5e633c85985280bf72d31f6489d644ff863",
+    "sourceCount": 122,
+    "artifactCount": 3,
+    "readOnlyRecheckMatches": 125,
+    "status": "Existing default-off core/foreground slice committed locally; main branch integration not claimed. Next native capture/OCR receipt transport is design only."
+  },
+  "actions": {
+    "sourceEdits": false,
+    "nativeExecution": false,
+    "helperExecution": false,
+    "guiExecution": false,
+    "runtimeTests": false,
+    "onlyNewArtifact": "/tmp/ruyi-p5-receipts-evidence/native-capture-receipts-design-review-v1.json"
+  },
+  "recommendation": {
+    "decision": "Reuse the existing owned receipt session for a deliberately bounded default-off serial native capture/OCR stage, with the protections below. Keep existing legacy one-shot route unchanged for callers without an active operation. A separate owned one-frame receipt channel is preferable only if preserving active-context two-request concurrency or strict process isolation is itself a requirement.",
+    "whyReuse": "The existing session already binds actual worker incarnation/PID, immutable raw request bytes, native handler-entered challenge, durable journal entry before continue, exact continuation and terminal, owned cleanup/quarantine, and no blind native replay. Reusing that exchange avoids a second ad hoc receipt protocol.",
+    "tradeoff": "Active-context capture/status/OCR would join the single macos_session._LOCK, share an input worker and inherit busy/cleanup/window-reference lifetime behavior. This is a real behavior change in the opt-in route, not a byte-preserving refactor or a fresh one-shot process per call. Legacy macos._SLOTS=2 and child-per-request behavior stay intact when there is no active operation.",
+    "alternative": "A dedicated receipt one-frame channel should still use the same decoder/journal/frame contract, own each exact Popen and cleanup, retain a two-slot bound and original caller deadlines, then close only after terminal. It must not share mutable global _SESSION with concurrent frames. This has more process/cancellation/EOF and feature-negotiation surface to qualify; no need to choose it merely to claim native screenshots if the bounded serial tradeoff is explicit.",
+    "notAuthorizedByDesign": "No source change, native run, default activation, manual recording/held-state tests, GUI interaction or full-P5 acceptance follows from this report."
+  },
+  "actualSourceFacts": [
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "line": 87,
+      "fact": "Current request uses owned one-shot Popen, BoundedSemaphore2, _OUTPUT_LIMIT68MiB and actual caller timeout. Exact payload {op:status} is the sole contextless required-mode bypass. It does not currently route active operation capture/OCR through receipt exchange."
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "line": 84,
+      "fact": "Input request already routes current_operation to macos_receipt_session, otherwise retains legacy input session. One shared nonblocking _LOCK serializes the actual native worker; busy refuses rather than silently queues/retries."
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "line": 151,
+      "fact": "Receipt request uses actual operation journal, acquires same _LOCK, negotiates actual session.features, honors supplied timeout, optionally observes real cancel_event with required write lock, and quarantines uncertain cleanup. Features are currently only generic receipt-version/worker facts, without advertised capture/OCR operation set."
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-session.m",
+      "line": 157,
+      "fact": "HandleFrame resets transport state per frame, strips id/_ruyi_receipt before business, then synchronously calls RuyiAutomationInputRequest; current independent reader-thread frame watchdog is12seconds for every operation."
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-helper.m",
+      "line": 291,
+      "fact": "Static HandleRequest already owns real generic async dispatcher: capture via ScreenCaptureKit callbacks; OCR on global queue; status synchronous; input-family delegated once to InputRequest. Main one-shot wrapper has once-only completion and native60s OCR/12s other timeout."
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "line": 141,
+      "fact": "Actual literal OCR operations are ocr.image and ocr.languages. ocr.recognize is unsupported. OCR image keys are version/op/path/lang; language query version/op only."
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "line": 18,
+      "fact": "Recognition calls macos.request({op:ocr.image,path:absolute,lang:...},timeout=65). OCR gate is owned by worker through completion; cancellation of asyncio.to_thread await does not stop the background thread."
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "line": 33,
+      "fact": "ocr_available_languages calls actual ocr.languages via asyncio.to_thread with default macos.request timeout15. ocr_screen performs capture then local tempfile OCR inside the current tool operation."
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "line": 50,
+      "fact": "Business display metadata status uses timeout3. Capture defaults to15; existing max_width/format/quality are public tool projection semantics rather than permission to silently shrink a receipt snapshot to fit."
+    }
+  ],
+  "literalRoutingAndFeatures": {
+    "nativeGenericAllowlist": [
+      "capture",
+      "status",
+      "ocr.image",
+      "ocr.languages"
+    ],
+    "pythonRoute": "When current_operation is real and active, recognized generic semantic requests must call receipt_request with the original timeout, in the same ContextVar operation. Without an operation, preserve legacy request behavior and exact-contextless-status exception; required-mode missing context for other semantic requests must continue refusing. Do not silently use the old one-shot branch if context was lost, generic negotiation failed or a receipt error occurred.",
+    "contextlessStatus": "Preserve only exact original payload {op:status}; no extra keys, alternate spelling or broad status-prefix exception. A status call inside an active business operation is a traced generic native frame. Read-only readiness without an operation may keep its original one-shot status behavior.",
+    "nativeRoute": "Only a fully validated existing control envelope matching the current actual worker may enable the literal generic set. Strip transport fields, invoke the generic handler once, and keep no-control input-session routing/allowed operations unchanged. No wildcard ocr.* capability, arbitrary future op or testing operation becomes allowed by presence of a control object.",
+    "featureNegotiation": "Extend the actual session.features reply with a bounded explicit generic operation capability set/version (field spelling is an implementation choice). Validate and cache it against exact current helper identity, worker PID/incarnation and receipt version before the first new generic request. Do not infer generic support merely from existing executionReceiptVersion1.",
+    "oldHelper": "An old helper supporting only input receipts must refuse the new generic path explicitly before native business work; no successful empty result, suppressed error, legacy one-shot fallback or fake receipt. Existing input-family behavior can remain compatible. Changed helper binary requires fresh feature binding and root client/receipt qualification.",
+    "exactOneEntry": "Keep existing input hook in RuyiAutomationInputRequest. For generic frame call the handler-entry hook once before dispatcher/business work; never wrap input twice and never make executionEntered blindly reentrant. Entered acknowledgement remains before validation/effects as in existing contract; failed handshake must yield explicit non-dispatch or unknown per actual observations."
+  },
+  "nativeAsyncFrameDesign": {
+    "dispatcher": "Expose a narrow callback-based facade over existing HandleRequest or split its pure business dispatcher into a shared exported symbol/header. Do not copy screenshot/OCR implementations or route session JSON directly into unrelated callbacks. The session facade admits only negotiated literal generic operations.",
+    "frameOwnership": "Create an immutable per-frame identity/context owning actual worker ID/PID, invocation/operation/frame IDs, exact frame hash, op and generated challenge. Callback must capture that exact context; no async work may read/write a later global executionFrame as its identity.",
+    "singleCompletion": "Use a private once-only completion flag/token for that frame. Every status/capture/OCR success/error/timeout callback goes through this completion gate. Synchronous done and asynchronous done must behave identically. Duplicate callback is ignored/refused without second terminal, reset or semaphore signal.",
+    "mainRunloop": "Run generic entry/ack on owning main runloop. OCR business stays on background queue; only completion schedules back to main runloop. On main, verify exact active frame token, normalize result, write one terminal with exact frame receipt, reset only this frame, and signal finished once. Background OCR/capture callbacks must not touch frameActive/executionFrame/executionEntered or terminal writer directly.",
+    "watchdog": "Independent reader-thread watchdog remains a true per-frame bound. Use native60s for literal OCR operations and12s for input/capture/status; preserve original2s entered/continue exchange bound. Do not convert it to an unbounded runloop timer that cannot fire during a blocked main call.",
+    "lateCallbacks": "If EOF/cancel/fatal/timeout invalidates frame, mark its completion token closed before cleanup. Late Vision/ScreenCaptureKit callbacks must not send success, reset a newer frame or signal a newer semaphore. On an unconfirmed active request, terminate/quarantine the owned worker rather than start a new frame in uncertain state.",
+    "sequence": "The reader consumes request/continue bytes only, serially waits finished and permits no next frame before terminal/reset. Preserve prefetched-byte/trailing-frame rejection, exact continue challenge/hash, stdout bounds and one terminal per frame. Do not replace the reader with independent competing stdin consumers.",
+    "legacy": "Legacy one-shot HandleRequest lifecycle and two-slot concurrency remain unchanged. No-control persistent session still supports only its former input request surface; adding generic dispatcher must not quietly enable untraced capture/OCR there."
+  },
+  "deadlinesAndCapacity": {
+    "currentCallerSeconds": {
+      "ocr.image": 65,
+      "captureDefault": 15,
+      "ocr.languagesDefault": 15,
+      "businessStatus": 3
+    },
+    "nativeFrameSeconds": {
+      "ocr.image": 60,
+      "ocr.languages": 60,
+      "capture": 12,
+      "status": 12,
+      "input": 12,
+      "enteredContinue": 2
+    },
+    "callerRule": "Pass original timeout unchanged through Python dispatch. Feature handshake and native frame consume that same Python request budget; do not reset deadline after probing, add hidden grace, clamp short callers upward or change timeout65 into a claim all OCR lasts65 native seconds. A caller may expire before native max; cleanup must remain bounded and uncertainty honest.",
+    "nativeRule": "Select exact op-specific watchdog bound after validation. Preserve existing independent EOF/stop/monitor-failure cleanup; the13s monitor-failure hard-exit fallback is a failure cleanup bound, not an OCR success timeout guarantee. Review timer invalidation per frame.",
+    "outputBounds": "Current native encoder caps PNG48MiB, implying approximately64MiB base64 before envelope; decoder68MiB must remain an aggregate bound including receipt lines, with bounded stderr and request65536bytes/continue2048bytes. Never accept extra tail bytes, duplicate JSON keys or multiple terminals just because OCR output is large.",
+    "nodeSnapshot16MiB": "Current node actual-history snapshot cap16MiB is smaller than maximum valid screenshot envelope. A large actual screenshot may execute successfully yet remain returned-undelivered/unknown when consumer history cannot be saved. Keep that hold and stop subsequent model/ACC calls. Do not silently drop, substitute an old image or additionally downsample required consumer images to make tests pass. Use an explicitly bounded real region/public tool projection for initial acceptance and qualify oversized refusal separately.",
+    "storageRemaining": "1024snapshot namespace/256ledger rows, total bytes, long-session performance and global ACK/retirement remain separate unqualified scope. Native screenshots increase actual IO and image size; earlier1pixel fixture timing is not capacity evidence."
+  },
+  "concurrencyAndOwnership": {
+    "serialRoute": "Current macos_session._LOCK is nonblocking and single-worker. Active-context generic requests will serialize with input and can return desktop_busy where legacy capture allowed2parallel requests. Document this default-off behavior and test cross-session contention; do not describe it as unchanged.",
+    "lockOrder": "Acquire only one native request lock, once. macos.request must route before acquiring its legacy _SLOTS/starting child; receipt_request itself owns native._LOCK. Do not call native.request recursively while already holding it. OCR_GATE may guard a high-level OCR pipeline but native lock must release between capture and subsequent OCR frame.",
+    "processIdentity": "Retain exact owned Popen object/path+inode metadata, current _SESSION pointer, worker incarnation/PID and frame sequence. Check helper identity before/after exchange. Lost ownership or uncertain cleanup quarantines the old worker; no automatic fallback/replay or replacement while predecessor exit is unconfirmed.",
+    "workerReuse": "It is a real native semantic frame in a persistent worker, not a new one-shot process per semantic call. Recording/window/clipboard ownership may share worker state; retain input cleanup and invalidation behavior, and avoid claiming held/manual recording qualification from this read-only stage.",
+    "independentContext": "asyncio.to_thread propagates ContextVars; any newly introduced raw thread must explicitly copy context. Actual native frames in capture+OCR within one ACC call receive distinct native operation/frame IDs under the same authentic tool/request journal. Missing context must fail required mode rather than launch legacy subprocess."
+  },
+  "cancellationAndUnknown": {
+    "toThreadFact": "Canceling the async await does not stop the Python OCR thread or Vision request. Existing tool wrapper records canceled/unknown and request_scope may close journal while the worker remains active. A late native/journal write must not be published as a successful returned tool or ordinary retry advice.",
+    "actualStopBinding": "If prompt Stop is promised, pass a real cancellation event from the actual owning SDK/tool task to generic receipt exchange, paired with the actual write lock required by existing cancellation protocol. Trigger it on real async cancellation, keep worker-owned OCR/native locks until cleanup/completion and await only bounded owned cleanup. Do not manufacture an event unrelated to parent Stop.",
+    "beforeSend": "If real cancellation is observed before request/continue bytes commit, only report not_dispatched when existing receipt observations prove it. Native entered or partially transmitted exchange without committed terminal remains unknown.",
+    "afterContinue": "After continue or callback dispatch, Stop/timeout/EOF must close the exact worker and retain unknown if terminal/history is missing. Read-only native work can still have observed desktop/file data; do not infer action_sent=false or no execution from task cancellation alone.",
+    "closedJournal": "A to_thread completion after request journal closure must be handled through existing journal failure/owned worker shutdown, not appended after acc_request_terminal. Ensure late capture/OCR completion cannot keep session usable with a misleading complete receipt.",
+    "noReplay": "No automatic retry of capture/OCR native exchange after transport/journal failure in this stage. Even read-only repetition creates different observation time; use explicit new request only after ledger reconciliation policy permits. Earlier pending/unknown evidence continues to block main/node provider requests."
+  },
+  "actualImageAndOcrEvidence": {
+    "targetChain": "Actual root -> actual tool/receipt context -> actual native capture/real Vision OCR -> native entered/committed continue/terminal -> ACC accepted/tool/native receipt chain -> actual image/text projection -> strict model-history save+reload -> delivered -> next actual model/tool request.",
+    "realCapture": "Initial acceptance must use real ScreenCaptureKit bytes from a bounded desktop/window/region, validate logical/pixel geometry and preserve actual projected image bytes into saved/reloaded main and foreground-node histories. Synthetic PNG fixture remains separate regression coverage.",
+    "realOcr": "Use actual Vision recognition of a controlled real rendered text region or approved local image, exact op ocr.image and ocr.languages, actual native worker receipt and text/geometry output. Test capture+OCR as two distinct native frames under one real tool invocation where that is the public tool path.",
+    "sameImageLimit": "Current native OCR frame stores a file path/lang, not the file contents. Native ReadImage validation and result geometry do not by themselves prove OCR consumed the exact screenshot bytes later shown to model. If claiming same-image identity, add/verify an actual source byte digest or equivalent native-read evidence, with preserved bounded private input, rather than matching temporary file names or dimensions.",
+    "meaningLimits": "Native handler entered/terminal and exact history delivery do not prove OCR correctness across applications, screenshot interpretation, application/model consumption or permission to replay. OCR observation does not qualify ocr_click/vision_click, input mutations, held state or restore/rescue flows."
+  },
+  "mustHaveQualificationBeforeClaim": [
+    {
+      "case": "Pure routing/default-off compatibility",
+      "predicate": "With no active context original one-shot capture2-slot behavior and caller deadlines remain; exact contextless status still works; lost context under required mode rejects all other requests without spawning a helper."
+    },
+    {
+      "case": "Real generic feature gate",
+      "predicate": "Actual worker advertises exactly supported generic ops; old input-only receipt helper, malformed feature set/PID/incarnation or replaced helper rejects without legacy fallback or native business entry."
+    },
+    {
+      "case": "Uncontrolled native session surface",
+      "predicate": "No-control capture/status/OCR in persistent input session retains old rejection surface; invalid control/op/version/extra field does not become generic access; testing ops cannot enter production dispatcher."
+    },
+    {
+      "case": "Actual frame lifecycle",
+      "predicate": "Each capture/status/ocr.image/ocr.languages frame has exactly one handler_entered, committed matching continue and one terminal, exact actual worker PID/incarnation/raw frame hash and no transport fields in business/recorded request."
+    },
+    {
+      "case": "Async completion safety",
+      "predicate": "Delayed/duplicate/background completion, synchronous status completion, late callback after stop/timeout and callback from old frame never reset a newer frame or send extra terminal; actual current frame serial ordering remains intact."
+    },
+    {
+      "case": "Caller/native deadlines",
+      "predicate": "Supplied short timeouts are not lengthened; default capture15/status3 and OCR65 respect native12/60 bounds. Test OCR completion after12s but before60s, independent native timeout, probe budget and bounded cleanup without leaving stale timers."
+    },
+    {
+      "case": "Real Stop before/after ack",
+      "predicate": "Use actual SDK/root Stop, not a stand-in boolean: cancel before frame write, while entry journal fsync waits, before continue, after continue and during capture/OCR callback. No later mutation/model continuation; unknown where execution/terminal cannot be proved. Do not claim task cancellation stopped native thread."
+    },
+    {
+      "case": "EOF and worker quarantine",
+      "predicate": "Client EOF, broken pipe, output blockage, worker crash, journal EIO, response/hash/challenge corruption and helper replacement preserve owned cleanup/quarantine; no replacement worker before old exit and no automatic legacy/replay fallback."
+    },
+    {
+      "case": "Busy/lock semantics",
+      "predicate": "Actual active generic plus input/cross-session concurrent requests show the declared serial desktop_busy behavior without lock recursion/leak. Legacy independent2-slot route remains tested separately; OCR_GATE releases only on real worker completion."
+    },
+    {
+      "case": "Real screenshot delivery",
+      "predicate": "Actual bounded native image enters both main and genuine foreground-node projected histories and strict reload; exact current image indices/bytes and invocation binding precede delivered and next actual SDK/model request. Same-pixel prior image cannot substitute."
+    },
+    {
+      "case": "Real OCR",
+      "predicate": "Actual rendered recognizable text/local-image OCR result and language query carry native receipt evidence. Validate text/geometry and actual input identity only to the extent measured; unsupported language/file/capacity returns honest failure."
+    },
+    {
+      "case": "Capacity and partial commit",
+      "predicate": "Large valid native output,16MiB node-history overflow, full reservation/ledger/file limits, image projection/save/readback failures preserve returned-undelivered/unknown and block all later model/ACC operations. No image stripping or permissive assertion changes."
+    },
+    {
+      "case": "Restart",
+      "predicate": "Restart with pending generic native frame or missing/corrupt screenshot delivery snapshot remains held; acknowledged exact historical native image survives valid reopen without replay. Worker IDs/frame sequences cannot be reused as proof after restart."
+    },
+    {
+      "case": "Serial independent acceptance",
+      "predicate": "Native/GUI qualification runs serially with isolated owned fixture roots/homes and frozen helper+source hashes; source-only review, PNG fixture regressions and inventory counts do not substitute for actual screenshot/OCR chain. Re-run legacy/default-off and already qualified input/protocol regressions after shared dispatcher changes."
+    }
+  ],
+  "remainingScope": [
+    "No native capture/OCR code implemented or qualified by this report.",
+    "Keep current default-off core/foreground stage and all previous freezes/reports intact until new frozen source and helper artifacts are independently reviewed.",
+    "Background/API0/CLI/cold-resume admission, full child transcript persistence/replay, global ACK/retention, native mutations/held state, lock/TCC/rescue, Windows parity and full P5 remain separate."
+  ],
+  "sourceManifest": [
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py",
+      "bytes": 13682,
+      "sha256": "1780b14886fb1feb71bc9b11dcae8a5f27907675c36a17af12a9262a386eab13",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 9269,
+      "sha256": "5bfec259fff65bda2ba69f32915e29b4c08646592841cb601fc5fb1469aecffb",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipt_session.py",
+      "bytes": 13499,
+      "sha256": "951c3aef74457ff9b035df8feb6128a16095489b2a3e55f7a20d2e8c3264fc38",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_receipts.py",
+      "bytes": 7919,
+      "sha256": "4e7b87aa5dd0d1f1b94ebba88c38472d7c3ab01d1b7932940df4ea7ea6b7450c",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_ocr.py",
+      "bytes": 4493,
+      "sha256": "ae3195a870183f9873bb894221e912d3dc1c7d170ad74f1c8189641f271ea0a1",
+      "inCurrentFreeze": false,
+      "matchesCurrentFreeze": null
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_visual.py",
+      "bytes": 8532,
+      "sha256": "024a9c7f4cf12a3ae4f57a63657bf208a739db0bcfa4157394f707c8a109aa46",
+      "inCurrentFreeze": false,
+      "matchesCurrentFreeze": null
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 12053,
+      "sha256": "dcef62b1ad9b453fa0f74af82d65a9fc4dec644a19c9a3a53d506b18a0601f9d",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 19273,
+      "sha256": "4e80f8becd8f36b1ded4292c141fcc25f4a6b2dbe04c195c4a8659c9a2ab4f7b",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_capture.py",
+      "bytes": 5201,
+      "sha256": "2d5154810c51328cfc65e93b328dd416bcd1ab47c878e0d3c372751918f64ca8",
+      "inCurrentFreeze": false,
+      "matchesCurrentFreeze": null
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ocr.py",
+      "bytes": 6119,
+      "sha256": "012d03d58f9cd41dd326fdbf265b8780d27078d933ccd05d4035d0ab3fdf1626",
+      "inCurrentFreeze": false,
+      "matchesCurrentFreeze": null
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-helper.m",
+      "bytes": 23083,
+      "sha256": "4934491a8014364423cd26a94eb0509944c57918024c88739246a7671db87adf",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-session.m",
+      "bytes": 16845,
+      "sha256": "b07d725ed3542b06a2008566e84a40d43f1c5b20b54036a2b7312fae6dafd54f",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-input.m",
+      "bytes": 49666,
+      "sha256": "833e9de50364bd25f6f27a76cac7b635ec1d75e5c8a82735bdb16f3265bd8504",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-ocr.m",
+      "bytes": 11356,
+      "sha256": "0deadd98677dee90b469481ce24316378f2e7374ef64f3008126aedacf7d5773",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-ax.m",
+      "bytes": 36819,
+      "sha256": "532d982097b5bf7eb40678aa42fcecc9b4c2a363d51037acb0c9585392df49a1",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-record.m",
+      "bytes": 15464,
+      "sha256": "1f7622ef8a2b936432414d616b06512e88d692f69b40d6276995dacd5bd317b8",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation-events.m",
+      "bytes": 45551,
+      "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/resources/macos-automation.h",
+      "bytes": 4636,
+      "sha256": "073ed070bee8ab3c533f98767ed1eb36002e101948068e5efeb19e21f14491d9",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/02h-desktop-ledger.js",
+      "bytes": 36479,
+      "sha256": "f402d9f45cf7cba5eb3541f2fd4ac2c3fc448705eb3cf7cf135438ff61daf965",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ac-desktop-execution-runtime.js",
+      "bytes": 28740,
+      "sha256": "e2c4076371c118d67db6aed6ed92a80fbe88a1f4dbe92c8f71209d92c344ad27",
+      "inCurrentFreeze": true,
+      "matchesCurrentFreeze": true
+    }
+  ]
+}

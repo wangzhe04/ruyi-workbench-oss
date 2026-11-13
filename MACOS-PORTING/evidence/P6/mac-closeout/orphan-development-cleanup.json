@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-11-12T15:10:41.888012+00:00",
+  "ownership": "Development harness-friction fixture: exact server RUYI_HOME /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-harness-friction-2HPYwu and isolated HOME ruyi-e2e-home-XiT3is verified without recording other environment values. Fake MCP descendants, births and exact commands checked before each signal.",
+  "cause": "Fixture passed wb.pid to killOwnTree, whose contract requires the owned ChildProcess object. New assertion requires confirmed cleanup.",
+  "processes": [
+    {
+      "pid": 50514,
+      "birth": "Thu Nov 12 21:28:54 2026",
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fake-mcp.js",
+      "signal": "SIGTERM",
+      "identityAbsentAfterSignal": true
+    },
+    {
+      "pid": 50513,
+      "birth": "Thu Nov 12 21:28:54 2026",
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/fake-mcp.js",
+      "signal": "SIGTERM",
+      "identityAbsentAfterSignal": true
+    },
+    {
+      "pid": 50499,
+      "birth": "Thu Nov 12 21:28:53 2026",
+      "command": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node app/server.js serve --port 60565",
+      "signal": "SIGTERM",
+      "identityAbsentAfterSignal": true
+    }
+  ]
+}

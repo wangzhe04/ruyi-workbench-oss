@@ -1,0 +1,3 @@
+# syntax-gate: 1094 files checked, 0 failed (node v24.15.0)
+build --check: 产物与 src 一致(新鲜),manifest 行区间自洽
+module dependency graph --check: PASS (88 modules, 625 edges)

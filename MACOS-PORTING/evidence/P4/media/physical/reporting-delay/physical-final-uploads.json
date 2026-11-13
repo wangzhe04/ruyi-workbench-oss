@@ -1,0 +1,11 @@
+[
+  {
+    "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-physical-microphone-JLGGzP/capture-1-voice.wav",
+    "mime": "audio/wav",
+    "bytes": 20764,
+    "validPcm": true,
+    "durationMs": 647.5,
+    "nonzeroSignal": true,
+    "sha256": "e6f4f97f810b046d252793749b18589f8eccc557bb73e25368aa4431682de2b9"
+  }
+]

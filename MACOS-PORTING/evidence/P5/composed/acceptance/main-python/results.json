@@ -1,0 +1,44 @@
+[
+  {
+    "name": "smoke_macos_composed",
+    "exit": 0,
+    "elapsed_seconds": 0.624,
+    "log": "smoke_macos_composed.txt"
+  },
+  {
+    "name": "smoke_macos_visual",
+    "exit": 0,
+    "elapsed_seconds": 0.726,
+    "log": "smoke_macos_visual.txt"
+  },
+  {
+    "name": "smoke_macos_capture",
+    "exit": 0,
+    "elapsed_seconds": 2.77,
+    "log": "smoke_macos_capture.txt"
+  },
+  {
+    "name": "smoke_macos_shared",
+    "exit": 0,
+    "elapsed_seconds": 2.154,
+    "log": "smoke_macos_shared.txt"
+  },
+  {
+    "name": "smoke_macos_input",
+    "exit": 0,
+    "elapsed_seconds": 8.823,
+    "log": "smoke_macos_input.txt"
+  },
+  {
+    "name": "smoke_macos_events",
+    "exit": 0,
+    "elapsed_seconds": 0.273,
+    "log": "smoke_macos_events.txt"
+  },
+  {
+    "name": "smoke_macos_ax",
+    "exit": 0,
+    "elapsed_seconds": 0.274,
+    "log": "smoke_macos_ax.txt"
+  }
+]

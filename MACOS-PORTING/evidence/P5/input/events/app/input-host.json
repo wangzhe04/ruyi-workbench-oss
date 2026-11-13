@@ -1,0 +1,24 @@
+{
+  "nativePID": 32703,
+  "servicePID": 32713,
+  "launch": "LaunchServices",
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "clipboardReady": true,
+    "eventAuthorization": "denied",
+    "inputReady": false,
+    "installed": true,
+    "locked": false,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "denied",
+    "windowQueryReady": true,
+    "windowReady": false
+  },
+  "diagOK": true,
+  "unavailable": true
+}

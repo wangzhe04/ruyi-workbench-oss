@@ -1,0 +1,119 @@
+{
+  "at": "2026-11-11T23:00:37.696707+00:00",
+  "rootPid": 61592,
+  "observedIdentities": [
+    {
+      "pid": 61592,
+      "ppid": 61591,
+      "created": "1794438034008528"
+    },
+    {
+      "pid": 61595,
+      "ppid": 61592,
+      "created": "1794438034040585"
+    },
+    {
+      "pid": 61600,
+      "ppid": 61592,
+      "created": "1794438034131618"
+    },
+    {
+      "pid": 61606,
+      "ppid": 61592,
+      "created": "1794438034226736"
+    },
+    {
+      "pid": 61605,
+      "ppid": 61592,
+      "created": "1794438034226355"
+    },
+    {
+      "pid": 61609,
+      "ppid": 61592,
+      "created": "1794438034300456"
+    },
+    {
+      "pid": 61656,
+      "ppid": 61592,
+      "created": "1794438036392892"
+    },
+    {
+      "pid": 61655,
+      "ppid": 61592,
+      "created": "1794438036391921"
+    },
+    {
+      "pid": 61659,
+      "ppid": 61592,
+      "created": "1794438036498394"
+    },
+    {
+      "pid": 61664,
+      "ppid": 61592,
+      "created": "1794438036574183"
+    },
+    {
+      "pid": 61669,
+      "ppid": 61592,
+      "created": "1794438036663434"
+    },
+    {
+      "pid": 61673,
+      "ppid": 61592,
+      "created": "1794438036727319"
+    },
+    {
+      "pid": 61677,
+      "ppid": 61592,
+      "created": "1794438036790125"
+    },
+    {
+      "pid": 61685,
+      "ppid": 61592,
+      "created": "1794438036994429"
+    },
+    {
+      "pid": 61690,
+      "ppid": 61592,
+      "created": "1794438037078800"
+    },
+    {
+      "pid": 61694,
+      "ppid": 61592,
+      "created": "1794438037163041"
+    },
+    {
+      "pid": 61699,
+      "ppid": 61592,
+      "created": "1794438037249972"
+    },
+    {
+      "pid": 61703,
+      "ppid": 61592,
+      "created": "1794438037325197"
+    },
+    {
+      "pid": 61704,
+      "ppid": 61592,
+      "created": "1794438037327615"
+    },
+    {
+      "pid": 61708,
+      "ppid": 61592,
+      "created": "1794438037417159"
+    },
+    {
+      "pid": 61713,
+      "ppid": 61592,
+      "created": "1794438037516209"
+    },
+    {
+      "pid": 61718,
+      "ppid": 61592,
+      "created": "1794438037603014"
+    }
+  ],
+  "allObservedIdentitiesExited": true,
+  "remaining": [],
+  "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+}

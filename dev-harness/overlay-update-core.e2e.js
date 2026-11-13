@@ -148,6 +148,22 @@ function zipOverlayPkg(pkgDir, zipPath) {
     && /Copy-OverlayFile \$src \$dst \$ts/.test(ps1) && /Copy-OverlayFile \$_\.FullName \$dst/.test(ps1),
     'S12 apply 与 rollback 都经 Copy-OverlayFile 写文件(被占用的 .exe/.dll 改名挪开再放新文件)');
 
+  // JSON output discipline is shared; only execution of Manage-Overlay.ps1 is Windows-only.
+  ok(parsePs1Json(' {"ok":true} ').json?.ok === true && parsePs1Json(' {"ok":true} ').leak === '', 'S13 clean PowerShell JSON is parsed exactly');
+  ok(parsePs1Json('1\n{"ok":true}').leak === '1' && parsePs1Json('invalid').json === null, 'S14 leaked output and malformed JSON remain detectable');
+  if (process.platform === 'darwin') {
+    const boundary = cp.spawnSync(process.execPath, [path.join(HERE, 'macos-overlay-boundary.e2e.js')],
+      { env: { ...process.env }, encoding: 'utf8', timeout: 60000, maxBuffer: 4 * 1024 * 1024 });
+    process.stdout.write(boundary.stdout || ''); process.stderr.write(boundary.stderr || '');
+    ok(boundary.status === 0 && /MACOS OVERLAY BOUNDARY E2E: ALL PASS/.test(boundary.stdout || ''),
+      'Mac actual authenticated overlay API rejects apply/rollback/force with zero program writes');
+    console.log('SKIP Windows PowerShell overlay apply/backup/rollback execution on Mac; shared static/JSON and actual Mac refusal checks completed');
+    fs.rmSync(HOME, { recursive: true, force: true });
+    console.log('\nOVERLAY UPDATE CORE E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
+    process.exitCode = failures ? 1 : 0;
+    return;
+  }
+
   // ── 临时部署(target;A/B 段 PS1 直测 + C 段 API 共用同一份) ──
   const DEPLOY = path.join(HOME, 'deploy');
   fs.mkdirSync(path.join(DEPLOY, 'app'), { recursive: true });

@@ -1,0 +1,41 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS P0 开出线程 X(sess_b76206b40ed28ef3)
+PASS P0b 在场连接建好(lens=classic,坐在 X 上)
+PASS P1a 线程 X 真的挂上了一条待决(question)
+PASS P1b 【在场门】用户就坐在 X 上,X 的 needs_you 不生成收件箱行(实得 零行)
+PASS P1c 同一时刻 X 仍然在 /api/missions 里(门挡打扰,不挡可见)
+PASS S1 索引行上 seatedBy==='user'(实得 "user")
+PASS T1 steward_thread_continue 对 X 返回 seated_by_user(实得 "seated_by_user")
+PASS T1b 拒绝信封是结构化的(带 reason 与 sessionId,行动流水事后分得清)
+PASS T1c 拒绝理由是人话(实得 "你正在这条线程里(或正看着它的提问/权限),我不插手 —— 等你离开它我再接手;要我现在就动手,先把这条线程留给我")
+PASS T2 steward_thread_permission 对 X 返回 seated_by_user(实得 "seated_by_user")
+PASS T3a X 上取到那条待决(question_deafda02d12ddc41)
+PASS T3 代答路径 steward_decide 对 X 返回 seated_by_user(实得 "seated_by_user")
+PASS T4 steward_thread_read 的函数体里【没有】这道门(§4.5「可以读」;拿 /api/steward/act 跑一次是假绿——读类工具根本不在它的白名单里)
+PASS S2 断连之后 seatedBy 回到 null(实得 null)
+PASS T5 【反向验证】人一走,同一次 steward_thread_permission 不再被这道门拒(实得 undefined)
+PASS P2a 开出线程 Y(sess_aa6f37eba4f9b2d8)
+PASS P2b 换座:在场连接改坐在 Y 上
+PASS P2c 线程 Y 挂上了一条待决(他正坐着的那条)
+PASS P2c2 开出线程 X2(sess_ec1f73ec128f2dda)
+PASS P2c3 线程 X2 也挂上了一条待决
+PASS P2d 坐在 Y 上时,别的线程(X2)的 needs_you 进了收件箱
+PASS P2e 它带着 quiet:true(前端安静卡读这一格;实得 true)
+PASS P2f 同一拍里,他正坐着的 Y 自己的 needs_you 仍然不进箱(①②两支同时成立)
+PASS P3b 在场连接改成 lens=steward
+PASS P3a 开出线程 Z(sess_4f9b010b3b1932ef)
+PASS P3c 线程 Z 挂上了一条待决
+PASS P3d 用户在管家视角:needs_you 照常进箱(今天的行为)
+PASS P3e 并且【不】打 quiet(安静卡是工作台那一面的东西;实得 undefined)
+PASS P4a 开出线程 W(sess_2ea141a2f71cceea)
+PASS P4b 线程 W 挂上了一条待决
+PASS P4c 没有任何在场连接:needs_you 照常累积进箱(今天的行为)
+PASS P4d 并且不打 quiet
+PASS P4e 无连接时索引行的 seatedBy 是 null
+PASS S3 在场门单点在编译产物里(13i)
+PASS S4 工具门的在场判据单点在编译产物里(13k)
+PASS S5 三个消费面都经 EventStreamHooks 延迟绑定取在场(不直引 13r 的符号 = 零前向边)
+PASS S6 四个消费面各自带 typeof 守卫(钩子未填充时 fail-open,不反噬)
+
+STEWARD PRESENCE GATE E2E: ALL PASS

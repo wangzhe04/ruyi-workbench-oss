@@ -1,0 +1,34 @@
+{
+  "label": "context",
+  "argv": [
+    "node",
+    "dev-harness/macos-execution-context.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_EXECUTION_CONTEXT_REQUIRED": "1",
+    "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_EXECUTION_CONTEXT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-reader-integration-v1/context"
+  },
+  "startedAt": "2026-11-11T15:45:43.004045+00:00",
+  "freezeSha256": "f32fa6a9ccc54f9e0a5f837b3e7474df0bee3c9077d8ba975a21ff0059ff07ab",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T15:45:43.627710+00:00",
+  "elapsedSeconds": 0.6235272079939023,
+  "exitCode": 0,
+  "logSha256": "8ca75dfd236ce98831603c0bcbf3c418fec74bd105f53c3a8ee10ce9ab2f053f"
+}

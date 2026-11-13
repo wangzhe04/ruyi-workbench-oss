@@ -1,0 +1,14 @@
+PASS TextEdit document belongs to a newly created fixture process
+PASS real TextEdit consumes Chinese Unicode events and Cmd+S saves the exact owned UTF-8 document
+PASS saved TextEdit fixture window closes with verified AX absence
+PASS only the observed new TextEdit process is reaped
+PASS nonactivating fixture preserves the pre-browser clipboard
+FAIL Error: focus_window {"ok":false,"error":"DesktopError: Cannot bind this window to a unique accessibility element","code":"window_unsupported","candidates":[{"bounds":{"height":850,"width":1200,"x":22,"y":56},"title":"Ruyi P5 Chromium 51952 - Google Chrome for Testing"}]}
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:50:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:25:19)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-apps.e2e.js:154:26
+PASS selected-app input MCP and native worker cleanup is confirmed
+PASS selected-app fixture restores the pre-test clipboard
+
+MACOS INPUT APPS E2E: FAIL (1)

@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "reviewerAndRuntimeExecutor": "/root/p5_acceptance",
+  "at": "2026-11-11T08:31:22.398056+00:00",
+  "status": "passed_independent_selected_default_renderer_current_host",
+  "productionImplementation": "5e24634307e2b5a3301409e5c8a1f2efa670cbe0",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "headAdvanceScope": "76248e2b only adds entry acceptance evidence and phase documentation; all106 tested source files match both5e246343 and76248e2b Git blobs and working bytes.",
+  "sourceCount": 106,
+  "sourceFinalHashMatch": true,
+  "cases": [
+    {
+      "case": "default",
+      "actualIndependentExecutor": "/root/p5_acceptance",
+      "invocations": 1,
+      "naturalExitCode": 0,
+      "pass": 31,
+      "fail": 0,
+      "skip": 0,
+      "seconds": 10.925910458999999,
+      "sourceCount": 106,
+      "sourceUnchanged": true,
+      "fourArtifactsUnchanged": true,
+      "observedIdentityCount": 35,
+      "remainingObservedIdentities": [],
+      "clipboardRestorationAssertionPassed": true,
+      "profileRemovalAssertionPassed": true,
+      "selectedAppEvidence": {
+        "textEdit": {
+          "pid": 7053,
+          "ownDocumentExact": true,
+          "closed": true,
+          "version": "1.21",
+          "bundleID": "com.apple.TextEdit"
+        },
+        "chromium": {
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "launchExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "product": "Chrome/148.0.7778.96",
+          "pid": 7115,
+          "windowTitle": "Ruyi P5 Chromium 6974",
+          "bounds": {
+            "height": 850,
+            "width": 1200,
+            "x": 22,
+            "y": 56
+          },
+          "clipboardRestored": true,
+          "trustedClick": true,
+          "scrollY": 160,
+          "scrollX": 120,
+          "ambiguousRebindRefused": true,
+          "bundleID": "com.google.chrome.for.testing",
+          "observedCommand": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --no-first-run --no-default-browser-check --disable-sync --disable-extensions --disable-background-networking --use-mock-keychain --password-store=basic --window-size=1200,850 --user-data-dir=/tmp/p5sa-h2c1eu0n/t/ruyi-p5-apps-EqQ77L/profile --remote-debugging-port=55153 http://127.0.0.1:55152/",
+          "rendererAccessibilityRequested": false
+        },
+        "nativeAXScenariosRequested": true,
+        "axResults": {
+          "textEdit": {
+            "valueConfirmed": true,
+            "savedExact": true
+          },
+          "chromium": {
+            "nativeAddressValueConfirmed": true,
+            "webAreaObserved": false,
+            "nodesScanned": 46,
+            "truncated": 0,
+            "reasonCode": "web_area_not_observed"
+          }
+        }
+      },
+      "actualExecutedHelper": {
+        "originalPath": "/tmp/p5sa-h2c1eu0n/t/ruyi-p5-apps-EqQ77L/helper",
+        "preservedOutsideGit": "/tmp/p5sa-h2c1eu0n/artifacts/9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+        "bytes": 291712,
+        "sha256": "9df0062b110116bf45dd5e0dd29f4dc7255e85e15914f9be9cf501ccc009f547",
+        "codesignExit": 0
+      },
+      "defaultReferenceSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "normalizedBodySha256": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+      "exclusions": [
+        {
+          "kind": "LC_UUID payload",
+          "offset": 2808,
+          "bytes": 16
+        },
+        {
+          "kind": "LC_CODE_SIGNATURE blob",
+          "offset": 290864,
+          "bytes": 848
+        }
+      ],
+      "rawIdentityWithDefaultClaimed": false
+    },
+    {
+      "case": "renderer",
+      "actualIndependentExecutor": "/root/p5_acceptance",
+      "invocations": 1,
+      "naturalExitCode": 0,
+      "pass": 33,
+      "fail": 0,
+      "skip": 0,
+      "seconds": 10.221977083999999,
+      "sourceCount": 106,
+      "sourceUnchanged": true,
+      "fourArtifactsUnchanged": true,
+      "observedIdentityCount": 34,
+      "remainingObservedIdentities": [],
+      "clipboardRestorationAssertionPassed": true,
+      "profileRemovalAssertionPassed": true,
+      "selectedAppEvidence": {
+        "textEdit": {
+          "pid": 7291,
+          "ownDocumentExact": true,
+          "closed": true,
+          "version": "1.21",
+          "bundleID": "com.apple.TextEdit"
+        },
+        "chromium": {
+          "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "launchExecutable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          "product": "Chrome/148.0.7778.96",
+          "pid": 7349,
+          "windowTitle": "Ruyi P5 Chromium 7215",
+          "bounds": {
+            "height": 850,
+            "width": 1200,
+            "x": 22,
+            "y": 56
+          },
+          "clipboardRestored": true,
+          "trustedClick": true,
+          "scrollY": 160,
+          "scrollX": 120,
+          "ambiguousRebindRefused": true,
+          "bundleID": "com.google.chrome.for.testing",
+          "observedCommand": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --no-first-run --no-default-browser-check --disable-sync --disable-extensions --disable-background-networking --use-mock-keychain --password-store=basic --window-size=1200,850 --force-renderer-accessibility=complete --user-data-dir=/tmp/p5sa-4nmal2so/t/ruyi-p5-apps-TVjyQz/profile --remote-debugging-port=55176 http://127.0.0.1:55175/",
+          "rendererAccessibilityRequested": true
+        },
+        "nativeAXScenariosRequested": true,
+        "axResults": {
+          "textEdit": {
+            "valueConfirmed": true,
+            "savedExact": true
+          },
+          "chromium": {
+            "nativeAddressValueConfirmed": true,
+            "webAreaObserved": true,
+            "nodesScanned": 54,
+            "truncated": 0,
+            "reasonCode": null,
+            "rendererValueRefusal": "element_stale",
+            "rendererPressRefusal": "element_stale"
+          }
+        }
+      },
+      "actualExecutedHelper": {
+        "originalPath": "/tmp/p5sa-4nmal2so/t/ruyi-p5-apps-TVjyQz/helper",
+        "preservedOutsideGit": "/tmp/p5sa-4nmal2so/artifacts/98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+        "bytes": 291712,
+        "sha256": "98f9b85a243e3327c18fc2fded1e62b7875c62be8c4fe7a0b7052a1fc7a4e18f",
+        "codesignExit": 0
+      },
+      "defaultReferenceSha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "normalizedBodySha256": "8b1819c226d566aa95ec89a447ed3e4034d587de5b8079f4d629cc6e35829084",
+      "exclusions": [
+        {
+          "kind": "LC_UUID payload",
+          "offset": 2808,
+          "bytes": 16
+        },
+        {
+          "kind": "LC_CODE_SIGNATURE blob",
+          "offset": 290864,
+          "bytes": 848
+        }
+      ],
+      "rawIdentityWithDefaultClaimed": false
+    }
+  ],
+  "totalIndependentAssertions": 64,
+  "manualRetries": 0,
+  "automaticRetries": 0,
+  "finder": {
+    "executedByIndependentAgent": false,
+    "status": "blocked_existing_user_content_window",
+    "history": "Primary finder-v1 failed its precondition before controlled folder open or automation-helper build. Independent executor was instructed not to run it and has not. No user Finder window was closed."
+  },
+  "observerProvenance": {
+    "binding": {
+      "path": "observer-binding.json",
+      "bytes": 4350,
+      "sha256": "913a8cbbeafc695120415f8d4a1ca5594db544ca7e03f7055357a202f4a793c7"
+    },
+    "exactDiffRetained": true,
+    "edits": "Only executor /root→/root/p5_acceptance and passed_primary_selected_case→passed_independent_selected_case; predicates and runtime logic unchanged.",
+    "executionProof": "Independent agent actually launched runner.py, which serially spawned the two isolated observer invocations. Per-case invocation/dispatch metadata, separate temporary roots, actual helper binaries and raw logs are retained. Labels alone are not used to claim independence."
+  },
+  "evidenceFiles": [
+    {
+      "path": "report.json",
+      "bytes": 15281,
+      "sha256": "1e74fa77f958a5c4dd2a1112bb723ec4a406f7dadaa8cf9346cfe8bd82061157"
+    },
+    {
+      "path": "results.json",
+      "bytes": 13788,
+      "sha256": "671e775c6babd144302b049037866ef7c84a88d37adf017cf513577208700e70"
+    },
+    {
+      "path": "runner.py",
+      "bytes": 3545,
+      "sha256": "07ca75ef5909002cc0b4275956854a2579bebe7549f78050d641d4e68f2b3724"
+    },
+    {
+      "path": "preflight.json",
+      "bytes": 7105,
+      "sha256": "fc416713533d3c9daf8d234c2e575ec6454fa9755ad09adc63af9b1c4a9a69fd"
+    },
+    {
+      "path": "frozen-sources.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "observer-binding.json",
+      "bytes": 4350,
+      "sha256": "913a8cbbeafc695120415f8d4a1ca5594db544ca7e03f7055357a202f4a793c7"
+    },
+    {
+      "path": "observer.py",
+      "bytes": 10316,
+      "sha256": "bfc538b1d3930389d188850b4985c7894c1ac589030de2e598936ba4bdd218c0"
+    },
+    {
+      "path": "default/artifacts-after.json",
+      "bytes": 515,
+      "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+    },
+    {
+      "path": "default/artifacts-before.json",
+      "bytes": 515,
+      "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+    },
+    {
+      "path": "default/browser-startup.json",
+      "bytes": 822,
+      "sha256": "53e72bfc6bb5d47fd2c209934fe3213acfa6b0d5c0ca99a1f9e1e8e290e709a0"
+    },
+    {
+      "path": "default/helpers.json",
+      "bytes": 332,
+      "sha256": "4967b988586bd0ec5a1314108a175f17267ea5dfdc59cd1e934bdce85fef81d4"
+    },
+    {
+      "path": "default/invocation.json",
+      "bytes": 1597,
+      "sha256": "98df7e56c173edc7a723458c2095790ab71e7b4dd181ac4ee37f16d51ad72dac"
+    },
+    {
+      "path": "default/observed-identities.json",
+      "bytes": 2916,
+      "sha256": "c9fde8546f955f3f897c16015c535a659895c5ec9eaa0f66966e677faa96765f"
+    },
+    {
+      "path": "default/output.txt",
+      "bytes": 2488,
+      "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79"
+    },
+    {
+      "path": "default/report.json",
+      "bytes": 6178,
+      "sha256": "39a17afb29d493367d932389bce9a14a59dd0bda827e31c598cc4539401c6d5c"
+    },
+    {
+      "path": "default/selected-apps.json",
+      "bytes": 1727,
+      "sha256": "f933098d09655c56583fadbc500f2742367c414956f7535a92b9c92a0c82354a"
+    },
+    {
+      "path": "default/source-after.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "default/source-before.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "default-outer.txt",
+      "bytes": 147,
+      "sha256": "51e8abb406190a41a9dbb50f19c6b955fe47dea55759895d5c03950fb85f4d46"
+    },
+    {
+      "path": "default-dispatch.json",
+      "bytes": 390,
+      "sha256": "9079b5de0866bf2cfe28b66c2bd29e5cd659cbb0d7cb9cbc29e4283caf762d8f"
+    },
+    {
+      "path": "renderer/artifacts-after.json",
+      "bytes": 515,
+      "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+    },
+    {
+      "path": "renderer/artifacts-before.json",
+      "bytes": 515,
+      "sha256": "3e6ee6cb09f016b41e173f72e8194e0c0813a594b8764fc084920f1d7e31df19"
+    },
+    {
+      "path": "renderer/browser-startup.json",
+      "bytes": 815,
+      "sha256": "d39b7cb8b9f894ad16555aa912d8a045b66e7d766be6da586cf953af77ec8e17"
+    },
+    {
+      "path": "renderer/helpers.json",
+      "bytes": 332,
+      "sha256": "d0fbc6107693d78a173c320e52020a4b10b0a50b6cff0f62b6a0338440d99f00"
+    },
+    {
+      "path": "renderer/invocation.json",
+      "bytes": 1599,
+      "sha256": "93e3bed4e261be137781e87124e33624747bae7ad45a29cc59ba51c221da977b"
+    },
+    {
+      "path": "renderer/observed-identities.json",
+      "bytes": 2840,
+      "sha256": "3d0e8f97e3f2fa6bf6374a5616820fef327aad841ff05007da79ecba8c3f56d5"
+    },
+    {
+      "path": "renderer/output.txt",
+      "bytes": 2649,
+      "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63"
+    },
+    {
+      "path": "renderer/report.json",
+      "bytes": 6179,
+      "sha256": "a8aca782fc691a6ae111242eb224d1eb4e8c3499adee627238b62994379a3d4e"
+    },
+    {
+      "path": "renderer/selected-apps.json",
+      "bytes": 1840,
+      "sha256": "3831db2d24c9509909fef0eceab15aac947d749ef0315359db1f35fcf94c2204"
+    },
+    {
+      "path": "renderer/source-after.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "renderer/source-before.json",
+      "bytes": 19559,
+      "sha256": "9ff79fbd0d15b5dc7f788d8dabcc0ad3560f6d703c2de01ea7a59f0373a4a122"
+    },
+    {
+      "path": "renderer-outer.txt",
+      "bytes": 148,
+      "sha256": "09d2a5cfbec792280239cbe10c37ac01ed003115baacd75b80e2253921be8b73"
+    },
+    {
+      "path": "renderer-dispatch.json",
+      "bytes": 392,
+      "sha256": "af99ffc3f0f2581b907ed4c22782eacb1d4814f88cdbe640dd4ce6788c8766a7"
+    }
+  ],
+  "GUIReleased": true,
+  "cleanupClaim": "All birth identities observed by the sampler were absent at case end; fixtures separately passed TextEdit/browser/MCP cleanup, clipboard restoration and browser-profile removal. Transient/unobserved or already reparented processes are outside the sampler guarantee.",
+  "limitations": [
+    "This refresh covers TextEdit1.21 and CFT148.0.7778.96 only in the recorded current-host scenes.",
+    "Default CFT did not expose WebArea. Explicit renderer mode exposed page elements but asymmetric public membership produced honest element_stale refusal for AXValue/AXPress, with no DOM mutation/event.",
+    "Fixtures compiled and executed private helper binaries; default1cc was read-only comparison reference. Only UUID16/signature848 bytes were excluded from full-file comparison; raw helper hashes differ and are retained outside Git.",
+    "No Finder independent run or App-origin AX route refresh. No historical350/core/manual/full engineering reruns or extra credit.",
+    "No actual TCC revocation, OS lock, physical display, minimum macOS, Windows or formal identity acceptance."
+  ],
+  "phaseStatus": "in_progress"
+}

@@ -1,0 +1,4 @@
+如意 Ruyi 3.0.1  (launch: node, overlay db03c4b248b9)
+UI: http://127.0.0.1:50122/
+Data: /tmp/p5abort-PG0tRN/data
+Server source: /private/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/app/server.js

@@ -51,6 +51,11 @@
   "audit.bit.grants.other": "{{count}} grants",
   "audit.title": "Audit timeline",
   "brand.name": "Ruyi Workbench",
+  "capability.runtime": "Local execution capabilities",
+  "capability.shellExec": "One-shot shell",
+  "capability.shellSession": "Persistent shell",
+  "capability.checking": "Checking",
+  "capability.unavailable": "Unavailable",
   "capability.available": "Available",
   "capability.badge.offline": "Capability matrix: offline (click to view)",
   "capability.badge.online": "Capability matrix: online (click to view)",
@@ -58,6 +63,12 @@
   "capability.badge.unknownTitle": "Capability matrix: network status unknown (click to view)",
   "capability.connected.one": "Connected ({{count}} tool)",
   "capability.connected.other": "Connected ({{count}} tools)",
+  "capability.sharedControl": "Files, documents and browser",
+  "capability.sharedMcp": "Shared ACC component",
+  "capability.macDesktopUnsupported": "Mac desktop backend is not implemented",
+  "capability.browserControl": "DOM browser automation",
+  "capability.browserHandoff": "URL handoff only; navigation unverified",
+  "capability.browserUnverified": "Not attached; usability unverified",
   "capability.desktopControl": "Desktop control",
   "capability.desktopMcp": "Desktop MCP",
   "capability.engine.label": "Engine",
@@ -408,6 +419,9 @@
   "health.item.search-ripgrep.hint.bundled": "Using the ripgrep bundled with Ruyi: project search is faster, and the AI can run rg directly in the terminal.",
   "health.item.search-ripgrep.hint.env": "Using the ripgrep set by the RUYI_RG_PATH environment variable, so project search is faster.",
   "health.item.search-ripgrep.hint.system": "Using the ripgrep installed on this computer: project search is faster, and the AI can run rg directly in the terminal.",
+  "health.item.process-supervisor.label": "Mac process supervisor",
+  "health.item.process-supervisor.hint.ok": "The native supervisor is ready for managed commands and shells.",
+  "health.item.process-supervisor.hint.bad": "The native supervisor is missing or failed its capability check. Managed execution is unavailable.",
   "health.item.search-ripgrep.label": "Fast search",
   "health.item.search-ripgrep.next.absent": "Open the FAQ chapter of the manual and follow the steps there to complete the installation.",
   "health.item.server-source.hint.bad": "Running as a packaged program, which is the normal state for a release build.",
@@ -1425,7 +1439,10 @@
   "migration.error.running": "This version is still running. Close it first.",
   "migration.error.referenced": "Some settings still point at this version. Point them at this version first.",
   "migration.error.recycle_failed": "Could not move it to the Recycle Bin (a file may be in use).",
-  "migration.error.unsupported_platform": "Moving to the Recycle Bin is only supported on Windows.",
+  "migration.error.unsupported_platform": "Moving to the Recycle Bin or Trash is unavailable on this platform.",
+  "migration.error.trash_helper_unavailable": "The Mac Trash component is missing. Obtain the complete installation package; nothing was removed.",
+  "migration.error.invalid_trash_target": "The target directory or link has changed. Refresh the migration list and try again.",
+  "migration.error.invalid_app_layout": "The complete Mac application layout could not be verified. The original directory was retained; inspect the old package in Finder.",
   "migration.error.nothing_applied": "No settings were changed (they may have changed already).",
   "migration.error.nothing_to_apply": "The selected items are gone. Refresh and try again.",
   "migration.error.no_migration_to_undo": "There is no migration to undo.",
@@ -1667,7 +1684,14 @@
   "skills.playbook.start": "Start",
   "skills.playbook.viewGuide": "View full execution guide",
   "skills.removeUnavailable": "Remove",
-  "skills.requirements.desktopControl": "Requires desktop control (ai-computer-control was not detected)",
+  "skills.requirements.ocrUnsupported": "OCR is not implemented on this platform",
+  "skills.requirements.desktopUnsupported": "Desktop automation is not implemented on this platform",
+  "skills.requirements.backendNotReady": "The backend is not ready or system authorization was denied",
+  "skills.requirements.ocrBackend": "Requires an available OCR backend",
+  "skills.requirements.desktopBackend": "Requires a desktop automation backend",
+  "skills.requirements.browserTarget": "System mode only hands off URLs; form filling requires a desktop backend or a configured DOM browser target",
+  "skills.requirements.browserRuntime": "Configure browser automation and prepare Playwright and its browser runtime",
+  "skills.requirements.desktopControl": "Requires the shared ACC component (ai-computer-control was not detected)",
   "skills.requirements.networkOffline": "Requires network access (currently offline)",
   "skills.requirements.vision": "Requires a vision model (vision is not enabled for the current engine)",
   "skills.resident": "Resident",
@@ -2741,6 +2765,8 @@
   "settings.mcp.compat.sse.limitations": "Legacy transport; prefer streamable-HTTP for new connectors",
   "settings.mcp.desktopControl.label": "Desktop control (ai-computer-control)",
   "settings.update.current": "Current state",
+  "settings.update.unsupportedPlatform": "Overlay updates unavailable",
+  "settings.update.unsupportedPlatformHint": "Windows overlay updates are unavailable on macOS.",
   "settings.update.notApplied": "No overlay applied",
   "settings.update.noBackups": "No backups",
   "settings.update.backupsCount.one": "{{p1}} backup",
@@ -3424,7 +3450,7 @@
   ,"shell.settingClassic": "Workbench"
   ,"shell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or threads, and you can switch back at any time."
   ,"notify.settingTitle": "Notify me when I am needed"
-  ,"notify.settingHint": "Uses browser-backed local system notifications. Off by default; only new decisions that appear after opt-in are notified."
+  ,"notify.settingHint": "Uses local system notifications. Off by default, and only reminds you about new pending items after enabling."
   ,"notify.settingToggle": "Enable local notifications"
   ,"notify.quietStart": "Quiet hours start"
   ,"notify.quietEnd": "Quiet hours end"
@@ -3502,6 +3528,7 @@
   ,"composer.voice.limitReached": "Reached the {{minutes}}-minute limit, recording finished"
   ,"composer.voice.errorShort": "Failed"
   ,"composer.voice.error.denied": "Microphone permission was not granted. The input box is unchanged"
+  ,"composer.voice.error.deniedMac": "Microphone access was denied. Allow Ruyi Workbench in System Settings → Privacy & Security → Microphone, then click the microphone to retry."
   ,"composer.voice.error.noDevice": "No microphone was found. The input box is unchanged"
   ,"composer.voice.error.mic": "The microphone could not be started. The input box is unchanged"
   ,"composer.voice.error.notConfigured": "Speech recognition is not set up yet. The input box is unchanged"
@@ -4150,7 +4177,7 @@
   ,"botSetup.copyFailed": "Copy failed. Select and copy the displayed value manually."
   ,"botSetup.unavailable": "Could not open bot setup. Check the connection in settings."
   ,"botSetup.source.error": "Credential could not be read and is not ready. Check the fault before recovery."
-  ,"botSetup.decryptFailed": "Local credentials cannot be decrypted, possibly after a Windows account change or file damage. Existing values are not treated as empty. Explicitly choose full replacement below and re-enter every credential that does not use an environment reference."
+  ,"botSetup.decryptFailed": "Local credentials cannot be decrypted after an account change, missing Keychain key or damaged data. Existing values are not treated as empty. Explicitly choose full replacement below and re-enter every credential without an environment reference."
   ,"botSetup.credentialsUnavailable": "Secure local credential storage is unavailable. Resolve the local fault and check again. Storage mode will not change automatically."
   ,"botSetup.replaceAll": "Replace all local credentials for this connection. Environment references remain unchanged; their leftover local values will be removed."
   ,"botSetup.replaceRequired": "Recovery requires explicit full replacement and every credential without an environment reference. Password fields have cleared."
@@ -4158,7 +4185,7 @@
   ,"botSetup.envUnavailable": "This environment reference has no valid credential. Check its name and Ruyi’s launch environment. Old local values are never used as a fallback."
   ,"botSetup.slotDecryptFailed": "This local credential cannot be decrypted and is not ready. Use full replacement below to recover."
   ,"externalBots.discover": "Discover from app credentials"
-  ,"externalBots.discoverHint": "Enter the Feishu App ID and App Secret. Ruyi probes the fixed official endpoint once, reads the tenant key and bot open_id, prepares a disabled connection and stores the app secret in local credentials (Windows current-user protection). A failed probe stores nothing."
+  ,"externalBots.discoverHint": "Enter the Feishu App ID and App Secret. Ruyi probes the fixed official endpoint once, reads the tenant key and bot open_id, prepares a disabled connection and saves the secret in system-protected local credentials. A failed probe stores nothing."
   ,"externalBots.discoverSecret": "App Secret (local interface only)"
   ,"externalBots.discoverRun": "Probe and prepare"
   ,"externalBots.discoverRunning": "Probing the fixed official Feishu endpoint…"
@@ -4309,7 +4336,7 @@
   ,"privacy.legacy": "Credential encryption is off. Credentials use the existing plaintext local configuration format. Privacy defaults to off."
   ,"privacy.encryptionTitle": "Credential storage"
   ,"privacy.encryptionToggle": "Encrypt locally stored credentials"
-  ,"privacy.encryptionHelp": "Can be enabled independently under the current Windows user. Encryption can stay on while redaction is off. Changes require saving."
+  ,"privacy.encryptionHelp": "Enable separately to protect credentials with the system protector (Windows current user or Mac Keychain). Encryption can stay on after redaction is disabled. Save to apply changes."
   ,"privacy.confirmPlaintext": "I confirm this save will disable credential encryption and store credentials in plaintext locally. Existing encrypted records and backups will remain."
   ,"privacy.saveEncryption": "Apply credential storage"
   ,"privacy.encryptionSaved": "Credential storage updated."
@@ -4453,5 +4480,22 @@
   ,"privacy.menuHint": "Replace sensitive text before sending"
   ,"privacy.ruleEntryPending": "This rule is not in the draft yet. Add or update it, or cancel editing, before saving or reloading."
   ,"privacy.nativeSavedRefreshFailed": "The default engine was saved, but its status could not be refreshed. The old recovery preview was invalidated. Reopen Settings to verify; do not submit again."
-  ,"privacy.nativeCoverage": "Text requests from every provider using Workbench’s native model channels automatically follow the saved redaction policy. Change models or providers in the existing model settings."
+  ,"privacy.nativeCoverage": "Text requests from every provider using Workbench’s native model channels automatically follow the saved redaction policy. Change models or providers in the existing model settings.",
+  "privacy.keychainLocked": "Unlock the login Keychain and retry saving. Existing credentials are unchanged.",
+  "privacy.keychainPermission": "Restore the Workbench access permission in Keychain and retry. Existing credentials are unchanged.",
+  "privacy.protectorMissing": "The local credential protector is unavailable. Repair the Workbench runtime and retry.",
+  "privacy.protectorRecovery": "The local credential key is missing, its identity changed, or data is damaged. Preserve the original data and follow credential recovery.",
+  "privacy.keychainRepair": "The Workbench wrapping key in the system Keychain is damaged. Restore Keychain first; changing the data folder or re-entering credentials cannot repair this key.",
+  "host.origin_denied": "This page cannot use native system features. Return to the local workbench and try again.",
+  "host.invalid_message": "The native request is invalid. Reopen the workbench and try again.",
+  "host.invalid_params": "The picker options are invalid. Try again or enter the full path.",
+  "host.picker_busy": "A file picker is already open. Complete or cancel it first.",
+  "host.method_unsupported": "This native system feature is unavailable in this version.",
+  "host.notification_unavailable": "Notification permission is temporarily unavailable. Try again later.",
+  "host.notification_permission_required": "Allow Ruyi Workbench notifications in System Settings.",
+  "host.notification_failed": "The notification could not be sent. Check system notification settings.",
+  "host.timeout": "The file picker timed out. Try again or enter the full path.",
+  "host.unavailable": "Native system features are temporarily unavailable. Restart the workbench and try again.",
+  "host.picker_hint": "You can also enter the full path manually.",
+  "host.notification_denied": "macOS has denied notification permission. Allow Ruyi Workbench in System Settings > Notifications."
 }

@@ -31,6 +31,8 @@ const t = createRunner('TOOL AUDIT R2 NETEXEC');
 const { ok } = t;
 const ROOT = path.resolve(__dirname, '..');
 const IS_WIN = process.platform === 'win32';
+const IS_MAC = process.platform === 'darwin';
+const { shellTool, echo } = require('./lib/platform-shell-fixture');
 const HOME = process.env.RUYI_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-r2net-'));
 process.env.RUYI_HOME = HOME; process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
 const WS = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-r2net-ws-'));
@@ -110,9 +112,38 @@ setInterval(() => {}, 1000);
 const records = () => (fs.existsSync(REC) ? fs.readFileSync(REC, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).script) : []);
 
 const openShells = [];
+const previousMacHelper = process.env.RUYI_MACOS_AUTOMATION_HELPER;
+const macHelper = path.join(BIN, 'controlled-mac-capture');
+const macReady = { ok: true, protocolVersion: 1, ready: true, authorization: 'granted', locked: false,
+  coordinate_space: 'macos_global_points', monitors: [{ index: 0, x: 0, y: 0, width: 1, height: 1, scale: 2, is_primary: true }] };
+const macFrame = { ok: true, protocolVersion: 1, width: 2, height: 2, coordinate_space: 'macos_global_points',
+  logical_bounds: { x: 0, y: 0, width: 1, height: 1 },
+  png: 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP8//8/AwMDEwMYAAAkBgMBXaJOiAAAAABJRU5ErkJggg==' };
+function macCaptureReply(value, status = macReady) {
+  fs.writeFileSync(macHelper, '#!' + process.execPath + '\nlet input="";process.stdin.on("data",x=>input+=x);process.stdin.on("end",()=>{const r=JSON.parse(input);console.log(JSON.stringify(r.op==="status"?'
+    + JSON.stringify(status) + ':' + JSON.stringify(value) + '));});\n', { mode: 0o755 });
+  process.env.RUYI_MACOS_AUTOMATION_HELPER = macHelper;
+}
+
 try {
   /* ═════════ (N7 前半) 没有 PowerShell 的环境(Linux 且假件还没装进 PATH)═════════ */
-  if (!IS_WIN) {
+  if (IS_MAC) {
+    const denied = { ok: false, protocolVersion: 1, ready: false, authorization: 'denied', code: 'permission_denied', error: 'controlled denial' };
+    macCaptureReply(denied, denied);
+    const shot0 = await call('desktop_screenshot', {});
+    ok(shot0.ok === false && shot0.code === 'permission_denied' && !('path' in shot0), 'N7a Mac controlled permission denial never claims a screenshot path');
+    for (const tool of ['keyboard_send_keys', 'powershell_run']) {
+      const result = await call(tool, tool === 'powershell_run' ? { command: 'echo hi' } : { keys: 'abc' });
+      ok(result.ok === false && result.code === 'tool-disabled', `N7 Mac unsupported ${tool} is refused without execution`);
+    }
+    const script = await call('script_run', { language: 'node', code: 'console.log("MAC_SCRIPT_OK")' });
+    ok(script.ok && script.stdout.includes('MAC_SCRIPT_OK'), 'N7c Mac Node scripts execute without PowerShell');
+    const started = await call('shell_start', { shellId: 'mac-start', command: echo('MAC_BASH_OK') });
+    ok(started.ok, 'N5d Mac bash starts without PowerShell');
+    if (started.ok) await call('shell_kill', { shellId: 'mac-start' });
+    const listed = await call('shell_list', {});
+    ok(listed.ok && listed.shells.length === 0, 'N5e owned Mac shell is removed after cleanup');
+  } else if (!IS_WIN) {
     const shot0 = await call('desktop_screenshot', {});
     ok(shot0.ok === false && shot0.code === 'windows_only' && !('path' in shot0) && !/spawn powershell/.test(JSON.stringify(shot0)),
       `N7a 无 PowerShell:desktop_screenshot → windows_only、不返回没生成的 path、不甩裸 spawn ENOENT(got ${JSON.stringify(shot0).slice(0, 220)})`);
@@ -193,7 +224,9 @@ try {
   const evil = await call('http_download', { url: B + '/evil', dest: dir1 + path.sep });
   ok(evil.ok === true && samePath(path.dirname(evil.path), dir1) && !fs.existsSync(path.join(WS, 'escape.txt')), `N3c 服务器给的文件名里的 ..\\ 不能让文件跳出 dest 文件夹(got ${JSON.stringify(evil).slice(0, 200)})`);
   const long = await call('http_download', { url: B + '/gz', dest: path.join(WS, 'a'.repeat(300)) });
-  ok(long.ok === false && typeof long.error === 'string' && !long.threw && (IS_WIN || long.code === 'ENAMETOOLONG'), `N3d 名字过长 → {ok:false, code, error} 信封,不抛(修前裸异常 ENAMETOOLONG;got ${JSON.stringify(long).slice(0, 160)})`);
+  ok(long.ok === false && typeof long.error === 'string' && !long.threw && (IS_WIN || long.code === 'ENAMETOOLONG'
+    || (IS_MAC && long.code === 'not-allowed' && /无法解析的符号链接/.test(long.error)))
+    && !('path' in long) && !fs.existsSync(path.join(WS, 'a'.repeat(300))), `N3d 名字过长 → {ok:false, code, error} 信封,不抛(修前裸异常 ENAMETOOLONG;got ${JSON.stringify(long).slice(0, 160)})`);
   const fileAsDir = await call('http_download', { url: B + '/gz', dest: dlz + path.sep });
   ok(fileAsDir.ok === false && !fileAsDir.threw, `N3e dest 以分隔符结尾却是已存在的文件 → ok:false(got ${JSON.stringify(fileAsDir).slice(0, 140)})`);
   const t1 = Date.now();
@@ -224,8 +257,13 @@ try {
   ok(b1.ok === true, `N5c A 满了不挤占会话 B 的名额(修前全进程共用上限,B 被拒还看不见 A 的 shell;got ${JSON.stringify(b1).slice(0, 160)})`);
   const bList = await call('shell_list', {}, { session: sessB });
   ok(bList.shells.length === 1 && bList.shells[0].shellId === 'b1', `N5f B 的 shell_list 只看得见自己的(got ${JSON.stringify(bList.shells.map(s => s.shellId))})`);
-  const tooLong = await call('shell_start', { shellId: 'long1', command: 'Write-Output ' + 'x'.repeat(13000) }, { session: sessB });
-  ok(tooLong.ok === false && tooLong.code === 'command_too_long' && /script_run/.test(String(tooLong.hint || '')), `N5g 超长命令 → command_too_long 并指路 script_run(got ${JSON.stringify(tooLong).slice(0, 200)})`);
+  const tooLong = await call('shell_start', { shellId: 'long1', command: echo('x'.repeat(13000)) }, { session: sessB });
+  if (IS_MAC) {
+    ok(tooLong.ok === true, 'N5g Mac native execution has no cmd.exe 8191-character limit');
+    if (tooLong.ok) await call('shell_kill', { shellId: 'long1' }, { session: sessB });
+  } else {
+    ok(tooLong.ok === false && tooLong.code === 'command_too_long' && /script_run/.test(String(tooLong.hint || '')), `N5g 超长命令 → command_too_long 并指路 script_run(got ${JSON.stringify(tooLong).slice(0, 200)})`);
+  }
   if (!IS_WIN) {
     // 全局安全上限:A 3 + B 1 已开,再用 C / D / E 把总数推到 12,下一个会话的第 1 个被全局上限拒绝(错误里说清是全局的)。
     const extra = [];
@@ -241,7 +279,21 @@ try {
   /* ═════════ (N6 / N7 / N8) 键盘与截图(Linux 用假 PowerShell 记录脚本)═════════ */
   const emptyKeys = await call('keyboard_send_keys', { keys: '' });
   ok(emptyKeys.ok === false && !emptyKeys.threw, `N6a 空 keys → {ok:false}(修前抛 Error('keys is required');got ${JSON.stringify(emptyKeys).slice(0, 140)})`);
-  if (!IS_WIN) {
+  if (IS_MAC) {
+    const unavailable = await call('keyboard_send_keys', { keys: 'literal fixture', literal: true });
+    ok(unavailable.ok === false && unavailable.code === 'tool-disabled' && records().length === 0,
+      'N6 Mac omits Windows SendKeys and invokes no PowerShell fixture');
+    macCaptureReply(macFrame);
+    const imagePath = path.join(WS, 'controlled.png');
+    const image = await call('desktop_screenshot', { outputPath: imagePath });
+    ok(image.ok && fs.existsSync(imagePath) && image.width === 2 && image.height === 2,
+      'N7e Mac protocol fixture writes only the controlled 2x2 PNG; no desktop capture');
+    macCaptureReply({ ok: false, code: 'capture_failed', error: 'controlled capture failure' });
+    const missing = path.join(WS, 'never.png');
+    const failed = await call('desktop_screenshot', { outputPath: missing });
+    ok(failed.ok === false && !('path' in failed) && !fs.existsSync(missing), 'N7f failed Mac capture never claims a file');
+    console.log('SKIP Windows SendKeys/literal/DPI fake-PS execution on Mac; static DPI source checks still run');
+  } else if (!IS_WIN) {
     const kLit = await call('keyboard_send_keys', { keys: 'Hello (world) 50% a+b {x} [1]~^', literal: true, delayMs: 99999999 });
     const kRaw = await call('keyboard_send_keys', { keys: '^c' });
     const recs = records();
@@ -288,6 +340,7 @@ try {
   t.fail('fatal: ' + ((e && e.stack) || e));
 } finally {
   for (const [id, sess] of openShells.splice(0)) { try { await call('shell_kill', { shellId: id }, { session: sess }); } catch { /* 收尾 */ } }
+  if (previousMacHelper === undefined) delete process.env.RUYI_MACOS_AUTOMATION_HELPER; else process.env.RUYI_MACOS_AUTOMATION_HELPER = previousMacHelper;
   try { fixture.close(); } catch { /* ignore */ }
 }
 t.done({ exit: true });

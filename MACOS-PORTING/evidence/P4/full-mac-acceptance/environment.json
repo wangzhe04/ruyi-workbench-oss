@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-08",
+  "candidateAtStart": "1dca02ae71ffbc6136a0d84b6e0794eadd4fcd93",
+  "os": {
+    "command": [
+      "sw_vers"
+    ],
+    "exitCode": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+    "stderr": ""
+  },
+  "architecture": {
+    "command": [
+      "uname",
+      "-m"
+    ],
+    "exitCode": 0,
+    "stdout": "arm64\n",
+    "stderr": ""
+  },
+  "node": {
+    "command": [
+      "node",
+      "--version"
+    ],
+    "exitCode": 0,
+    "stdout": "v24.15.0\n",
+    "stderr": ""
+  },
+  "signature": {
+    "command": [
+      "codesign",
+      "--verify",
+      "--deep",
+      "--strict",
+      "ruyi-workbench/dist/Ruyi.app"
+    ],
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "browser": "Google Chrome for Testing 148.0.7778.96",
+  "browserPath": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "originalImplementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+  "delta": "Four existing acceptance test files, one frontend SSE lens-provider expression and matching comments. Native App six build inputs unchanged."
+}

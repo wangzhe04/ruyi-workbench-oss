@@ -1,0 +1,18 @@
+{
+  "reviewer": "/root/p5_review_resumed",
+  "mode": "read-only source review; no tests or GUI",
+  "at": "2026-11-11T04:03:35.816055+00:00",
+  "scope": [
+    "manual native event capture and portable sequence validation",
+    "whole-record source/point preflight and coordinate rebinding",
+    "desktop policy, exec classification and exclusive input leases",
+    "threaded cooperative cancellation and partial-frame write boundary",
+    "owned input retention, permission/PID cleanup and cross-tool gating",
+    "background signal release and independent pipe HUP observation",
+    "App LaunchServices candidate-root fixture and rejection evidence"
+  ],
+  "result": "Previously reported concrete findings fixed. No new unclosed concrete source defect in reviewed scope.",
+  "limitations": "This does not replace the pending expanded GUI, App or physical demonstration or final frozen-candidate acceptance.",
+  "last_review_message": "Public mutation entry retries old owned cleanup before BeforeRecordedRequest/handler and refuses the new mutation if cleanup remains unknown. App rejection envelope is preserved before receiver wait.",
+  "current_source_manifest": "development/sequence/current-source-v2.json"
+}

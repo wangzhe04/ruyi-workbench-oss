@@ -11,7 +11,7 @@ function defaultConfig() {
     privacyTechnicalV1: false,
     privacyRulesV1: [],
     privacyPolicyRecoveryRequiredV1: false,
-    credentialEncryptionV1: false, // Opt-in DPAPI storage. Existing encrypted references retain their explicit enabled state.
+    credentialEncryptionV1: false, // Opt-in platform-protected storage. Existing encrypted references retain their explicit enabled state.
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
     // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):
@@ -560,7 +560,8 @@ const THREAD_INDEX_RECENT_MIN = 10;
 const THREAD_INDEX_RECENT_MAX = 200;
 
 function normalizeWorkspacePathString(value) {
-  let s = String(value == null ? '' : value).trim();
+  const raw = String(value == null ? '' : value);
+  let s = process.platform === 'darwin' && raw.startsWith('/') ? raw : raw.trim();
   const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
   for (let guard = 0; guard < 3; guard++) {
     const pair = pairs.find(([open, close]) => s.length >= 2 && s.startsWith(open) && s.endsWith(close));
@@ -568,7 +569,7 @@ function normalizeWorkspacePathString(value) {
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
   // 代码走查 C14:去掉结尾分隔符(盘符根 C:\ 与单独的 / 保留)—— 修前带不带结尾「\」存成两条常用文件夹。
-  const stripped = s.replace(/[\\/]+$/, '');
+  const stripped = s.replace(process.platform === 'darwin' && s.startsWith('/') ? /\/+$/ : /[\\/]+$/, '');
   if (stripped && !/^[A-Za-z]:$/.test(stripped)) s = stripped;
   else if (s) s = s.slice(0, stripped.length + 1);
   return s.slice(0, 1000);
@@ -587,7 +588,8 @@ function normalizeWorkspacePathString(value) {
 //     不再往常用工作区写任何一行),这一行留下,如意那张表里对应的条目标 adopted:true。迁出只认
 //     「不在如意那张表里」的行,所以收编过的行下一次读配置不会再被挪走(否则两条迁移会来回拉锯)。
 function stewardManagedWorkspaceKey(value) {
-  return String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  const normalized = String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 function normalizeStewardManagedWorkspaces(config, wsRows) {
   const rawList = Array.isArray(config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
@@ -1240,7 +1242,7 @@ function normalizeConfig(raw, opts = {}) {
     else config.residentSkills = clean;
   }
   // v0.9-S3 (C3): recentWorkspaces — de-duped array of non-empty absolute-path strings, ≤10 (LRU: the
-  // front is most-recent). Drop non-strings/empties; a duplicate (case-insensitive) keeps only the first
+  // front is most-recent). Drop non-strings/empties; a duplicate (case-insensitive on Windows) keeps only the first
   // occurrence (so the front-inserted entry wins). A non-array coerces to []. Never widens anything.
   {
     const rawArr = Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [];
@@ -1250,7 +1252,8 @@ function normalizeConfig(raw, opts = {}) {
       if (typeof w !== 'string') continue;
       const s = normalizeWorkspacePathString(w);
       if (!s) continue;
-      const key = s.toLowerCase();
+      // Preserve the stored spelling on Windows, where resolving '/' depends on the current drive.
+      const key = process.platform === 'win32' ? s.toLowerCase() : samePathKey(s);
       if (seen.has(key)) continue;
       seen.add(key);
       clean.push(s);
@@ -1286,7 +1289,7 @@ function normalizeConfig(raw, opts = {}) {
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
-  // leaves the seed rows in config.workspaces for this block to cleanse. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
+  // leaves the seed rows in config.workspaces for this block to cleanse. Cleanse: trimmed string path (≤1000), boolean flags, platform-aware de-dupe,
   // capped at WORKSPACE_TABLE_CAP rows (117w-W1④ raised it 20 -> 64; see that constant for why).
   // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
   {
@@ -1297,7 +1300,7 @@ function normalizeConfig(raw, opts = {}) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
       const p = normalizeWorkspacePathString(raw.path);
       if (!p) return;
-      const key = p.toLowerCase();
+      const key = process.platform === 'win32' ? p.toLowerCase() : samePathKey(p);
       if (seen.has(key)) return;
       seen.add(key);
       const entry = { path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false };
@@ -1674,8 +1677,22 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
-    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    if (opts.exclusiveTemp === true) {
+      let file, created = false;
+      try {
+        file = await fsp.open(tmpPath, 'wx', Number.isInteger(opts.mode) ? opts.mode : 0o600);
+        created = true;
+        try { await file.writeFile(payload, 'utf8'); } finally { await file.close(); file = null; }
+      } catch (error) {
+        if (file) { try { await file.close(); } catch { /* preserve the failed write */ } }
+        // EEXIST is someone else's inode. Never unlink it while recovering our own attempt.
+        if (created) { try { await fsp.unlink(tmpPath); } catch { /* best effort; no publication */ } }
+        throw error;
+      }
+    } else {
+      try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
+      catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
       try { await fsp.rename(tmpPath, finalPath); return; }
@@ -1753,7 +1770,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       const target = resolvePath(value, rule && rule.path);
       const max = Math.max(0, Math.floor(Number(rule && rule.max) || 0));
       if (!target || !max) continue;
-      if (Array.isArray(target) && target.length > max) target.splice(0, target.length - max);
+      if (Array.isArray(target) && target.length > max) Array.prototype.splice.call(target, 0, target.length - max);
       else if (typeof target === 'object') {
         const keys = Object.keys(target);
         for (const key of keys.slice(0, Math.max(0, keys.length - max))) delete target[key];
@@ -1769,32 +1786,39 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
     const cacheEnabled = options.cache !== false;
     const quarantineEnabled = options.quarantine !== false;
+    const maxBytes = options.maxBytes;
+    if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024 * 1024)) throw new TypeError('invalid durable JSON byte bound');
+    if (options.ownedRegular === true && maxBytes === undefined) throw new TypeError('owned durable JSON reads require a byte bound');
+    if (options.ownedRegular === true && options.mode !== undefined && options.mode !== 0o600) throw new TypeError('owned durable JSON files require mode 0600');
     let cached = null;
     let hasCache = false;
     let writeChain = Promise.resolve();
 
     const filePath = () => String(typeof options.file === 'function' ? options.file() : options.file);
-    const fallback = () => cloneJson(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
+    const copyValue = value => options.ordinaryJson === true && value !== undefined ? copyOrdinaryJsonData(value, false) : cloneJson(value);
+    const fallback = () => copyValue(typeof options.defaultValue === 'function' ? options.defaultValue() : options.defaultValue);
 
     function prepare(raw, forWrite) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
       }
-      const actualSchema = raw[schemaKey];
+      const sourceValue = options.ordinaryJson === true ? copyOrdinaryJsonData(raw, false) : raw;
+      const actualSchema = sourceValue[schemaKey];
       if (schemaVersion !== null && actualSchema !== schemaVersion && (options.strictRead === true || actualSchema !== undefined)) {
         throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
       }
-      let value = cloneJson(raw);
+      let value = options.ordinaryJson === true ? sourceValue : cloneJson(raw);
       if (typeof options.sanitize === 'function') value = options.sanitize(value);
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw storeError('EDURABLE_SANITIZE', id + ': sanitizer returned a non-object');
       }
+      if (options.ordinaryJson === true) value = copyOrdinaryJsonData(value, false);
       if (schemaVersion !== null) value[schemaKey] = schemaVersion;
       applyCapacity(value, options.capacity);
       if (typeof options.validate === 'function' && options.validate(value) !== true) {
         throw storeError('EDURABLE_VALIDATE', id + ': validation failed');
       }
-      return value;
+      return options.ordinaryJson === true ? copyOrdinaryJsonData(value) : value;
     }
 
     function freshDefault() {
@@ -1811,11 +1835,81 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       }
     }
 
+    function parseText(text) {
+      const value = JSON.parse(text);
+      // Opt-in stores own this exact formatter. Equality rejects duplicate keys, alternate
+      // numeric lexemes and discarded bytes without maintaining a second JSON parser.
+      if (options.canonicalRead === true && JSON.stringify(options.ordinaryJson === true ? copyOrdinaryJsonData(value) : value, null, 2) !== text) {
+        throw storeError('EDURABLE_CANONICAL', id + ': noncanonical JSON evidence');
+      }
+      return prepare(value, false);
+    }
+
+    function readFlags() {
+      let flags = fsModule.constants.O_RDONLY | (fsModule.constants.O_NONBLOCK || 0);
+      if (options.ownedRegular === true) {
+        if (!fsModule.constants.O_NOFOLLOW || typeof process.getuid !== 'function') {
+          throw storeError('EDURABLE_PLATFORM', id + ': owned descriptor reads unavailable');
+        }
+        flags |= fsModule.constants.O_NOFOLLOW;
+      }
+      return flags;
+    }
+    function checkReadStat(stat) {
+      if (!stat.isFile() || stat.size > BigInt(maxBytes)) throw storeError('EDURABLE_CAPACITY', id + ': invalid or oversized JSON file');
+      if (options.ownedRegular === true && (stat.uid !== BigInt(process.getuid()) || stat.nlink !== 1n || (stat.mode & 0o077n))) {
+        throw storeError('EDURABLE_OWNER', id + ': JSON file is not private and owned');
+      }
+    }
+    function unchangedRead(before, after) {
+      if (['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].some(key => before[key] !== after[key])) {
+        throw storeError('EDURABLE_CHANGED', id + ': JSON file changed during read');
+      }
+    }
+    function boundedText(buffer, used) {
+      if (used > maxBytes) throw storeError('EDURABLE_CAPACITY', id + ': JSON read exceeds byte bound');
+      const data = buffer.subarray(0, used), text = data.toString('utf8');
+      if (!Buffer.from(text, 'utf8').equals(data)) throw storeError('EDURABLE_ENCODING', id + ': invalid UTF-8 JSON');
+      return text;
+    }
+    function readTextSync() {
+      if (maxBytes === undefined) return fsModule.readFileSync(filePath(), 'utf8');
+      const fd = fsModule.openSync(filePath(), readFlags());
+      try {
+        const before = fsModule.fstatSync(fd, { bigint: true }); checkReadStat(before);
+        const buffer = Buffer.alloc(maxBytes + 1); let used = 0;
+        while (used < buffer.length) {
+          const count = fsModule.readSync(fd, buffer, used, buffer.length - used, null);
+          if (!count) break;
+          used += count;
+        }
+        if (BigInt(used) !== before.size) throw storeError('EDURABLE_CHANGED', id + ': incomplete JSON read');
+        unchangedRead(before, fsModule.fstatSync(fd, { bigint: true }));
+        return boundedText(buffer, used);
+      } finally { fsModule.closeSync(fd); }
+    }
+    async function readText() {
+      if (maxBytes === undefined) return fspModule.readFile(filePath(), 'utf8');
+      const file = await fspModule.open(filePath(), readFlags());
+      try {
+        const before = await file.stat({ bigint: true }); checkReadStat(before);
+        const buffer = Buffer.alloc(maxBytes + 1); let used = 0;
+        while (used < buffer.length) {
+          const { bytesRead } = await file.read(buffer, used, buffer.length - used, null);
+          if (!bytesRead) break;
+          used += bytesRead;
+        }
+        if (BigInt(used) !== before.size) throw storeError('EDURABLE_CHANGED', id + ': incomplete JSON read');
+        unchangedRead(before, await file.stat({ bigint: true }));
+        return boundedText(buffer, used);
+      } finally { await file.close(); }
+    }
+
     function readSync() {
       if (cacheEnabled && hasCache) return cached;
       let value;
       try {
-        value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
+        value = parseText(readTextSync());
       } catch (error) {
         if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
@@ -1843,7 +1937,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       if (cacheEnabled && hasCache) return cached;
       let value;
       try {
-        value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
+        value = parseText(await readText());
       } catch (error) {
         if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
@@ -1858,8 +1952,14 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     }
 
     function write(value) {
-      let snapshot;
-      try { snapshot = prepare(value, true); }
+      let snapshot, serialized;
+      try {
+        snapshot = prepare(value, true);
+        if (maxBytes !== undefined) serialized = JSON.stringify(snapshot, null, 2);
+        if (maxBytes !== undefined && Buffer.byteLength(serialized, 'utf8') > maxBytes) {
+          throw storeError('EDURABLE_CAPACITY', id + ': JSON write exceeds byte bound');
+        }
+      }
       catch (error) { return Promise.reject(error); }
       // Advance the write-through cache at enqueue time. Updating it on I/O completion lets an older queued
       // write temporarily replace newer in-memory state while the next atomic write is still awaiting disk.
@@ -1867,7 +1967,10 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       const pending = writeChain.catch(() => {}).then(async () => {
         const file = filePath();
         await fspModule.mkdir(pathModule.dirname(file), { recursive: true });
-        await atomicWriteFn(file, snapshot);
+        const payload = maxBytes === undefined ? snapshot : serialized;
+        if (options.ownedRegular === true) await atomicWriteFn(file, payload, { mode: 0o600, exclusiveTemp: true });
+        else if (Number.isInteger(options.mode)) await atomicWriteFn(file, payload, { mode: options.mode });
+        else await atomicWriteFn(file, payload);
         return snapshot;
       });
       writeChain = pending;
@@ -2710,6 +2813,11 @@ async function resolveClaudeLauncherAsync(launcher, { force = false } = {}) {
 function claudeInstallCandidates() {
   const home = os.homedir();
   const env = process.env;
+  if (process.platform === 'darwin') return [
+    path.join(home, '.local', 'bin', 'claude'),
+    path.join(home, '.claude', 'local', 'claude'),
+    '/opt/homebrew/bin/claude', '/usr/local/bin/claude',
+  ];
   const dirs = [
     env.APPDATA && path.join(env.APPDATA, 'npm'),
     env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'claude'),
@@ -2759,7 +2867,15 @@ function refreshInBackground(key, probe) {
 }
 // 异步版的「跑一发 <cmd> --version 看退出码」:与各处 spawnSync 同一组参数(stdio 全忽略、隐藏窗口、超时即杀
 // 直接子进程),回同形 { error, status } —— 超时被杀时 status 为 null,与 spawnSync 超时同判。
+function spawnProbeSync(command, args, options = {}) {
+  if (process.platform !== 'darwin') return cp.spawnSync(command, args, options);
+  const result = ProcessRuntime.probeSync(command, args, options);
+  if (result.cleanupIncomplete) throw Object.assign(result.error, { cleanupIncomplete: true, cleanupScope: result.cleanupScope,
+    cleanupEscapeCoverage: result.cleanupEscapeCoverage, cleanupUnconfirmed: result.cleanupUnconfirmed });
+  return result;
+}
 function spawnProbeAsync(command, args, spawnOpts = {}, timeout = 4000) {
+  if (process.platform === 'darwin') return ProcessRuntime.probe(command, args, spawnOpts, timeout);
   return new Promise(resolve => {
     let settled = false;
     const done = result => { if (!settled) { settled = true; resolve(result); } };
@@ -2773,7 +2889,8 @@ function spawnProbeAsync(command, args, spawnOpts = {}, timeout = 4000) {
 }
 function claudeProbeCandidates() {
   // 先 PATH 上的裸名(快、常见),再常见安装位置(必须真的存在才探)。
-  const onPath = [process.env.CLAUDE_CLI_PATH, 'claude.cmd', 'claude.exe', 'claude'].filter(Boolean).map(command => ({ command, mustExist: false }));
+  const names = process.platform === 'darwin' ? ['claude'] : ['claude.cmd', 'claude.exe', 'claude'];
+  const onPath = [process.env.CLAUDE_CLI_PATH, ...names].filter(Boolean).map(command => ({ command, mustExist: false }));
   return [...onPath, ...claudeInstallCandidates().map(command => ({ command, mustExist: true }))];
 }
 function detectClaudePathUncached() {
@@ -2781,13 +2898,14 @@ function detectClaudePathUncached() {
     try {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
-      const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+      const ok = spawnProbeSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
       // 61-C6:批处理启动器(claude.cmd)经 cmd.exe 探,没装时 cmd 也有退出码(1 / 9009)—— 修前「有退出码就算探到」,
       // 没装 Claude Code 的机器也报「Claude Code: claude.cmd」。批处理要求退出码 0;直启的 exe 仍是有退出码即可。
       const found = !ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0);
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
       if (found) return resolveClaudeLauncher(command);
-    } catch {
+    } catch (error) {
+      if (error.cleanupIncomplete) throw error;
       // keep scanning
     }
   }
@@ -2799,9 +2917,11 @@ async function detectClaudePathUncachedAsync() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = await spawnProbeAsync(s.command, s.args, s.opts);
+      if (ok.cleanupIncomplete) throw Object.assign(ok.error, { cleanupIncomplete: true });
       // 判据与同步版逐字相同(61-C6:批处理启动器要求退出码 0)。
       if (!ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0)) return await resolveClaudeLauncherAsync(command);
-    } catch {
+    } catch (error) {
+      if (error.cleanupIncomplete) throw error;
       // keep scanning
     }
   }
@@ -2884,9 +3004,9 @@ function probeAgentCliLauncher(command) {
   if (!command) return false;
   try {
     const s = agentCliProbeSpawn(command);
-    const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+    const ok = spawnProbeSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
     return !ok.error && ok.status === 0;
-  } catch { return false; }
+  } catch (error) { if (error.cleanupIncomplete) throw error; return false; }
 }
 // 探测结果三态('ok' | 'missing' | 'slow')。spawnProbeAsync 带 timeout 选项:到点 Node 杀掉子进程,close 事件给
 // status=null 且【没有 error】—— 与「启动器根本起不来」(spawn 的 'error':ENOENT/EACCES…)、「--version 退出码非 0」
@@ -2901,15 +3021,17 @@ async function probeAgentCliLauncherVerdictAsync(command) {
   if (!command) return 'missing';
   try {
     const s = agentCliProbeSpawn(command);
-    return agentCliProbeVerdict(await spawnProbeAsync(s.command, s.args, s.opts));
-  } catch { return 'missing'; }
+    const result = await spawnProbeAsync(s.command, s.args, s.opts);
+    if (result.cleanupIncomplete) throw Object.assign(result.error, { cleanupIncomplete: true });
+    return agentCliProbeVerdict(result);
+  } catch (error) { if (error.cleanupIncomplete) throw error; return 'missing'; }
 }
 async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面同步版逐字相同(只有 'ok' 为真)
   return (await probeAgentCliLauncherVerdictAsync(command)) === 'ok';
 }
 function agentCliInstallCandidates(type) {
   if (!isAgentCliType(type)) return [];
-  return AGENT_CLI_TYPES[type].installCandidates({ env: process.env, home: os.homedir(), join: (...parts) => path.join(...parts) });
+  return AGENT_CLI_TYPES[type].installCandidates({ env: process.env, home: os.homedir(), join: (...parts) => path.join(...parts), platform: process.platform });
 }
 function agentCliProbeable(candidate) {
   // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
@@ -2969,6 +3091,12 @@ function resolveKimiNpmEntry(command) {
     path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
     path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
   ];
+  if (process.platform !== 'win32') {
+    const globalEntry = path.resolve(dir, '..', 'lib', 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs');
+    // POSIX npm uses a bin/kimi symlink. A nearby stale package must not replace a native launcher.
+    try { if (fs.realpathSync(shim) === fs.realpathSync(globalEntry)) entries.push(globalEntry); }
+    catch { /* No matching npm symlink; keep the original launcher. */ }
+  }
   return entries.find(candidate => fs.existsSync(candidate)) || '';
 }
 // 未登记的类型同 selectedAgentCli 口径归到 claude(即 batchSafeSpawn)。
@@ -3143,7 +3271,7 @@ function externalServerJs() {
 }
 
 function bundledNodeExe() {
-  const p = path.join(externalRoot(), 'runtime', 'node', 'node.exe');
+  const p = path.join(externalRoot(), 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'bin/node');
   if (fs.existsSync(p)) return p;
   // When we are already running under node (not the pkg exe), process.execPath IS a node binary.
   if (!isPkg()) return process.execPath;
@@ -3270,12 +3398,18 @@ function desktopPythonCandidates(root) {
   const candidates = [];
   const seen = new Set();
   const addPath = (command, source) => {
-    const key = path.resolve(String(command || '')).toLowerCase();
+    const absolute = path.resolve(String(command || ''));
+    const key = process.platform === 'win32' ? absolute.toLowerCase() : absolute;
     if (!command || seen.has(key)) return;
     seen.add(key);
     candidates.push({ command, args: [], source, requireExisting: true });
   };
-  if (root) {
+  if (root && process.platform !== 'win32') {
+    addPath(path.join(root, 'runtime', 'python', 'bin', 'python3'), 'bundled-runtime');
+    addPath(path.join(root, '.venv', 'bin', 'python3'), 'repo-venv');
+    addPath(path.join(root, 'venv', 'bin', 'python3'), 'installed-venv');
+  }
+  if (root && process.platform === 'win32') {
     // Distribution invariant: a portable Full package must use the CPython 3.12 runtime shipped beside
     // ACC by default. Machine-local venvs/runtimes are compatibility fallbacks, never prerequisites for
     // a package copied to a clean target computer.
@@ -3313,7 +3447,7 @@ function desktopPythonCandidates(root) {
 
 function probeDesktopPython(candidate, cwd, desktopEnv) {
   try {
-    const result = cp.spawnSync(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
+    const result = spawnProbeSync(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
       cwd: cwd || undefined,
       env: { ...process.env, ...(desktopEnv || {}) },
       windowsHide: true,
@@ -3323,13 +3457,49 @@ function probeDesktopPython(candidate, cwd, desktopEnv) {
     });
     if (!result || result.error || result.status !== 0) return '';
     return String(result.stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core';
-  } catch { return ''; }
+  } catch (error) { if (error.cleanupIncomplete) throw error; return ''; }
 }
 
 // 39 号文:同步探针的异步孪生 —— 同一发 python、同一套超时/解析口径,只是不占住事件循环。
 // 用 execFile 而不是 spawn:它与上面那发 spawnSync 一样【不过 shell】(Windows 上对 PATH 里的 .cmd
 // 同样 ENOENT,两条路的答案不会分家),而且原生支持 timeout/maxBuffer/encoding,三个口径逐字对齐。
-function probeDesktopPythonAsync(candidate, cwd, desktopEnv) {
+async function probeDesktopPythonAsync(candidate, cwd, desktopEnv) {
+  if (process.platform === 'darwin') {
+    let capture;
+    try {
+      capture = ProcessRuntime.capture(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
+        cwd: cwd || undefined, env: { ...process.env, ...(desktopEnv || {}) },
+        windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024,
+      }, { ...ProcessRuntime.currentOwner(), kind: 'desktop-python-probe' });
+    } catch { return ''; }
+    const { child } = capture;
+    let timer, timedOut = false;
+    const deadline = new Promise(resolve => {
+      timer = setTimeout(async () => {
+        timedOut = true;
+        let cleanup = { scope: 'unknown', incomplete: true };
+        try { ProcessRuntime.stopChild(child); cleanup = await ProcessRuntime.waitForCleanup(child, 1500); }
+        catch { /* preserve uncertainty */ }
+        finally {
+          child.stdout.destroy(); child.stderr.destroy();
+          resolve({ cleanup });
+        }
+      }, DESKTOP_PYTHON_PROBE_TIMEOUT_MS);
+    });
+    try {
+      const result = await Promise.race([capture.output.then(async output => ({ ...output,
+        cleanup: await ProcessRuntime.waitForCleanup(child, 1500) })), deadline]);
+      if (result.cleanup?.incomplete || result.error?.code === 'ERR_PROCESS_OUTPUT_INCOMPLETE') {
+        throw Object.assign(new Error('Python probe cleanup or output has not been confirmed'), {
+          code: result.cleanup?.incomplete ? 'process_cleanup_incomplete' : 'process_output_incomplete',
+          cleanupIncomplete: result.cleanup?.incomplete === true, cleanupScope: result.cleanup?.scope,
+          cleanupEscapeCoverage: result.cleanup?.escapeCoverage, cleanupUnconfirmed: result.cleanup?.unconfirmed,
+        });
+      }
+      if (timedOut || result.error) return '';
+      return String(result.stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core';
+    } finally { clearTimeout(timer); }
+  }
   return new Promise(resolve => {
     let settled = false;
     const finish = probed => { if (!settled) { settled = true; resolve(probed); } };
@@ -3480,6 +3650,13 @@ async function desktopMcpFromRepoAsync(repoRoot) {
 // installed package rather than a checkout with src/, so it needs its own recognizer.
 function desktopMcpInstalledEnv(root) {
   const desktopEnv = { PYTHONUTF8: '1' };
+  if (process.platform === 'darwin') {
+    desktopEnv.PYTHONPATH = '';
+    desktopEnv.PYTHONNOUSERSITE = '1';
+    desktopEnv.PYTHONDONTWRITEBYTECODE = '1';
+    desktopEnv.RUYI_MACOS_AUTOMATION_HELPER = path.join(externalRoot(), 'runtime', 'macos', 'ruyi-automation-helper');
+    desktopEnv.ACC_BROWSER_MODE = 'bundled';
+  }
   const bundledBrowsers = path.join(root, 'playwright_browsers');
   try { if (fs.existsSync(bundledBrowsers)) desktopEnv.PLAYWRIGHT_BROWSERS_PATH = bundledBrowsers; }
   catch { /* optional payload; browser tools will degrade gracefully */ }
@@ -3487,8 +3664,12 @@ function desktopMcpInstalledEnv(root) {
 }
 function desktopMcpInstalledPickOptions(root, options) {
   const installedCandidates = [
-    { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
-    { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ...(process.platform === 'darwin' ? [
+      { command: path.join(root, 'runtime', 'python', 'bin', 'python3'), args: [], source: 'installed-runtime', requireExisting: true },
+    ] : [
+      { command: path.join(root, 'runtime', 'python', 'python.exe'), args: [], source: 'installed-runtime', requireExisting: true },
+      { command: path.join(root, 'venv', 'Scripts', 'python.exe'), args: [], source: 'installed-venv', requireExisting: true },
+    ]),
   ];
   return {
     candidates: Array.isArray(options.candidates) ? options.candidates : installedCandidates,
@@ -3540,6 +3721,9 @@ function desktopMcpRootPlan() {
       env.USERPROFILE && path.join(env.USERPROFILE, 'Documents', 'Claude Code', 'ai-computer-control'),
     ].filter(Boolean);
     for (const dir of repoCandidates) {
+      if (process.platform === 'darwin' && fs.existsSync(path.join(dir, 'runtime', 'python', 'bin', 'python3'))) {
+        steps.push({ kind: 'installed', root: path.resolve(dir) });
+      }
       if (!isDesktopMcpRepo(dir)) continue;
       steps.push({ kind: 'repo', root: path.resolve(dir) });
     }

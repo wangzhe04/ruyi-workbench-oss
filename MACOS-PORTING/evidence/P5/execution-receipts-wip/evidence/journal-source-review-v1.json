@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T13:52:11.227Z",
+  "reviewer": "/root/p5_review_resumed",
+  "type": "Independent source review and inspection of existing development test log; no reviewer tests, builds, helper/native/GUI execution or source edits.",
+  "implementationState": "Uncommitted execution-receipts WIP; journal primitive is not connected to a runtime path.",
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 16499,
+      "sha256": "4da00428ca2b84e85456d3bc7b0779a3f0925777bd3b065dc825ca66b3694202"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_journal.py",
+      "bytes": 8271,
+      "sha256": "2c6fc6ff43508f59b38c6be17c807f8a9e687a03e7c3bab04ae8002c8b9559b6"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/development/journal-v1.log",
+      "bytes": 111,
+      "sha256": "aa20a2cbd4b495b721d271e618f4947b6f3d248ae4d791571f591ce4cc5a7919"
+    }
+  ],
+  "developmentEvidenceObserved": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/development/journal-v1.log",
+    "tests": 12,
+    "result": "OK",
+    "independentlyExecutedByReviewer": false
+  },
+  "findings": [
+    {
+      "id": "commit-publish-before-final-fsync",
+      "priority": 1,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "line": 165,
+      "problem": "A final directory-fsync failure leaves a newly visible commit.json that the reader accepts as a complete terminal despite append() having failed.",
+      "interleaving": [
+        "Append a terminal line; events fsync succeeds.",
+        "Write and fsync the replacement marker; os.replace succeeds.",
+        "The following os.fsync(directory_fd) raises. append sets failed=True and raises execution_journal_io.",
+        "read_receipts opens the advanced marker, validates the exact prefix, and returns request_terminal_observed=true and incomplete=false."
+      ],
+      "consequence": "The claimed strict post-effect persistence-failure => unknown contract is not preserved across the publication window.",
+      "recommendation": "Define an explicit recovery confirmation barrier or conservative uncertain-publication protocol. A reader must not silently equate a visible marker with completion of the writer strict persistence barrier; document any recovery promotion after successful revalidation/fsync.",
+      "validationNeeded": "Inject failure specifically at the final directory fsync after successful marker replacement, not merely at the first data fsync; assert the required unknown/recovery-confirmation behavior."
+    },
+    {
+      "id": "blocking-special-file-open",
+      "priority": 2,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "line": 118,
+      "problem": "Existing .allocation.lock is opened O_WRONLY and existing events.ndjson/commit.json are opened O_RDONLY before _regular rejects special files. O_NOFOLLOW prevents symlinks but does not prevent a FIFO open from blocking.",
+      "consequence": "A FIFO at one of these paths can hang before owned-regular-file validation; the one-second flock allocation deadline starts only after this potentially unbounded open.",
+      "recommendation": "Open potentially existing file nodes nonblocking and then validate the actual descriptor as owned regular with link count one; preserve exclusive create semantics for new blobs/events.",
+      "validationNeeded": "Controlled FIFO fixtures for allocation.lock and both reader leaves; demonstrate prompt rejection without waiting for a peer. Do not allow a regression test itself to hang indefinitely."
+    },
+    {
+      "id": "reader-size-marker-generation-race",
+      "priority": 2,
+      "status": "open",
+      "file": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "line": 268,
+      "problem": "The reader captures events fstat size before opening the commit marker. A concurrent successful append can publish a newer marker whose byte count is larger than that stale size.",
+      "consequence": "Normal concurrent progress is misreported as an invalid/corrupt commit marker.",
+      "recommendation": "Fix the marker inode/content snapshot first and then stat/read the append-only events descriptor, or implement a bounded consistent-snapshot retry. Keep corruption distinguishable from ordinary concurrent commit progress.",
+      "validationNeeded": "Deterministically interleave a writer commit between the current events fstat and marker open; the reader should return a consistent prefix or explicit incomplete/retry state, not corruption."
+    }
+  ],
+  "positiveChecks": [
+    "Exclusive validated invocation directory names prevent ordinary accidental ID reuse.",
+    "New argument blobs use exclusive creation, private file permissions, exact bytes or finite sorted JSON, fsync and a safe returned reference.",
+    "Complete event writes are serialized by one RLock with increasing sequence numbers; data fsync precedes marker replacement.",
+    "A failed data fsync or failed marker rename leaves the earlier committed prefix, as covered by the existing development tests.",
+    "Capacity refusals preserve earlier unknown evidence; the primitive does not silently prune unresolved traces.",
+    "ContextVar scopes reset in finally; raw-thread callers still require an explicit copied context, as used in the protocol work."
+  ],
+  "explicitlyDeferredNotNewFindings": [
+    "Strict reader field semantics, per-stage transition validation and argument-reference integrity validation.",
+    "Acknowledged-terminal retention policy and global disk-space management.",
+    "ACC metadata, wrappers and native adapter integration.",
+    "Node durable preparation, result persistence and restart reconciliation."
+  ],
+  "limitations": [
+    "Twelve primitive tests are development evidence only, not end-to-end execution correlation or durable-terminal gate acceptance.",
+    "This review does not change the separately frozen and independently qualified protocol slice.",
+    "No held-state fault, native operation, GUI test or automatic-lock setting change was executed."
+  ],
+  "outcome": "Changes required before treating this as a strict runtime persistence barrier.",
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  }
+}

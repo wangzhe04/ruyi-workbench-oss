@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+const { shellTool, echo, delay } = require('./lib/platform-shell-fixture');
 // ─────────────────────────────────────────────────────────────────────────────
 // budget-guard.e2e.js — 106 #13a 预算保护基础层 + #13a-t 长命令时间预算
 //
@@ -193,7 +194,7 @@ function normalizeCapText(raw) {
   const WB_FAST = { WCW_TOOL_HEARTBEAT_MS: '300' };
   let t0Caps = null;
   { // T0: 全关基线(快命令)。
-    const T0 = await launchStack('t0', {}, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: 'Write-Output hi' } }]) }, WB_FAST);
+    const T0 = await launchStack('t0', {}, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: shellTool, args: { command: echo('hi') } }]) }, WB_FAST);
     ok(T0.healthy, 'E0e workbench T0 listening on :' + T0.WB_PORT);
     try {
       const ev = await postStream(T0.WB_PORT, { message: '跑个快命令' });
@@ -203,7 +204,7 @@ function normalizeCapText(raw) {
     finally { await T0.cleanup(); }
   }
   { // T1: 主动档 dead-long-runner —— 软警告 + 硬终态杀树 + 配对 tool_result 含原因 + 回合继续。
-    const T1 = await launchStack('t1', { runtimeToolTimeBudgetV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 30' } }]) }, WB_FAST);
+    const T1 = await launchStack('t1', { runtimeToolTimeBudgetV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: shellTool, args: { command: delay(30) } }]) }, WB_FAST);
     ok(T1.healthy, 'E0f workbench T1 listening on :' + T1.WB_PORT);
     try {
       const t0 = Date.now();
@@ -223,7 +224,7 @@ function normalizeCapText(raw) {
     finally { await T1.cleanup(); }
   }
   { // T2: shadow 档 —— 命令自然跑完(8s),只记「本应触发」;叠加字节轴计数。
-    const T2 = await launchStack('t2', { runtimeToolTimeBudgetShadowV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000, toolByteBudgetShadowBytesV1: 10 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: "Start-Sleep -Seconds 8; Write-Output ('x'*50)" } }]) }, WB_FAST);
+    const T2 = await launchStack('t2', { runtimeToolTimeBudgetShadowV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 5000, toolByteBudgetShadowBytesV1: 10 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: shellTool, args: { command: delay(8, 'x'.repeat(50)) } }]) }, WB_FAST);
     ok(T2.healthy, 'E0g workbench T2 listening on :' + T2.WB_PORT);
     try {
       const t0 = Date.now();
@@ -243,7 +244,7 @@ function normalizeCapText(raw) {
     finally { await T2.cleanup(); }
   }
   { // T3: 主动档+高阈值(零触发)→ 与全关基线逐字节一致。
-    const T3 = await launchStack('t3', { runtimeToolTimeBudgetV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 60000 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: 'powershell_run', args: { command: 'Write-Output hi' } }]) }, WB_FAST);
+    const T3 = await launchStack('t3', { runtimeToolTimeBudgetV1: true, toolTimeBudgetWarnMsV1: 1000, toolTimeBudgetHardMsV1: 60000 }, { FAKE_TOOL_SEQUENCE: JSON.stringify([{ name: shellTool, args: { command: echo('hi') } }]) }, WB_FAST);
     ok(T3.healthy, 'E0h workbench T3 listening on :' + T3.WB_PORT);
     try {
       const ev = await postStream(T3.WB_PORT, { message: '跑个快命令' });

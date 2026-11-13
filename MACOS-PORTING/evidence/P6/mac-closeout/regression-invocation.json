@@ -1,0 +1,13 @@
+{
+  "startedAt": "2026-11-12T13:54:01.302807+00:00",
+  "command": [
+    "node",
+    "dev-harness/run-all.js",
+    "--parallel",
+    "2"
+  ],
+  "scratch": "/private/tmp/ruyi-p6-closeout-final-79ido2bq",
+  "scope": "Official unchanged full runner; dedicated task-owned TMPDIR isolates the janitor from historical fixtures/assets. Native App positive permissions remain externally unqualified.",
+  "evidenceDirectory": "regression-attempts",
+  "sourceFreeze": "source-freeze.json"
+}

@@ -1,0 +1,38 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 五条线程已建（{"seated":"sess_51ddc2b33b8a4696","other":"sess_620bf62cf65de88b","steward":"sess_1a01789f9c5c0959","go":"sess_0758cade065139a3","quiet":"sess_62a16a53e420c739"}）
+PASS A0d Edge/Chrome found
+PASS A0e browser target available
+PASS A0f 首屏就绪（config 到达、安静卡挂点已在 DOM 里）
+PASS A0g 顶栏分段钮切到工作台视角（后续 A1-E 的前提，先在这里钉死不是碰巧）
+PASS A0g2 点完工作台视角后 1 s 内属性稳定为 classic（20 次采样里 0 次不是；末次实得 classic）—— §2.1 意图序号的正面证据
+PASS A0h 左栏五条线程都已渲染（后续点行操作的前提）
+PASS A1a 已坐在「seated」那条线程上
+PASS A1b 线程「seated」真的停在待决了（服务端事实）
+PASS A1 坐在该线程上时不出安静卡（实测 0 张）——在场门①
+PASS A2a0 线程「other」的待决先在服务端真的产生了（排除法：区分「没触发」与「触发了但没渲染」）
+PASS A2a 工作台坐在别的线程时，「other」的待决出了一张安静卡
+PASS A2b needs_you 印问句前 22 字（实测「other 那件事要等吗？」）
+PASS A2c 卡上有候选答案（2 个）＋「去看」＋「稍后」（实测候选 2 个）
+PASS B1 候选答案点下去之后，「other」的待决从 /api/interventions 消失（服务端事实）
+PASS B2 卡片本身也跟着收起（点候选答案即处理完毕，不需要再按「稍后」）
+PASS A3a 线程「steward」的待决已经产生（服务端事实，不受视角影响）
+PASS A3b 管家视角下不出安静卡（实测视角 steward／0 张）——在场门③
+PASS A3c 今天的收件箱行为不变：管家视角下这条线程照常在 /api/missions 里算「等你」（wait.reason===needs_you）
+PASS C0 线程「go」的安静卡出现了
+PASS C1 「去看」把中栏换成了那条线程，且视角仍是 classic（不切视角）
+PASS C2 「去看」之后那张卡自己收起（用户已经在看了，不用再提醒）
+PASS D0a 「other」的第一轮真正收尾（activeTurn 落回 false）
+PASS D0 「other」第二次待决又出了一张卡（新的一次，不是残留）
+PASS D0b 此刻仍只有一张（第一张已在 B 阶段被候选答案收走）
+PASS D0c 「other」的第二轮也真正收尾
+PASS D0d 第二个待决在别处答掉之后，「other」那张安静卡撤了（线程不再等你就撤卡）
+PASS D1a 收件箱 tick 跑过一拍后，第三次待决出了一张新卡
+PASS D1 同线程只有一张卡（DOM 数 .quiet-card[session=other] = 1）
+PASS D2 它是新卡、没有合并计数徽标（旧卡已在答完时撤掉；实测「」）
+PASS E0 线程「quiet」的待决已经产生（服务端事实）
+PASS E1 静默时段覆盖此刻时不出安静卡（实测卡片 sessionId 列表 ["sess_620bf62cf65de88b"]）
+PASS E2 只更新左栏：左栏取数的 /api/missions 那一行仍然照常算出「等你」（wait.reason===needs_you）
+SHOT /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-RPyOlh/ruyi-quiet-card-FlPTaR/quiet-card-final.png
+
+QUIET CARD BROWSER E2E: ALL PASS

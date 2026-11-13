@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-13T02:49:03.677705+00:00",
+  "kind": "Read-only capture observer name-independent delta review while authorization handoff pending",
+  "result": "pass_code_review",
+  "findings": [],
+  "previousReview": "fixture-code-review.json",
+  "previousFreeze": "fixture-source-freeze-before-name-fix.json",
+  "currentFreeze": "fixture-source-freeze.json",
+  "currentFreezeSha256": "0c93288f8e7b611556b558bfc0f55d8cd45a77d9f844bf679d534993665781b5",
+  "reviewedBindings": [
+    {
+      "file": "dev-harness/macos-capture-host.e2e.js",
+      "sha256": "49acfc2f0ce0d325d37b3b321e146542b15ad39313193010956daa11b8355d5b"
+    },
+    {
+      "file": "dev-harness/macos-input-host.e2e.js",
+      "sha256": "e8878d9dbc80c974c1cc521abee2d7c5db6cf6002586dbb9d281fc1b07bc8632"
+    }
+  ],
+  "changedSincePreviousFreeze": [
+    "dev-harness/macos-capture-host.e2e.js"
+  ],
+  "original54ChangedOnlyExpectedTwoFixtureFiles": true,
+  "checks": [
+    "Mac native process snapshot may omit name; parseProcessTable permits empty names. New observer correctly avoids name-based prefilter.",
+    "Before-launch snapshot must exist. Each candidate is reported nativePID or a new exact pid/birth pair relative to the snapshot. Candidate collection grants no ownership or kill permission by itself.",
+    "Only exact App binary prefix and unique acceptance-report argument match may register ownership; different observed root pid/birth throws.",
+    "Root/descendant birth collection, directly observed Node child assertion, all-observed absent assertion and verified TERM/KILL cleanup remain unchanged. BigInt comparison remains exact; receipt conversion remains string.",
+    "Polling begins before report inspection; ready report still triggers explicit nativePID observation. Failure to observe identities continues to fail rather than bypassing the assertion.",
+    "Installed Full input receipt from latest main run now explicitly confirms installed-app-bundle helper origin and SHA3131822a..., so earlier helper binding source issue is closed in actual invocation metadata. Authorization positive result is still not passed."
+  ],
+  "permissionObservation": {
+    "evidence": "permission-category-observation.json",
+    "review": "Recorded UI observation distinguishes old Slim in screen-capture category from fixed Full in system-audio-only category. This explains recorded grant-category mismatch; reviewer did not independently operate or observe UI. Exact screen-capture grant/authentication remains pending."
+  },
+  "noExecution": {
+    "testsRun": 0,
+    "appsLaunched": 0,
+    "nativeToolsInvoked": 0,
+    "UIActions": 0,
+    "settingsChanged": 0,
+    "sourceEdits": 0
+  },
+  "limits": [
+    "Earlier capture identity assertion failure remains historical evidence; this source review is not an execution pass.",
+    "Do not change immutable installed App bytes/signature during the handoff. Independent actual capture/input checks need a later serial authorized window.",
+    "Formal identity/notarization/macOS14/Windows/clean user and original P5 gates remain scoped separately."
+  ]
+}

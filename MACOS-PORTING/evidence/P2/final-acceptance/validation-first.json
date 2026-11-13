@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-06",
+  "candidateCommit": "bbddb64a643dd0dc5728c860cb88f77333f71df1",
+  "userDecision": "除了暂缓部分，整体验收P2",
+  "scope": "P2全阶段，排除已明确暂缓的真实账号服务、登录Keychain交互、Windows同候选验收；既定P4/P6交接保留",
+  "host": {
+    "os": "27.0.1",
+    "arch": "arm64",
+    "node": "v24.15.0"
+  },
+  "checks": [
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 26.2,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "build-check.txt"
+    },
+    {
+      "name": "fast-gates",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 1,
+      "seconds": 127.2,
+      "log": "fast-gates-first.txt"
+    }
+  ],
+  "plannedCheckCount": 34
+}

@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-08",
+  "status": "passed_current_host_short_software_sleep",
+  "scope": "one actual Software Sleep to DarkWake to HID FullWake cycle, about 2.816 seconds",
+  "sleepCommandExitCode": 0,
+  "simulationFlag": false,
+  "nativeSleepEvents": 1,
+  "nativeWakeEvents": 1,
+  "wakeValidated": true,
+  "sameAppCreationIdentity": true,
+  "sameServiceCreationIdentity": true,
+  "sameServiceOverlay": true,
+  "sse": "observed successful wake reconnection carrying Last-Event-ID 2 and new thread.created id3 with automatic page update",
+  "reviewer": "/root/p4_host_review",
+  "independentReview": "native process identities, live health, source hashes and powerd sequence verified; UI observations supplied from CUA",
+  "loginStartup": "registered then unregistered, final status0 and system row removed",
+  "limitations": [
+    "deep sleep and long suspension not exercised",
+    "scheduler disabled in this physical fixture; actual scheduler late-run/skip and MCP/CLI cleanup covered by separate independent lifecycle23 under simulated callbacks and real backend suspension",
+    "precise pre-sleep SSE cursor continuity not measured"
+  ]
+}

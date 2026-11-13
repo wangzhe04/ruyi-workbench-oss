@@ -1,0 +1,173 @@
+{
+  "capture": {
+    "supported": true,
+    "installed": true,
+    "authorization": "granted",
+    "ready": true,
+    "reasonCode": "",
+    "coordinate_space": "macos_global_points"
+  },
+  "fixture": {
+    "miniaturized": false,
+    "content": {
+      "y": 447,
+      "x": 160,
+      "width": 640,
+      "height": 420
+    },
+    "id": 3028,
+    "event": "ready",
+    "title": "Ruyi P5 Capture 33733",
+    "clipboardSnapshot": false,
+    "pid": 33733
+  },
+  "displays": {
+    "ok": true,
+    "applicationReady": 1,
+    "authorization": "granted",
+    "axReady": 1,
+    "axSupported": true,
+    "backend": "ScreenCaptureKit",
+    "clipboardReady": 1,
+    "coordinate_space": "macos_global_points",
+    "eventAuthorization": "granted",
+    "inputReady": 1,
+    "locked": false,
+    "monitors": [
+      {
+        "height": 1107,
+        "id": 1,
+        "index": 0,
+        "is_primary": 1,
+        "scale": 2,
+        "width": 1710,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "permissionRequestsMade": false,
+    "pointerQueryReady": 1,
+    "protocolVersion": 1,
+    "ready": 1,
+    "virtual": {
+      "height": 1107,
+      "width": 1710,
+      "x": 0,
+      "y": 0
+    },
+    "windowAuthorization": "granted",
+    "windowListReady": 1,
+    "windowReady": 1,
+    "primary": {
+      "height": 1107,
+      "id": 1,
+      "index": 0,
+      "is_primary": 1,
+      "scale": 2,
+      "width": 1710,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "region": {
+    "width": 333,
+    "height": 219,
+    "origin": {
+      "x": 160,
+      "y": 447
+    },
+    "scale": 0.5203125,
+    "scale_y": 0.5214285714285715,
+    "matches": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "window": {
+    "width": 1280,
+    "height": 896,
+    "origin": {
+      "x": 160,
+      "y": 419
+    },
+    "scale": 2,
+    "scale_y": 2,
+    "matches": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "region-full-resolution": {
+    "width": 1280,
+    "height": 840,
+    "origin": {
+      "x": 160,
+      "y": 447
+    },
+    "scale": 2,
+    "scale_y": 2,
+    "matches": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "monitor-0": {
+    "width": 428,
+    "height": 277,
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "scale": 0.25029239766081873,
+    "scale_y": 0.25022583559168926,
+    "matches": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "monitor-all": {
+    "width": 428,
+    "height": 277,
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "scale": 0.25029239766081873,
+    "scale_y": 0.25022583559168926,
+    "matches": [
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "covered-window": {
+    "width": 333,
+    "height": 233,
+    "origin": {
+      "x": 160,
+      "y": 419
+    },
+    "scale": 0.5203125,
+    "scale_y": 0.5200892857142857,
+    "matches": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "windowAmbiguity": {
+    "ok": false,
+    "code": "window_ambiguous",
+    "count": 2
+  }
+}

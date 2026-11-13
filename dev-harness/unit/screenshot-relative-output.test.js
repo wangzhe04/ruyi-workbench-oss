@@ -14,7 +14,8 @@ process.env.RUYI_HOME = path.join(root, 'data');
 process.env.WIN_CLAUDE_WORKBENCH_HOME = process.env.RUYI_HOME;
 process.env.HOME = root;
 process.env.USERPROFILE = root;
-const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// Exercise the existing Windows screenshot path guard; Mac rejects this tool before its handler.
+const srv = require('../lib/server-internals').loadServerInternals(['toolCall', 'killAllMcpClients'], { testPlatform: 'win32' });
 const { toolCall } = srv;
 after(() => { try { srv.killAllMcpClients && srv.killAllMcpClients(); } catch { /* ignore */ } try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* ignore */ } });
 
@@ -30,10 +31,11 @@ test('[F1] desktop_screenshot 相对 outputPath 按工作区解析:越界相对�
     `报出的路径应是工作区解析的结果;修前是 path.resolve('../escape-shot.png') 落到进程 cwd(${process.cwd()})`);
 });
 
-test('[F1] desktop_screenshot 工作区内的相对 outputPath 不再被判越界(非 Windows 上停在「只能在 Windows 使用」)', { skip: process.platform === 'win32' }, async () => {
+test('[F1] desktop_screenshot 工作区内的相对 outputPath 不再被判越界(Windows 视图在非 Windows 夹具上报告缺 PowerShell)', { skip: process.platform === 'win32' }, async () => {
   const r = await toolCall('desktop_screenshot', { outputPath: 'shots/inside.png' }, ctx);
   assert.notEqual(r.code, 'not-allowed', `工作区内的相对路径不该被写闸拒(got ${JSON.stringify(r).slice(0, 200)})`);
-  assert.match(String(r.error || ''), /Windows/, '没有 PowerShell 的平台上,走到截图那一步才报「只能在 Windows 上使用」');
+  assert.equal(r.code, 'powershell_missing', 'the Windows path guard reaches the screenshot handler after accepting the workspace path');
+  assert.match(String(r.error || ''), /PowerShell/);
 });
 
 test('[F1] desktop_screenshot 的 ~ 先展开成家目录再过写闸(家目录在工作区外 → 拒,报展开后的真路径)', async () => {

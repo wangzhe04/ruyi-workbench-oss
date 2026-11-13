@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Shared control-frame state machine and synchronous native deadline adapter",
+    "CLI/Git/rg/Python synchronous callsites and uncertainty propagation",
+    "Deterministic retained-pipe unit fixture preserving all old assertions",
+    "rg cache recovery after helper loss"
+  ],
+  "blockingFindings": 0,
+  "resolvedFindings": [
+    "Replace timing-dependent S4 fixture with a real bounded retained-pipe holder under controlled protocol",
+    "Prevent permanent rg-negative cache on temporary helper loss"
+  ],
+  "tests": {
+    "syncProbesFinal": 27,
+    "processRuntime": 62,
+    "asyncExecutableProbe": 14,
+    "execResultShapeUnit": 14
+  },
+  "limitations": [
+    "Probe-only ignore/capture layout, no arbitrary stdio/input/shell API",
+    "Windows/macOS14 actual runtime remains unverified"
+  ]
+}

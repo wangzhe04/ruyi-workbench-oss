@@ -1,0 +1,43 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c config.threadIndexRecent 落到 10(进了 defaultConfig 与清洗块;实得 10)
+PASS B1 窗口内最新的那条旧会话进索引(sess_old_014)
+PASS B2 窗口外最老的那条旧会话【不】进索引(sess_old_000);修前这一类恒不进,修后也不该被窗口放进来
+PASS B3 旧会话进索引的条数 = 窗口 10 + watched 的那 1 条 = 11(实得 11)
+PASS B4 窗口外但 launchedBy:'steward' 的旧线程照样在索引里(sess_old_001,watched 那一条并集)
+PASS B5 它的 watched===true、origin==='steward'(存量头上没有 origin 字段,读侧由 06i threadOriginOf 从 launchedBy 派生;实得 watched=true origin=steward)
+PASS A1 POST /api/sessions 开出普通会话(sess_acb84f7d468c196f)
+PASS A2 会话头写下 origin:'user'(实得 user)
+PASS A3 【本刀要修的那一条】2.0 新开的普通会话出现在 GET /api/missions
+PASS A4 行上 origin==='user'(实得 user)
+PASS A5 行上 watched===false(管家不盯它;实得 false)
+PASS A6 没有活回合时 liveTail===null(不编空壳;实得 null)
+PASS A7 没有在场连接时 seatedBy===null(实得 null)
+PASS C1 PATCH /api/sessions/:id {stewardWatch:true} 200(实得 200)
+PASS C2 窗口外的旧线程被「交给管家盯」之后进了索引(sess_old_000)
+PASS C3 它的 watched===true(实得 true)
+PASS C4 交给管家盯【不】改出身:origin 仍是 'user'(实得 user)
+PASS C5 PATCH {origin:'steward'} 改不动出身(白名单里没有 origin 这一支;实得 user)
+PASS D0 写 false 之前它是 watched(launchedBy:'steward' 那条判据;实得 true)
+PASS D1 PATCH {stewardWatch:false} 200(实得 200)
+PASS D2 用户接手:写 false 对【管家自己开的】线程同样生效,watched 翻假(sess_old_001;实得 false)
+PASS D3 接手【不】改出身:它仍然是管家开的那条线程(origin==='steward';实得 steward)
+PASS F1 管家 steward_thread_new 开出线程(sess_904b42f344d25046)
+PASS F2 管家开的线程 origin==='steward'(createSession 显式写下;实得 steward)
+PASS F3 它的 watched===true(实得 true)
+PASS F4 活回合期间 liveTail 非空(§4.2 行加 liveTail 摘要;实得 {"tool":"","updatedAt":"","iterations":0})
+PASS F5 liveTail 摘要【只有】三个键 tool/updatedAt/iterations(§6.1 红线:不承载工具输出正文;实得 ["iterations","tool","updatedAt"])
+PASS F6 摘要里没有 text、也没有 full(正文要走 GET /api/sessions/:id 的 liveTail,那里有自己的预算)
+PASS F7 摘要的 iterations 随工具调用前进(实得 iterations=1)
+PASS F8 摘要始终带着 tool 这一格(工具没在跑时是空串,不是缺键;实得 "")
+PASS E1 watched 的线程回合结束后进收件箱(sess_old_000 的 done)
+PASS E2 同款但没被交给管家的线程,回合结束【不】进收件箱(sess_old_002;§4.2「回合结束的 watched 过滤保留」)
+PASS E3 「交给管家盯」写下的那一刻进箱成 adopted 行(sess_old_000)
+PASS E4 adopted 行的载荷带 by:'user'(与 missionAttachThread 派的同名事件分开;实得 "user")
+PASS S1 threadVisible 单点在编译产物里(定义在 06i)
+PASS S2 threadOriginOf 单点在编译产物里(定义在 06i)
+PASS S3 投影索引 schema 至少是 6(卡片形状与产生条件都变了,必须强制重建;实 8)
+PASS S4 stewardWatchedThread 的两条显式开关分支排在原三条判据之前
+PASS S5 liveTail 摘要的 tool/iterations 直接取自活回合登记项的累加器(不另攒一套)
+
+THREAD INDEX VISIBILITY E2E: ALL PASS

@@ -1,0 +1,6768 @@
+{
+  "results": [
+    {
+      "owner": 0,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 492
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "E9E0BFF9-29D0-46B8-8B5F-895633AA67EE"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "83ECA233-5FCD-4363-BC11-A8938DB1DD94"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "DC448361-7D47-4E45-BC19-DF21FBB35E51"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "81B507DB-6D64-48DD-AD49-C4BEEE21CCAE"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "F4B5E684-ECB6-4E2E-8E30-BD07E0F63B4C"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 1,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 492
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "289F01E1-CD89-43AD-8D75-C07322989190"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "67ED5BAD-1228-407C-8E90-7CFB23439057"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "4185F544-72F5-4833-8F19-A703CDD02041"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "7059A2EA-E3BF-4CB0-B984-4D662C9B880B"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "15AC3DD9-F128-40EE-8582-8EB4D77E6DF2"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "focus_window",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "foreground_verified": true,
+        "matched": true,
+        "protocolVersion": 1,
+        "window": {
+          "application": "receiver",
+          "handle": 4282,
+          "height": 528,
+          "pid": 91643,
+          "process_start": "1794372087:671165",
+          "target": {
+            "bounds": {
+              "height": 528,
+              "width": 760,
+              "x": 180,
+              "y": 492
+            },
+            "handle": 4282,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "ref": "E9E0BFF9-29D0-46B8-8B5F-895633AA67EE"
+          },
+          "title": "Ruyi P5 Input 91643",
+          "visible": true,
+          "width": 760,
+          "x": 180,
+          "y": 492
+        }
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 12,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.26543004099221434,
+              "ended": 0.6937893750000512,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 45,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 52449,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 45,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 97087,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 34,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 114355,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 34,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 147248,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 4,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 190437,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 4,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 226471,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 266487,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 309550,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 31,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 346804,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 31,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 386593,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 49,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 428359,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 49,
+                  "repeat": 0,
+                  "type": "key_up"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.inputmethod.SCIM.ITABC",
+            "type": "TISTypeKeyboardInputMode"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 12,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 2,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.024305249666213058,
+              "ended": 0.06526924966601655,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down",
+                  "unicode": "z"
+                },
+                {
+                  "at_us": 40964,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true,
+        "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-0/macros/manual ascii.json",
+        "output_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-0/macros/manual ascii.json",
+        "saved_as": "manual ascii"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 2,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 2,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.013592457660706714,
+              "ended": 0.05548370764881838,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down",
+                  "unicode": "😀"
+                },
+                {
+                  "at_us": 41891,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 2,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 4,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.018415499667753465,
+              "ended": 0.2022935826680623,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 56,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 81634,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down",
+                  "unicode": "z"
+                },
+                {
+                  "at_us": 120518,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 183878,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 56,
+                  "type": "flags"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 4,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 4,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.017490374651970342,
+              "ended": 0.19818883265543263,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 56,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 82985,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 120571,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 180698,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 56,
+                  "type": "flags"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 4,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 6,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.017574207988218404,
+              "ended": 0.31919320799352136,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 524288,
+                  "keyboard_type": 91,
+                  "keycode": 58,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 82589,
+                  "flags": 524288,
+                  "keyboard_type": 91,
+                  "keycode": 14,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 123326,
+                  "flags": 524288,
+                  "keyboard_type": 91,
+                  "keycode": 14,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 185146,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 58,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 263831,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 14,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 301619,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 14,
+                  "repeat": 0,
+                  "type": "key_up"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 6,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 5,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.013788208321784623,
+              "ended": 0.3357591663225321,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 80796,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 1,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 162748,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 1,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 242360,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 321971,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 1,
+                  "repeat": 0,
+                  "type": "key_up"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 5,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 16,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.026228666334645823,
+              "ended": 0.9696649163233815,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down",
+                  "unicode": "示范"
+                },
+                {
+                  "at_us": 41847,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 122564,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 55,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 201976,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 245503,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 0,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 304328,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 55,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 380807,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 55,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 461919,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 8,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 501981,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 8,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 562580,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 55,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 641688,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 124,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 682701,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 124,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 763626,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 55,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 847987,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 9,
+                  "repeat": 0,
+                  "type": "key_down"
+                },
+                {
+                  "at_us": 881119,
+                  "flags": 1048576,
+                  "keyboard_type": 91,
+                  "keycode": 9,
+                  "repeat": 0,
+                  "type": "key_up"
+                },
+                {
+                  "at_us": 943436,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 55,
+                  "type": "flags"
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 16,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 2,
+      "name": "macro_list",
+      "result": {
+        "ok": true,
+        "count": 1,
+        "macros": [
+          {
+            "name": "manual ascii",
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-0/macros/manual ascii.json",
+            "valid": true,
+            "steps": 1,
+            "source": "native_window_events"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "owner": 2,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 492
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "8F75464B-6940-4DCE-8379-EBAF735DD522"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "936C761C-42CB-4DD4-BA1B-ED06A34D761B"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "C9EFCB12-C681-4346-B1FE-33CF0222F954"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "3D2F6694-798D-40C2-B742-A40578AA9B91"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "D17A3AE8-817C-44A5-B92C-DB24CDF05489"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 2,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 2,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 3,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 180,
+                "y": 492
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "09C20ED3-76E9-4A8E-AD9C-B0309D60C398"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "CAF19AD2-0A81-4570-BFC4-B21EF1804742"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "E5D6A882-6FB8-42AB-9448-8061479A6520"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "090B4842-B347-418E-A752-D08C71C7FFEE"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "7C60AE57-2535-4893-8A43-A9F892EB5D19"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 3,
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "code": "tool_unavailable",
+        "error": "A recorded input tool is unavailable in the current registry"
+      }
+    },
+    {
+      "owner": 3,
+      "name": "batch_actions",
+      "result": {
+        "ok": false,
+        "success": false,
+        "completed": 0,
+        "failed": 1,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": false,
+            "error": "unknown or non-batchable tool: input_sequence"
+          }
+        ]
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 5,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_start",
+      "result": {
+        "ok": true,
+        "max_seconds": 60,
+        "protocolVersion": 1,
+        "recording": true,
+        "source": "native_window_events"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "input_sequence",
+      "result": {
+        "ok": true,
+        "acted": true,
+        "action_sent": true,
+        "event_count": 15,
+        "protocolVersion": 1,
+        "verification": "events_posted"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [
+            {
+              "at": 0.024655000001075678,
+              "ended": 1.027090165996924,
+              "events": [
+                {
+                  "at_us": 0,
+                  "flags": 131072,
+                  "keyboard_type": 91,
+                  "keycode": 56,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 81794,
+                  "button": 0,
+                  "click_state": 1,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 131072,
+                  "pressure": 0,
+                  "type": "mouse_down",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 162598,
+                  "button": 0,
+                  "click_state": 1,
+                  "delta_x": 30,
+                  "delta_y": 20,
+                  "flags": 131072,
+                  "pressure": 0,
+                  "type": "drag",
+                  "x": 330,
+                  "y": 910
+                },
+                {
+                  "at_us": 244824,
+                  "button": 0,
+                  "click_state": 1,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 131072,
+                  "pressure": 0,
+                  "type": "mouse_up",
+                  "x": 330,
+                  "y": 910
+                },
+                {
+                  "at_us": 301248,
+                  "flags": 0,
+                  "keyboard_type": 91,
+                  "keycode": 56,
+                  "type": "flags"
+                },
+                {
+                  "at_us": 383948,
+                  "continuous": true,
+                  "delta": [
+                    2,
+                    -3,
+                    0
+                  ],
+                  "fixed": [
+                    2.25,
+                    -3.5,
+                    0
+                  ],
+                  "flags": 0,
+                  "momentum": 0,
+                  "phase": 1,
+                  "point": [
+                    9,
+                    -14,
+                    0
+                  ],
+                  "scroll_count": 1,
+                  "type": "scroll",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 462466,
+                  "continuous": true,
+                  "delta": [
+                    2,
+                    -3,
+                    0
+                  ],
+                  "fixed": [
+                    2.25,
+                    -3.5,
+                    0
+                  ],
+                  "flags": 0,
+                  "momentum": 0,
+                  "phase": 2,
+                  "point": [
+                    9,
+                    -14,
+                    0
+                  ],
+                  "scroll_count": 1,
+                  "type": "scroll",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 543235,
+                  "continuous": true,
+                  "delta": [
+                    2,
+                    -3,
+                    0
+                  ],
+                  "fixed": [
+                    2.25,
+                    -3.5,
+                    0
+                  ],
+                  "flags": 0,
+                  "momentum": 0,
+                  "phase": 4,
+                  "point": [
+                    9,
+                    -14,
+                    0
+                  ],
+                  "scroll_count": 1,
+                  "type": "scroll",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 623891,
+                  "continuous": true,
+                  "delta": [
+                    2,
+                    -3,
+                    0
+                  ],
+                  "fixed": [
+                    2.25,
+                    -3.5,
+                    0
+                  ],
+                  "flags": 0,
+                  "momentum": 1,
+                  "phase": 0,
+                  "point": [
+                    9,
+                    -14,
+                    0
+                  ],
+                  "scroll_count": 1,
+                  "type": "scroll",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 703884,
+                  "continuous": true,
+                  "delta": [
+                    2,
+                    -3,
+                    0
+                  ],
+                  "fixed": [
+                    2.25,
+                    -3.5,
+                    0
+                  ],
+                  "flags": 0,
+                  "momentum": 2,
+                  "phase": 0,
+                  "point": [
+                    9,
+                    -14,
+                    0
+                  ],
+                  "scroll_count": 1,
+                  "type": "scroll",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 783805,
+                  "continuous": true,
+                  "delta": [
+                    2,
+                    -3,
+                    0
+                  ],
+                  "fixed": [
+                    2.25,
+                    -3.5,
+                    0
+                  ],
+                  "flags": 0,
+                  "momentum": 3,
+                  "phase": 0,
+                  "point": [
+                    9,
+                    -14,
+                    0
+                  ],
+                  "scroll_count": 1,
+                  "type": "scroll",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 864643,
+                  "button": 0,
+                  "click_state": 1,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 0,
+                  "pressure": 0,
+                  "type": "mouse_down",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 902879,
+                  "button": 0,
+                  "click_state": 1,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 0,
+                  "pressure": 0,
+                  "type": "mouse_up",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 961569,
+                  "button": 0,
+                  "click_state": 2,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 0,
+                  "pressure": 0,
+                  "type": "mouse_down",
+                  "x": 300,
+                  "y": 890
+                },
+                {
+                  "at_us": 1002435,
+                  "button": 0,
+                  "click_state": 2,
+                  "delta_x": 0,
+                  "delta_y": 0,
+                  "flags": 0,
+                  "pressure": 0,
+                  "type": "mouse_up",
+                  "x": 300,
+                  "y": 890
+                }
+              ],
+              "op": "input.sequence"
+            }
+          ],
+          "application": {
+            "bundle_id": "",
+            "executable": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 180,
+            "y": 492
+          },
+          "complete": true,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "stopped",
+          "input_source": {
+            "id": "com.apple.keylayout.ABC",
+            "type": "TISTypeKeyboardLayout"
+          },
+          "platform": "darwin",
+          "schema": 2,
+          "source": "native_window_events"
+        },
+        "count": 1,
+        "complete": true
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 15,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Pass a complete bounded Mac recording from record_stop",
+        "code": "recording_invalid"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": false,
+        "error": "DesktopError: Mouse point would hit window 4293, expected 4282",
+        "code": "target_occluded"
+      }
+    },
+    {
+      "owner": 0,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 220,
+                "y": 499
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "E9E0BFF9-29D0-46B8-8B5F-895633AA67EE"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "83ECA233-5FCD-4363-BC11-A8938DB1DD94"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "DC448361-7D47-4E45-BC19-DF21FBB35E51"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "81B507DB-6D64-48DD-AD49-C4BEEE21CCAE"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "F4B5E684-ECB6-4E2E-8E30-BD07E0F63B4C"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 1,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 220,
+                "y": 499
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "289F01E1-CD89-43AD-8D75-C07322989190"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "67ED5BAD-1228-407C-8E90-7CFB23439057"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "4185F544-72F5-4833-8F19-A703CDD02041"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "7059A2EA-E3BF-4CB0-B984-4D662C9B880B"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "15AC3DD9-F128-40EE-8582-8EB4D77E6DF2"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 0,
+      "name": "macro_run",
+      "result": {
+        "ok": true,
+        "success": true,
+        "completed": 1,
+        "failed": 0,
+        "results": [
+          {
+            "step": 0,
+            "tool": "input_sequence",
+            "ok": true,
+            "result": {
+              "acted": true,
+              "action_sent": true,
+              "event_count": 15,
+              "ok": true,
+              "protocolVersion": 1,
+              "verification": "events_posted"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "owner": 1,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 220,
+                "y": 499
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "289F01E1-CD89-43AD-8D75-C07322989190"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "67ED5BAD-1228-407C-8E90-7CFB23439057"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "4185F544-72F5-4833-8F19-A703CDD02041"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "7059A2EA-E3BF-4CB0-B984-4D662C9B880B"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "15AC3DD9-F128-40EE-8582-8EB4D77E6DF2"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 1,
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 10,
+        "records": [
+          {
+            "ts": "2026-11-11T12:41:30",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=12>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 661,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:31",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 56,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:32",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 54,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:33",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:34",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:36",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=6>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 321,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:37",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 342,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:39",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=16>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 972,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:42",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 318,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:43",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=15>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 1026,
+            "action_sent": true
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-1/logs"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 10,
+        "records": [
+          {
+            "ts": "2026-11-11T12:41:30",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=12>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 661,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:31",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 56,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:32",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 54,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:33",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:34",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:36",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=6>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 321,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:37",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 342,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:39",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=16>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 972,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:42",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 318,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:43",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=15>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 1026,
+            "action_sent": true
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-1/logs"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 11,
+        "records": [
+          {
+            "ts": "2026-11-11T12:41:30",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=12>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 661,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:31",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 56,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:32",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 54,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:33",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:34",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:36",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=6>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 321,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:37",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 342,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:39",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=16>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 972,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:42",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 318,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:43",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=15>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 1026,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:46",
+            "tool": "input_sequence",
+            "ok": false,
+            "args": {
+              "events": "<list len=8>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "error": "Tool execution cancelled",
+            "ms": 166,
+            "cancelled": true,
+            "action_sent": true,
+            "outcome": "unconfirmed"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-1/logs"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 11,
+        "records": [
+          {
+            "ts": "2026-11-11T12:41:30",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=12>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 661,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:31",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 56,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:32",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 54,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:33",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:34",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:36",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=6>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 321,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:37",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 342,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:39",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=16>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 972,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:42",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 318,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:43",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=15>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 1026,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:46",
+            "tool": "input_sequence",
+            "ok": false,
+            "args": {
+              "events": "<list len=8>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "error": "Tool execution cancelled",
+            "ms": 166,
+            "cancelled": true,
+            "action_sent": true,
+            "outcome": "unconfirmed"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-1/logs"
+      }
+    },
+    {
+      "owner": 1,
+      "name": "list_windows",
+      "result": {
+        "ok": true,
+        "coordinate_space": "macos_global_points",
+        "count": 5,
+        "partial": 0,
+        "protocolVersion": 1,
+        "windows": [
+          {
+            "application": "receiver",
+            "handle": 4282,
+            "height": 528,
+            "pid": 91643,
+            "process_start": "1794372087:671165",
+            "target": {
+              "bounds": {
+                "height": 528,
+                "width": 760,
+                "x": 220,
+                "y": 499
+              },
+              "handle": 4282,
+              "pid": 91643,
+              "process_start": "1794372087:671165",
+              "ref": "D9A8CE84-11C0-4E7D-9034-1313CC004C3F"
+            },
+            "title": "Ruyi P5 Input 91643",
+            "visible": true,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          {
+            "application": "ChatGPT",
+            "handle": 122,
+            "height": 986,
+            "pid": 1626,
+            "process_start": "1794280929:783739",
+            "target": {
+              "bounds": {
+                "height": 986,
+                "width": 1710,
+                "x": 0,
+                "y": 34
+              },
+              "handle": 122,
+              "pid": 1626,
+              "process_start": "1794280929:783739",
+              "ref": "1AB255DA-0E06-4AFE-9BFB-9AE0A8B89DF8"
+            },
+            "title": "梳理如意工作台 Mac 本地化 P5",
+            "visible": true,
+            "width": 1710,
+            "x": 0,
+            "y": 34
+          },
+          {
+            "application": "微信",
+            "handle": 1356,
+            "height": 839,
+            "pid": 68646,
+            "process_start": "1794296727:896050",
+            "target": {
+              "bounds": {
+                "height": 839,
+                "width": 986,
+                "x": 215,
+                "y": 136
+              },
+              "handle": 1356,
+              "pid": 68646,
+              "process_start": "1794296727:896050",
+              "ref": "F9D70A6C-0AFE-46D0-B76E-88105DB33504"
+            },
+            "title": "微信",
+            "visible": true,
+            "width": 986,
+            "x": 215,
+            "y": 136
+          },
+          {
+            "application": "QQ",
+            "handle": 3448,
+            "height": 774,
+            "pid": 85159,
+            "process_start": "1794318212:381639",
+            "target": {
+              "bounds": {
+                "height": 774,
+                "width": 1023,
+                "x": 102,
+                "y": 90
+              },
+              "handle": 3448,
+              "pid": 85159,
+              "process_start": "1794318212:381639",
+              "ref": "75AC7F2B-5794-4AD0-93A9-B9BA505EBFB4"
+            },
+            "title": "QQ",
+            "visible": true,
+            "width": 1023,
+            "x": 102,
+            "y": 90
+          },
+          {
+            "application": "系统设置",
+            "handle": 535,
+            "height": 625,
+            "pid": 44893,
+            "process_start": "1794290149:736919",
+            "target": {
+              "bounds": {
+                "height": 625,
+                "width": 754,
+                "x": 126,
+                "y": 115
+              },
+              "handle": 535,
+              "pid": 44893,
+              "process_start": "1794290149:736919",
+              "ref": "3DF3A071-DECB-45AA-8187-DAA272CC2CB2"
+            },
+            "title": "设备控制和数据访问",
+            "visible": true,
+            "width": 754,
+            "x": 126,
+            "y": 115
+          }
+        ]
+      }
+    },
+    {
+      "owner": 1,
+      "name": "audit_tail",
+      "result": {
+        "ok": true,
+        "count": 11,
+        "records": [
+          {
+            "ts": "2026-11-11T12:41:30",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=12>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 661,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:31",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 56,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:32",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=2>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 54,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:33",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:34",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=4>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 198,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:36",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=6>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 321,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:37",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 342,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:39",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=16>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 972,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:42",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=5>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 318,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:43",
+            "tool": "input_sequence",
+            "ok": true,
+            "args": {
+              "events": "<list len=15>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "ms": 1026,
+            "action_sent": true
+          },
+          {
+            "ts": "2026-11-11T12:41:46",
+            "tool": "input_sequence",
+            "ok": false,
+            "args": {
+              "events": "<list len=8>",
+              "target": "<dict keys=5>",
+              "input_source": "<dict keys=2>"
+            },
+            "error": "Tool execution cancelled",
+            "ms": 166,
+            "cancelled": true,
+            "action_sent": true,
+            "outcome": "unconfirmed"
+          }
+        ],
+        "log_dir": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-manual-IiPWHc/acc-1/logs"
+      }
+    },
+    {
+      "name": "cleanup-input-state",
+      "result": {
+        "clipboardChanged": false,
+        "clipboardPreserved": false,
+        "clipboardSnapshot": true,
+        "clipboardVersion": 609,
+        "combinedFlags": 536870912,
+        "counts": {
+          "dragged": 4,
+          "horizontal_scroll": 18,
+          "key_down": 41,
+          "key_up": 41,
+          "left_down": 12,
+          "left_up": 12
+        },
+        "cursorX": 340,
+        "cursorY": 897,
+        "editor": {
+          "height": 260,
+          "width": 720,
+          "x": 240,
+          "y": 547
+        },
+        "event": "state",
+        "hidFlags": 536870912,
+        "hidLeft": false,
+        "hidShift": false,
+        "id": 4282,
+        "inputSource": "com.apple.keylayout.ABC",
+        "leftHeld": false,
+        "marked": false,
+        "modifierFlags": 0,
+        "pad": {
+          "height": 170,
+          "width": 720,
+          "x": 240,
+          "y": 837
+        },
+        "pid": 91643,
+        "temporaryClipboardOwned": true,
+        "text": "z",
+        "title": "Ruyi P5 Input 91643"
+      }
+    }
+  ],
+  "reports": [
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": false,
+      "clipboardVersion": 606,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "ready",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "seed-clipboard",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-pinyin",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {},
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 6,
+        "key_up": 6
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "你好",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 6,
+        "key_up": 6
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 12,
+        "key_up": 12
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.inputmethod.SCIM.ITABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "你好",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 12,
+        "key_up": 12
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "你好",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 12,
+        "key_up": 12
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "你好",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 12,
+        "key_up": 12
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 13,
+        "key_up": 13
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 13,
+        "key_up": 13
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 14,
+        "key_up": 14
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 14,
+        "key_up": 14
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 14,
+        "key_up": 14
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 14,
+        "key_up": 14
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 15,
+        "key_up": 15
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "😀",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 15,
+        "key_up": 15
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 16,
+        "key_up": 16
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "😀",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 16,
+        "key_up": 16
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "😀",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 16,
+        "key_up": 16
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "😀",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 16,
+        "key_up": 16
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 17,
+        "key_up": 17
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 17,
+        "key_up": 17
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 18,
+        "key_up": 18
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 18,
+        "key_up": 18
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 18,
+        "key_up": 18
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 18,
+        "key_up": 18
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 19,
+        "key_up": 19
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "A",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 19,
+        "key_up": 19
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 20,
+        "key_up": 20
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "A",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 20,
+        "key_up": 20
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "A",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 20,
+        "key_up": 20
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "A",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 20,
+        "key_up": 20
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 22,
+        "key_up": 22
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "é",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 22,
+        "key_up": 22
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 24,
+        "key_up": 24
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "é",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 24,
+        "key_up": 24
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "é",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 24,
+        "key_up": 24
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "é",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 24,
+        "key_up": 24
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 26,
+        "key_up": 26
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "as",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 26,
+        "key_up": 26
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 28,
+        "key_up": 28
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "as",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 28,
+        "key_up": 28
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "source-abc",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "as",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 28,
+        "key_up": 28
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "as",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 28,
+        "key_up": 28
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": true,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 607,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 28,
+        "key_up": 28
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clipboard-track 56S66IyD",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": false,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 608,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 33,
+        "key_up": 33
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "示范示范",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 608,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 33,
+        "key_up": 33
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 38,
+        "key_up": 38
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "示范示范",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 38,
+        "key_up": 38
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-text",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "示范示范",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 38,
+        "key_up": 38
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "clear-neutral",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 39,
+        "key_up": 39
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 39,
+        "key_up": 39
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 39,
+        "key_up": 39
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "key_down": 39,
+        "key_up": 39
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-pad",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 1,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 1,
+        "left_up": 1
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "floating",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 540
+      },
+      "event": "focus-pad",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 200,
+        "y": 830
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 3,
+        "horizontal_scroll": 12,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 7,
+        "left_up": 7
+      },
+      "cursorX": 330,
+      "cursorY": 910,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "record-move",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 10,
+        "left_up": 10
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "focus-pad",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 10,
+        "left_up": 10
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 10,
+        "left_up": 10
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 39,
+        "key_up": 39,
+        "left_down": 10,
+        "left_up": 10
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 39,
+        "left_down": 10,
+        "left_up": 10
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 537001984,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 39,
+        "left_down": 11,
+        "left_up": 10
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 537001984,
+      "hidLeft": true,
+      "hidShift": true,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": true,
+      "marked": false,
+      "modifierFlags": 131072,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "focus-pad",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 40,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 41,
+        "key_up": 40,
+        "left_down": 11,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 537001984,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 41,
+        "key_up": 40,
+        "left_down": 12,
+        "left_up": 11
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 537001984,
+      "hidLeft": true,
+      "hidShift": true,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": true,
+      "marked": false,
+      "modifierFlags": 131072,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 41,
+        "key_up": 41,
+        "left_down": 12,
+        "left_up": 12
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "state",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "clipboardChanged": false,
+      "clipboardPreserved": false,
+      "clipboardSnapshot": true,
+      "clipboardVersion": 609,
+      "combinedFlags": 536870912,
+      "counts": {
+        "dragged": 4,
+        "horizontal_scroll": 18,
+        "key_down": 41,
+        "key_up": 41,
+        "left_down": 12,
+        "left_up": 12
+      },
+      "cursorX": 340,
+      "cursorY": 897,
+      "editor": {
+        "height": 260,
+        "width": 720,
+        "x": 240,
+        "y": 547
+      },
+      "event": "secure-off",
+      "hidFlags": 536870912,
+      "hidLeft": false,
+      "hidShift": false,
+      "id": 4282,
+      "inputSource": "com.apple.keylayout.ABC",
+      "leftHeld": false,
+      "marked": false,
+      "modifierFlags": 0,
+      "pad": {
+        "height": 170,
+        "width": 720,
+        "x": 240,
+        "y": 837
+      },
+      "pid": 91643,
+      "temporaryClipboardOwned": true,
+      "text": "z",
+      "title": "Ruyi P5 Input 91643"
+    },
+    {
+      "event": "clipboard-restore",
+      "restored": true
+    },
+    {
+      "event": "input-source-restore",
+      "restored": true,
+      "skipped_external_change": false
+    }
+  ]
+}

@@ -1,0 +1,251 @@
+{
+  "reviewer": "/root/p6_02_review",
+  "startedAt": "2026-11-13T03:10:48.021Z",
+  "nodeVersion": "v24.15.0",
+  "tempRoot": "/private/tmp/ruyi-p6-full-normal-independent-AFLYah",
+  "mode": "normal-ditto-copy",
+  "cloneStaging": false,
+  "explicitEnvironment": {
+    "RUYI_UPGRADE_CLONE_STAGING": "0"
+  },
+  "attempts": 1,
+  "automaticRetries": 0,
+  "freeBytesBefore": 2899013632,
+  "twoPayloadBytes": 2329303722,
+  "marginRequiredBytes": 268435456,
+  "spaceSufficient": true,
+  "artifactsBefore": [
+    {
+      "label": "old",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "sourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "treeSha256": "cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c",
+      "payloadBytes": 1164650984
+    },
+    {
+      "label": "new",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+      "imageBytes": 584388233,
+      "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "treeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+      "payloadBytes": 1164652738
+    }
+  ],
+  "testSha256": "1bf5198e95fe02bf1ffe31f8e2df46d8b9d301833019dd94e3fbe319e15381f8",
+  "fixtureCommit": "f3237570d904c9a74ba7dc58f4764e8e5d559dde",
+  "twoFixtureCommitBlobsMatchExecutedFreeze": true,
+  "exitCode": 0,
+  "signal": null,
+  "finishedAt": "2026-11-13T03:11:36.061Z",
+  "ms": 48039,
+  "timedOut": false,
+  "log": "run.txt",
+  "logSha256": "420e7f88b971c7ee279472f8c636d3ad267eadcf6713e9358852d40917c7cd9c",
+  "passCount": 14,
+  "rawVerdicts": [
+    "MACOS UPGRADE ROLLBACK E2E: ALL PASS"
+  ],
+  "skipLines": [],
+  "receiptSource": "/private/tmp/ruyi-p6-full-normal-independent-AFLYah/ruyi-upgrade-AvduG1",
+  "archived": [
+    {
+      "file": "acceptance.json",
+      "sha256": "d60a57cb71907555df84c4e0224dcd1a4acb803c47ffc4ed5f139008c44c1af8",
+      "bytes": 2874
+    },
+    {
+      "file": "new-after.json",
+      "sha256": "6e77195c39bb959bd8338062c5d5eab62c9b52cd5791a271b99be3ddd265230f",
+      "bytes": 657
+    },
+    {
+      "file": "old-before.json",
+      "sha256": "0aa2b06ed38fcac4826a469215ef1f47ef85335db26aaf41e47c70eb72e0f585",
+      "bytes": 657
+    },
+    {
+      "file": "old-restored.json",
+      "sha256": "0b82c919c1b92730be8ae24103ecd48dc49bda5b0508690ec6b293231ccb374d",
+      "bytes": 657
+    }
+  ],
+  "observedProcesses": [
+    {
+      "pid": 26909,
+      "ppid": 26868,
+      "created": "1794539448022836"
+    },
+    {
+      "pid": 26911,
+      "ppid": 26909,
+      "created": "1794539448509876"
+    },
+    {
+      "pid": 26912,
+      "ppid": 26911,
+      "created": "1794539448517611"
+    },
+    {
+      "pid": 26913,
+      "ppid": 26912,
+      "created": "1794539448520352"
+    },
+    {
+      "pid": 26937,
+      "ppid": 26909,
+      "created": "1794539453141409"
+    },
+    {
+      "pid": 26944,
+      "ppid": 26909,
+      "created": "1794539456390308"
+    },
+    {
+      "pid": 26948,
+      "ppid": 26909,
+      "created": "1794539457012246"
+    },
+    {
+      "pid": 26961,
+      "ppid": 26948,
+      "created": "1794539460149689"
+    },
+    {
+      "pid": 26979,
+      "ppid": 26961,
+      "created": "1794539461034644"
+    },
+    {
+      "pid": 26984,
+      "ppid": 26961,
+      "created": "1794539461245281"
+    },
+    {
+      "pid": 26985,
+      "ppid": 26984,
+      "created": "1794539461246745"
+    },
+    {
+      "pid": 26986,
+      "ppid": 26985,
+      "created": "1794539461247044"
+    },
+    {
+      "pid": 26994,
+      "ppid": 26961,
+      "created": "1794539462543466"
+    },
+    {
+      "pid": 26993,
+      "ppid": 26961,
+      "created": "1794539462522216"
+    },
+    {
+      "pid": 26995,
+      "ppid": 26994,
+      "created": "1794539462545495"
+    },
+    {
+      "pid": 26996,
+      "ppid": 26995,
+      "created": "1794539462545978"
+    },
+    {
+      "pid": 27033,
+      "ppid": 26909,
+      "created": "1794539472821754"
+    },
+    {
+      "pid": 27051,
+      "ppid": 26909,
+      "created": "1794539476936040"
+    },
+    {
+      "pid": 27053,
+      "ppid": 26909,
+      "created": "1794539477533224"
+    },
+    {
+      "pid": 27067,
+      "ppid": 26909,
+      "created": "1794539483056766"
+    },
+    {
+      "pid": 27076,
+      "ppid": 27067,
+      "created": "1794539485804237"
+    },
+    {
+      "pid": 27097,
+      "ppid": 27076,
+      "created": "1794539486583989"
+    },
+    {
+      "pid": 27110,
+      "ppid": 26909,
+      "created": "1794539487032631"
+    },
+    {
+      "pid": 27114,
+      "ppid": 27110,
+      "created": "1794539487286881"
+    },
+    {
+      "pid": 27138,
+      "ppid": 27114,
+      "created": "1794539488110332"
+    },
+    {
+      "pid": 27136,
+      "ppid": 27114,
+      "created": "1794539487987138"
+    },
+    {
+      "pid": 27139,
+      "ppid": 27138,
+      "created": "1794539488111796"
+    },
+    {
+      "pid": 27148,
+      "ppid": 26909,
+      "created": "1794539489441164"
+    },
+    {
+      "pid": 27152,
+      "ppid": 26909,
+      "created": "1794539491037901"
+    }
+  ],
+  "observationFailed": false,
+  "observedSurvivors": [],
+  "artifactsAfter": [
+    {
+      "label": "old",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "64820ce9a312da50172d3eaab1f113d08014927dcda92de1397a617b0f51ba3f",
+      "imageBytes": 584386662,
+      "sourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+      "treeSha256": "cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c",
+      "payloadBytes": 1164650984
+    },
+    {
+      "label": "new",
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+      "imageBytes": 584388233,
+      "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "treeSha256": "501730b8991898c00839ddf988f8355835383d11f2e9f298df8e268bfe18d61b",
+      "payloadBytes": 1164652738
+    }
+  ],
+  "imagesUnchanged": true,
+  "testBytesUnchanged": true,
+  "freeBytesAfter": 2866184192
+}

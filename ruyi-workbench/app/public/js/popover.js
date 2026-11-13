@@ -73,5 +73,5 @@ export function popover(anchorEl, buildContent, opts = {}) {
   window.addEventListener('scroll', onScroll, true);
   activePopover = { node, anchor: anchorEl, onKey, onDown, onScroll, onClose: opts.onClose, keep };
   if (typeof opts.onOpen === 'function') { try { opts.onOpen(node); } catch { /* ignore */ } }
-  return { node, close };
+  return { node, close, reposition: place };
 }

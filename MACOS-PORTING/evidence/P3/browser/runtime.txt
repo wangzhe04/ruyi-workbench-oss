@@ -1,0 +1,30 @@
+PASS prepared cache is resolved by the SDK; installed binary alone is not reported ready
+PASS bundled Chromium attaches with its own ephemeral profile
+PASS actual Chromium command line uses fixture-only user-data-dir paths
+PASS cleanup observations include the actual browser process, not only its driver
+PASS real browser fills and submits a Chinese form only to the local fixture
+PASS real page screenshot returns a valid bounded PNG
+PASS browser back navigation preserves the local history
+PASS tabs can be listed and switched without losing their page state
+PASS unavailable local site returns an actual navigation error
+OWNED_CLOSE={"closed":{"ok":true,"success":true,"mode":"bundled","closed":true,"hint":"Owned browser closed."},"processesGone":true,"profilesGone":true,"remaining":[]}
+PASS browser_close removes owned Chromium/driver processes and temporary profiles
+PASS closed backend no longer claims readiness
+PASS stdio EOF lifespan closes the owned browser, driver and profile without browser_close
+PASS auto-discovered installed Mac Chromium also launches with an isolated fixture profile
+PASS installed-browser automation cleans only its owned runtime and profile
+PASS missing offline browser cache reports the real dependency gap without downloading
+PASS browser runtime failure does not disable unrelated shared file tools
+PASS failed runtime lookup creates no browser cache
+PASS absent Playwright package returns a precise failure while MCP remains available
+PASS CDP read/type followed by close never closes an existing unowned page
+PASS connected Workbench page is preserved even when new_tab=false
+CDP_REMAINING=[{"id":"504975765DE366C02F6857478DC42063","type":"page","url":"http://127.0.0.1:59493/workbench"},{"id":"A6503681F48F207D53C077A19FC329EA","type":"browser_ui","url":"chrome://webui-toolbar.top-chrome/"},{"id":"FB277D1A60A81F587A6A9D851710FC1A","type":"browser_ui","url":"chrome://omnibox-popup.top-chrome/"},{"id":"CDFA6AB1681A2C509297B5C808A6B9E7","type":"browser_ui","url":"chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html"},{"id":"F5519D195A88057E34D493ACD9106341","type":"service_worker","url":"chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome/thunk.js"},{"id":"57FB2301C4CDEC12C7723CFDC14A1604","type":"service_worker","url":"chrome-extension://glbjnfimcajjenihimblfaponejbkoph/background.js"},{"id":"7CE7ADE15EA1986A1F9C71A6FFE34B2D","type":"service_worker","url":"chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome/thunk.js"}]
+PASS CDP close removes every owned tab and preserves the original page and profile sentinel
+PASS Workbench JavaScript credential/data guard remains enforced
+PASS independent fixture-only CDP check confirms the original page retained its unsaved form state
+PASS MCP shutdown detaches from CDP without terminating the external browser
+ARTIFACT_DIR=/tmp/ruyi-p3-03-artifacts/browser-xSureX
+PASS all fixture Chromium processes are gone after final cleanup
+
+MACOS BROWSER RUNTIME E2E: ALL PASS

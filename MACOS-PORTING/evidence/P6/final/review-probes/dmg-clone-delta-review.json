@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T11:07:17.473Z",
+  "baselineCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "sourceFile": "ruyi-workbench/tools/package-macos-trial.js",
+  "baselineSha256": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+  "reviewedSha256": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f",
+  "exactOneLineDelta": true,
+  "codeReviewPassed": true,
+  "remainingBlockingFindings": [],
+  "analysis": "COPYFILE_EXCL still refuses an existing output file. COPYFILE_FICLONE requests copy-on-write with normal-copy fallback rather than FICLONE_FORCE. This creates an independent file, not a hardlink, and subsequent temp cleanup does not remove the destination. Subsequent image hashing, sidecar provenance and distribution validation remain unchanged. The patch avoids a redundant same-filesystem physical DMG copy where supported without weakening integrity/no-overwrite checks.",
+  "developmentFailure": "MACOS-PORTING/evidence/P6/final/build-dmg-full.txt retains the previous ENOSPC during final temporary-DMG-to-output copy; not a payload/signature failure.",
+  "unitEvidence": {
+    "log": "MACOS-PORTING/evidence/P6/final/unit-dmg-clone.txt",
+    "sha256": "f5904abe4fefcd67b0e4e902cdfc959e764bfc077e48cb99caa4a152910edb8e",
+    "executor": "main; reviewer read archived output",
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "summaryPresent": true
+  },
+  "provenanceContract": "Both frozen application source candidates stay bound to b662fff2. After the wrapper-only fix is committed, each final DMG must record that new wrapper commit and this reviewed source hash independently in packagerFingerprint; application source provenance must not be rewritten to the wrapper commit.",
+  "scope": "Read-only review and evidence writing; no direct E2E, image mount, App/helper/signature execution or deletion.",
+  "remainingAcceptance": [
+    "commit the reviewed wrapper delta and bind committed blob",
+    "rebuild both DMGs under the network-denied build policy",
+    "hash/mount/signature/install/upgrade acceptance on actual rebuilt DMGs when the serial window is released"
+  ]
+}

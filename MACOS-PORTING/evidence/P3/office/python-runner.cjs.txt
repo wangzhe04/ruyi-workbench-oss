@@ -1,0 +1,7 @@
+const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process');
+const repo='/Users/jiming/Documents/ruyi-workbench-mac';
+const fixture=require(path.join(repo,'dev-harness/lib/fixture-home')).fixtureChildEnv({perTest:true});
+const env={...fixture.env,ACC_TOOLSETS:'',WCW_DATA_DIR:path.join(fixture.home,'acc'),MPLCONFIGDIR:path.join(fixture.home,'mpl'),PYTHONUTF8:'1'};
+try{process.stdout.write(cp.execFileSync(path.join(repo,'mcp/ai-computer-control/.venv/bin/python'),process.argv.slice(2),{env,cwd:repo,encoding:'utf8',timeout:90000,maxBuffer:8*1024*1024}));}
+catch(e){process.stdout.write(e.stdout||'');process.stderr.write(e.stderr||'');process.exitCode=e.status||1;}
+finally{fs.rmSync(fixture.home,{recursive:true,force:true});}

@@ -24,7 +24,7 @@ function setup() {
   };
   const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/13ab-privacy-api.js'), 'utf8');
   const api = vm.runInNewContext(constBlock(source, 'PrivacySettings') + '\nPrivacySettings', { PrivacyCore: core, PrivacyRegex: f.PrivacyRegex,
-    PrivacyGateway: { ruleVersion: version, preview }, structuredClone, Buffer, process: { platform: 'win32' }, turnSettlers: turns,
+    PrivacyGateway: { ruleVersion: version, preview }, LocalSecretCrypto: { supported: () => true }, structuredClone, Buffer, process: { platform: 'win32' }, turnSettlers: turns,
     readConfig: async () => structuredClone(config), mutateConfig: async fn => { const next = structuredClone(config); fn(next); config = next; writes++; },
     stewardAppendDecision: row => decisions.push(structuredClone(row)) });
   const current = () => structuredClone(config), request = extras => ({ op: 'update', expectedRuleVersion: version(config), ...extras });

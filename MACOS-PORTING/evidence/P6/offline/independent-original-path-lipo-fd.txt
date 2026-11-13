@@ -1,0 +1,3 @@
+p63231
+f3
+n/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/MacOS/RuyiDesktop

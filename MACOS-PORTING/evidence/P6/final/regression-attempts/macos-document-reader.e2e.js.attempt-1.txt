@@ -1,0 +1,16 @@
+PASS file_read preserves document metadata and split UTF-8
+PASS successful document read confirms descendant cleanup
+PASS document execution registers runtime ownership
+PASS missing Python candidate falls back only after confirmed cleanup
+PASS invalid reader JSON remains a failure
+PASS nonzero reader exit remains a failure
+PASS pre-aborted read starts no process
+PASS abort stops the descendant and reports failure
+PASS stdout stops the descendant and reports failure
+PASS stderr stops the descendant and reports failure
+PASS timeout stops the descendant and reports failure
+PASS missing supervisor refuses document execution
+PASS valid JSON cannot hide unconfirmed cleanup
+PASS retained output pipes fail within a bounded drain and release streams
+
+MACOS DOCUMENT READER E2E: ALL PASS

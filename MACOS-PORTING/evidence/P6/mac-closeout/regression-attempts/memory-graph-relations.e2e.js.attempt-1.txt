@@ -1,0 +1,29 @@
+PASS fixture: 4 条记忆落盘成功
+PASS propose: 合法 contradicts 创建为 pending(confirmed:false)
+PASS propose: 非法 type 被拒
+PASS propose: 自环(from==to)被拒
+PASS propose: 跨 scope(global 记忆不在 project scope)被拒
+PASS propose: 幽灵 to id 被拒
+PASS propose: 同形 pending 不重复建
+PASS propose: 合法 evidenceRef 存档,Verified=false(本切片不跨 run 校验)
+PASS propose: 非法 evidenceRef(不过 SKILL_ID_RE)被清空
+PASS list: 默认仅 confirmed(此时 0),pending>=2
+PASS list: includePending=true 含全部边
+PASS confirm: pending->confirmed
+PASS confirm: 重复确认被拒
+PASS confirm: 不存在 id 被拒
+PASS confirm: from/to/type 未被篡改
+PASS conflictMap: confirmed contradicts 双向收录
+PASS conflictMap: pending supports 边不计入(仅 confirmed contradicts)
+PASS promptSection: 冲突记忆带 [冲突:见 id] 标记
+PASS promptSection: 冲突双方均注入,不静默择一
+PASS promptSection: 无 conflicts 参数时无标记(向后兼容)
+PASS scope隔离: projA 的边在 projB cwd 下不可见(0 条)
+PASS scope隔离: projB 内对不存在的 to 建边仍被拒(隔离独立校验)
+PASS delete: 删边成功并返回被删条目
+PASS delete: 重复删被拒
+PASS delete: 删边后 conflictMap 不再收录该记忆
+PASS global scope: 全局记忆间建边成功
+PASS global 边不混入 project scope 列表
+
+ALL PASS (R4 memory-graph relations)

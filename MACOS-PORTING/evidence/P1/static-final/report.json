@@ -1,0 +1,1522 @@
+{
+  "schema": 1,
+  "profile": "audit",
+  "section": "static",
+  "startedAt": "2026-10-31T15:17:00.149Z",
+  "baselineSha": "0a4308805dacfeca8201bf8aaf592fe2196a380a",
+  "platform": "darwin",
+  "arch": "arm64",
+  "osRelease": "27.0.0",
+  "node": "v24.15.0",
+  "unitFiles": [],
+  "notSelectedE2e": [
+    "a11y-lint.browser.e2e.js",
+    "a11y-walkthrough.browser.e2e.js",
+    "acc-capability-gates.e2e.js",
+    "acceptance-provenance.e2e.js",
+    "action-feedback.browser.e2e.js",
+    "action-model-view.e2e.js",
+    "adaptive-budget.e2e.js",
+    "adversarial-w21.e2e.js",
+    "agent-coordination.e2e.js",
+    "agent-deadlock-watchdog.e2e.js",
+    "agent-final-mailbox.e2e.js",
+    "agent-loop.e2e.js",
+    "agent-mode-v2.e2e.js",
+    "agent-node-limits.e2e.js",
+    "agent-node-wrapup.e2e.js",
+    "agent-parent-heartbeat.e2e.js",
+    "agent-parent-mailbox.e2e.js",
+    "agent-quality-gates.e2e.js",
+    "agent-quality-workflow.e2e.js",
+    "agent-resource-wait-stop.e2e.js",
+    "agent-role-openai.e2e.js",
+    "agent-roles.e2e.js",
+    "agent-run-lifecycle.e2e.js",
+    "agent-steer-node.e2e.js",
+    "agent-subturn-loop-guard.e2e.js",
+    "agent-team-mode.e2e.js",
+    "agent-wake.e2e.js",
+    "agent-workflow-audit-fixes.e2e.js",
+    "agent-workflow-budget-finalizer.e2e.js",
+    "agent-workflow-claude-engine.e2e.js",
+    "agent-workflow-claude-transient-repro.e2e.js",
+    "agent-workflow-editor-ui.e2e.js",
+    "agent-workflow-monitor-ui.e2e.js",
+    "agent-workflow-node-context.e2e.js",
+    "agent-workflow-replan-approve.e2e.js",
+    "agent-workflow-replan-review.e2e.js",
+    "agent-workflow-replan.e2e.js",
+    "agent-workflow-templates.e2e.js",
+    "agent-workflow-transient-repro.e2e.js",
+    "agent-workflow-ui-progress.e2e.js",
+    "agent-worktree.e2e.js",
+    "anthropic-fake.e2e.js",
+    "anthropic-gateway-setup.e2e.js",
+    "anthropic-provider-setup.browser.e2e.js",
+    "artifacts.e2e.js",
+    "asr-transcribe.e2e.js",
+    "asr-warmup.e2e.js",
+    "audit-desktop-records.e2e.js",
+    "audit-w23.e2e.js",
+    "audit.e2e.js",
+    "auth-deny-default.e2e.js",
+    "autocompact.e2e.js",
+    "autonomy-benchmark.e2e.js",
+    "autonomy-durability.e2e.js",
+    "autonomy-grant.e2e.js",
+    "autonomy-pause.e2e.js",
+    "autonomy-resume.e2e.js",
+    "autonomy-shell-sandbox.e2e.js",
+    "background-completion.e2e.js",
+    "batch-output-discipline.e2e.js",
+    "boot-failure-kind.browser.e2e.js",
+    "boot-listen-budget.e2e.js",
+    "boot-resume-parallel.e2e.js",
+    "bridge-cancel-timeout.e2e.js",
+    "bridged-prefix-tolerance.e2e.js",
+    "bridged-read-noprompt.e2e.js",
+    "budget-guard.e2e.js",
+    "c2-deterministic-evidence.e2e.js",
+    "capabilities.e2e.js",
+    "changes-diff.e2e.js",
+    "chat-stream-remount.browser.e2e.js",
+    "chat-ux-wave1.browser.e2e.js",
+    "checkpoint-coverage.e2e.js",
+    "checkpoint-gc-cache.e2e.js",
+    "checkpoint-mcpchild.e2e.js",
+    "checkpoint-visibility.e2e.js",
+    "checkpoint.e2e.js",
+    "classic-window-live-steer.e2e.js",
+    "claude-binary-live.e2e.js",
+    "claude-cli-bridged-read-guard.e2e.js",
+    "claude-cmdline-guard.e2e.js",
+    "claude-compact-probe-live.e2e.js",
+    "claude-context-continuity.e2e.js",
+    "claude-exe-resolve.e2e.js",
+    "claude-models-cache.e2e.js",
+    "claude-permission-bridge-mode.e2e.js",
+    "claude-resume-recovery.e2e.js",
+    "cli-probe-stall.e2e.js",
+    "codebase-symbol-search.e2e.js",
+    "compact-quality-live.e2e.js",
+    "compaction-refetch-guard.e2e.js",
+    "composer-session-races.browser.e2e.js",
+    "composer-voice-stream.browser.e2e.js",
+    "composer-voice-warmup.browser.e2e.js",
+    "composer-voice.browser.e2e.js",
+    "config-mutate-mcp-parity.e2e.js",
+    "config-providers-guard.e2e.js",
+    "config-read-safety.e2e.js",
+    "context-compact-v2.e2e.js",
+    "context-governance.e2e.js",
+    "context-window.e2e.js",
+    "credential-vault.e2e.js",
+    "crew-experience.browser.e2e.js",
+    "cross-thread-history.e2e.js",
+    "data-profile.e2e.js",
+    "data-root-migration.e2e.js",
+    "debug-hypothesis.e2e.js",
+    "deepseek-live.e2e.js",
+    "deepseek-search-fetch.e2e.js",
+    "deepseek-tools.e2e.js",
+    "desktop-bridge-live.e2e.js",
+    "desktop-mcp-smoke.e2e.js",
+    "desktop-probe-follow.browser.e2e.js",
+    "desktop-probe-status.e2e.js",
+    "dns-rebind.e2e.js",
+    "dom-contract.e2e.js",
+    "dom-screenshot.e2e.js",
+    "dom-smoke.e2e.js",
+    "durable-json-store.e2e.js",
+    "e1-parallel-noindex.e2e.js",
+    "e2-append-system-prompt.e2e.js",
+    "e3-engine-switch-continuity.e2e.js",
+    "e4-no-usage.e2e.js",
+    "e5-multiline-sse.e2e.js",
+    "ec-d-performance.e2e.js",
+    "economics-shadow.e2e.js",
+    "engine-env-runtime.e2e.js",
+    "estimate-buckets.e2e.js",
+    "event-stream-client.browser.e2e.js",
+    "event-stream-pageshow.browser.e2e.js",
+    "event-stream-replay.browser.e2e.js",
+    "event-stream.e2e.js",
+    "evidence-claims-m4-benchmark.e2e.js",
+    "exec-result-cache.e2e.js",
+    "external-bot-credentials.e2e.js",
+    "external-bot-discovery.e2e.js",
+    "external-bot-gateway.e2e.js",
+    "external-bot-setup.browser.e2e.js",
+    "external-bot-setup.e2e.js",
+    "external-bots-control.e2e.js",
+    "external-bots.browser.e2e.js",
+    "external-bots.e2e.js",
+    "external-channel-delivery.e2e.js",
+    "external-code-diff.e2e.js",
+    "failover.e2e.js",
+    "fake-mcp-contract.e2e.js",
+    "file-guard.e2e.js",
+    "file-text-encoding.e2e.js",
+    "focus-rail.browser.e2e.js",
+    "foreign-turn-busy-guard.e2e.js",
+    "frontend-wave2.browser.e2e.js",
+    "frontend-wave3.browser.e2e.js",
+    "git.e2e.js",
+    "goal-evolution.e2e.js",
+    "harness-friction.e2e.js",
+    "help-menu.e2e.js",
+    "help-viewer.e2e.js",
+    "i18n.e2e.js",
+    "ia.e2e.js",
+    "index-dedup.e2e.js",
+    "interactive-question.e2e.js",
+    "intervention-mission-gate.e2e.js",
+    "interventions-c4.e2e.js",
+    "interventions-cas.e2e.js",
+    "interventions-changeseq.e2e.js",
+    "interventions-persist.e2e.js",
+    "interventions-pool.e2e.js",
+    "interventions-snapshot.e2e.js",
+    "judge-json-repair.e2e.js",
+    "keyboard-walkthrough.browser.e2e.js",
+    "kimi-agent-cli.e2e.js",
+    "kimi-prompt-parts.e2e.js",
+    "kimi-search-policy.e2e.js",
+    "launcher-spaced-path.e2e.js",
+    "live-full-text.browser.e2e.js",
+    "live-full-text.e2e.js",
+    "locale-en-us.browser.e2e.js",
+    "long-tool-liveness-steer.e2e.js",
+    "loop-guard-read-exempt.e2e.js",
+    "loop-guard.e2e.js",
+    "macos-runtime-start.e2e.js",
+    "manuals.e2e.js",
+    "mcp-bridge.e2e.js",
+    "mcp-config.e2e.js",
+    "mcp-import-config.e2e.js",
+    "mcp-import-origin.e2e.js",
+    "mcp-ops-closure.e2e.js",
+    "mcp-remote-transport.e2e.js",
+    "mcp-resource-config-mask.e2e.js",
+    "memory-active-scope.e2e.js",
+    "memory-auto-proposal-api.e2e.js",
+    "memory-auto-proposal.e2e.js",
+    "memory-batch-card.browser.e2e.js",
+    "memory-batch-proposal.e2e.js",
+    "memory-graph-auto-proposal.e2e.js",
+    "memory-graph-maintenance.e2e.js",
+    "memory-graph-relations.e2e.js",
+    "memory-maintenance-tools.e2e.js",
+    "memory-recall-injection.e2e.js",
+    "memory-recall-quality.e2e.js",
+    "memory-scope-card.browser.e2e.js",
+    "memory-scope.e2e.js",
+    "memory-subagent.e2e.js",
+    "memory-veto-precedence.e2e.js",
+    "mermaid-viewer.browser.e2e.js",
+    "meta-guard.e2e.js",
+    "meta-tools.e2e.js",
+    "metrics-panel.e2e.js",
+    "migration-center.browser.e2e.js",
+    "migration-center.e2e.js",
+    "mission-driver.e2e.js",
+    "mission-index-boot-race.e2e.js",
+    "mission-index-gate.e2e.js",
+    "mission-index-late-materialize.e2e.js",
+    "mission-index-scale.e2e.js",
+    "mission-result.e2e.js",
+    "mission-start-race.e2e.js",
+    "mission-threads.e2e.js",
+    "missions-readmodel.e2e.js",
+    "model-menu-no-shift.browser.e2e.js",
+    "monitor-incremental.e2e.js",
+    "multi-session-parallel.e2e.js",
+    "native-media-boundaries.e2e.js",
+    "new-thread-engine-default.e2e.js",
+    "observation-recall-realhistory.e2e.js",
+    "observation-recall-replay.e2e.js",
+    "observation-recall-snapshot-cap.e2e.js",
+    "observation-recall.e2e.js",
+    "offline-upgrade-drill.e2e.js",
+    "onboard.e2e.js",
+    "onboarding-workspace.browser.e2e.js",
+    "onboarding.e2e.js",
+    "one-workbench-frame.browser.e2e.js",
+    "openai-engine.e2e.js",
+    "openai-tools.e2e.js",
+    "orchestrate-model-select.e2e.js",
+    "orchestration-blindspots.e2e.js",
+    "overlay-update-core.e2e.js",
+    "parallel-read-island.e2e.js",
+    "perf-config-cache.e2e.js",
+    "perf.e2e.js",
+    "perm-v2.e2e.js",
+    "permission-plain.browser.e2e.js",
+    "permission-survives-reload.browser.e2e.js",
+    "plan-mode.e2e.js",
+    "playbook-reuse.browser.e2e.js",
+    "playbook-reuse.e2e.js",
+    "playbook-skill-tools.e2e.js",
+    "playbooks.e2e.js",
+    "port-fallback.e2e.js",
+    "prefix-layout.e2e.js",
+    "preflight-relative-write.e2e.js",
+    "privacy-channels.e2e.js",
+    "privacy-gateway.e2e.js",
+    "privacy-protocols.e2e.js",
+    "prompt-cache-discipline-live.e2e.js",
+    "provider-api-style.browser.e2e.js",
+    "provider-compact-recall.e2e.js",
+    "provider-compact.e2e.js",
+    "provider-custom-headers.e2e.js",
+    "provider-no-model-locale.e2e.js",
+    "provider-pairing-repair.e2e.js",
+    "provider-turnloop-hardening.e2e.js",
+    "quiet-card-snooze.browser.e2e.js",
+    "quiet-card-typing.browser.e2e.js",
+    "quiet-card.browser.e2e.js",
+    "rail-pocket.browser.e2e.js",
+    "rail-reconcile.browser.e2e.js",
+    "rail-session-search.browser.e2e.js",
+    "rail-tool-height.browser.e2e.js",
+    "read-pool.e2e.js",
+    "readfiletail-torntail.e2e.js",
+    "reading-continuation.e2e.js",
+    "reject-attribution.e2e.js",
+    "repo-hygiene.e2e.js",
+    "resource-awareness.e2e.js",
+    "responses-fake.e2e.js",
+    "responses-websearch-fake.e2e.js",
+    "responses-websearch-inline.e2e.js",
+    "resume-dangling.e2e.js",
+    "rewind.e2e.js",
+    "run-health.browser.e2e.js",
+    "scheduler-api.e2e.js",
+    "scheduler-crash.e2e.js",
+    "scheduler-ready-queue.e2e.js",
+    "scheduler-reducer.e2e.js",
+    "scheduler-steward.e2e.js",
+    "scheduler-ui.browser.e2e.js",
+    "scheduler.e2e.js",
+    "search-robust.e2e.js",
+    "security-gates-w2.e2e.js",
+    "self-check.e2e.js",
+    "semantic-loop-guard.e2e.js",
+    "server-ownership.e2e.js",
+    "service-match.browser.e2e.js",
+    "session-atomic.e2e.js",
+    "session-bulk-cleanup.e2e.js",
+    "session-delete-agent-runs.e2e.js",
+    "session-get-etag.e2e.js",
+    "session-id-path-guard.e2e.js",
+    "session-index.e2e.js",
+    "session-notes-inject.e2e.js",
+    "session-notes-merge.e2e.js",
+    "session-notes.e2e.js",
+    "session-permission-mode.e2e.js",
+    "session-rewind-execution.e2e.js",
+    "session-scratchpad.e2e.js",
+    "session-search.e2e.js",
+    "session-stop-execution.e2e.js",
+    "session-stop-identity.browser.e2e.js",
+    "session-storage-v2.e2e.js",
+    "session-turn-core.e2e.js",
+    "settings-catalog.browser.e2e.js",
+    "settings-ia.browser.e2e.js",
+    "settings-skills.browser.e2e.js",
+    "settings-wave1.browser.e2e.js",
+    "shell-mcp-guard.e2e.js",
+    "shell-mode-late-config.browser.e2e.js",
+    "shell-session.e2e.js",
+    "simple-mode.browser.e2e.js",
+    "skills-registry.e2e.js",
+    "source-fields.e2e.js",
+    "spawn-background-dag.e2e.js",
+    "ssrf-hardening.e2e.js",
+    "stale-source-badge.browser.e2e.js",
+    "start-error-surface.e2e.js",
+    "steer-interrupt.e2e.js",
+    "steering-claude.e2e.js",
+    "steering.e2e.js",
+    "steward-answer.e2e.js",
+    "steward-attachments-search.e2e.js",
+    "steward-attachments.browser.e2e.js",
+    "steward-background-hold.e2e.js",
+    "steward-board.e2e.js",
+    "steward-catalogs.e2e.js",
+    "steward-config-tools.e2e.js",
+    "steward-content-tools.e2e.js",
+    "steward-continue-unfinished.e2e.js",
+    "steward-contract-guard.e2e.js",
+    "steward-conversation.e2e.js",
+    "steward-decisions.browser.e2e.js",
+    "steward-decisions.e2e.js",
+    "steward-deferred-notice.browser.e2e.js",
+    "steward-deferred-permission.e2e.js",
+    "steward-deliverable.e2e.js",
+    "steward-delivery-history.browser.e2e.js",
+    "steward-delivery.browser.e2e.js",
+    "steward-delivery.e2e.js",
+    "steward-drawer-keep-frame.browser.e2e.js",
+    "steward-drawer.e2e.js",
+    "steward-exempt-delegation.e2e.js",
+    "steward-exempt-no-swap.e2e.js",
+    "steward-exempt-shell-send.e2e.js",
+    "steward-eyes.e2e.js",
+    "steward-global-health.browser.e2e.js",
+    "steward-guardrails.e2e.js",
+    "steward-handoff-recovery.browser.e2e.js",
+    "steward-inbox-integrity.e2e.js",
+    "steward-inbox.e2e.js",
+    "steward-memory.e2e.js",
+    "steward-multistep.browser.e2e.js",
+    "steward-multistep.e2e.js",
+    "steward-new-conversation.browser.e2e.js",
+    "steward-new-conversation.e2e.js",
+    "steward-no-model.browser.e2e.js",
+    "steward-notify.e2e.js",
+    "steward-preroute.e2e.js",
+    "steward-presence-gate.e2e.js",
+    "steward-quick-ask.e2e.js",
+    "steward-quickask-board.e2e.js",
+    "steward-read-routing.e2e.js",
+    "steward-relay-channels.e2e.js",
+    "steward-runner.e2e.js",
+    "steward-settings-scope.browser.e2e.js",
+    "steward-settings-scope.e2e.js",
+    "steward-settings.e2e.js",
+    "steward-shell-pixels.browser.e2e.js",
+    "steward-shell-redesign.browser.e2e.js",
+    "steward-shell-wave1.browser.e2e.js",
+    "steward-shell.e2e.js",
+    "steward-side-collapse.browser.e2e.js",
+    "steward-signals.e2e.js",
+    "steward-stop-receipts.browser.e2e.js",
+    "steward-stop-respected.e2e.js",
+    "steward-task-decisions.e2e.js",
+    "steward-thread-order.e2e.js",
+    "steward-thread-title.e2e.js",
+    "steward-thread-workspace.e2e.js",
+    "steward-tools.e2e.js",
+    "steward-viewing-gate.e2e.js",
+    "steward-workspace-affinity.e2e.js",
+    "storage-steward.e2e.js",
+    "store-walkthrough-w1.e2e.js",
+    "subagent-compaction-parity.e2e.js",
+    "subagent-net-tools.e2e.js",
+    "subagent-retry-after.e2e.js",
+    "subagent-thinking-continuity.browser.e2e.js",
+    "subagent-thinking-continuity.e2e.js",
+    "subagent.e2e.js",
+    "summary-call-policy.e2e.js",
+    "summary-entity-check.e2e.js",
+    "summary-fact-table.e2e.js",
+    "summary-parallel-cap.e2e.js",
+    "summary-refine.e2e.js",
+    "summary-single-shot.e2e.js",
+    "summary-task-evidence.e2e.js",
+    "surface-hardening-w2.browser.e2e.js",
+    "surface-hardening-w2.e2e.js",
+    "team-pool-mailbox.e2e.js",
+    "theme-default.browser.e2e.js",
+    "theme.e2e.js",
+    "thread-arbiter.e2e.js",
+    "thread-brief.e2e.js",
+    "thread-commission.browser.e2e.js",
+    "thread-index-visibility.e2e.js",
+    "thread-switch-race.browser.e2e.js",
+    "todo-loopback.e2e.js",
+    "todo-summary.e2e.js",
+    "token-bootstrap-csp.e2e.js",
+    "tool-audit-fixes.e2e.js",
+    "tool-audit-r2-dev.e2e.js",
+    "tool-audit-r2-files.e2e.js",
+    "tool-audit-r2-meta.e2e.js",
+    "tool-audit-r2-netexec.e2e.js",
+    "tool-audit-r2-steward.e2e.js",
+    "tool-dispatch-hardening.e2e.js",
+    "tool-dispatch.e2e.js",
+    "tool-invoke-promote.e2e.js",
+    "tool-loading.e2e.js",
+    "tool-result-bounds.e2e.js",
+    "tool-result-render.browser.e2e.js",
+    "toolbox-discovery.e2e.js",
+    "tools-v2.e2e.js",
+    "tools-v3.e2e.js",
+    "turn-stop-supersede.e2e.js",
+    "turn-undo.browser.e2e.js",
+    "ui-misc-wave1.browser.e2e.js",
+    "ui-polish.browser.e2e.js",
+    "uimode-style.e2e.js",
+    "usage-accum.e2e.js",
+    "usage-claude-cached.e2e.js",
+    "usage-dashboard.e2e.js",
+    "usage-ledger.e2e.js",
+    "usage-subagent-ledger.e2e.js",
+    "vision-loop.e2e.js",
+    "voice-learn.browser.e2e.js",
+    "voice-learn.e2e.js",
+    "voice-lexicon.e2e.js",
+    "voice-setup.browser.e2e.js",
+    "wait-primitive.e2e.js",
+    "walkthrough-round1.browser.e2e.js",
+    "walkthrough-round2.browser.e2e.js",
+    "websearch.e2e.js",
+    "workbench-memory-core.e2e.js",
+    "workbench-memory.e2e.js",
+    "workbench-self-status.e2e.js",
+    "workbench-thread-head.browser.e2e.js",
+    "workflow-editor-inspector.browser.e2e.js",
+    "workspace-picker-popover.browser.e2e.js",
+    "workspace-resolve.e2e.js"
+  ],
+  "scope": "Existing tests unchanged. notSelected is not pass/skip. Windows-only skips inside unit TAP remain visible.",
+  "results": [
+    {
+      "id": "acc-offline-installer.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/acc-offline-installer.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 47,
+      "log": "acc-offline-installer.static.e2e.js.txt"
+    },
+    {
+      "id": "action-feedback.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/action-feedback.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 58,
+      "log": "action-feedback.static.e2e.js.txt"
+    },
+    {
+      "id": "agent-mode-v2.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/agent-mode-v2.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 194,
+      "log": "agent-mode-v2.static.e2e.js.txt"
+    },
+    {
+      "id": "agent-team-budget.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/agent-team-budget.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 247,
+      "log": "agent-team-budget.static.e2e.js.txt"
+    },
+    {
+      "id": "agent-workflows-polling-visibility.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/agent-workflows-polling-visibility.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 33,
+      "log": "agent-workflows-polling-visibility.static.e2e.js.txt"
+    },
+    {
+      "id": "architecture-contract-snapshots.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/architecture-contract-snapshots.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 135,
+      "log": "architecture-contract-snapshots.static.e2e.js.txt"
+    },
+    {
+      "id": "asr-config-ui.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/asr-config-ui.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 50,
+      "log": "asr-config-ui.static.e2e.js.txt"
+    },
+    {
+      "id": "browser-mcp.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/browser-mcp.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 122,
+      "log": "browser-mcp.static.e2e.js.txt"
+    },
+    {
+      "id": "c2-evidence-spawn-budget.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/c2-evidence-spawn-budget.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 29,
+      "log": "c2-evidence-spawn-budget.static.e2e.js.txt"
+    },
+    {
+      "id": "copy-path-guard.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/copy-path-guard.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 100,
+      "log": "copy-path-guard.static.e2e.js.txt"
+    },
+    {
+      "id": "copy-terms.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/copy-terms.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 63,
+      "log": "copy-terms.static.e2e.js.txt"
+    },
+    {
+      "id": "cost-zero.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/cost-zero.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 34,
+      "log": "cost-zero.static.e2e.js.txt"
+    },
+    {
+      "id": "css-typography-debt.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/css-typography-debt.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 30,
+      "log": "css-typography-debt.static.e2e.js.txt"
+    },
+    {
+      "id": "desktop-dpi.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/desktop-dpi.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 30,
+      "log": "desktop-dpi.static.e2e.js.txt"
+    },
+    {
+      "id": "desktop-shell.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/desktop-shell.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 35,
+      "log": "desktop-shell.static.e2e.js.txt"
+    },
+    {
+      "id": "durable-state-inventory.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/durable-state-inventory.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 240,
+      "log": "durable-state-inventory.static.e2e.js.txt"
+    },
+    {
+      "id": "ec-d-closure.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ec-d-closure.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 133,
+      "log": "ec-d-closure.static.e2e.js.txt"
+    },
+    {
+      "id": "engine-env-brief.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/engine-env-brief.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 519,
+      "log": "engine-env-brief.static.e2e.js.txt"
+    },
+    {
+      "id": "eol-policy.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/eol-policy.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 854,
+      "log": "eol-policy.static.e2e.js.txt"
+    },
+    {
+      "id": "facts.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/facts.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 104,
+      "log": "facts.static.e2e.js.txt"
+    },
+    {
+      "id": "finalize-segments.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/finalize-segments.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 30,
+      "log": "finalize-segments.static.e2e.js.txt"
+    },
+    {
+      "id": "fixture-home.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/fixture-home.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 840,
+      "log": "fixture-home.static.e2e.js.txt"
+    },
+    {
+      "id": "frontend-domains.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/frontend-domains.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 40,
+      "log": "frontend-domains.static.e2e.js.txt"
+    },
+    {
+      "id": "health-i18n.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/health-i18n.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 41,
+      "log": "health-i18n.static.e2e.js.txt"
+    },
+    {
+      "id": "i18n-en-terms.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/i18n-en-terms.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 34,
+      "log": "i18n-en-terms.static.e2e.js.txt"
+    },
+    {
+      "id": "i18n.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/i18n.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 173,
+      "log": "i18n.static.e2e.js.txt"
+    },
+    {
+      "id": "inline-script-csp-hash.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/inline-script-csp-hash.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 46,
+      "log": "inline-script-csp-hash.static.e2e.js.txt"
+    },
+    {
+      "id": "kimi-plan-ui.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/kimi-plan-ui.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 38,
+      "log": "kimi-plan-ui.static.e2e.js.txt"
+    },
+    {
+      "id": "live-full-text.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/live-full-text.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 42,
+      "log": "live-full-text.static.e2e.js.txt"
+    },
+    {
+      "id": "manifest-ranges.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/manifest-ranges.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 70,
+      "log": "manifest-ranges.static.e2e.js.txt"
+    },
+    {
+      "id": "mcp-ops-gui.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/mcp-ops-gui.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 56,
+      "log": "mcp-ops-gui.static.e2e.js.txt"
+    },
+    {
+      "id": "memory-toolbox.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/memory-toolbox.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 33,
+      "log": "memory-toolbox.static.e2e.js.txt"
+    },
+    {
+      "id": "mermaid-render.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/mermaid-render.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 363,
+      "log": "mermaid-render.static.e2e.js.txt"
+    },
+    {
+      "id": "model-menu-classes.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/model-menu-classes.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 40,
+      "log": "model-menu-classes.static.e2e.js.txt"
+    },
+    {
+      "id": "module-dependency-graph.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/module-dependency-graph.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 719,
+      "log": "module-dependency-graph.static.e2e.js.txt"
+    },
+    {
+      "id": "ndjson-line-feeder.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ndjson-line-feeder.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 68,
+      "log": "ndjson-line-feeder.static.e2e.js.txt"
+    },
+    {
+      "id": "net-token-replay.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/net-token-replay.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 33,
+      "log": "net-token-replay.static.e2e.js.txt"
+    },
+    {
+      "id": "new-thread-engine-default.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/new-thread-engine-default.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 48,
+      "log": "new-thread-engine-default.static.e2e.js.txt"
+    },
+    {
+      "id": "onboarding.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/onboarding.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 65,
+      "log": "onboarding.static.e2e.js.txt"
+    },
+    {
+      "id": "overlay-payload-lock.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/overlay-payload-lock.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 95,
+      "log": "overlay-payload-lock.static.e2e.js.txt"
+    },
+    {
+      "id": "overlay-update-gui.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/overlay-update-gui.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 50,
+      "log": "overlay-update-gui.static.e2e.js.txt"
+    },
+    {
+      "id": "process-safety.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/process-safety.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 238,
+      "log": "process-safety.static.e2e.js.txt"
+    },
+    {
+      "id": "progress-events.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/progress-events.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 256,
+      "log": "progress-events.static.e2e.js.txt"
+    },
+    {
+      "id": "prompt-snapshot.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/prompt-snapshot.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 125,
+      "log": "prompt-snapshot.static.e2e.js.txt"
+    },
+    {
+      "id": "provider-reasoning-effort-ui.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/provider-reasoning-effort-ui.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 34,
+      "log": "provider-reasoning-effort-ui.static.e2e.js.txt"
+    },
+    {
+      "id": "rail-pocket.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/rail-pocket.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 41,
+      "log": "rail-pocket.static.e2e.js.txt"
+    },
+    {
+      "id": "resume-banner-dismiss.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/resume-banner-dismiss.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 36,
+      "log": "resume-banner-dismiss.static.e2e.js.txt"
+    },
+    {
+      "id": "route-inventory.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 640,
+      "log": "route-inventory.static.e2e.js.txt"
+    },
+    {
+      "id": "runtime-optimization.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/runtime-optimization.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 280,
+      "log": "runtime-optimization.static.e2e.js.txt"
+    },
+    {
+      "id": "scheduler-ui.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/scheduler-ui.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 106,
+      "log": "scheduler-ui.static.e2e.js.txt"
+    },
+    {
+      "id": "session-save-census.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/session-save-census.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 85,
+      "log": "session-save-census.static.e2e.js.txt"
+    },
+    {
+      "id": "software-engineering-prompt.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/software-engineering-prompt.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 123,
+      "log": "software-engineering-prompt.static.e2e.js.txt"
+    },
+    {
+      "id": "start-experience.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/start-experience.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 54,
+      "log": "start-experience.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-avatar.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-avatar.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 41,
+      "log": "steward-avatar.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-board.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-board.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 62,
+      "log": "steward-board.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-config.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-config.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 120,
+      "log": "steward-config.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-conversation.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-conversation.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 72,
+      "log": "steward-conversation.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-drawer.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-drawer.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 57,
+      "log": "steward-drawer.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-events.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-events.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 142,
+      "log": "steward-events.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-runner.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-runner.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 240,
+      "log": "steward-runner.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-settings.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-settings.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 78,
+      "log": "steward-settings.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-shell.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-shell.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 58,
+      "log": "steward-shell.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-tools.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-tools.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 1545,
+      "log": "steward-tools.static.e2e.js.txt"
+    },
+    {
+      "id": "steward-walkthrough.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/steward-walkthrough.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 70,
+      "log": "steward-walkthrough.static.e2e.js.txt"
+    },
+    {
+      "id": "streaming-responsiveness.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/streaming-responsiveness.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 38,
+      "log": "streaming-responsiveness.static.e2e.js.txt"
+    },
+    {
+      "id": "thinking-boundary.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/thinking-boundary.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 27,
+      "log": "thinking-boundary.static.e2e.js.txt"
+    },
+    {
+      "id": "thread-brief.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/thread-brief.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 78,
+      "log": "thread-brief.static.e2e.js.txt"
+    },
+    {
+      "id": "thread-commission.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/thread-commission.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 60,
+      "log": "thread-commission.static.e2e.js.txt"
+    },
+    {
+      "id": "tool-image-inline.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/tool-image-inline.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 45,
+      "log": "tool-image-inline.static.e2e.js.txt"
+    },
+    {
+      "id": "tool-verb-coverage.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/tool-verb-coverage.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 110,
+      "log": "tool-verb-coverage.static.e2e.js.txt"
+    },
+    {
+      "id": "turn-narrative.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/turn-narrative.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 112,
+      "log": "turn-narrative.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-bugfix.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-bugfix.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 38,
+      "log": "ui-bugfix.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-v3-p1.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-v3-p1.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 51,
+      "log": "ui-v3-p1.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-v3-p2.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-v3-p2.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 56,
+      "log": "ui-v3-p2.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-v3-p3a.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-v3-p3a.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 65,
+      "log": "ui-v3-p3a.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-v3-p3b.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-v3-p3b.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 62,
+      "log": "ui-v3-p3b.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-v3-wave1.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-v3-wave1.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 50,
+      "log": "ui-v3-wave1.static.e2e.js.txt"
+    },
+    {
+      "id": "ui-v4-glass.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/ui-v4-glass.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 38,
+      "log": "ui-v4-glass.static.e2e.js.txt"
+    },
+    {
+      "id": "v17-review-fixes.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/v17-review-fixes.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 135,
+      "log": "v17-review-fixes.static.e2e.js.txt"
+    },
+    {
+      "id": "workflow-editor-v2.static.e2e.js",
+      "nodeArgs": [
+        "dev-harness/workflow-editor-v2.static.e2e.js"
+      ],
+      "status": "pass",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "spawnError": "",
+      "elapsedMs": 47,
+      "log": "workflow-editor-v2.static.e2e.js.txt"
+    }
+  ],
+  "finishedAt": "2026-10-31T15:17:11.719Z",
+  "summary": {
+    "pass": 80,
+    "fail": 0
+  }
+}

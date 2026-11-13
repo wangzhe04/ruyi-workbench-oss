@@ -1,0 +1,14 @@
+PASS LaunchServices Ruyi App owns the actual workbench service
+PASS App and service process identities were observed before shutdown
+PASS App-launched ACC has actual Accessibility authorization for native AX
+PASS normal App HTTP tool route focuses the exact owned receiver
+PASS App-origin native AX backend reports actual ready authorization
+PASS normal App HTTP route resolves the exact owned AX text area
+PASS App-origin AXValue writes change and restore the real receiver with confirmed readback
+PASS App input leaves actual button and modifier state released
+PASS LaunchServices waiter exits normally after App self-termination
+PASS observed App, service, ACC and helper identities are absent after App shutdown
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+
+MACOS INPUT HOST E2E: ALL PASS

@@ -1,0 +1,9 @@
+Collecting opencv-python-headless==4.14.0.94
+  Downloading opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl.metadata (19 kB)
+Downloading opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl (46.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 46.5/46.5 MB 5.5 MB/s eta 0:00:00
+Saved /Users/jiming/.cache/ruyi-macos-wheels/vision-p5/opencv_python_headless-4.14.0.94-cp37-abi3-macosx_13_0_arm64.whl
+Successfully downloaded opencv-python-headless
+
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -m pip install --upgrade pip

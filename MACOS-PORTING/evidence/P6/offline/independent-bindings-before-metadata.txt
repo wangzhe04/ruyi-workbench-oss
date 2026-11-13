@@ -1,0 +1,4 @@
+Checking full
+full native=209 sources=484 files=8566 manifest=e0bf0a457719813270b75e9841543606145cb9a8e6e0f95f6e480e7bd39d7804
+Checking slim
+slim native=6 sources=484 files=223 manifest=41e57f111cd92244ace44d63bc378f5f1eb8fd9c49679fe4515b56a900c5b271

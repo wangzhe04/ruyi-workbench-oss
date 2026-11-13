@@ -1,5 +1,8 @@
 # Ruyi User Guide
 
+For the Mac arm64 local/internal trial, start with [installation, upgrade and recovery](../MACOS-RELEASE_EN.md). Windows commands and overlay updates below do not apply to Mac.
+
+
 > This guide is for everyday users who do not need to write code. It explains how to delegate work such as
 > combining spreadsheets, renaming files, extracting text from scans, and drafting a weekly report while keeping
 > execution records visible and supported file changes reversible through checkpoints. The UI is authoritative if a label differs from this guide.

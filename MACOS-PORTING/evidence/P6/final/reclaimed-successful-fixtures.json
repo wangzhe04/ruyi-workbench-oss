@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-11-12T11:09:31.819Z",
+  "records": [
+    {
+      "name": "main-full",
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-DdjRig",
+      "removedApp": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-DdjRig/搬移 如意 离线😀/Ruyi.app",
+      "treeSha256": "73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d",
+      "manifestSha256": "b5e9fa5fedaca1e886489221017c0d7889609a8cd9957b227ff3b58187cc27ee",
+      "logicalBytes": 1164574459,
+      "retained": "acceptance/native/host logs, copy metadata and original frozen P6-01/P6-02 distributions"
+    },
+    {
+      "name": "independent-full",
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4",
+      "removedApp": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4/搬移 如意 离线😀/Ruyi.app",
+      "treeSha256": "73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d",
+      "manifestSha256": "b5e9fa5fedaca1e886489221017c0d7889609a8cd9957b227ff3b58187cc27ee",
+      "logicalBytes": 1164574459,
+      "retained": "acceptance/native/host logs, copy metadata and original frozen P6-01/P6-02 distributions"
+    },
+    {
+      "name": "main-slim",
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-bqsNSZ",
+      "removedApp": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-bqsNSZ/搬移 如意 离线😀/Ruyi.app",
+      "treeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "manifestSha256": "d3da81c89c3af508a7c725b9f1e107a3ee2a9c1017b14d4f1f3033718decb156",
+      "logicalBytes": 140860335,
+      "retained": "acceptance/native/host logs, copy metadata and original frozen P6-01/P6-02 distributions"
+    },
+    {
+      "name": "independent-slim",
+      "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF",
+      "removedApp": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF/搬移 如意 离线😀/Ruyi.app",
+      "treeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "manifestSha256": "d3da81c89c3af508a7c725b9f1e107a3ee2a9c1017b14d4f1f3033718decb156",
+      "logicalBytes": 140860335,
+      "retained": "acceptance/native/host logs, copy metadata and original frozen P6-01/P6-02 distributions"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+PASS workbench starts
+PASS G1 回合没有撞保险丝(主请求 14 发 ≤ 40)
+PASS G1 整份重取被拒一次(实得 alpha.txt)
+PASS G1 拒绝是一条错误结果,并说明了换做法(缩小范围等)
+PASS G2 被拒的那份在上一次重取时带过 compactionWarning(实得 2 条)
+PASS G3 整份读实际执行有上限(A 3 次、B 3 次,各 ≤ 4)
+PASS G4 缩小范围的读法(新签名)照常执行
+PASS G5 回合正常收尾
+PASS 前提:确实发生了多次 L2 重播种(摘要 24 发)
+PASS G5 providerHistory 配对完好(孤儿 tool_call 0 个)
+PASS G6 日志里有 compaction_refetch 的 warn 与 refuse
+
+COMPACTION REFETCH GUARD E2E: ALL PASS

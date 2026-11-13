@@ -1,0 +1,22 @@
+FAIL 103b generated contract and human/machine graphs match source byte-for-byte
+module dependency graph --check: FAIL
+  - 新增循环边: 00-boot.js->00a-platform-runtime.js, 00a-platform-runtime.js->00-boot.js, 03-bridge-guard.js->00a-platform-runtime.js, 04-desktop-shell.js->00a-platform-runtime.js, 13-http-router.js->00a-platform-runtime.js
+  - 新增前向/越层边: 00-boot.js->00a-platform-runtime.js
+
+PASS docs/architecture/module-dependency-graph.json 不含行号字段(实得 0 处)
+PASS ruyi-workbench/app/src/module-contracts.json 不含行号字段(实得 0 处)
+PASS 103b graph covers every manifest module in concatenation order
+PASS 103b no duplicate top-level provides
+FAIL 103b no cycle edge above the reviewed debt ceiling
+FAIL 103b no forward/order-layer edge above the reviewed debt ceiling
+PASS SCC 规模不超过上限(1 个 / 每个 ≤ 32 个模块;实测 [32])
+PASS 103b scanner finds top-level multi/deconstructed declarations without comment/string ghosts
+PASS 103b scanner retains template-expression reads and discards quoted text
+PASS 103b isolation pilot exposes one namespace instead of fourteen hook internals
+PASS 103b isolation pilot declares its three injected external dependencies
+PASS 103b 05-claude-engine.js consumes the isolated AgentLoopHooks namespace
+PASS 103b 05b-kimi-bridge.js consumes the isolated AgentLoopHooks namespace
+PASS 103b 09-workflow.js consumes the isolated AgentLoopHooks namespace
+PASS 103b 14-main.js consumes the isolated AgentLoopHooks namespace
+
+MODULE DEPENDENCY GRAPH STATIC E2E: FAIL (3)

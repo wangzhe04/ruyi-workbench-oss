@@ -1,0 +1,11 @@
+{"driver_alive_after_status_cancel": true, "driver_alive_after_global_shutdown": true, "playwright_global_assigned": false}
+{"driver_alive_after_fixture_cleanup": false}
+[11/07/26 03:49:43] ERROR    Future exception was never      base_events.py:1833
+                             retrieved                                          
+                             future: <Future finished                           
+                             exception=TargetClosedError('Ta                    
+                             rget page, context or browser                      
+                             has been closed')>                                 
+                             TargetClosedError: Target page,                    
+                             context or browser has been                        
+                             closed                                             

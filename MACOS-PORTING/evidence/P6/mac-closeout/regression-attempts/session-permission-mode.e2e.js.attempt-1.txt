@@ -1,0 +1,92 @@
+PASS 00 workbench 起来了
+PASS ① 新建/存量会话的会话头【没有】 permissionMode 这个键(缺省不写 = 跟随全局,零迁移)
+PASS ① 空 PATCH 200 并返回 sessionMeta
+PASS ① sessionMeta.permissionMode === null(不是全局值 —— chip 要能分清「自己定了档」与「跟着走」)
+PASS ① sessionMeta.effectivePermissionMode === 全局档 acceptEdits(实 acceptEdits)
+PASS ① /api/sessions 列表行也带 permissionMode(null)
+PASS ② 基线:未设会话级档的线程按全局 acceptEdits 跑 → 文件被写出
+PASS ② PATCH 设 plan → 200 且 sessionMeta 两个字段都是 plan
+PASS ② 会话头文件里落了 permissionMode:"plan"
+PASS ② 会话级 plan → 该线程的 edit 层写工具被 block(文件没出现)
+PASS ② 同一进程里的另一条线程完全不受影响(文件照写)
+PASS ③ 非白名单值 → 400 session.invalid_permission_mode(实 400/{"code":"session.invalid_permission_mode","params":{"permissionMode":"superuser","allowed":["default","acceptEdits","plan","auto","bypass"]},"message":"permissionMode must be one of default/acceptEdits/plan/auto/bypass, or null/\"\" to follow the global default"})
+PASS ③ 400 之后会话头一个字节都没改(仍是 plan)
+PASS ③ 切全自动不带 confirm → 409 permission.confirm_required(实 409/{"code":"permission.confirm_required","params":{"permissionMode":"auto"},"message":"switching a thread to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)"})
+PASS ③ 409 之后会话头仍是 plan(没有被悄悄放宽)
+PASS ③ 带 confirm:true → 200 且落到 auto
+PASS ③ 会话头落了 auto
+PASS ③ 收紧到 default 不需要 confirm
+PASS ④ 会话级 auto → 写工具放行(文件出现)
+PASS ④ 同一会话带请求级 plan → 仍被 block:请求级【优先于】会话级
+PASS ④ 请求级临时覆盖绝不回写会话级(会话头仍是 auto)
+PASS ④ 请求级非法值静默回落会话级 auto(文件出现,不报错)
+PASS ⑤ permissionMode:null → 清除会话级,生效档回落全局 acceptEdits
+PASS ⑤ 会话头里的 permissionMode 键被删掉(不是写成空串)
+PASS ⑤ 清除后按全局 acceptEdits 跑(文件出现)
+PASS ⑤ 空串与 null 等价(都是「清除,回落全局」)
+PASS ⑥ 活回合期间 PATCH 照样 200(不拒绝、不返回 session.busy)
+PASS ⑥ PATCH 没有被在飞回合阻塞(耗时 52ms < 1500ms)
+PASS ⑥ 对读者【立即生效】(内存覆盖表)—— 还没落盘就已经读得到 plan
+PASS ⑥ 回合结束后档位【落到了磁盘】(延后落盘的读改写完成)
+PASS ⑥ 回合刚写的消息一条不丢(正文行数 0 → 2,至少 +2:user+assistant)
+PASS ⑥ 会话头计数与正文行数一致(没有被陈旧副本盖出错位)
+PASS ⑨ 线程 D 切到 auto(全自动)
+PASS ⑨ auto + exec + 普通工具(script_run 写个文件)→ 【不弹权限】(事件流里没有 permission_request)
+PASS ⑨ 而且工具是真的执行了(脚本写出的标记文件在)
+PASS ⑩ auto + exec + 命令文本含 rm -rf → 【仍然弹权限】(高风险不因「全自动」而免检)
+PASS ⑩ 且超时回落 deny → 脚本没有执行(标记文件不在)
+PASS ⑫ 线程 E 起手是 default(exec 要问)
+PASS ⑫ 回合在飞时把 E 切成 auto(PATCH 照常 200)
+PASS ⑫ 放宽:同一个回合的下一个工具【不再弹窗】(default → auto 当场生效)
+PASS ⑫ 放宽:该工具真的执行了
+PASS ⑫ 恰好记一条 permission_mode_live{sessionId,from:"default",to:"auto"}(每回合最多一条)
+PASS ⑫ 回合在飞时把 F 从 auto 收紧成 default(PATCH 照常 200)
+PASS ⑫ 收紧:同一个回合的下一个工具【重新弹窗】(auto → default 当场生效 —— 这条比放宽更重要)
+PASS ⑫ 收紧:该工具没有执行(超时回落 deny)
+PASS ⑫ 恰好再记一条 permission_mode_live{from:"auto",to:"default"}
+PASS ╭ 回合在飞时把 G 的会话级档改成 auto(PATCH 照常 200)
+PASS ╭ 请求级 plan 全程有效：中途把会话级改成 auto 也不能把它顶掉(工具没执行)
+PASS ╭ 而且是【直接拦】不是弹窗等人(plan 档的语义就是 block)
+PASS ╭ 带请求级档的回合压根不走活档那条路(零新增 permission_mode_live)
+PASS ╭ companion：会话级那一改本身照常落盘(只是不管这一单，下一回合就是它)
+PASS ⑦ 收紧成功(acceptEdits → default)并回报 previousEffective
+PASS ⑦ undoRef = {kind:"permission", sessionId, previous:null}(此前跟随全局)
+PASS ⑦ 会话头落盘为 default
+PASS ⑦ 决策日志恰好多一行,字段齐整(tool/targetSessionId/permissionMode/undoRef/basis)
+PASS ⑦ 放宽 default → acceptEdits 被拒(steward.widen_forbidden)
+PASS ⑦ 放宽 default → auto 被拒(永久豁免第 2 条:管家不得自我扩权)
+PASS ⑦ 平移到同一档也被拒(不是收紧)
+PASS ⑦ 三次被拒之后会话头一个字节都没变
+PASS ⑦ 被拒的三次都【不落】决策日志(没做决定就没有决定可记)
+PASS ⑦ 继续收紧 default → plan 成功,undoRef 带旧的会话级值
+PASS ⑦ 普通会话 ctx → steward.forbidden(fail-closed 二次校验)
+PASS ⑦ 非白名单档 → invalid_request
+PASS ⑦ 目标线程不存在 → not_found
+PASS ⑦ 管家自己的会话不能被当成目标线程
+PASS ⑪ nativeToolGate / liveSessionPermissionMode 已从产物导出(e2e 可直测)
+PASS ⑪ auto + exec + 没传 toolName → ask(保守回落)
+PASS ⑪ auto + exec + 空工具名 → ask
+PASS ⑪ auto + exec + 普通命令 → allow
+PASS ⑪ auto + exec + 高风险(删除数据(rm -rf))→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(删除数据(Remove-Item -Recurse))→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(推到远端(git push))→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(安装软件(winget install))→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(改注册表(reg add))→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(关机)→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(对外发送(curl -X POST))→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(工具名命中 install)→ 仍然 ask
+PASS ⑪ auto + exec + 高风险(工具名命中 send)→ 仍然 ask
+PASS ⑪ bypass 不变(exec 一律 allow,高风险也不问)
+PASS ⑪ bypassPermissions 不变
+PASS ⑪ read 层不变(任何档都 allow)
+PASS ⑪ plan 不变(edit/exec 都 block)
+PASS ⑪ dontAsk 不变
+PASS ⑪ acceptEdits 不变(edit allow / exec ask —— 它【不】跟着 auto 一起放宽)
+PASS ⑪ default 不变(exec 一律 ask)
+PASS ⑪ auto + edit 不变(可撤销的落盘一直是 allow)
+PASS ⑪ auto + edit 不看高风险判据(edit 层由检查点兜底,口径与修前逐字节一致)
+PASS ⑧ steward_thread_status 的 effectivePermissionMode / sessionPermissionMode 与刚设的档一致
+PASS ⑧ 既有字段 permissionMode 语义不变(生效档),断言只加不改
+PASS ⑧ 没设过会话级档的线程:sessionPermissionMode === null 且生效档回落全局
+
+SESSION PERMISSION MODE E2E: ALL PASS

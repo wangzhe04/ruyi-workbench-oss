@@ -1,0 +1,17 @@
+PASS workbench up
+PASS runtime token
+PASS start mission with m1
+PASS (a) 暂停窗口内 POST /api/mission update(加 m2)
+PASS (a) answer delivered
+PASS (a) m1 保留(既有里程碑)
+PASS (a) m2 保留(C4:回合内路由突变未被回合收尾盖回)
+PASS (b) 准备:m3 不存在
+PASS (b) 回合外 POST /api/mission update(加 m3)
+PASS (b) m3 落盘(回合外 update 基线)
+
+── [c] 静态锁 ──
+PASS c 13d C4 同步:update 分支 merge 到活动回合 session.mission
+PASS c 13d C4 同步:applyMissionUpdate(合并,保留 in-process mission_update)
+PASS c 13d C4 注释引用 09:1924 回合收尾
+
+INTERVENTIONS C4 E2E: ALL PASS

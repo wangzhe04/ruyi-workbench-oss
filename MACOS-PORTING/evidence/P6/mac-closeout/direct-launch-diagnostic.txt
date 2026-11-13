@@ -1,0 +1,7 @@
+{
+  root: '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p6-diagnostic-wfLNeH',
+  app: 46710
+}
+ERR sandbox_extension_issue_file_to_process failed for /tmp/ruyi-p6-mac-closeout-dev/Ruyi.app: 1 (Operation not permitted)
+
+{ exit: 0, signal: null }

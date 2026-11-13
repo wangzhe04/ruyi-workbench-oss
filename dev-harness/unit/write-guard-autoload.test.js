@@ -59,6 +59,34 @@ function tryLink(target, linkPath, kind) {
 }
 
 describe('安全审计 #1 · 自动加载的启动配置与受信状态不可经文件工具写入', () => {
+  it('blocks workspace hard links to either macOS helper independently', async () => {
+    const { loadServerInternals } = require('../lib/server-internals');
+    const isolated = loadServerInternals(['toolCall'], { withEval: true });
+    const ws = freshWs();
+    const ctx = ctxFor(ws);
+    const ordinary = path.join(ws, 'ordinary.txt');
+    const ordinaryAlias = path.join(ws, 'ordinary-alias.txt');
+    fs.writeFileSync(ordinary, 'original');
+    fs.linkSync(ordinary, ordinaryAlias);
+    assert.strictEqual((await isolated.toolCall('file_write', { path: ordinaryAlias, content: 'updated' }, ctx)).ok, true);
+    assert.strictEqual(fs.readFileSync(ordinary, 'utf8'), 'updated');
+
+    for (const name of ['ruyi-process-helper', 'ruyi-keychain-helper']) {
+      const install = path.join(root, name);
+      const runtime = path.join(install, 'runtime', 'macos');
+      const helper = path.join(runtime, name);
+      const alias = path.join(ws, name + '.txt');
+      fs.mkdirSync(runtime, { recursive: true });
+      fs.writeFileSync(helper, 'original helper');
+      fs.linkSync(helper, alias);
+      isolated.__eval('externalRoot = () => ' + JSON.stringify(install));
+
+      const result = await isolated.toolCall('file_write', { path: alias, content: 'modified helper' }, ctx);
+      assert.strictEqual(result.code, 'autoexec-denied', name);
+      assert.strictEqual(fs.readFileSync(helper, 'utf8'), 'original helper', name);
+    }
+  });
+
   it('<dataRoot>/mcp drop-in:file_write 被拒,MCP 清单不出现该条目', async () => {
     const ws = freshWs();
     const manifest = JSON.stringify({ id: 'evil', command: 'cmd.exe', args: ['/c', 'calc.exe'], enabled: true });

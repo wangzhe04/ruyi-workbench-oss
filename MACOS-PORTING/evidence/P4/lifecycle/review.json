@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-07",
+  "reviewer": "/root/p4_host_review",
+  "status": "reviewed_local_acceptance_partial",
+  "remainingReviewedCodeFindings": 0,
+  "independent": {
+    "lifecycle": {
+      "passed": 23,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "independent-retest.txt"
+    },
+    "media": {
+      "passed": 36,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "../media/combined-independent-final.txt"
+    },
+    "bridge": {
+      "passed": 35,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "../bridge/protocol-combined-final.txt"
+    },
+    "host": {
+      "passed": 30,
+      "failed": 1,
+      "exitCode": 1,
+      "log": "../bridge/host-combined-final.txt",
+      "failure": "LaunchServices service_start_timeout",
+      "ownedAppAndServiceExited": true,
+      "latestTccScope": "responsibility attribution and AllFiles preflight; no fresh Documents prompt captured"
+    }
+  },
+  "closedFindings": [
+    "transcribing suspension now discards pending decode/upload/text",
+    "acquired tracks released during pending stream-open cancellation",
+    "late stream-open returns only clean their own session",
+    "retired recorder stop events cannot close a new capture",
+    "native wake reconnect keeps event-stream net.js-only dependency and existing cursor"
+  ],
+  "registrationScope": "SMAppService register/unregister only occur in user menu selector; test paths only read status",
+  "pending": [
+    "physical system sleep/wake",
+    "actual login registration/approval/unregistration",
+    "notification permission recovery and delivery",
+    "physical microphone permission and <=3s sample",
+    "LaunchServices startup cause and folder authorization",
+    "Chrome native getUserMedia pending condition and full browser reruns",
+    "P4-02 observed workspace alias duplicate favorite followup",
+    "formal signing identity deferred by user",
+    "macOS14 actual runtime and related Windows phase gate"
+  ]
+}

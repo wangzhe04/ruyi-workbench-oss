@@ -1,0 +1,43 @@
+PASS generic conversation does not load the engineering pack
+PASS short continuation inherits engineering routing from a recent user task
+PASS an explicit new topic does not inherit stale engineering routing
+PASS engineering policy has a closed trust fence
+PASS engineering policy separates read-only diagnosis from authorized changes
+PASS implementation receives preflight and smallest-coherent-change rules
+PASS implementation follows local code idiom and keeps comments purposeful
+PASS implementation receives evidence-backed verification and definition of done
+PASS Git rules stay conditional when Git is not part of the task
+PASS debugging tasks receive root-cause and regression-test guidance
+PASS Git tasks receive workspace and history safety guidance
+PASS English engineering pack is structurally equivalent
+PASS turn router injects the pack only for software work
+PASS bounded policy at 200 chars retains a complete language tail
+PASS bounded policy at 200 chars contains only complete optional modules
+PASS bounded policy at 800 chars retains a complete language tail
+PASS bounded policy at 800 chars contains only complete optional modules
+PASS bounded policy at 1200 chars retains a complete language tail
+PASS bounded policy at 1200 chars contains only complete optional modules
+PASS Provider stable prompt now includes the shared questioning protocol
+PASS stable prompt treats observed text as data and forbids permission bypass
+PASS memory index requires a lightweight relevance check on every user message
+PASS matching memory is verified against current workspace state before use
+PASS zero-match memory preflight remains machine-readable
+PASS zero-match receipt prevents capability denial and preserves the authorization boundary
+PASS default retrieval considers relevant global memory plus project conventions without injecting unrelated references
+PASS plan discovery allows native read-only inspection batches
+PASS plan discovery allows a material user clarification
+PASS plan discovery allows provider-side observational search
+PASS plan discovery applies bridged-tool risk tiers
+PASS plan discovery rejects a mixed read/write batch
+PASS plan discovery blocks delegation and planning-metadata side effects
+PASS plan discovery fails closed for unknown tools
+PASS Claude parent turn routes the current task into engineering policy selection
+PASS Claude turn trace records prompt-pack version and engineering routing decision
+PASS Claude DAG node receives the same engineering policy
+PASS OpenAI sub-agent receives the same engineering policy
+PASS Provider parent turn routes the current task into engineering policy selection
+PASS Provider turn trace records prompt-pack version and engineering routing decision
+PASS Provider plan runtime routes pre-plan tool calls through the read-only discovery gate
+PASS plan prompt requests one executable plan and avoids a redundant approval question
+
+SOFTWARE ENGINEERING PROMPT STATIC E2E: ALL PASS

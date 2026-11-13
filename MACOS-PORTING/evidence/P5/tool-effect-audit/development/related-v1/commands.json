@@ -1,0 +1,10 @@
+[
+  {
+    "command": [
+      "node",
+      "dev-harness/mission-result.e2e.js"
+    ],
+    "start": "2026-11-11T12:49:01.023293+00:00",
+    "exitCode": 1
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-11-12T13:54:56.628251+00:00",
+  "applicationSourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "scope": "Read-only current repository against frozen package source fingerprints",
+  "variants": [
+    {
+      "variant": "full",
+      "applicationFingerprints": 492,
+      "mismatches": [
+        {
+          "file": "ruyi-workbench/tools/package-macos-trial.js",
+          "expected": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+          "actual": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f"
+        }
+      ],
+      "pass": false
+    },
+    {
+      "variant": "slim",
+      "applicationFingerprints": 492,
+      "mismatches": [
+        {
+          "file": "ruyi-workbench/tools/package-macos-trial.js",
+          "expected": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+          "actual": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f"
+        }
+      ],
+      "pass": false
+    }
+  ],
+  "pass": false
+}

@@ -1,0 +1,75 @@
+
+── [S] 静态锁 ──
+PASS S config monitorIncremental 默认 true(!==false 归一)
+PASS S readAgentRunEvents + 分页上限 500
+PASS S 事件解析逐行 safeJsonParse 跳坏行(尾行半写免疫)
+PASS S 尾窗/整读阈值 512KB
+PASS S 小文件整读(便宜恒完整)
+PASS S 尾窗回溯到 afterSeq+1 即完整,否则回落全读(冷客户端保正确性)
+PASS S 尾窗按字节切 + 丢半行(droppedHead)
+PASS S events 路由排在通配单 run GET 之前(不被吞)
+PASS S node_progress 只记离散里程碑(gen 流式字数不落取证文件)
+PASS S 列表路由带 digest 轻量视图
+PASS S 任务池提案/物化/审批均发 run_pool 事件
+PASS S 单 run GET live 时以内存对象下发(快照节流恒旧)
+PASS S 单 run GET 内存路径保留跨会话 404 守卫
+PASS S bumpRunIntervention 接入 ≥7 个干预点
+PASS S 收尾聚合 failuresByClass(幂等重算)
+PASS S errorClass 显式标注 ≥10 个 error 设置点
+PASS S mission 预算超支率分子/分母均落审计账
+PASS S 会话级干预(permission/plan/steer)落审计账
+PASS S ops 指标聚合端点
+PASS S 两引擎子代理用量事件(与台账同源)
+PASS S nodeEvent 累进 run.usageTotals(点亮前端预订字段)
+PASS S(前端) per-run 增量缓存
+PASS S(前端) 总开关回落(config.monitorIncremental=false → 旧全量)
+PASS S(前端) 事件轻应用(progress/start),其余走单 run 快照
+PASS S(前端) 动作后 force 全量 ≥5 处(审批/操作/插话/删除/启动)
+PASS S(前端) agentRunsSeq 与会话双重乱序防护保留（数据与读取质量共门）
+PASS S(前端) 事件僵局自愈(连续 3 tick 空拉 → 全量)
+PASS S(前端) 对抗轮 P2(#14): 刷新按钮显式 force 全量(不再把 MouseEvent 当 force)
+PASS S(前端) 对抗轮 P2(#15): status 漂移检测去掉 !dg.live 门(live run 也比 status)
+PASS S(前端) 对抗轮 P3(#13): updatedAt 前进兜底刷新(冷路径 apply_isolation 自愈)
+PASS S(前端) 对抗轮 P3(#16): 旗标叠加对称(dg 值覆写含空,不残留)
+PASS S 对抗轮 P3(#12): bumpRunIntervention 兼落 logEvent(ops 头条含 run 级干预)
+PASS S 对抗轮 P3(#8): pause 计数按状态迁移幂等
+PASS S 对抗轮 P3(#8): resume/stop 计数按状态迁移幂等
+PASS S 对抗轮 P2(#7): failuresByClass 对齐 fromPool+continue 排除(与 run 总态口径一致)
+PASS S 对抗轮 P2(#6): budget_exhausted 只在转入时落一次(超支率 ≤100%)
+PASS S 对抗轮 P2(#6): normalizeMission 保留 budgetExhaustedAt(update 再武装不清)
+PASS S vote 输入契约错误与真实 rejected 分开分类
+PASS S 对抗轮 P2(#2): autoResume 前后双复检 live(防 seq 重号/陈旧覆盖)
+
+── [H] Live ──
+PASS H workbench up on :59501
+PASS H1 timer wait run 启动
+PASS H1 run 完成(实 succeeded)
+PASS H2 digest 返回 4 个 run
+PASS H2 digest 含 status/eventSeq/nodeCount,不含 nodes 体
+PASS H2 digest 不携带节点 result(胖字段不下发)
+PASS H2 digest 字节 1844 < 全量 35702 的 20%
+PASS H3 afterSeq=0 拿到全部事件(≥3 条,实 4)
+PASS H3 seq 严格递增
+PASS H3 事件链含 run_created/node_wait/node_settled/run_end
+PASS H3 afterSeq=中位 只回尾段(断线补播语义)
+PASS H3 同 afterSeq 重放幂等(无重无漏)
+PASS H3 afterSeq 越界 → 空(不报错)
+PASS H3 limit=2 截断 + hasMore=true
+PASS H4 坏行/半写尾行被跳过(数量不变,不 500)
+PASS H4b 合成事件文件 > 512KB 尾窗阈值(实 704KB,走尾窗路径)
+PASS H4b 尾窗:afterSeq=2995 → 恰 5 条 [2996..3000] 无漏
+PASS H4b afterSeq=0 回落全读 → 首页 [1..500] + hasMore(尾窗回溯不足时不丢早期事件)
+PASS H4b afterSeq=2900 → 100 条连续无重无漏(尾窗完整)
+PASS H5 events 无 token → 403
+PASS H5 digest 无 token → 403
+PASS H5 ops 指标无 token → 403
+PASS H5 错 session 的事件请求 → 空(按目录天然隔离)
+PASS H5 错 session 的单 run GET → 404
+PASS H6 单 run GET 对活跃 run 叠加 live:true(内存态)
+PASS H6 pause 后 digest 即时反映 paused(内存旗标)
+PASS H6 run.metrics.interventions 计到 pause=1/resume=1(29c)
+PASS H7 【验收锁】增量传输 96752B ≤ 全量 817199B 的 20%(实 11.8%)
+PASS H8 ops 指标端点形状(interventions/missions)
+PASS H8 mission_start 计入分母(实 1)
+
+MONITOR-INCREMENTAL E2E: ALL PASS

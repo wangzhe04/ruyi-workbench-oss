@@ -1,0 +1,1 @@
+{"wheelCount": 64, "arm64BinaryCount": 99, "maxDeclaredMinimum": [15, 0, 0], "staticDeploymentCheckPassed": false, "errors": [], "overTarget": [{"path": "ffmpeg-1013/ffmpeg-mac", "minimums": [[15, 0, 0]], "bytes": 3012616, "sha256": "e71dd6610cbc984022ff51b07a95f8d2526aba120406d8cdd0686f6421c464ac"}]}

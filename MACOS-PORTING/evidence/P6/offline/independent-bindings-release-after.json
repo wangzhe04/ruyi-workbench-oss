@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "checkedAt": "2026-11-12T07:47:37.411Z",
+  "packages": {
+    "full": {
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "manifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "treeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "entryCount": 9790,
+      "fileCount": 8566,
+      "symlinkCount": 14,
+      "totalBytes": 1165679370,
+      "nativeCount": 209,
+      "sourceBindingCount": 484,
+      "gitCheckoutFilteredPaths": [
+        "mcp/ai-computer-control/installer/install.bat",
+        "mcp/ai-computer-control/installer/update.bat",
+        "ruyi-workbench/Start-Workbench.cmd",
+        "ruyi-workbench/desktop/build-desktop.ps1",
+        "ruyi-workbench/desktop/build-icon.ps1",
+        "ruyi-workbench/resources/scripts/install-workbench.ps1",
+        "ruyi-workbench/resources/scripts/launch-workbench.ps1",
+        "ruyi-workbench/tools/Manage-Overlay.cmd",
+        "ruyi-workbench/tools/Manage-Overlay.ps1",
+        "ruyi-workbench/tools/dev-serve.cmd",
+        "ruyi-workbench/tools/package-offline.ps1"
+      ],
+      "sourceMatchesCommitAndWorktree": true,
+      "signatureVerified": true,
+      "nativeInventoryIndependentlyMatched": true,
+      "nativeAuditDirectory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app",
+      "cloneTreeStable": null
+    },
+    "slim": {
+      "directory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01",
+      "sourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+      "manifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "treeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "entryCount": 278,
+      "fileCount": 223,
+      "symlinkCount": 0,
+      "totalBytes": 140860335,
+      "nativeCount": 6,
+      "sourceBindingCount": 484,
+      "gitCheckoutFilteredPaths": [
+        "mcp/ai-computer-control/installer/install.bat",
+        "mcp/ai-computer-control/installer/update.bat",
+        "ruyi-workbench/Start-Workbench.cmd",
+        "ruyi-workbench/desktop/build-desktop.ps1",
+        "ruyi-workbench/desktop/build-icon.ps1",
+        "ruyi-workbench/resources/scripts/install-workbench.ps1",
+        "ruyi-workbench/resources/scripts/launch-workbench.ps1",
+        "ruyi-workbench/tools/Manage-Overlay.cmd",
+        "ruyi-workbench/tools/Manage-Overlay.ps1",
+        "ruyi-workbench/tools/dev-serve.cmd",
+        "ruyi-workbench/tools/package-offline.ps1"
+      ],
+      "sourceMatchesCommitAndWorktree": true,
+      "signatureVerified": true,
+      "nativeInventoryIndependentlyMatched": true,
+      "nativeAuditDirectory": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01/Ruyi.app",
+      "cloneTreeStable": null
+    }
+  }
+}

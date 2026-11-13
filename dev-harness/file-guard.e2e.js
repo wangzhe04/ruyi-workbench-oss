@@ -43,7 +43,7 @@ function post(port, p, payload, headers) {
   const S = require(SERVER);
 
   // S2: shell-free open spawn.
-  const inj = S.buildOpenSpawn('http://x&calc');
+  const inj = S.buildOpenSpawn('http://x&calc', 'win32');
   ok(inj.command === 'explorer.exe', 'S2 buildOpenSpawn uses explorer.exe (got ' + inj.command + ')');
   ok(!/cmd(\.exe)?/i.test(inj.command), 'S2 spawn command is NOT cmd.exe');
   ok(Array.isArray(inj.args) && inj.args.length === 1 && inj.args[0] === 'http://x&calc', 'S2 target passed as ONE verbatim argv element (no /c start splitting)');
@@ -81,48 +81,55 @@ function post(port, p, payload, headers) {
   ok(await g(OUTSIDE, ctx('http://127.0.0.1:11434', { permissionMode: 'auto' }), true) === true, 'S3 v2.7.1 auto -> out-of-bounds write ALLOWED (wide write)');
   ok(await g(OUTSIDE, wide(), false) === false, 'S3 v2.7.1 wide write does NOT open read (remote out-of-bounds read still DENY)');
   ok(await g(OUTSIDE, ctx('http://127.0.0.1:11434', { permissionMode: 'auto' }), false) === true, 'S3 v2.7.1 auto + local provider -> out-of-bounds read still allow (unchanged)');
-  const osP = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wcw-guard-e2e-nope.txt');
+  const osP = process.platform === 'darwin' ? '/System/ruyi-guard-no-write.txt' : path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wcw-guard-e2e-nope.txt');
   const go = await S.guardFileToolPath(osP, wide(), { write: true });
   ok(go.ok === false && go.code === 'os-critical-denied', 'S3 v2.7.1 bypass wide write still DENIES OS-critical path (3rd floor)');
   const gs = await S.guardFileToolPath(path.join(UNIT_DATA, 'sessions', 'x.json'), wide(), { write: true });
   ok(gs.ok === false && gs.code === 'not-allowed', 'S3 v2.7.1 bypass wide write still DENIES app-data path (1st floor)');
   // v2.7.1 对抗轮: Windows 扩展/UNC 路径形态不得绕过三层地板(本地回环 C$ 管理共享映射回盘符再判)。
-  const winTemp2 = path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp');
-  const osProbe = path.join(winTemp2, 'wcw-guard-ext-' + Date.now() + '.txt');
-  fs.writeFileSync(osProbe, 'probe');
-  const extForms = [
-    ['\\\\?\\' + osProbe, 'os-critical-denied', 'ext-prefix'],
-    ['\\\\.\\' + osProbe, 'os-critical-denied', 'device-prefix'],
-    ['\\\\?\\UNC\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-localhost'],
-    ['\\\\?\\UNC\\127.0.0.1\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-loopback'],
-    ['\\\\?\\UNC\\' + (os.hostname() || '') + '\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-hostname'],
-  ];
-  for (const [ep, expectCode, tag] of extForms) {
-    const ge = await S.guardFileToolPath(ep, wide(), { write: true });
-    ok(ge.ok === false && ge.code === expectCode, 'S3 v2.7.1 adversarial [' + tag + '] denied (' + ge.code + ')');
+  if (process.platform === 'win32') {
+    const winTemp2 = path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp');
+    const osProbe = path.join(winTemp2, 'wcw-guard-ext-' + Date.now() + '.txt');
+    fs.writeFileSync(osProbe, 'probe');
+    const extForms = [
+      ['\\\\?\\' + osProbe, 'os-critical-denied', 'ext-prefix'],
+      ['\\\\.\\' + osProbe, 'os-critical-denied', 'device-prefix'],
+      ['\\\\?\\UNC\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-localhost'],
+      ['\\\\?\\UNC\\127.0.0.1\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-loopback'],
+      ['\\\\?\\UNC\\' + (os.hostname() || '') + '\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'os-critical-denied', 'unc-hostname'],
+    ];
+    for (const [ep, expectCode, tag] of extForms) {
+      const ge = await S.guardFileToolPath(ep, wide(), { write: true });
+      ok(ge.ok === false && ge.code === expectCode, 'S3 v2.7.1 adversarial [' + tag + '] denied (' + ge.code + ')');
+    }
+    // The fixture home may be on a non-system drive. Its administrative share must
+    // name that same drive, otherwise this probes an unrelated C: path.
+    const dataDrive = /^[A-Za-z]:/.exec(UNIT_DATA)?.[0];
+    if (!dataDrive) throw new Error('Windows fixture requires an absolute drive path');
+    const uncCfg = '\\\\?\\UNC\\localhost\\' + dataDrive[0] + '$' + path.join(UNIT_DATA, 'sessions', 'x.json').replace(/^[A-Za-z]:/, '');
+    const gu = await S.guardFileToolPath(uncCfg, wide(), { write: true });
+    ok(gu.ok === false && gu.code === 'not-allowed', 'S3 v2.7.1 adversarial [unc-sessions] app-data denied');
+    fs.unlinkSync(osProbe);
+    // v2.7.1 对抗轮 G-01: 无前缀原生 UNC 管理共享(localhost/127.0.0.1/本机名)同样必须映射回盘符地板拦截。
+    const nativeUncForms = [
+      ['\\\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-localhost'],
+      ['\\\\127.0.0.1\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-loopback'],
+      ['\\\\' + (os.hostname() || '') + '\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-hostname'],
+    ];
+    for (const [np, tag] of nativeUncForms) {
+      const gN = await S.guardFileToolPath(np, wide(), { write: true });
+      ok(gN.ok === false && gN.code === 'os-critical-denied', 'S3 v2.7.1 adversarial [' + tag + '] denied (' + gN.code + ')');
+    }
+  } else if (process.platform === 'darwin') {
+    for (const target of ['/private/etc/ruyi-no-write.txt', '/System/Volumes/Data/private/etc/ruyi-no-write.txt']) {
+      const result = await S.guardFileToolPath(target, wide(), { write: true });
+      ok(!result.ok && result.code === 'os-critical-denied', 'S3 Mac physical system alias denied');
+    }
   }
-  // The fixture home may be on a non-system drive. Its administrative share must
-  // name that same drive, otherwise this probes an unrelated C: path.
-  const dataDrive = /^[A-Za-z]:/.exec(UNIT_DATA)?.[0];
-  if (!dataDrive) throw new Error('Windows fixture requires an absolute drive path');
-  const uncCfg = '\\\\?\\UNC\\localhost\\' + dataDrive[0] + '$' + path.join(UNIT_DATA, 'sessions', 'x.json').replace(/^[A-Za-z]:/, '');
-  const gu = await S.guardFileToolPath(uncCfg, wide(), { write: true });
-  ok(gu.ok === false && gu.code === 'not-allowed', 'S3 v2.7.1 adversarial [unc-sessions] app-data denied');
-  fs.unlinkSync(osProbe);
   // 远程 UNC 非回环主机:修前「不在盘符地板 -> 宽写放行属设计意图」。3.0 收口安全走查 W1 起改为在任何 I/O 之前就拒(宽写档也拒,
   // 除非落在用户登记的 UNC 工作区里)—— realpath / 读写一碰就去连对方 SMB,是无提示外传通道并泄露本机 NTLM 凭据。
   const gr = await S.guardFileToolPath('\\\\?\\UNC\\remote-host\\C$\\x\\y.txt', wide(), { write: true });
   ok(gr.ok === false && gr.code === 'not-allowed' && /网络共享/.test(gr.error || ''), 'S3 [unc-remote] wide-write denied before any I/O (W1: a remote share is an exfiltration / NTLM channel)');
-  // v2.7.1 对抗轮 G-01: 无前缀原生 UNC 管理共享(localhost/127.0.0.1/本机名)同样必须映射回盘符地板拦截。
-  const nativeUncForms = [
-    ['\\\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-localhost'],
-    ['\\\\127.0.0.1\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-loopback'],
-    ['\\\\' + (os.hostname() || '') + '\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-hostname'],
-  ];
-  for (const [np, tag] of nativeUncForms) {
-    const gN = await S.guardFileToolPath(np, wide(), { write: true });
-    ok(gN.ok === false && gN.code === 'os-critical-denied', 'S3 v2.7.1 adversarial [' + tag + '] denied (' + gN.code + ')');
-  }
   // v2.7.1 对抗轮 G-02: 无 permissionMode 的 ctx 缺省回落 default(fail-closed)——越界写必须拒绝。
   const gNm = await S.guardFileToolPath(OUTSIDE, ctx('https://api.deepseek.com', { permissionMode: undefined }), { write: true });
   ok(gNm.ok === false && gNm.code === 'not-allowed', 'S3 v2.7.1 G-02 no-mode fallback -> out-of-bounds write DENY (fail-closed)');
@@ -221,7 +228,7 @@ function post(port, p, payload, headers) {
     ok(wout.json && wout.json.result && wout.json.result.ok === true, 'B: out-of-bounds file_write ALLOWED under bypass (wide write)');
     ok(fs.existsSync(woutPath), 'B: out-of-bounds file_write created the file (wide write)');
     fs.rmSync(woutPath, { force: true }); // wide write cleanup
-    const osP = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wcw-guard-e2e-' + Date.now() + '.tmp');
+    const osP = process.platform === 'darwin' ? '/System/ruyi-guard-' + Date.now() + '.tmp' : path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wcw-guard-e2e-' + Date.now() + '.tmp');
     const wos = await tool('file_write', { path: osP, content: 'nope' });
     ok(wos.json && wos.json.result && wos.json.result.ok === false && wos.json.result.code === 'os-critical-denied', 'B: OS-critical path write DENIED even under bypass');
     ok(!fs.existsSync(osP), 'B: OS-critical write left NO file on disk');

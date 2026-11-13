@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-11-12T15:59:06.813650+00:00",
+  "sourceFreeze": "source-freeze-package.json",
+  "verifiedSourceFiles": 54,
+  "sourceDrift": [],
+  "ownedFixturePrefixes": [
+    "/private/tmp/ruyi-p6-closeout-final-79ido2bq/",
+    "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/",
+    "/private/tmp/ruyi-p6-independent-closeout-IjLKkI/",
+    "/private/tmp/ruyi-p6-independent-packages-gQBL6k/"
+  ],
+  "observedProcessesWithOwnedFixtureCommand": [],
+  "ownedMounts": [],
+  "independentStrongerProcessBirthAudits": [
+    "independent-closeout/review.json",
+    "independent-packages/review.json"
+  ],
+  "scope": "Final owned-fixture command/mount scan plus previous native birth-identity audits. No unrelated application process or assertion was stopped. Caffeinate remains active pending release.",
+  "pass": true
+}

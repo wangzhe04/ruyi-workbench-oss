@@ -1,5 +1,8 @@
 # 如意 Ruyi 管理员手册
 
+Mac arm64 本地／内部试用版请先阅读[安装、升级和恢复说明](../MACOS-RELEASE_CN.md)。下文 Windows 命令与 overlay 更新不适用于 Mac。
+
+
 > 面向部署者 / IT / 内网运维。本手册讲清楚如意工作台的**部署形态、引擎接入、安全边界、验收回归与排障**。用户视角的操作说明另见同目录 [`USER-GUIDE_CN.md`](USER-GUIDE_CN.md)。
 >
 > 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**离线优先、零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**3.0 起 MCP server id 为 `ruyi`、默认数据目录为 `~/.ruyi-workbench`、环境变量为 `RUYI_HOME`**（旧的 `win-claude-workbench` / `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` 自动迁移或仍可读，详见文末「品牌与兼容」）。

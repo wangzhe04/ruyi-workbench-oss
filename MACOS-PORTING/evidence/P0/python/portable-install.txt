@@ -1,0 +1,330 @@
+Collecting mcp<2.0.0,>=1.0.0 (from mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached mcp-1.30.0-py3-none-any.whl.metadata (9.3 kB)
+Collecting pyautogui>=0.9.54 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Using cached PyAutoGUI-0.9.54.tar.gz (61 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting Pillow>=10.0.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 3))
+  Using cached pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (9.1 kB)
+Collecting psutil>=5.9.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 4))
+  Downloading psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl.metadata (22 kB)
+Collecting playwright>=1.40.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 5))
+  Downloading playwright-1.64.1-py3-none-macosx_11_0_arm64.whl.metadata (3.3 kB)
+Collecting python-docx>=1.0.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 6))
+  Downloading python_docx-1.2.0-py3-none-any.whl.metadata (2.0 kB)
+Collecting openpyxl>=3.1.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 7))
+  Using cached openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+Collecting pdfplumber>=0.10.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Downloading pdfplumber-0.11.10-py3-none-any.whl.metadata (43 kB)
+Collecting pandas>=2.2.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 9))
+  Downloading pandas-3.1.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (18 kB)
+Collecting pypdf>=5.0.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 10))
+  Downloading pypdf-6.21.4-py3-none-any.whl.metadata (7.6 kB)
+Collecting PyPDF2>=3.0.1 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 11))
+  Downloading pypdf2-3.0.1-py3-none-any.whl.metadata (6.8 kB)
+Collecting requests>=2.31.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 12))
+  Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting beautifulsoup4>=4.12.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 13))
+  Using cached beautifulsoup4-4.15.0-py3-none-any.whl.metadata (3.8 kB)
+Collecting pyperclip>=1.8.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 14))
+  Downloading pyperclip-1.11.0-py3-none-any.whl.metadata (2.4 kB)
+Collecting reportlab>=4.0.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 15))
+  Downloading reportlab-5.1.0-py3-none-any.whl.metadata (1.6 kB)
+Collecting opencv-python-headless>=4.8.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 16))
+  Downloading opencv_python_headless-5.0.0.93-cp37-abi3-macosx_13_0_arm64.whl.metadata (19 kB)
+Collecting numpy>=1.26.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 17))
+  Downloading numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl.metadata (6.6 kB)
+Collecting pynput>=1.7.6 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 18))
+  Downloading pynput-1.8.2-py2.py3-none-any.whl.metadata (32 kB)
+Collecting python-pptx>=0.6.23 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 19))
+  Downloading python_pptx-1.0.2-py3-none-any.whl.metadata (2.5 kB)
+Collecting matplotlib>=3.8.0 (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Downloading matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl.metadata (80 kB)
+Collecting anyio>=4.5 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)
+Collecting httpx-sse>=0.4 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached httpx_sse-0.4.3-py3-none-any.whl.metadata (9.7 kB)
+Collecting httpx<1.0.0,>=0.27.1 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Collecting jsonschema>=4.20.0 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+Collecting pydantic-settings>=2.5.2 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading pydantic_settings-2.16.2-py3-none-any.whl.metadata (4.0 kB)
+Collecting pydantic<3.0.0,>=2.11.0 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading pydantic-2.14.2-py3-none-any.whl.metadata (137 kB)
+Collecting pyjwt>=2.10.1 (from pyjwt[crypto]>=2.10.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading pyjwt-2.15.1-py3-none-any.whl.metadata (3.5 kB)
+Collecting python-multipart>=0.0.9 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+Collecting sse-starlette>=1.6.1 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading sse_starlette-3.6.0-py3-none-any.whl.metadata (15 kB)
+Collecting starlette>=0.27 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting typing-extensions>=4.9.0 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting typing-inspection>=0.4.1 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting uvicorn>=0.31.1 (from mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting pyobjc-core (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading pyobjc_core-12.2.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (2.8 kB)
+Collecting pyobjc-framework-quartz (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading pyobjc_framework_quartz-12.2.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (3.6 kB)
+Collecting pymsgbox (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading pymsgbox-2.0.1-py3-none-any.whl.metadata (4.4 kB)
+Collecting pytweening>=1.0.4 (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading pytweening-1.2.0.tar.gz (171 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting pyscreeze>=0.1.21 (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading pyscreeze-1.0.1.tar.gz (27 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting pygetwindow>=0.0.5 (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading PyGetWindow-0.0.9.tar.gz (9.7 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting mouseinfo (from pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading MouseInfo-0.1.3.tar.gz (10 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting pyee<15,>=13 (from playwright>=1.40.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 5))
+  Downloading pyee-14.0.0-py3-none-any.whl.metadata (1.8 kB)
+Collecting greenlet<4.0.0,>=3.1.1 (from playwright>=1.40.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 5))
+  Downloading greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl.metadata (3.8 kB)
+Collecting lxml>=3.1.0 (from python-docx>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 6))
+  Downloading lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl.metadata (3.3 kB)
+Collecting et-xmlfile (from openpyxl>=3.1.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 7))
+  Using cached et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+Collecting pdfminer.six==20260107 (from pdfplumber>=0.10.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Downloading pdfminer_six-20260107-py3-none-any.whl.metadata (4.3 kB)
+Collecting pypdfium2>=5.9.0 (from pdfplumber>=0.10.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Downloading pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl.metadata (62 kB)
+Collecting charset-normalizer>=2.0.0 (from pdfminer.six==20260107->pdfplumber>=0.10.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Downloading charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (46 kB)
+Collecting cryptography>=36.0.0 (from pdfminer.six==20260107->pdfplumber>=0.10.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Downloading cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl.metadata (4.4 kB)
+Collecting python-dateutil>=2.9.0 (from pandas>=2.2.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 9))
+  Downloading python_dateutil-3.0.0-py2.py3-none-any.whl.metadata (8.2 kB)
+Collecting idna<4,>=2.5 (from requests>=2.31.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 12))
+  Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+Collecting urllib3<3,>=1.26 (from requests>=2.31.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 12))
+  Using cached urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting certifi>=2023.5.7 (from requests>=2.31.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 12))
+  Downloading certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+Collecting soupsieve>=1.6.1 (from beautifulsoup4>=4.12.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 13))
+  Downloading soupsieve-3.0.4-py3-none-any.whl.metadata (4.4 kB)
+Collecting six (from pynput>=1.7.6->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 18))
+  Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting pyobjc-framework-ApplicationServices>=8.0 (from pynput>=1.7.6->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 18))
+  Downloading pyobjc_framework_applicationservices-12.2.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (2.8 kB)
+Collecting XlsxWriter>=0.5.7 (from python-pptx>=0.6.23->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 19))
+  Downloading xlsxwriter-3.3.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting contourpy>=1.0.1 (from matplotlib>=3.8.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Downloading contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (3.8 kB)
+Collecting cycler>=0.10 (from matplotlib>=3.8.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+Collecting fonttools>=4.28.2 (from matplotlib>=3.8.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Downloading fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl.metadata (139 kB)
+Collecting kiwisolver>=1.3.1 (from matplotlib>=3.8.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Downloading kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (5.2 kB)
+Collecting packaging>=20.0 (from matplotlib>=3.8.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pyparsing>=3 (from matplotlib>=3.8.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 20))
+  Downloading pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+Collecting python-dotenv>=1.0.0 (from mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading python_dotenv-1.2.4-py3-none-any.whl.metadata (29 kB)
+Collecting typer>=0.16.0 (from mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading typer-0.27.3-py3-none-any.whl.metadata (16 kB)
+Collecting httpcore==1.* (from httpx<1.0.0,>=0.27.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Collecting h11>=0.16 (from httpcore==1.*->httpx<1.0.0,>=0.27.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting attrs>=22.2.0 (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting jsonschema-specifications>=2023.03.6 (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing>=0.28.4 (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py>=0.25.0 (from jsonschema>=4.20.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (4.1 kB)
+Collecting annotated-types>=0.6.0 (from pydantic<3.0.0,>=2.11.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.50.2 (from pydantic<3.0.0,>=2.11.0->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading pydantic_core-2.50.2-cp312-cp312-macosx_11_0_arm64.whl.metadata (6.5 kB)
+Collecting pyrect (from pygetwindow>=0.0.5->pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading PyRect-0.2.0.tar.gz (17 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting pyobjc-framework-Cocoa>=12.2.2 (from pyobjc-framework-ApplicationServices>=8.0->pynput>=1.7.6->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 18))
+  Downloading pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (2.6 kB)
+Collecting pyobjc-framework-CoreText>=12.2.2 (from pyobjc-framework-ApplicationServices>=8.0->pynput>=1.7.6->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 18))
+  Downloading pyobjc_framework_coretext-12.2.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (2.8 kB)
+Collecting tzdata (from python-dateutil>=2.9.0->pandas>=2.2.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 9))
+  Downloading tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting shellingham>=1.3.0 (from typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Downloading shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+Collecting rich>=13.8.0 (from typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+Collecting annotated-doc>=0.0.2 (from typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting click>=7.0 (from uvicorn>=0.31.1->mcp<2.0.0,>=1.0.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting rubicon-objc (from mouseinfo->pyautogui>=0.9.54->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 2))
+  Downloading rubicon_objc-0.5.7-py3-none-any.whl.metadata (4.4 kB)
+Collecting cffi>=2.0.0 (from cryptography>=36.0.0->pdfminer.six==20260107->pdfplumber>=0.10.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Using cached cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (2.5 kB)
+Collecting markdown-it-py>=2.2.0 (from rich>=13.8.0->typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting pygments<3.0.0,>=2.13.0 (from rich>=13.8.0->typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting pycparser (from cffi>=2.0.0->cryptography>=36.0.0->pdfminer.six==20260107->pdfplumber>=0.10.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 8))
+  Downloading pycparser-3.12-py3-none-any.whl.metadata (9.7 kB)
+Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich>=13.8.0->typer>=0.16.0->mcp[cli]<2.0.0,>=1.0.0->-r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P0/python/portable-requirements.txt (line 1))
+  Using cached mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+Using cached mcp-1.30.0-py3-none-any.whl (234 kB)
+Downloading pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl (4.9 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.9/4.9 MB 228.1 kB/s eta 0:00:00
+Downloading psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl (129 kB)
+Downloading playwright-1.64.1-py3-none-macosx_11_0_arm64.whl (43.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 43.2/43.2 MB 593.2 kB/s eta 0:00:00
+Downloading python_docx-1.2.0-py3-none-any.whl (252 kB)
+Using cached openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+Downloading pdfplumber-0.11.10-py3-none-any.whl (60 kB)
+Downloading pdfminer_six-20260107-py3-none-any.whl (6.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.6/6.6 MB 896.9 kB/s eta 0:00:00
+Downloading pandas-3.1.0-cp312-cp312-macosx_11_0_arm64.whl (11.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.2/11.2 MB 1.6 MB/s eta 0:00:00
+Downloading pypdf-6.21.4-py3-none-any.whl (410 kB)
+Downloading pypdf2-3.0.1-py3-none-any.whl (232 kB)
+Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+Using cached beautifulsoup4-4.15.0-py3-none-any.whl (109 kB)
+Downloading pyperclip-1.11.0-py3-none-any.whl (11 kB)
+Downloading reportlab-5.1.0-py3-none-any.whl (2.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 1.0 MB/s eta 0:00:00
+Downloading opencv_python_headless-5.0.0.93-cp37-abi3-macosx_13_0_arm64.whl (48.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.3/48.3 MB 911.8 kB/s eta 0:00:00
+Downloading numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl (5.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 791.3 kB/s eta 0:00:00
+Downloading pynput-1.8.2-py2.py3-none-any.whl (92 kB)
+Downloading python_pptx-1.0.2-py3-none-any.whl (472 kB)
+Downloading matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl (9.3 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.3/9.3 MB 553.7 kB/s eta 0:00:00
+Using cached anyio-4.15.1-py3-none-any.whl (132 kB)
+Downloading certifi-2026.10.23-py3-none-any.whl (135 kB)
+Downloading charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl (367 kB)
+Downloading contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl (284 kB)
+Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+Downloading fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl (3.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.1/3.1 MB 443.0 kB/s eta 0:00:00
+Downloading greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl (295 kB)
+Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+Using cached httpx_sse-0.4.3-py3-none-any.whl (9.0 kB)
+Downloading idna-3.20-py3-none-any.whl (69 kB)
+Using cached jsonschema-4.26.0-py3-none-any.whl (90 kB)
+Downloading kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl (64 kB)
+Downloading lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl (8.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.6/8.6 MB 394.3 kB/s eta 0:00:00
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Downloading pydantic-2.14.2-py3-none-any.whl (490 kB)
+Downloading pydantic_core-2.50.2-cp312-cp312-macosx_11_0_arm64.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 676.2 kB/s eta 0:00:00
+Downloading pydantic_settings-2.16.2-py3-none-any.whl (81 kB)
+Downloading pyee-14.0.0-py3-none-any.whl (15 kB)
+Downloading pyjwt-2.15.1-py3-none-any.whl (33 kB)
+Downloading pyobjc_framework_applicationservices-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (32 kB)
+Downloading pyobjc_core-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (6.4 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.4/6.4 MB 1.0 MB/s eta 0:00:00
+Downloading pyobjc_framework_quartz-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (219 kB)
+Downloading pyparsing-3.3.3-py3-none-any.whl (126 kB)
+Downloading pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl (3.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.5/3.5 MB 1.1 MB/s eta 0:00:00
+Downloading python_dateutil-3.0.0-py2.py3-none-any.whl (94 kB)
+Downloading python_dotenv-1.2.4-py3-none-any.whl (23 kB)
+Using cached python_multipart-0.0.32-py3-none-any.whl (30 kB)
+Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading soupsieve-3.0.4-py3-none-any.whl (42 kB)
+Downloading sse_starlette-3.6.0-py3-none-any.whl (17 kB)
+Downloading starlette-1.10.0-py3-none-any.whl (80 kB)
+Downloading typer-0.27.3-py3-none-any.whl (123 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Using cached typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Using cached urllib3-2.8.0-py3-none-any.whl (135 kB)
+Downloading uvicorn-0.54.0-py3-none-any.whl (87 kB)
+Downloading xlsxwriter-3.3.1-py3-none-any.whl (180 kB)
+Using cached et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+Downloading pymsgbox-2.0.1-py3-none-any.whl (10.0 kB)
+Using cached annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Using cached attrs-26.1.0-py3-none-any.whl (67 kB)
+Using cached click-8.5.0-py3-none-any.whl (125 kB)
+Downloading cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl (3.9 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.9/3.9 MB 467.1 kB/s eta 0:00:00
+Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Downloading pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (388 kB)
+Downloading pyobjc_framework_coretext-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (30 kB)
+Using cached referencing-0.37.0-py3-none-any.whl (26 kB)
+Using cached rich-15.0.0-py3-none-any.whl (310 kB)
+Downloading rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl (341 kB)
+Downloading shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+Downloading rubicon_objc-0.5.7-py3-none-any.whl (64 kB)
+Downloading tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Using cached cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl (184 kB)
+Using cached markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+Using cached mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+Downloading pycparser-3.12-py3-none-any.whl (62 kB)
+Building wheels for collected packages: pyautogui, pygetwindow, pyscreeze, pytweening, mouseinfo, pyrect
+  Building wheel for pyautogui (pyproject.toml): started
+  Building wheel for pyautogui (pyproject.toml): finished with status 'done'
+  Created wheel for pyautogui: filename=pyautogui-0.9.54-py3-none-any.whl size=37684 sha256=aa9c4f05529b9757bccd36b154f86b2df7cd140c25323dbcb6f4b602c9c20076
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/d9/d6/47/04075995b093ecc87c212c9a3dbd34e59456c6fe504d65c3e4
+  Building wheel for pygetwindow (pyproject.toml): started
+  Building wheel for pygetwindow (pyproject.toml): finished with status 'done'
+  Created wheel for pygetwindow: filename=pygetwindow-0.0.9-py3-none-any.whl size=11120 sha256=85a22d4d6ce33310189f0b9c367cfd47429c6e08883f9ce3fe7850f081134af3
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/b3/39/81/34dd7a2eca5f885f1f6e2796761970daf66a2d98ac1904f5f4
+  Building wheel for pyscreeze (pyproject.toml): started
+  Building wheel for pyscreeze (pyproject.toml): finished with status 'done'
+  Created wheel for pyscreeze: filename=pyscreeze-1.0.1-py3-none-any.whl size=14458 sha256=c91945a01eeed3ea1446bb25fbd2d81c14fc71a2f76acc96bbe2110485e5ecb2
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/cd/3a/c2/7f2839239a069aa3c9564f6777cbb29d733720ef673f104f0d
+  Building wheel for pytweening (pyproject.toml): started
+  Building wheel for pytweening (pyproject.toml): finished with status 'done'
+  Created wheel for pytweening: filename=pytweening-1.2.0-py3-none-any.whl size=8115 sha256=8a08ba70c3f9820a3e1ff529239279d790142918ae494e4716b9dca35463b329
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/23/d5/13/4e9bdadbfe3c78e47c675e7410c0eed2fbb63c5ea6cf1b40e7
+  Building wheel for mouseinfo (pyproject.toml): started
+  Building wheel for mouseinfo (pyproject.toml): finished with status 'done'
+  Created wheel for mouseinfo: filename=mouseinfo-0.1.3-py3-none-any.whl size=10944 sha256=a09d520d6fc61ba53eb7704eb78fab40c60af079f3cd6fa3c81fd90da4f3ad7d
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/b1/9b/f3/08650eb7f00af32f07789f3c6a101e0d7fc762b9891ae843bb
+  Building wheel for pyrect (pyproject.toml): started
+  Building wheel for pyrect (pyproject.toml): finished with status 'done'
+  Created wheel for pyrect: filename=pyrect-0.2.0-py2.py3-none-any.whl size=11278 sha256=20b6d7e78a0f999b13d55d4a422ba7241b6cb04684a185362367daa3eadc9f10
+  Stored in directory: /Users/jiming/Library/Caches/pip/wheels/0b/1e/d7/0c74bd8f60b39c14d84e307398786002aa7ddc905927cc03c5
+Successfully built pyautogui pygetwindow pyscreeze pytweening mouseinfo pyrect
+Installing collected packages: pytweening, pyscreeze, pyrect, pyperclip, XlsxWriter, urllib3, tzdata, typing-extensions, soupsieve, six, shellingham, rubicon-objc, rpds-py, python-multipart, python-dotenv, pypdfium2, PyPDF2, pypdf, pyparsing, pyobjc-core, pymsgbox, pyjwt, pygments, pygetwindow, pycparser, psutil, Pillow, packaging, numpy, mdurl, lxml, kiwisolver, idna, httpx-sse, h11, greenlet, fonttools, et-xmlfile, cycler, click, charset-normalizer, certifi, attrs, annotated-types, annotated-doc, uvicorn, typing-inspection, requests, reportlab, referencing, python-pptx, python-docx, python-dateutil, pyobjc-framework-Cocoa, pyee, pydantic-core, openpyxl, opencv-python-headless, mouseinfo, markdown-it-py, httpcore, contourpy, cffi, beautifulsoup4, anyio, starlette, rich, pyobjc-framework-quartz, pydantic, playwright, pandas, matplotlib, jsonschema-specifications, httpx, cryptography, typer, sse-starlette, pyobjc-framework-CoreText, pydantic-settings, pyautogui, pdfminer.six, jsonschema, pyobjc-framework-ApplicationServices, pdfplumber, mcp, pynput
+Successfully installed Pillow-13.0.0 PyPDF2-3.0.1 XlsxWriter-3.3.1 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 attrs-26.1.0 beautifulsoup4-4.15.0 certifi-2026.10.23 cffi-2.1.1 charset-normalizer-3.5.2 click-8.5.0 contourpy-1.4.0 cryptography-50.0.2 cycler-0.12.1 et-xmlfile-2.0.0 fonttools-4.68.0 greenlet-3.5.6 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 httpx-sse-0.4.3 idna-3.20 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 kiwisolver-1.5.1 lxml-6.1.3 markdown-it-py-4.2.0 matplotlib-3.11.2 mcp-1.30.0 mdurl-0.1.2 mouseinfo-0.1.3 numpy-2.5.4 opencv-python-headless-5.0.0.93 openpyxl-3.1.5 packaging-26.3 pandas-3.1.0 pdfminer.six-20260107 pdfplumber-0.11.10 playwright-1.64.1 psutil-7.2.2 pyautogui-0.9.54 pycparser-3.12 pydantic-2.14.2 pydantic-core-2.50.2 pydantic-settings-2.16.2 pyee-14.0.0 pygetwindow-0.0.9 pygments-2.21.0 pyjwt-2.15.1 pymsgbox-2.0.1 pynput-1.8.2 pyobjc-core-12.2.2 pyobjc-framework-ApplicationServices-12.2.2 pyobjc-framework-Cocoa-12.2.2 pyobjc-framework-CoreText-12.2.2 pyobjc-framework-quartz-12.2.2 pyparsing-3.3.3 pypdf-6.21.4 pypdfium2-5.14.0 pyperclip-1.11.0 pyrect-0.2.0 pyscreeze-1.0.1 python-dateutil-3.0.0 python-docx-1.2.0 python-dotenv-1.2.4 python-multipart-0.0.32 python-pptx-1.0.2 pytweening-1.2.0 referencing-0.37.0 reportlab-5.1.0 requests-2.34.2 rich-15.0.0 rpds-py-2026.9.1 rubicon-objc-0.5.7 shellingham-1.5.4 six-1.17.0 soupsieve-3.0.4 sse-starlette-3.6.0 starlette-1.10.0 typer-0.27.3 typing-extensions-4.16.0 typing-inspection-0.4.4 tzdata-2026.6 urllib3-2.8.0 uvicorn-0.54.0

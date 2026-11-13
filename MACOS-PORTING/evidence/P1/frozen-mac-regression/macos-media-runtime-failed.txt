@@ -1,0 +1,21 @@
+PASS audio_inspect preserves streamed measurements and exposes cleanup coverage
+PASS successful audio inspection stops its writing descendant
+PASS media execution inherits caller ownership
+PASS version probe preserves Unicode
+PASS pre-aborted audio inspection starts no executable
+PASS abort confirms cleanup and stops descendant writes
+PASS timeout confirms cleanup and stops descendant writes
+PASS nonzero audio exit remains a decoding failure
+PASS code_check sends complete Unicode source through supervised stdin
+PASS abort in write-time syntax validation preserves original bytes and stops descendants
+FAIL timeout in write-time syntax validation preserves original bytes and stops descendants
+PASS real Node parse-only check remains supervised without executing source
+PASS cached executable availability is revoked when supervisor disappears
+PASS valid version output cannot conceal incomplete cleanup or trigger candidate fallback
+PASS nested Python discovery preserves cleanup failure
+PASS nested FFmpeg discovery preserves cleanup failure
+PASS media_probe stops further discovery after unconfirmed cleanup
+PASS valid audio measurements cannot conceal incomplete cleanup
+PASS retained output pipes cause bounded failure and release stream handles
+
+MACOS MEDIA RUNTIME E2E: FAIL (1)

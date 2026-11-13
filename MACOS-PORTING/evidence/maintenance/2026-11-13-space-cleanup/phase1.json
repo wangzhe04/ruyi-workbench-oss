@@ -1,0 +1,465 @@
+{
+  "startedAt": "2026-11-13T03:21:54.931097+00:00",
+  "userInstruction": "把Ruyi开发过程中所有的过程包和过期垃圾清理掉，先清理空间",
+  "scope": "Only explicit superseded dist children and generated temp acceptance/build-cache roots. Current two final DMGs, fixed authorized App, source/worktrees, user data and evidence retained.",
+  "freeBytesBefore": 3965194240,
+  "kept": [
+    "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+    "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout",
+    "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/P6-mac-closeout-archived-development-source",
+    "/Users/jiming/Applications/Ruyi-P6-Acceptance/Ruyi.app"
+  ],
+  "protectedWorktrees": [
+    "/Users/jiming/Documents/ruyi-workbench-mac",
+    "/private/tmp/ruyi-p5-workflow-receipts-worktree"
+  ],
+  "excluded": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01.zip",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final-source",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01-b33",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-final",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-internal-trial",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01.zip",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-internal-trial",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-final-source",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01-b33.zip.sha256",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01-b33.zip.sha256",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01-b33.zip",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01.zip.sha256",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout-source",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout-source",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-final",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01-b33.zip",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01.zip.sha256",
+      "reason": "current artifact, source/worktree, symlink or ownership guard"
+    }
+  ],
+  "candidates": [
+    {
+      "path": "/private/tmp/ruyi-p6-closeout-final-79ido2bq",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 86682377,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794497028.8302817,
+      "manifestSummaries": []
+    },
+    {
+      "path": "/private/tmp/ruyi-p6-assets",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84264881,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794464538.3297603,
+      "manifestSummaries": []
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-ov7lo5",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84643696,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794466890.652529,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "d4d788af82d33ddd87260612a94fa1238422423d57337c4d06776ae4de1101e7",
+          "content": "{\n  \"candidate\": \"/tmp/ruyi-p6-candidate-full-fifth\",\n  \"treeSha256\": \"6fa48187350c2898da8c24955896ec13886505dcc05736e0e5412140648ba5fc\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-Debgyk",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84876538,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794469480.463604,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "549582aa1b1406ce597bf7bab10259c6e3fe1a3a0bc353c188d4cf012c99784e",
+          "content": "{\n  \"candidate\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01\",\n  \"treeSha256\": \"c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-Yu7Pat",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84387256,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794465629.059054,
+      "manifestSummaries": []
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-EuKo3w",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84899948,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794469582.7888625,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "99ea2f35f6889b9ae38b42ddb7ba29e9285d20ad58cd72156b1cf92124df5437",
+          "content": "{\n  \"candidate\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01\",\n  \"treeSha256\": \"1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 85299025,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794474609.8276129,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "a9d7df1b7b13a64da5a1739455b5e650b69792479a0d3b98a88be1a2737f204f",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ifdcvK/Applications/试用 安装😀\",\n  \"treeSha256\": \"1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-bqsNSZ",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 85323708,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794474764.5364716,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "c5c1727f2d6155d03ff4795539f601c8bfd6f4cb6bd64686287989ee1b468bc1",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-8Qx4LD/Applications/试用 安装😀\",\n  \"treeSha256\": \"1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-IX8OPR",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84357842,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794465414.1198022,
+      "manifestSummaries": []
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-rzsV5d",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84845247,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794468694.8074036,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "9350130634ef7a3d9eb784d8d8e1b501b9d8d82897f7bf9655b0cf1689b5de25",
+          "content": "{\n  \"candidate\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01\",\n  \"treeSha256\": \"278a8d22691d969d28b71b59d9962e4b82e5c4a8cf58c8ade868f216c0f49200\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 86540363,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794484173.5525837,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "21f524dd10a9fb408cd082c9ab9edb022faabc17b7210dc88336c53740003905",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-0wOKpb/Applications/试用 安装😀\",\n  \"treeSha256\": \"cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-1Heddu",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 85119845,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794473041.1179311,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "78653b52c1a7df24c7eeee3743358a5853ef03706db119816d35d525b5cac029",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-AL8vtD/Applications/试用 安装😀\",\n  \"treeSha256\": \"73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-zvPZJ1",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84912915,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794469682.3474972,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "99ea2f35f6889b9ae38b42ddb7ba29e9285d20ad58cd72156b1cf92124df5437",
+          "content": "{\n  \"candidate\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-01\",\n  \"treeSha256\": \"1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-YYNGqH",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 86584238,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794484646.344768,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "4dc0c9679476ac8452de545b7196a4732009cc0fda4355b77a99fcb91f983268",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-jFO966/Applications/试用 安装😀\",\n  \"treeSha256\": \"cc03acd5c627b1e04ccc59f8fa972fce0e7ade10d409111117db98ac2d71966c\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-DdjRig",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 85311838,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794474753.528083,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "02ea2a22323cdec3a2897cb09ed354675d931a96ffb1fd9f60c584484f6d119e",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-UC8Q6f/Applications/试用 安装😀\",\n  \"treeSha256\": \"73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 85287007,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794474591.2977967,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "7c0da1c3fe476f9faf847c394acf323afe7ca00c7ed243919a199509d9c6cc0d",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7V71i0/Applications/试用 安装😀\",\n  \"treeSha256\": \"73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-smS0Yd",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84901713,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794469677.683076,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "549582aa1b1406ce597bf7bab10259c6e3fe1a3a0bc353c188d4cf012c99784e",
+          "content": "{\n  \"candidate\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01\",\n  \"treeSha256\": \"c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-iR5NML",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 86595096,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794484660.4242172,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "ceff7431643e76ac4025e373fc88324eab3419472819b7bc091d402c163c56be",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-kz77mY/Applications/试用 安装😀\",\n  \"treeSha256\": \"4fcf2413342c4232f930ff94632102a609e2f4fbde9eb3121cbdd5b12f52bfb0\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-e1UKHl",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 86551825,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794484246.680207,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "c726d24cf5f12784a1e3af62aa94ce7389e327d6731ea49e81ad84bbe9cc5b42",
+          "content": "{\n  \"candidate\": \"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-WwROyq/Applications/试用 安装😀\",\n  \"treeSha256\": \"4fcf2413342c4232f930ff94632102a609e2f4fbde9eb3121cbdd5b12f52bfb0\",\n  \"variant\": \"slim\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    },
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-RUs8WD",
+      "reason": "generated offline acceptance copy or build cache",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84832810,
+        "uid": 501
+      },
+      "kind": "directory",
+      "mtime": 1794468626.2495165,
+      "manifestSummaries": [],
+      "preservedSmallReceipts": {
+        "acceptance.json": {
+          "sha256": "3e886f90cb88c1203bcc242b548356a224ef1f7298ab79458e8d2537afb140f3",
+          "content": "{\n  \"candidate\": \"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01\",\n  \"treeSha256\": \"f86a806de30c53415898e720b5a7e03090835af6d9fabe3ce37c07dad2dd92e5\",\n  \"variant\": \"full\",\n  \"failures\": 0,\n  \"sandboxDenied\": [\n    \"/Users/jiming/Documents/ruyi-workbench-mac\",\n    \"/opt/homebrew\",\n    \"/usr/local\",\n    \"/Users/jiming/.local\",\n    \"/Users/jiming/.cache\",\n    \"/tmp/ruyi-p6-assets\",\n    \"/private/tmp/ruyi-p6-assets\",\n    \"/tmp/ruyi-p6-assets-replayed\",\n    \"/private/tmp/ruyi-p6-assets-replayed\"\n  ],\n  \"nativeHost\": \"ready\"\n}"
+        }
+      }
+    }
+  ],
+  "deleted": [
+    "/private/tmp/ruyi-p6-closeout-final-79ido2bq",
+    "/private/tmp/ruyi-p6-assets",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-ov7lo5",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-Debgyk",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-Yu7Pat",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-EuKo3w",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-bqsNSZ",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-IX8OPR",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-rzsV5d",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-4vO7az",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-1Heddu",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-zvPZJ1",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-YYNGqH",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-DdjRig",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-smS0Yd",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-iR5NML",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-e1UKHl",
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-RUs8WD"
+  ],
+  "errors": [],
+  "freeBytesAfter": 11905798144,
+  "finishedAt": "2026-11-13T03:22:01.394872+00:00"
+}

@@ -1,0 +1,215 @@
+{
+  "scope": "Read-only public upstream CI history for unchanged product baseline; not this worktree and not a newly dispatched run",
+  "baselineSha": "f5223548b74b62b2eefe548c39b33ab5fadd91e3",
+  "runUrl": "https://github.com/wangzhe04/ruyi-workbench-oss/actions/runs/39452236165",
+  "jobs": [
+    {
+      "name": "linux-static",
+      "status": "completed",
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "startedAt": "2026-10-20T15:51:24Z",
+      "completedAt": "2026-10-20T15:54:52Z",
+      "url": "https://github.com/wangzhe04/ruyi-workbench-oss/actions/runs/39452236165/job/118729782546",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success"
+        },
+        {
+          "name": "Syntax gate (node --check)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build freshness (artifact == concat(src))",
+          "conclusion": "success"
+        },
+        {
+          "name": "Unit tests (node --test)",
+          "conclusion": "success"
+        },
+        {
+          "name": "In-process static pieces (platform-free subset)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "acc-smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "labels": [
+        "windows-latest"
+      ],
+      "startedAt": "2026-10-20T15:51:24Z",
+      "completedAt": "2026-10-20T15:53:25Z",
+      "url": "https://github.com/wangzhe04/ruyi-workbench-oss/actions/runs/39452236165/job/118729782719",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install ACC (editable)",
+          "conclusion": "success"
+        },
+        {
+          "name": "ACC smoke (CI subset)",
+          "conclusion": "success"
+        },
+        {
+          "name": "facts.json accTools reconciliation",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "e2e",
+      "status": "completed",
+      "conclusion": "success",
+      "labels": [
+        "windows-latest"
+      ],
+      "startedAt": "2026-10-20T15:51:25Z",
+      "completedAt": "2026-10-20T17:17:51Z",
+      "url": "https://github.com/wangzhe04/ruyi-workbench-oss/actions/runs/39452236165/job/118729783019",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success"
+        },
+        {
+          "name": "Syntax gate (node --check)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build freshness (artifact == concat(src))",
+          "conclusion": "success"
+        },
+        {
+          "name": "Windows credential IPC smoke",
+          "conclusion": "success"
+        },
+        {
+          "name": "Unit tests (node --test)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run e2e suite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload failure log on failure",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "release-dryrun",
+      "status": "completed",
+      "conclusion": "success",
+      "labels": [
+        "windows-latest"
+      ],
+      "startedAt": "2026-10-20T15:51:25Z",
+      "completedAt": "2026-10-20T15:52:31Z",
+      "url": "https://github.com/wangzhe04/ruyi-workbench-oss/actions/runs/39452236165/job/118729783190",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pkg toolchain (ruyi-workbench)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Release dry-run (overlay + manifest + pkg smoke)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}

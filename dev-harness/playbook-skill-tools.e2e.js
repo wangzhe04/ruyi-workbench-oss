@@ -110,9 +110,12 @@ const startServer = async () => {
 };
 const stopServer = async () => {
   if (!wb) return;
-  const exited = new Promise(resolve => { if (wb.exitCode !== null) resolve(); else wb.once('exit', resolve); });
-  try { killOwnTree(wb.pid); } catch { /* gone */ }
+  const exited = new Promise(resolve => { if (wb.exitCode !== null || wb.signalCode !== null) resolve(); else wb.once('exit', resolve); });
+  const cleanup = killOwnTree(wb);
   await Promise.race([exited, sleep(5000)]);
+  ok((wb.exitCode !== null || wb.signalCode !== null) && !cleanup.skipped
+    && (process.platform !== 'darwin' || (cleanup.incomplete === false && cleanup.scope === 'observed-tree')),
+    'owned workbench and observed MCP process tree cleanup is confirmed');
   wb = null;
 };
 const stream = payload => new Promise((resolve, reject) => {

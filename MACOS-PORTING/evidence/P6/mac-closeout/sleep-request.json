@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-11-12T16:09:11.689913+00:00",
+  "status": "queued",
+  "requestedByUser": true,
+  "delaySeconds": 45,
+  "scheduledForUTC": "2026-11-12T16:09:56.689913+00:00",
+  "workerPid": 15105,
+  "workerBirth": "Fri Nov 13 00:09:11 2026",
+  "workerCommand": [
+    "/Users/jiming/.local/bin/python3",
+    "/private/tmp/ruyi-p6-requested-sleep-lhwtylvq/sleep-worker.py",
+    "/private/tmp/ruyi-p6-requested-sleep-lhwtylvq/receipt.json",
+    "/private/tmp/ruyi-p6-requested-sleep-lhwtylvq/pmset.txt"
+  ],
+  "workerScriptSha256": "a25469676b882546f4585c2e47c31ea88560233a0bd7bc2daf853a50710ae7af",
+  "actualWorkerReceipt": "/private/tmp/ruyi-p6-requested-sleep-lhwtylvq/receipt.json",
+  "commandOutput": "/private/tmp/ruyi-p6-requested-sleep-lhwtylvq/pmset.txt",
+  "command": [
+    "/usr/bin/pmset",
+    "sleepnow"
+  ],
+  "observedAsleep": false,
+  "meaning": "Detached user-authorized sleep request queued after all feasible work and verified power release. Queue acknowledgement is not observation that the whole machine is asleep. The external worker receipt records actual command status without dirtying the committed evidence.",
+  "initialRecord": {
+    "recordedAt": "2026-11-12T15:56:11.448411+00:00",
+    "status": "not_yet_requested",
+    "requestedByUser": true,
+    "observedAsleep": false
+  }
+}

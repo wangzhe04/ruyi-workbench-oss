@@ -1,0 +1,19 @@
+PASS App declares macOS14 target, subject to actual minimum-system acceptance
+PASS development App signature verifies
+PASS native host starts its own service and reports actual process identities
+PASS real complete workbench modules initialize in WKWebView and authenticated config loads
+FAIL saved non-default native window frame restores before movement events can overwrite it
+PASS sandboxed srcdoc HTML preview loads in a child frame
+PASS host loads only its own service runtime and loopback port
+PASS live health restart identity matches runtime record
+PASS restricted Finder-style PATH never executes login profiles
+PASS acceptance report contains no runtime authentication token
+PASS closing the last window leaves the background service running
+PASS second native launch activates existing host without starting or stopping its service
+PASS second instance visibly reopens the original closed window
+FAIL Error: Timed out waiting for native host
+
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-desktop-host.e2e.js:26:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-desktop-host.e2e.js:113:5
+
+MACOS DESKTOP HOST E2E: FAIL (2)

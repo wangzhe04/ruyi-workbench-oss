@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-01",
+  "reviewer": "/root/p5_acceptance",
+  "reviewedAt": "2026-11-08T09:30:06.325Z",
+  "baselineCommit": "4e83cec49febfe89410de5aafcdbfa50602cdd9e",
+  "candidateBinding": "../source-fingerprint.json",
+  "filesChecked": 29,
+  "status": "passed_current_host_scope_with_open_acceptance_items",
+  "productSourceEditedByReviewer": false,
+  "scope": [
+    "ObjC ScreenCaptureKit helper and development builder",
+    "Bounded Node/Python IPC and native screenshot file/coordinate semantics",
+    "ACC dynamic tools/list, direct stale calls, status diagnostics and host tool directory",
+    "Runtime capability and global/session desktop policy integration",
+    "New capture contract/live/LaunchServices tests and affected prior tests"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "P1",
+      "finding": "Python synchronous stdin write preceded request deadline and could block on a stalled reader",
+      "resolution": "Nonblocking selector-driven input shares the request deadline",
+      "evidence": [
+        "python-capture.txt",
+        "contract.txt"
+      ]
+    },
+    {
+      "id": "R2",
+      "severity": "P1",
+      "finding": "Mac screenshot could consume and delete an unrelated pre-existing Windows vision sidecar and report mismatched coordinate scale",
+      "resolution": "Mac entry explicitly embeds its own PNG and leaves unrelated sidecars intact",
+      "evidence": [
+        "contract.txt"
+      ]
+    },
+    {
+      "id": "R3",
+      "severity": "P1",
+      "finding": "Window capture direct save could truncate an existing destination on write failure",
+      "resolution": "Reused office_io.atomic_save and verified original bytes survive injected save failure",
+      "evidence": [
+        "python-capture.txt"
+      ]
+    },
+    {
+      "id": "R4",
+      "severity": "P1",
+      "finding": "Completed display capture did not revalidate display identity/layout/backing scale",
+      "resolution": "Capture compares active display metadata against its initial snapshot before returning pixels",
+      "evidence": [
+        "../source-fingerprint.json",
+        "contract.txt"
+      ],
+      "verificationLimit": "The actual mid-capture physical layout-change race has no real hardware execution evidence"
+    },
+    {
+      "id": "R5",
+      "severity": "P1",
+      "finding": "Malformed finite geometry and coordinate-space validation were incomplete",
+      "resolution": "Node and Python reject invalid geometry before writing or reporting mapped coordinates",
+      "evidence": [
+        "contract.txt",
+        "python-capture.txt"
+      ]
+    },
+    {
+      "id": "R6",
+      "severity": "P2",
+      "finding": "Mac native screenshot ignored the existing timeoutMs input",
+      "resolution": "Dispatch forwards a bounded timeout into IPC, with cancellation and no-write regressions",
+      "evidence": [
+        "contract.txt"
+      ]
+    },
+    {
+      "id": "R7",
+      "severity": "P2",
+      "finding": "Node and Python readiness differed for a granted state with no monitors",
+      "resolution": "Both require an unlocked authorized state with nonempty monitor metadata",
+      "evidence": [
+        "../source-fingerprint.json",
+        "contract.txt",
+        "python-capture.txt"
+      ]
+    },
+    {
+      "id": "R8",
+      "severity": "P2",
+      "finding": "New shell-based Mac IPC smoke cases were discoverable by Windows default smoke runner",
+      "resolution": "NativeIPC and CaptureTools explicitly skip outside darwin",
+      "evidence": [
+        "../source-fingerprint.json"
+      ],
+      "verificationLimit": "Actual Windows execution remains pending"
+    },
+    {
+      "id": "R9",
+      "severity": "P2",
+      "finding": "Pure geometry test_plan unnecessarily initialized NSApplication before protocol parsing, causing first-launch timeouts",
+      "resolution": "Pure planner executes before NSApplication initialization and completion uses an independent lock; original 3000ms planner timeout is preserved",
+      "evidence": [
+        "contract.txt"
+      ],
+      "historicalFailures": [
+        "../contract-acc.txt",
+        "../contract-final.txt"
+      ]
+    },
+    {
+      "id": "R10",
+      "severity": "P2",
+      "finding": "Minimize fixture lacked the Miniaturizable style and reported command dispatch before the corresponding native state transition",
+      "resolution": "Added the supported style and waits for DidMiniaturize/DidDeminiaturize notifications; original failure assertions remain",
+      "evidence": [
+        "live.txt"
+      ],
+      "historicalFailures": [
+        "../live-final.txt"
+      ]
+    }
+  ],
+  "execution": {
+    "allExitCodesZero": true,
+    "naturalExits": true,
+    "nodeAssertions": 166,
+    "pythonTests": 21,
+    "perRunFingerprints": "runs.json",
+    "allBeforeAfterFingerprintsMatch": true,
+    "finalFingerprintDrift": [],
+    "scopedProcessRemainder": [],
+    "hostProcessEvidence": "host-process-cleanup.json"
+  },
+  "provenCurrentHost": [
+    "Single built-in Retina display with global logical bounds 1710x1107 and captured backing image 3420x2214",
+    "Four-marker coordinate and orientation checks for real region, full-resolution region, selected monitor, all displays, standalone window and covered window captures",
+    "Missing/ambiguous/minimized windows fail and capture recovers after native restoration",
+    "Real ACC stdio, native workbench tool dispatch and true LaunchServices App HTTP tool entry",
+    "Current Codex-launched and Ruyi-App-launched authorization chains are checked separately",
+    "Synthetic denied/locked/missing-helper and recovery refresh, stale direct call failures and ACC_HIDE_TOOLS behavior",
+    "Existing protected write path and checkpoint inventory, global/session desktop switches, sidecar isolation and atomic failure preservation"
+  ],
+  "remainingUnverified": [
+    "Physical multiple displays, negative-origin layout and non-Retina display capture; native planner fixtures cover geometry only",
+    "Actual capture during physical lock or TCC permission revocation; synthetic state/IPC failures cover these branches",
+    "Physical display-layout change or window disappearance during in-flight capture",
+    "Same-candidate Windows CI or physical regression",
+    "macOS14 actual runtime and formal signing/TCC upgrade identity under existing O2/P6 handoff",
+    "Foreground application identity was not independently sampled before and after the minimized screenshot call"
+  ],
+  "unrelatedHistoricalCondition": "The first main macos-mcp-capabilities initial readiness assertion failed once and remains unexplained. Corrected main and independent runs pass with the original assertion and added conditional diagnostic; no timeout or assertion weakening was observed.",
+  "phaseCompletion": "This report proves the listed current-host P5-01 implementation and tests. P5-01 remains in_progress for the remaining acceptance items, and P5-02 through P5-05 require further implementation and independent acceptance."
+}

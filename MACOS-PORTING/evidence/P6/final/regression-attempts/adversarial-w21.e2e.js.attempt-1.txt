@@ -1,0 +1,25 @@
+PASS D-P1a 完整合法 fail 裁决解析为整体对象(不被 findings 子项翻成 pass)
+PASS D-P1a 质量门判 fail(门未被绕过)
+PASS D-P1b 截断输出 → 解析失败(截断护栏,不降级取 findings 子块)
+PASS D-P2a 末位修订版压过围栏内过期草稿
+PASS D-P2b 尾逗号修复后字符串内容的弯引号原样保留
+PASS D-P2b 弯引号作分隔符时仍被修复(结构位置替换未回归)
+PASS D-P2b 未转义内引号修复(v1.5 既有能力未回归)
+PASS D-P2b repairJson 对合法 JSON 幂等
+PASS D-P3a 行内 JSON(前有含 { 的 prose)命中
+PASS B-P2 normalizeAgentGate(false, reviewer) → false(不回填)
+PASS B-P2 normalizeAgentGate(null, reviewer) → 角色自动门(内置模板默认保持)
+PASS B-P2 保存期 normalize: reviewer 节点 gate:false 持久为 false
+PASS B-P2 launch 期二次 normalize: gate 仍为 false(不被 autoMode 复活)
+PASS B-P2 条件 node.path op value 解析
+PASS B-P2 条件 无node前缀(对当前节点求值)解析
+PASS B-P2 条件 空path(整个结构化结果)解析
+PASS B-P2 条件 纯op形态解析
+PASS B-P2 条件 round-trip: {"node":"","path":"done","operator":"truthy"}
+PASS B-P2 条件 round-trip: {"node":"a","path":"","operator":"status_is"}
+PASS B-P2 条件 round-trip: {"node":"review","path":"verdict","operator":"equals","value":"fail"}
+PASS D 回归 经典"分析+围栏收尾"形态
+PASS D 回归 裸 JSON 形态
+PASS D 回归 数组输出形态
+
+ADVERSARIAL W21 E2E: ALL PASS

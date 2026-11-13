@@ -1,0 +1,16 @@
+PASS window_screenshot-false proxy actually writes the fixture file
+PASS window_screenshot-false journals the actual session and turn before dispatch
+PASS window_screenshot-false rollback restores the exact prior state
+PASS window_screenshot-true proxy actually writes the fixture file
+PASS window_screenshot-true journals the actual session and turn before dispatch
+PASS window_screenshot-true rollback restores the exact prior state
+PASS get_clipboard_image-false proxy actually writes the fixture file
+PASS get_clipboard_image-false journals the actual session and turn before dispatch
+PASS get_clipboard_image-false rollback restores the exact prior state
+PASS get_clipboard_image-true proxy actually writes the fixture file
+PASS get_clipboard_image-true journals the actual session and turn before dispatch
+PASS get_clipboard_image-true rollback restores the exact prior state
+Owned cleanup receipt: {"receipt":{"killed":[95601,95602,95600,95587],"terminated":4,"alreadyExited":0,"unconfirmed":0,"scope":"observed-tree","incomplete":false},"observed":[{"pid":95587,"ppid":95583,"created":"1794383470632415","name":""},{"pid":95600,"ppid":95587,"created":"1794383471024207","name":""},{"pid":95601,"ppid":95600,"created":"1794383471026278","name":""},{"pid":95602,"ppid":95601,"created":"1794383471026932","name":""}]}
+PASS service cleanup confirms all observed owned process identities exited
+
+CHECKPOINT PROXY SESSION E2E: ALL PASS

@@ -1,0 +1,16 @@
+PASS pool-on: turn completed (model calls paired)
+PASS pool-on: all 12 read calls executed and completed
+PASS pool-on: tool_phase strategy=pool_read present
+PASS pool-on: maxConcurrency capped at 8 (min(8,max(4,12)))
+PASS pool-on: criticalPath<=serialEstimate and queueWaitMs present
+PASS pool-on: no serial phase for the pure-read batch
+PASS pool-on: model-call pairing closed
+PASS pool-on: all tool calls share the batch id
+PASS pool-off: all 12 read calls executed (serial)
+PASS pool-off: >8 pure read falls back to serial (legacy behavior)
+PASS pool-off: model-call pairing closed
+PASS mixed: read+edit+read all executed
+PASS mixed: E2a leaves mixed batches serial (islands are E2b)
+PASS mixed: batch id consistent
+
+READ-POOL E2E: ALL PASS

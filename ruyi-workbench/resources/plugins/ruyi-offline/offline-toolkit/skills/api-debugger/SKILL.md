@@ -3,6 +3,8 @@ name: API 调试
 description: 不依赖云端工具，排查本地或内网 HTTP 服务
 ---
 
+Platform selection: powershell_run and curl.exe examples are Windows-only. On macOS prefer http_request; for local commands use shell_run or script_run(language="bash"/"python"/"node") and /usr/bin/curl with argument-safe quoting. Use absolute POSIX paths and a body file for JSON.
+
 # API Debugger
 
 Use this skill to inspect local or intranet HTTP services without cloud tools.

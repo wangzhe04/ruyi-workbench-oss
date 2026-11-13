@@ -1,0 +1,26 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 三条线程已建（{"seated":"sess_21c38b5d3035090a","ask":"sess_321f8e442b6177b6","boom":"sess_eab52c21f513c28f"}）
+PASS A0d 「坐着的那条」有三个回合的真内容
+PASS A0e Edge/Chrome found
+PASS A0f browser target available
+PASS A0g 首屏就绪（config 到达、安静卡挂点已在 DOM 里）
+PASS B0 顶栏分段钮切到工作台视角且待得住（安静卡只在这个视角出；视角变迁 [{"at":0,"to":"steward","note":"初始"},{"at":18,"to":"classic"}]）
+PASS B1 已坐在「seated」那条线程上（安静卡的在场门①要它不是出事的那条）
+PASS B1b 对话区真的能滚（scrollHeight − clientHeight > 200）
+PASS B2 输入框里已经有 69 字（≥40）且逐字就是我们敲进去的那段
+PASS B2b 焦点在输入框上（实得 promptInput）
+PASS B2c 对话区停在中段（scrollTop=800）
+PASS B2d 此刻还没有安静卡（实得 0）
+PASS C0 「ask」那条真的停在待决了（服务端事实：排除「没触发」与「触发了但没渲染」）
+PASS C1 安静卡真的弹出来了（实得 2 张：["needs_you@sess_321f8e442b6177b6","failed@sess_eab52c21f513c28f"]）
+PASS D1 焦点没被抢走：activeElement 仍是 promptInput（实得「promptInput」）
+PASS D2 输入框逐字相等（相等）
+PASS D2b 光标位置也没被动过（前 69 → 后 69）
+PASS D3 没被换会话：state.currentSession.id 仍是「seated」（实得 sess_21c38b5d3035090a）
+PASS D4 没被切视角：data-shell-mode 仍是 classic（实得 classic）
+PASS D5 没有新开的浮层／弹窗，而且【本来就一个都没开】（屏幕上可见的 popover 0→0、modal 0→0）
+PASS D6 对话区没被滚走：scrollTop 前 800 → 后 800
+PASS D7 再过一拍收件箱（现在 2 张卡：["needs_you@sess_321f8e442b6177b6","failed@sess_eab52c21f513c28f"]）六条仍全部成立
+
+QUIET CARD TYPING BROWSER E2E: ALL PASS

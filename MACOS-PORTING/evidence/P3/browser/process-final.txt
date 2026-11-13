@@ -1,0 +1,13 @@
+PASS ① 测试框架里没有一处 taskkill /T 调用(实得 0)
+PASS ③ 用 killOwnTree 的文件数钉成 346(实得 346);加减件请回来改这个数
+PASS ① run-all 的超时收尸走 killOwnTree(child)
+PASS lib/kill-own-tree 的子孙判据里有创建时间比较
+PASS lib/kill-own-tree 自己也不用 /T
+PASS ③ 自带 CDP 客户端的件数钉成 30(实得 30)
+PASS ② 每个 CDP 客户端的 send() 在 socket.send 之前都有 readyState 闸(未设闸 0)
+PASS ④ 产品 src/ 里零 taskkill /T 调用(扫了 89 个模块;命中 0)
+PASS ④ OWN_TREE_KILL_PS 认子孙核创建时间(撞号的陌生人比父亲还老 ⇒ 跳过)
+PASS ④ OWN_TREE_KILL_PS 不杀 conhost、动手前核启动时间
+PASS ④ killChildTree 走 ownTreeKillCommand
+PASS ④ freeStalePort 的 killPid 走 killOwnProcessTree
+PROCESS SAFETY STATIC E2E: ALL PASS

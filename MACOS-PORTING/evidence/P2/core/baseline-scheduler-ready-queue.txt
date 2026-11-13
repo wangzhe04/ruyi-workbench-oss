@@ -1,0 +1,25 @@
+PASS C 批次屏障代码已移除(Promise.all(batch.map) 不存在)
+PASS C 连续队列结构在(inFlight/raceInFlight)
+PASS C 调度决策已抽为纯 reducer computeSchedulerStep
+PASS C 铁律①: reducer 仅在无 block/skip/派发/武装/在飞/等待且未全终态时判环
+PASS C 铁律①(外壳): cycleDead 且外壳在飞仍空才判死(双保险)
+PASS C 铁律②: 收尾/宽限窗=「全终态 且 在飞空」(防 run_end 后写/queued 僵尸)
+PASS C 铁律③a: reducer 派发选择跳过已在飞(防双派发;第28e波与满位判定合并)
+PASS C 铁律③b: finally 删除带身份守卫
+PASS C 池级兜底不静默(钉节点+落事件)
+PASS workbench up on :61074
+PASS 会话已建
+PASS 异步 launch 接受 run_40dd90b9760e0352
+PASS A run 最终 succeeded(实 succeeded)
+PASS A 观测到「fastC 已完成而 slowA 仍在跑」—— 批次屏障下不可能出现的中间态
+PASS A 总时长有界且无调度停滞(实 4378ms < 15000ms)
+PASS B 环 DAG launch 接受
+PASS B 环 run=failed(实 failed)
+PASS B 节点 error 含「依赖图存在环」
+PASS D vote-DAG launch 接受
+PASS D 同步 vote 节点 fast-settle 后下游未被误诊为环(d=succeeded, run=succeeded)
+PASS E run 完成后快照冻结(无 run_end 后写)
+PASS E 事件日志末条 = run_end(实 run_end)
+PASS E node_start 与 settle/requeue 按 attemptId 配对(3 对)
+
+SCHEDULER-READY-QUEUE E2E: ALL PASS

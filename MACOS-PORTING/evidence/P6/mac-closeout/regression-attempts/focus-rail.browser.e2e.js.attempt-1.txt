@@ -1,0 +1,40 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 并行 Node SSE 客户端连上（服务端时刻的来源；实得 200）
+PASS A4 四条线程已建（sess_38e2b83d0283488d / sess_38dfb6f7213b5e8a / sess_ef6935880a4e755f / sess_3251df1fdc5ad5b4）
+PASS A5 收工那条真的跑完了一个回合（「它最后说」有话可印）
+PASS A6 Edge/Chrome found
+PASS A7 browser target available
+PASS A8 管家视角就绪
+PASS B1 焦点真值表（等你 ＞ 在跑 ＞ 最近发生的那一件）在页面加载的那一份 focusThreadFor 上成立（实测 {"needsYouWins":"a","runningNext":"b","stoppedLoses":"d","stoppedWinsWhenNewest":"c","newestLast":"d","empty":""}）
+PASS B2a 服务端那一头：等你的那条真的挂上了待决
+PASS B2 真页面：等你的那条自动成为焦点（实测 focusId=sess_38e2b83d0283488d）
+PASS C1a 等你 → 「它在问你」callout ＋ 候选答案（实测 问「用哪个框架?」候选 ["React","Vue"]）
+PASS C1-shot 等你那一态的 1920 实拍已存（/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-qikoSo/ruyi-focus-rail-uniJxm/k6b-focus-needs-you.png）
+PASS C1b 卡头药丸说「等你」，元信息一行有来源图形与相对时间、**零费用节点**（实测 state=needs_you 来源=true 时间「刚刚」费用节点 0）
+PASS C1c 点候选答案 → 服务端那条 pending question 真的消失（不是按钮自己变了个样）
+PASS C2-0 服务端那一头：在跑那条真的活着（行上 activeTurn 为真）
+PASS C2a 在跑 → 标题换成「它正在说」（实测「它正在说」）
+PASS C2b 底部那句提示换成「递给它一句」（实测「递给它一句」）
+PASS C2c 当前动作行格式是「工具 · 第 N 次调用 · N 秒前有输出」且等宽（实测「用一个工具 · 第 1 次调用 · 0 秒前有输出」font="Cascadia Mono", Consolas, "Courier New", monospace）
+PASS C2d 第一节说的是【工具人话】，不是工具 id（实测「用一个工具」）
+PASS C2-shot 在跑那一态的 1920 实拍已存（/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-qikoSo/ruyi-focus-rail-uniJxm/k6b-focus-running.png）
+PASS E1 焦点在管家输入框里时换焦点不抢光标（§13.7 ⑨；换焦点前「stewardComposerInput」→ 后「stewardComposerInput」，焦点线程已经换成收工那条）
+PASS C4a 收工 → 标题是「它最后说」、引文是它真说过的话、当前动作行收起（实测「它最后说」／「收工了，结论在这儿。」）
+PASS C4b 底部那句提示换成「接着说」（实测「接着说」）
+PASS C4c 动作行只有一枚主动作，且是「在工作台打开」（§2.6；实测 ["stewardDrawerClassicBtn"]）
+PASS C4-shot 收工那一态的 1920 实拍已存（/private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-qikoSo/ruyi-focus-rail-uniJxm/k6b-focus-done.png）
+PASS D0 服务端真的又送出了一帧 thread.live（tail 挂着的第2段：它还在一行行地往下说。）
+PASS D1 thread.live 帧 → 焦点卡「它正在说」更新 23 ms ≤ 100（§9 K6b 验收）
+PASS C3a 服务端那一头：第二条线程真的在等（wait 有 label）
+PASS C3b 排队 → 「在等什么」那一段出现、说得出等什么，「插队」「并发上限」两枚都在（实测「等并发位：下一个就是它」）
+PASS F0 那句话真的发出去了（实测 {"sent":true,"why":""}）
+PASS F0b 管家那一回合落地（实测 ["你回来了。※","你不在的这段时间里没有新事。","开好了，它这就去办。"]）
+PASS F0c 管家真的开出了那条线程（sess_d284802396487cb7；※ 回执 ["这一条没有更多依据。"]；投影里的标题 ["管家新开的那条","排在后面的那条","一直在跑的那条","等你回答的那条","已经收工的那条"]）
+PASS F1 对话流卡头与左栏行是同一个号，且逐字等于那张登记表发的号（实测 {"feed":"1","rail":"1","card":"1","registry":"1"}）
+PASS F2 焦点卡也是同一个号（实测 焦点卡=1 对话流=1）
+PASS F3 左栏看板密度那一行也是同一个号（第四面；实测 1 vs 1）
+PASS G1 管家新开任务之后 /api/mission 的 milestones 非空且每条都有说法（§13.3 ①；实测 2 条：最终结果完整回应任务目标 | 关键结论或交付附有可核验）
+PASS G2 目标是用户原话、验收另行措辞（不是把任务再抄一遍；实测 goal「OPENTHREAD 帮我盯一下」）
+PASS H1 未命名线程的焦点卡标题与左栏同一句「未命名线程」，不印「New session」（实测「未命名线程」）
+FOCUS RAIL BROWSER E2E: ALL PASS

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-12T15:45:57.845533+00:00",
+  "kind": "Read-only explicit APFS clone staging fixture review; no acceptance execution",
+  "result": "pass_code_review",
+  "findings": [],
+  "reviewedFile": {
+    "path": "dev-harness/macos-upgrade-rollback.e2e.js",
+    "sha256": "1bf5198e95fe02bf1ffe31f8e2df46d8b9d301833019dd94e3fbe319e15381f8",
+    "baseCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be"
+  },
+  "original53SourceBindingsUnchanged": true,
+  "checks": [
+    {
+      "area": "Explicit scope",
+      "basis": "Only darwin plus exact RUYI_UPGRADE_CLONE_STAGING=1 selects clone staging. Default still calls installTrial; old installation always calls real installTrial. No package/product installer changed."
+    },
+    {
+      "area": "Independent safe seed",
+      "basis": "Unique fixture stage mkdir and absent new Ruyi.app path receive /bin/cp -cR from validated installed old App. Root and every old manifest regular file must have distinct dev/inode from old; complete staged digest must equal savedApp before rsync. Failed validation immediately throws, no hardlink fallback."
+    },
+    {
+      "area": "Actual new payload",
+      "basis": "New distribution and mounted trial directory are verified. verifyPackage requires manifest.app exactly Ruyi.app. /usr/bin/rsync -a --checksum --delete copies the actual new image contents using explicit source/destination trailing slashes. verifyInstalledApp requires complete manifest tree and deep strict code signature verification, followed by existing staged digest===next.appTreeSha256 and original old digest unchanged."
+    },
+    {
+      "area": "Original assertions",
+      "basis": "All14 original assertions retained unchanged: distinct same-variant builds; real old/new starts; immutable full snapshot; corrupt/incomplete rejection; old retained while staging; replacement/data separation; schema12->14; retained sessions; App-only rollback keeps newer data; full snapshot restore and old restart; both payload/distributions unchanged. Exactly1 new seed-identity assertion makes opt-in Full15, default Slim14."
+    },
+    {
+      "area": "Evidence semantics",
+      "basis": "acceptance.json explicitly states apfs-owned-clone-and-checksummed-sync or normal-ditto-copy. Original Full ditto ENOSPC remains recorded in package-main/full-upgrade.txt and full-upgrade-enospc-protection.json; new opt-in pass cannot be reported as normal Full second-copy success. Parent protection record reports old App digest matching old distribution and data/snapshot digests equal before removing only owned duplicate."
+    }
+  ],
+  "noExecution": {
+    "testsRun": 0,
+    "imagesMounted": 0,
+    "appsLaunched": 0,
+    "sourceEdits": 0,
+    "oldArtifactHashesRecomputed": 0,
+    "diffCheck": "pass"
+  },
+  "limits": [
+    "Main recheck is still running; this is source review, not new upgrade acceptance.",
+    "Full normal-copy upgrade under current free space remains ENOSPC, with preserved old App/data evidence; only explicit clone staging can be accepted from new run.",
+    "Packaged492 source fingerprints and74d57 production candidates remain unchanged. This harness-only delta requires its own commit/source binding.",
+    "Independent Full/Slim actual artifact acceptance remains separate after parent opens the controlled window."
+  ]
+}

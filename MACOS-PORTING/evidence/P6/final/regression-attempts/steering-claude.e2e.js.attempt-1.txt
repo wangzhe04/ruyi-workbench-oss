@@ -1,0 +1,80 @@
+── S 段: 静态锁(后端分派 + 前端去门 + i18n 双键) ──
+PASS S1 claude 引擎 reg 带 kind 标记(/api/steer 分派依据)
+PASS S2 /api/steer 按引擎分派 claude 分支在
+PASS S3 提问挂起分流函数在(防插话误收为答案)
+PASS S4 Claude 工作流节点持续输入与插话 drain 在
+PASS S5 steer_node 为 Claude 工作流节点开启实时投递
+PASS S6 前端 sendPrompt 引擎静默门已去
+PASS S7 前端 toast 区分即时/下步生效(50c i18n:toast.steerInjected/Queued)
+PASS S8 工作台 Claude 节点不再显示延迟插话
+PASS S9 i18n 双语通用 steer 键同交
+PASS S10 Kimi ACP/Claude 分派均先于通用 fallthrough(不再一刀切)
+PASS S31 插话拒绝理由有稳定码表 STEER_REFUSAL（no_live_turn / kimi_settling 两条至少在）
+PASS S32 steerSessionCore 里不再有遗留字符串错误（每一处拒绝都走 steerRefusal，否则真原因会被归一抹平）
+PASS S33 前端按码兜底：服务端说没有在途回合 → 作废信念、按普通回合重发（skipSteer 防来回弹跳）
+PASS S34 兜底不靠匹配中文句子
+PASS S35 回合末作废 relay 快照（根因：信念的依据没了就不许继续用）
+PASS S36 作废之后同一拍刷新发送键（否则按钮还写着「插话」，直到用户再敲一个字）
+PASS S37 api.request_failed 这个【兜底码】走 message 优先 —— 它本身不带信息，真话全在 message 里
+PASS S11 updateSendBtn 三态函数在(发送/插话/停止)
+PASS S12 流式+有文本 → 插话态判定在
+PASS S13 插话态按钮文案走 chat.steer
+PASS S14 input 事件即时切换插话/停止
+PASS S15 i18n 双语键同交(chat.steer/chat.steerHint)
+PASS S16 steerPrompt 清空输入后按钮回落停止
+PASS S16b 插话请求期间编辑的新草稿保留，按钮仍能把新草稿递为插话
+PASS S17 steered 回声去重无 15s 窗(不限时文本队列)
+PASS S18 文本与附件身份共同匹配,逐条 splice 去重
+PASS S19 前端创建传空标题 + sessionDisplayTitle 展示助手在
+PASS S20 renderStaticMessage 处理 msg.steered(刷新后插话卡带徽章,不丢)
+PASS S21 renderSteeredMessage 无活动 turn 回退独立行仍传 steered:true(fallback 徽章走 renderStaticMessage)
+PASS S21b EC-D 56 插话内嵌 narrative(seal 当前段 -> append segment -> 开新文本段,有活动 turn 前提)
+PASS S21c EC-D 56/56b 共享消息可见性 helper 跳过插话独立行(活动 turn 或助手回合 segments 含 steer 段,防内嵌重复)
+PASS S29 EC-D 56b 后端 consume steered->steer segment 持久化
+PASS S30 静态叙事渲染 steer 段与附件(buildNarrativeSteerSegment live/静态共享)
+PASS S26 EC-D 57 粘性滚动状态已收敛到 chat-scroll 领域模块
+PASS S27 EC-D 57 scroll 监听、正文增长与新 turn 统一走滚动控制器
+PASS S27b 思考跟随走 rAF 合批(每帧一次 flush+跟随),不再捕获事件期 messagesAtBottom 快照
+PASS S28 EC-D 56 错误/备注流式增长路径改粘性滚动(maybeScrollToBottom,不无条件拽回底部)
+PASS S22 provider 插话队列可视化(待注入列表 + r.queued 驱动)
+PASS S22b 插话文本不进入内联 onclick/innerHTML(安全 DOM 绑定)
+PASS S22c 清空队列使用独立控制参数(用户文本 __all__ 不会误清全部)
+PASS S23 legacy Claude 回合不再伪装可插话，按钮引导切换 interactive
+PASS S24 结构化业务错误经 apiErrText 展开，不再显示 [object Object]
+PASS S25 legacy 插话引导文案双语齐全
+PASS workbench starts
+── A 段: 对话 steer 全路径(注入/事件/持久化/上限) ──
+PASS A1 Claude interactive steer 响应 injected:true (got {"status":200,"ok":true,"injected":true})
+PASS A2 第 2/3 条插话均放行(上限 3)
+PASS A3 第 4 条插话被上限拒 (got 本回合插话已达上限(3 条))
+PASS A4 流事件 steered ×3 (got 3)
+PASS A5 steered 事件带插话文本
+PASS A6 fake-claude stdin 捕获:插话以 user envelope 即时注入且前缀为服务端所加 (got "[用户插话] 改用方案B")
+PASS A7 会话正文持久化 steered:true ×3(刷新不丢, got 3)
+PASS A8 伪造前缀被中和(正文不残留 [用户插话] 前缀)
+PASS A7b 助手回合 segments 含 steer 段(持久化, got 1)
+PASS A7c steer segment ×3 与 steered 事件一致(位置由事件流顺序决定, got 3)
+── B 段: AskUser 挂起分流 ──
+PASS B1 AskUser 提问挂起(ask_user 事件到达)
+PASS B2 提问挂起中 steer 被拒(防误收为答案) (got 请先回答当前提问,再插话(避免插话被误收为答案))
+PASS B3 提问回答成功投递
+PASS B4 回答后不再因提问挂起被拒(放行或回合已结束均合法, got {"status":200,"ok":true,"injected":true})
+── C 段: print 模式人话拒绝 ──
+PASS C0 切到 print 引擎模式
+PASS C1 print 模式 steer 被人话拒绝 (got 当前 Claude 回合使用 legacy/print 模式,无法插话;请在设置 → Claude CLI 中切换为 interactive,下一回合生效)
+── D 段: 工作台 Claude 节点实时插话 ──
+PASS D1 DAG(claude c1 → openai o2)异步启动
+PASS D1b 工作流进入 live(注册完成,可插话)
+PASS D2 Claude 节点 steer_node 接受为实时插话 (got {"status":200,"ok":true,"queued":1,"live":true})
+PASS D3 工作流到终态 (got succeeded)
+PASS D4 c1 最终结果证明运行中的 Claude 收到了插话
+PASS D5 c1 progressLog 有实时插话里程碑
+PASS D6 下游 o2 请求体含 Claude 已处理的插话结果
+── E 段: 标题自动命名(空标题默认 + 中文占位下一轮补名) ──
+PASS E1 空标题创建 → 后端默认 New session(展示侧本地化) (got New session)
+PASS E2 历史中文占位创建原样保留(待首轮补名)
+PASS E3 中文占位会话首轮结束自动补名(取自首条消息) (got "explain the quantum budget report")
+PASS E4 isUntitledSessionTitle 占位集全中
+PASS E5 真实标题不误判
+
+STEERING CLAUDE E2E: ALL PASS

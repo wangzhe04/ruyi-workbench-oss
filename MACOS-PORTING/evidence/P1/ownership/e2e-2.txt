@@ -1,0 +1,20 @@
+PASS same root on a different port rejects the second serve
+PASS rejected startup does not cancel the live owner pending decision
+PASS refusal leaves owner handshake and startup notice unchanged
+PASS the first service remains alive with the same identity
+PASS junction alias resolves to the same OS gate
+PASS legitimate MCP child can initialize beside the owning serve
+PASS MCP initialization does not perform serve recovery
+PASS after a real process crash a new owner acquires and reconciles the residual pending journal
+PASS simultaneous OS binds produce exactly one serving owner
+PASS a second serve cannot acquire while the old process is still performing exit-time writes, even without the legacy PID guard
+PASS the old process completes its exit write before ownership becomes available
+PASS ownership becomes available only after the writing process exits
+PASS different TMPDIR cannot bypass the same data-root kernel lock
+PASS long TMPDIR starts successfully using the fixed short kernel-lock location
+PASS long TMPDIR restarts after forced termination
+PASS live legacy or reused PID is conservatively refused without killing the unrelated process
+PASS legacy refusal does not overwrite identity evidence
+PASS a confirmed dead legacy PID permits startup
+
+SERVER OWNERSHIP E2E: ALL PASS

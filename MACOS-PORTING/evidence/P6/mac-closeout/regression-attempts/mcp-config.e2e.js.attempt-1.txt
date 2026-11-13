@@ -1,0 +1,39 @@
+PASS [enabled] status reachable
+PASS [enabled] status.desktopMcp.enabled=true
+PASS [enabled] generated config always has ruyi
+PASS [enabled] mcpServers contains ai-computer-control
+PASS [enabled] ai-computer-control.command === node (got /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node)
+PASS [enabled] ai-computer-control.args[0] === fake-mcp.js
+PASS [enabled] ai-computer-control.type === stdio
+PASS [disabled] status reachable
+PASS [disabled] status.desktopMcp.enabled=false
+PASS [disabled] generated config always has ruyi
+PASS [disabled] mcpServers OMITS ai-computer-control (back-compat)
+PASS [disabled] only ruyi present when disabled
+PASS [import] status reachable
+PASS [import] token scraped
+PASS [import] ④ 无 token → 403
+PASS [import] ① 合法清单导入 → ok:true, added:true
+PASS [import] ① 响应含清洗后条目, cwd 缺省=文件夹本身
+PASS [import] ① 响应 env 值被掩码(不回明文 token)
+PASS [import] ① config.json 落盘含 demo-mcp(真值 command)
+PASS [import] ① 持久 env 解密为精确原值(掩码只在响应)
+PASS [import] ① generateMcpConfig 再生成 → .mcp.json 含 demo-mcp
+PASS [import] ② 同 id 二次导入 → updated:true
+PASS [import] ② 更新不重复(仍 1 条, command 已更新)
+PASS [import] ③ 缺清单 → 结构化错误
+PASS [import] ③ 报错附 template 示例对象
+PASS [import] ① 远程清单导入回包 headers 值被掩码(不回明文)
+PASS [import] ① 持久 headers 解密为精确原值、清单里残留的掩码被清空(107-S0b)
+PASS [import] ⑤ 已填满到 10 条
+PASS [import] ⑤ 超 10 条 → 结构化上限错误
+PASS [dropin] workbench up (bad manifest did NOT crash startup)
+PASS [dropin] ① drop-in 被扫到并桥接 (bridgedTools=58)
+PASS [dropin] ① drop-in 工具 foo_dropin__echo 出现在工具集
+PASS [dropin] ① 桥接链往返成功 (echoed={"ok":true,"echoed":"DROPIN_ECHO_42"})
+PASS [dropin] ② 坏清单文件夹被静默跳过（未影响启动与 ①）
+PASS [dropin] ③ id 冲突：config 显式条目优先（command=node，非 DROPIN_SHOULD_LOSE.exe）
+PASS [dropin] ③ id 冲突不产生重复条目（仅 1 个 confl-mcp）
+PASS [dropin] ① drop-in foo-dropin 运行时合并进列表
+
+MCP-CONFIG E2E: ALL PASS

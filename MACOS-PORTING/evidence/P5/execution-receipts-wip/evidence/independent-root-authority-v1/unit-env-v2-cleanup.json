@@ -1,0 +1,89 @@
+{
+  "at": "2026-11-11T17:51:32.052336+00:00",
+  "rootPid": 70179,
+  "observedIdentities": [
+    {
+      "pid": 70179,
+      "ppid": 70174,
+      "created": "1794419490734518"
+    },
+    {
+      "pid": 70184,
+      "ppid": 70179,
+      "created": "1794419490765242"
+    },
+    {
+      "pid": 70183,
+      "ppid": 70179,
+      "created": "1794419490764797"
+    },
+    {
+      "pid": 70182,
+      "ppid": 70179,
+      "created": "1794419490764299"
+    },
+    {
+      "pid": 70181,
+      "ppid": 70179,
+      "created": "1794419490762958"
+    },
+    {
+      "pid": 70220,
+      "ppid": 70184,
+      "created": "1794419490932747"
+    },
+    {
+      "pid": 70241,
+      "ppid": 70184,
+      "created": "1794419490983968"
+    },
+    {
+      "pid": 70264,
+      "ppid": 70184,
+      "created": "1794419491079649"
+    },
+    {
+      "pid": 70299,
+      "ppid": 70183,
+      "created": "1794419491182826"
+    },
+    {
+      "pid": 70295,
+      "ppid": 70184,
+      "created": "1794419491162281"
+    },
+    {
+      "pid": 70319,
+      "ppid": 70184,
+      "created": "1794419491266418"
+    },
+    {
+      "pid": 70339,
+      "ppid": 70183,
+      "created": "1794419491382214"
+    },
+    {
+      "pid": 70370,
+      "ppid": 70184,
+      "created": "1794419491482148"
+    },
+    {
+      "pid": 70371,
+      "ppid": 70184,
+      "created": "1794419491507162"
+    },
+    {
+      "pid": 70404,
+      "ppid": 70184,
+      "created": "1794419491638291"
+    },
+    {
+      "pid": 70415,
+      "ppid": 70184,
+      "created": "1794419491729210"
+    }
+  ],
+  "allObservedIdentitiesExited": true,
+  "remaining": [],
+  "scope": "Only this test root and birth-checked observed descendants; not global/escaped process completeness. OS snapshots are additional read-only observation, not desktop native calls."
+}

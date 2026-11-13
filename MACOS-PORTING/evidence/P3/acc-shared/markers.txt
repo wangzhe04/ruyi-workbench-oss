@@ -1,0 +1,4 @@
+darwin project dependencies and extras PASS []
+win32 project dependencies and extras PASS ['comtypes', 'pyautogui', 'pynput', 'pywin32', 'uiautomation', 'winsdk']
+darwin offline requirements PASS []
+win32 offline requirements PASS ['comtypes', 'pyautogui', 'pynput', 'pywin32', 'uiautomation', 'winsdk']

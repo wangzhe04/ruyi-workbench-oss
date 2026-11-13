@@ -1,0 +1,58 @@
+{
+  "serial": true,
+  "automaticRetries": 0,
+  "originalFailure": "../package-main/full-upgrade.txt",
+  "cases": [
+    {
+      "variant": "full",
+      "kind": "upgrade",
+      "file": "macos-upgrade-rollback.e2e.js",
+      "exitCode": 0,
+      "seconds": 57.365,
+      "cloneStaging": true,
+      "log": "full-upgrade.txt",
+      "evidenceSource": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-upgrade-46fPsR",
+      "archived": [
+        "acceptance.json",
+        "new-after.json",
+        "old-before.json",
+        "old-restored.json"
+      ]
+    },
+    {
+      "variant": "slim",
+      "kind": "install",
+      "file": "macos-trial-install.e2e.js",
+      "exitCode": 0,
+      "seconds": 12.305,
+      "cloneStaging": false,
+      "log": "slim-install.txt",
+      "evidenceSource": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-trial-install-Jscca4",
+      "archived": [
+        "acceptance.json",
+        "gatekeeper-assessment.json",
+        "launch-services.json",
+        "native.json",
+        "offline-journey.txt",
+        "packaged-trash.json",
+        "packaged-trash.txt"
+      ]
+    },
+    {
+      "variant": "slim",
+      "kind": "upgrade",
+      "file": "macos-upgrade-rollback.e2e.js",
+      "exitCode": 0,
+      "seconds": 8.335,
+      "cloneStaging": false,
+      "log": "slim-upgrade.txt",
+      "evidenceSource": "/private/tmp/ruyi-p6-closeout-packages-1c8mmwt7/ruyi-upgrade-M1pXWC",
+      "archived": [
+        "acceptance.json",
+        "new-after.json",
+        "old-before.json",
+        "old-restored.json"
+      ]
+    }
+  ]
+}

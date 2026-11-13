@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1111,
+    "fail": 0
+  },
+  "pythonProbeE2E": {
+    "runs": 2,
+    "passPerRun": 15,
+    "fail": 0
+  },
+  "independentTests": {
+    "pythonProbes": 15,
+    "processRuntime": 62
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "126ce83d2314ab99c355919b98270ff717e08f0561b1a7ac513782aafd324b3c",
+    "ruyi-workbench/app/src/01-config.js": "ec431a4c3a58a9aa8a505c84ba2b1e36513d5868c2d56007b91bfd6fd441bf37",
+    "dev-harness/macos-python-probe.e2e.js": "2fbe8e85c5bf4eecf91a0d4166d6ea59d51ea875a226b06e7bb4b48ca123b536"
+  },
+  "remaining": [
+    "Synchronous CLI/rg/Python probes",
+    "Shared probe and JS worker cancellation",
+    "Real FFmpeg and clean dependency installation",
+    "Remaining paths/lifecycle",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

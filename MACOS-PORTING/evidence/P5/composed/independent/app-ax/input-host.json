@@ -1,0 +1,299 @@
+{
+  "nativePID": 2119,
+  "servicePID": 2129,
+  "launch": "LaunchServices",
+  "ax": {
+    "element": {
+      "actions": [
+        "AXShowMenu"
+      ],
+      "bounds": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "center": [
+        560,
+        497
+      ],
+      "element_ref": "8F0AD0F6-5A68-409F-A851-F59B64234B55",
+      "focused": true,
+      "offscreen": 0,
+      "type": "AXTextArea",
+      "value_settable": true,
+      "visibility": "geometric",
+      "visible_bounds": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      }
+    },
+    "foundCount": 1,
+    "restored": {
+      "acted": true,
+      "action_sent": true,
+      "confirmed": true,
+      "control": {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        },
+        "center": [
+          560,
+          497
+        ],
+        "focused": true,
+        "offscreen": 0,
+        "type": "AXTextArea",
+        "value_settable": true,
+        "visibility": "confirmed",
+        "visible_bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        }
+      },
+      "ok": true,
+      "protocolVersion": 1,
+      "verification": "attribute_readback"
+    },
+    "written": {
+      "acted": true,
+      "action_sent": true,
+      "confirmed": true,
+      "control": {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        },
+        "center": [
+          560,
+          497
+        ],
+        "focused": true,
+        "offscreen": 0,
+        "type": "AXTextArea",
+        "value_settable": true,
+        "visibility": "confirmed",
+        "visible_bounds": {
+          "height": 260,
+          "width": 720,
+          "x": 200,
+          "y": 367
+        }
+      },
+      "ok": true,
+      "protocolVersion": 1,
+      "verification": "attribute_readback"
+    }
+  },
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "ocrReady": true,
+    "ocrRevision": 3,
+    "ocrSupported": true,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": null,
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 3622,
+      "height": 528,
+      "pid": 2115,
+      "process_start": "1794322625:187764",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 3622,
+        "pid": 2115,
+        "process_start": "1794322625:187764",
+        "ref": "93B0EE63-DF75-4E20-B9EC-C89AFB2A7E4D"
+      },
+      "title": "Ruyi P5 Input 2115",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": null,
+  "typed": null,
+  "observedProcesses": [
+    {
+      "pid": 2119,
+      "ppid": 1,
+      "created": "1794322625834449"
+    },
+    {
+      "pid": 2129,
+      "ppid": 2119,
+      "created": "1794322626048343"
+    },
+    {
+      "pid": 2143,
+      "ppid": 2129,
+      "created": "1794322626169876"
+    },
+    {
+      "pid": 2142,
+      "ppid": 2129,
+      "created": "1794322626169051"
+    },
+    {
+      "pid": 2170,
+      "ppid": 2129,
+      "created": "1794322626494271"
+    },
+    {
+      "pid": 2177,
+      "ppid": 2129,
+      "created": "1794322626571380"
+    },
+    {
+      "pid": 2182,
+      "ppid": 2129,
+      "created": "1794322626641684"
+    },
+    {
+      "pid": 2183,
+      "ppid": 2182,
+      "created": "1794322626643221"
+    },
+    {
+      "pid": 2184,
+      "ppid": 2183,
+      "created": "1794322626643537"
+    },
+    {
+      "pid": 2199,
+      "ppid": 2184,
+      "created": "1794322626896174"
+    },
+    {
+      "pid": 2202,
+      "ppid": 2129,
+      "created": "1794322626929118"
+    },
+    {
+      "pid": 2227,
+      "ppid": 2184,
+      "created": "1794322627331467"
+    },
+    {
+      "pid": 2233,
+      "ppid": 2184,
+      "created": "1794322627382952"
+    },
+    {
+      "pid": 2236,
+      "ppid": 2184,
+      "created": "1794322627422982"
+    },
+    {
+      "pid": 2239,
+      "ppid": 2184,
+      "created": "1794322627462009"
+    },
+    {
+      "pid": 2243,
+      "ppid": 2184,
+      "created": "1794322627498620"
+    },
+    {
+      "pid": 2246,
+      "ppid": 2184,
+      "created": "1794322627532774"
+    },
+    {
+      "pid": 2250,
+      "ppid": 2129,
+      "created": "1794322627566507"
+    },
+    {
+      "pid": 2258,
+      "ppid": 2129,
+      "created": "1794322627617803"
+    },
+    {
+      "pid": 2259,
+      "ppid": 2258,
+      "created": "1794322627619291"
+    },
+    {
+      "pid": 2256,
+      "ppid": 2184,
+      "created": "1794322627600621"
+    },
+    {
+      "pid": 2263,
+      "ppid": 2129,
+      "created": "1794322627645502"
+    },
+    {
+      "pid": 2270,
+      "ppid": 2129,
+      "created": "1794322627741189"
+    },
+    {
+      "pid": 2274,
+      "ppid": 2129,
+      "created": "1794322627792915"
+    },
+    {
+      "pid": 2279,
+      "ppid": 2129,
+      "created": "1794322627851552"
+    }
+  ],
+  "receiver": {
+    "textMatches": true,
+    "counts": {},
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

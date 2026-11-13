@@ -1,0 +1,43 @@
+PASS A cancelled: B is current, first request is history at pass 0
+PASS A cancelled: no nested summary, history remains
+PASS A cancelled: B is current, first request is history at pass 1
+PASS A cancelled: no nested summary, history remains
+PASS A cancelled: B is current, first request is history at pass 2
+PASS A cancelled: no nested summary, history remains
+PASS A completed: B is current, first request is history at pass 0
+PASS A completed: no nested summary, history remains
+PASS A completed: B is current, first request is history at pass 1
+PASS A completed: no nested summary, history remains
+PASS A completed: B is current, first request is history at pass 2
+PASS A completed: no nested summary, history remains
+PASS legacy prefix is unwrapped
+PASS manual English Goal is parsed without old summary nesting
+PASS recent additions and status questions preserve unfinished goal and applicable constraints
+PASS forced summary is recognized and tool index preserved
+PASS subagent delegated task constraint remains
+PASS notes retain taught workflow and history while open tasks use newest summary
+PASS historical notes cannot assert old goal or constraints as active
+PASS Chinese and English summary protect continuity
+PASS refine and entity repair preserve goal status
+PASS index double normalization preserves latest actual user request and turn
+PASS relation budget fixture uses long legal session IDs
+PASS zh-CN crowded overview retains activity within 320 characters
+PASS zh-CN every shown related ID is complete and uses primary reason
+PASS zh-CN related entries that do not fit are omitted whole
+PASS en-US crowded overview retains activity within 320 characters
+PASS en-US every shown related ID is complete and uses primary reason
+PASS en-US related entries that do not fit are omitted whole
+PASS two whole related IDs remain readable when budget permits
+PASS zh-CN overview exposes current activity and localized label
+PASS zh-CN overview redacts recent user secrets
+PASS en-US overview exposes current activity and localized label
+PASS en-US overview redacts recent user secrets
+PASS cross-thread search finds latest request even with original title A
+PASS search recent evidence is redacted
+PASS cross-thread deep read exposes latest request
+PASS deep read recent evidence is redacted
+PASS actual rewind removes second turn
+PASS surviving message tail rebuilds recent request after rewind
+PASS recent activity metadata stays bounded
+
+GOAL EVOLUTION E2E: ALL PASS

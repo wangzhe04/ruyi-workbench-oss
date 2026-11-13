@@ -1,0 +1,59 @@
+── (A) 开关关:信号落账本 ──
+PASS A0 工作台起来了
+PASS A1 建了一条带任务账本的线程(循环)
+PASS A2 一个回合里恰好两次 loop_recovery(既有夹具口径;got 2)
+PASS A3 两次纠偏只落【一条】 change type 'stalled'(写入端 5 分钟频控;got 1)
+PASS A4 detail 只带原因与计数(reason=loop_recovery count=1)
+PASS A5 detail 不带工具输出正文(与 failure 同纪律)
+PASS A6 记录带账本 seq 与 cursor.turnSeq(收件箱据此增量消费)
+PASS A7 建了第二条线程(预算)
+PASS A8 budget_guard tripped 事件照旧发出(SSE 不变)
+PASS A9 触顶落一条 change type 'budget_tripped'(got 1)
+PASS A10 detail 带 axis/spent/budget 摘要(budget=60)
+PASS A11 第二个回合再落一条(每回合最多一条;got 2)
+PASS A12 两条分属不同 turnSeq(按回合去重,不是按时间)
+PASS A13 既有心跳 type 'budget' 与新 'budget_tripped' 是两个 type(没有互相顶掉)
+PASS A14 开关关:账本照写,但 <data>/steward 目录不存在(收件箱零写入)
+── (B)(C) 开关开:信号进收件箱 ──
+PASS B0 工作台(开关开)起来了
+PASS B1 账本 'stalled' -> 收件箱 kind=stalled
+PASS B2 payload 带 changeType 与 reason(got loop_recovery)
+PASS B3 摘要是人话(got 会话停住了(loop_recovery · file_write · 第 1 次))
+PASS B4 payload 不带工具输出正文
+PASS B5 账本 'budget_tripped' -> 收件箱 kind=budget
+PASS B6 payload 带 spent/budget(got 60)
+PASS C1 run 事件 'run_stalled' -> 收件箱 kind=stalled(带 runId)
+PASS C2 payload 带 eventType/reason/count(got "subagent_no_progress")
+PASS C3 run 事件 'run_budget_tripped' -> 收件箱 kind=budget
+PASS C4 预算摘要说清是工具迭代预算(got 班组 run_2b51ff 节点 n2 用完了工具迭代预算(40 轮))
+PASS C5 冷启动基线之后的新事实才入箱(历史不倒灌)
+── (D)-(H) 进程内:自理动作与插话补充 ──
+PASS E1 线程档为「每步都问」-> 自理重试只提议(got propose_required)
+PASS E2 提议降级成一条 act「重试」(按意图给标签,不叫「接着办」)
+PASS E3 只提议 -> 零决策日志
+PASS D1 retry 开 + 线程 acceptEdits -> 自动递话「继续」(got "ok")
+PASS D2 steward_reply.actions 里能看到 auto:true 与意图标签
+PASS D3 执行后落决策日志
+PASS D4 决策日志 basis 记下 inboxSeq / auto / origin(got {"inboxSeq":502,"auto":true,"origin":"steward-retry"})
+PASS D5 决策日志带 undoRef(递话前的 turnSeq)
+PASS D6 同一目标本小时第二次失败不再自动(got 这条线程本小时已经自动重试过一次了,再失败只提议)
+PASS D7 第二次零执行零决策日志
+PASS F1 autonomyAutoResume=false -> resume 只提议(got 「重启后自动续跑」没有开,只能提议)
+PASS F2 降级成一条 act「续跑」
+PASS F3 autonomyAutoResume=true -> 过自理清单那道闸(继续走权限与 resumeTier 判定;got run_action_failed)
+PASS F4 node_no_progress_aborted / run_stalled 只进回合层,不自动动作
+PASS G1 普通会话 ctx -> steward.forbidden(got steward.forbidden)
+PASS G2 无在途回合 -> steward.no_active_turn(got steward.no_active_turn)
+PASS G3 目标线程不存在 -> not_found(got not_found)
+PASS G4 目标有在途回合时插话入队成功(got 1)
+PASS G5 undoRef kind=note,且带服务端加的「（管家补充）」前缀(撤回按文本匹配)
+PASS G6 尖括号被中和(与总览行同一函数)
+PASS G7 插话被下一步消费:会话正文里出现 steered:true 的「（管家补充）」那一条(与用户手动插话同一通道)
+PASS G8 插话补充落决策日志
+PASS G9 空文本 -> invalid_request
+PASS H1 开关关:收件箱回合直接 steward.disabled(自理动作根本跑不到)
+PASS H2 开关关:零决策日志
+PASS H3 开关关:收件箱零写入
+PASS H4 开关关:steward_thread_note 也 fail-closed
+PASS H5 账本里的 stalled / budget_tripped 仍在(线程自身的持久化,不受管家开关影响)
+STEWARD SIGNALS E2E: ALL PASS

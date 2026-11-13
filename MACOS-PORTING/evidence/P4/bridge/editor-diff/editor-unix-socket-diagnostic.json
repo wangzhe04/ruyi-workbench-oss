@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-07T18:16:13.236Z",
+  "actualHome": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3",
+  "shortHome": "/tmp/ruyi-p4-editor-cIXo0l/home",
+  "shortRoot": "/tmp/ruyi-p4-editor-cIXo0l",
+  "results": [
+    {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-nGutG3/Library/Application Support/Code/p4-proof.sock",
+      "bytes": 116,
+      "error": "EINVAL"
+    },
+    {
+      "path": "/tmp/ruyi-p4-editor-cIXo0l/home/Library/Application Support/Code/p4-proof.sock",
+      "bytes": 78,
+      "ok": true
+    }
+  ]
+}

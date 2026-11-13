@@ -1,0 +1,22 @@
+{
+  "mcp.server.fastmcp": "imported",
+  "PIL.Image": "imported",
+  "psutil": "imported",
+  "docx": "imported",
+  "openpyxl": "imported",
+  "pdfplumber": "imported",
+  "playwright.sync_api": "imported",
+  "reportlab": "imported",
+  "cv2": "imported",
+  "numpy": "imported",
+  "pptx": "imported",
+  "matplotlib": "imported",
+  "pandas": "imported",
+  "pypdf": "imported",
+  "docxRoundtrip": true,
+  "xlsxRoundtrip": true,
+  "pptxRoundtrip": true,
+  "pdfRoundtrip": true,
+  "desktopModules": "pyautogui/pynput installed only; no input/capture/permission request",
+  "browserRuntime": "Playwright package only; no Chromium download or launch"
+}

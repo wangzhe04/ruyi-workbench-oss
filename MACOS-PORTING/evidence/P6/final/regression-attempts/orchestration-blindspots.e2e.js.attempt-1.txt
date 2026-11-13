@@ -1,0 +1,45 @@
+── S1: 跨节点资源死锁(三节点传递环) ──
+PASS S1 三把租约就位(X/Y/Z 各一)
+PASS S1 三节点传递环被快拒 RESOURCE_DEADLOCK(多跳 wait-for 图, got RESOURCE_DEADLOCK)
+PASS S1 C 释放后 B 的等待者获取 Z(无泄漏)
+PASS S1 B 释放后 A 的等待者获取 Y(链式唤醒正常)
+── S3: 双引擎 tier 等价 ──
+PASS S3 CLAUDE_ALIAS_IDS 可抽取
+PASS S3 claude 引擎 read tier 恒 ''(不替 CLI 挑模型)
+PASS S3 claude 引擎 edit tier 恒 ''(不替 CLI 挑模型)
+PASS S3 claude 引擎 exec tier 恒 ''(不替 CLI 挑模型)
+PASS S3 openai exec → strong 池成员(qwen-max)
+PASS S3 openai read → fast 池成员(qwen-turbo)
+PASS S3 openai edit → balanced 池成员(glm-4)
+PASS S3 openai read tier 绝不跨引擎(别名/缓存被排除, got qwen-turbo)
+PASS S3 openai edit tier 绝不跨引擎(别名/缓存被排除, got qwen-turbo)
+PASS S3 openai exec tier 绝不跨引擎(别名/缓存被排除, got qwen-turbo)
+PASS S3 claude 显式 model 原样尊重
+PASS S3 claude 'inherit' 归一为 ''(tiering 关闭下)
+PASS S3 claude 角色默认 model 生效
+PASS S3 openai 显式 model 原样尊重
+PASS S3 openai 'inherit' 归一为 ''(tiering 关闭下)
+PASS S3 openai 角色默认 model 生效
+PASS S3 openai 'inherit'+tiering-on → 落 tier 兜底(空的既定语义)
+PASS S3 openai 缺省 → tier 兜底(qwen-max)
+PASS S3 claude 缺省 → 空串(tier 兜底按引擎豁免)
+PASS S3 tier 兜底是 opt-in(关 tiering → 空串)
+── S4: 双冷 resume 窄窗(静态锁 + 并发行为锁) ──
+PASS S4 静态锁:守卫 → 占位 → append → finally 释放,全序在 existingRun 分支内
+PASS S4 静态锁:resumeInFlight 在飞标记集定义在
+PASS workbench starts
+── S2: loop×retry 收敛 ──
+  [loop×retry] status: failed | attempts: 3 | subToolRequests: 45 | error: 子任务因连续 5 次相同工具调用被中止
+PASS S2 run 到终态(failed)—— loop×retry 不悬挂
+PASS S2 重试耗尽后节点 failed
+PASS S2 attempts 封顶 maxRetries+1 = 3 (got 3)
+PASS S2 fake 恰服务 45 次(3 节点尝试 × 3 guard 周期 × 5 连击)—— 自主恢复与重试预算均封顶 (got 45)
+PASS S2 中止原因在重试后不丢(连续 5 次相同工具调用)
+PASS S2 持久化 run 到终态 (got failed)
+── S4: 双冷 resume 窄窗行为锁 ──
+  [resume×2] r1.ok: true | r2.ok: false | blocked err: { code: 'api.request_failed', params: {}, message: '该工作流已在运行' }
+PASS S4 并发双 resume 至少一个放行 (got 1)
+PASS S4 若有被拦者必是「已在运行」(cold 路径拒;warm 路径 ok 属合法) (got 该工作流已在运行)
+PASS S4 事件流 run_resumed 恰 +1(旧 bug 会 +2:第二个在守卫前已 append) (got +1)
+
+ORCHESTRATION BLINDSPOTS E2E: ALL PASS

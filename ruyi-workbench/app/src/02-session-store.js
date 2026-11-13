@@ -950,6 +950,7 @@ async function recoverSessionBodyState(id, bp) {
   const whole = (body, count) => body && !body.corrupt && !body.unreadable && body.tornAt == null
     && Number.isInteger(count) && body.entries.length === count;
   if (!whole(msg, head.messageCount) || !whole(prov, head.providerHistoryCount)) return null;
+  if (!sessionBodiesMatchCommit(head, msg, prov)) return null;
   const state = {
     msg: sessionBodyRecordFromRead(msg, null),
     prov: sessionBodyRecordFromRead(prov, null, { dangling: danglingTurnState(prov.entries.length, i => prov.entries[i]) }),
@@ -1067,6 +1068,28 @@ function serializeSessionBody(entries) {
   return lines;
 }
 function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
+function sessionBodyDigest(lines) {
+  const hash = crypto.createHash('sha256');
+  for (const line of lines) hash.update(line, 'utf8').update('\n');
+  return hash.digest('hex');
+}
+function sessionBodyCommitValid(head) {
+  const commit = head.providerHistoryCommit;
+  return Number.isSafeInteger(head.providerHistoryRevision) && head.providerHistoryRevision >= 0
+    && commit?.schema === 1 && commit.revision === head.providerHistoryRevision
+    && /^[a-f0-9]{64}$/.test(commit.messagesSha256 || '') && /^[a-f0-9]{64}$/.test(commit.providerSha256 || '');
+}
+function sessionBodiesMatchCommit(head, msg, prov) {
+  if (!Object.hasOwn(head, 'providerHistoryRevision') && !Object.hasOwn(head, 'providerHistoryCommit')) return true;
+  if (!sessionBodyCommitValid(head)) return false;
+  const commit = head.providerHistoryCommit;
+  const matches = (body, count, digest) => {
+    if (!body || body.corrupt || body.unreadable || !Number.isSafeInteger(count) || count < 0 || body.entries.length < count) return false;
+    const end = count ? body.lineEndBytes[count - 1] : 0;
+    return crypto.createHash('sha256').update(body.buf.subarray(0, end)).digest('hex') === digest;
+  };
+  return matches(msg, head.messageCount, commit.messagesSha256) && matches(prov, head.providerHistoryCount, commit.providerSha256);
+}
 // entries 是否为 record 所记盘上正文的【严格】前缀(更短且逐行相同)。
 function isStrictSessionBodyPrefix(entries, record) {
   if (!record || entries.length >= record.count) return false;
@@ -1714,7 +1737,10 @@ function applySessionMetaPatch(session, patch) {
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
   // next turn. No existence check — a stale/moved folder simply resolves at run time like any manual entry.
-  if (typeof patch.cwd === 'string' && patch.cwd.trim()) session.cwd = path.resolve(patch.cwd.trim());
+  if (typeof patch.cwd === 'string' && patch.cwd.trim()) {
+    const cwd = process.platform === 'darwin' && patch.cwd.startsWith('/') ? patch.cwd : patch.cwd.trim();
+    session.cwd = path.resolve(cwd);
+  }
   return session;
 }
 
@@ -2487,9 +2513,11 @@ function foldTurnSummaries(session) {
   const filesChanged = new Map(), artifacts = new Map();
   const irreversible = [];
   let commands = 0, legacyCommands = 0;
+  let irreversibleIncomplete = false;
   for (const msg of ((session && session.messages) || [])) {
     const ts = msg && msg.turnSummary;
     if (!ts) continue;
+    irreversibleIncomplete ||= ts.irreversibleIncomplete === true;
     for (const f of (ts.filesChanged || [])) {
       if (f && f.path) filesChanged.set(f.path, { path: f.path, op: f.op || '', revertible: f.revertible === true, turnSeq: ts.turnSeq, entrySeq: f.entrySeq });
     }
@@ -2498,8 +2526,9 @@ function foldTurnSummaries(session) {
     }
     commands += (ts.commands || []).length || Number(ts.commands) || 0;
     if (Array.isArray(ts.irreversible)) {
+      if (irreversible.length + ts.irreversible.length > 200) irreversibleIncomplete = true;
       for (const iv of ts.irreversible) {
-        if (iv && iv.name && irreversible.length < 200) irreversible.push({ turnSeq: ts.turnSeq, kind: iv.kind || 'exec', name: String(iv.name), detail: String(iv.detail || ''), ok: iv.ok !== false });
+        if (iv && iv.name && irreversible.length < 200) irreversible.push({ turnSeq: ts.turnSeq, kind: iv.kind || 'exec', name: String(iv.name), detail: String(iv.detail || ''), ok: iv.effectStatus === 'unknown' ? false : iv.ok !== false, ...irreversibleEntryMetadata(iv) });
       }
     } else {
       legacyCommands += (ts.commands || []).length || Number(ts.commands) || 0;
@@ -2509,7 +2538,7 @@ function foldTurnSummaries(session) {
   for (const iv of irreversible) byKind[iv.kind] = (byKind[iv.kind] || 0) + 1;
   return {
     filesChanged: [...filesChanged.values()], artifacts: [...artifacts.values()], commands,
-    irreversible: { total: irreversible.length, byKind, items: irreversible, legacyCommands },
+    irreversible: { total: irreversible.length, byKind, items: irreversible, legacyCommands, ...(irreversibleIncomplete ? { incomplete: true } : {}) },
   };
 }
 // 任务结果快照(EC-E 立项:验收状态 + 成果引用 + 未完成项 + 变更摘要 + 真实回滚能力 + 不可逆显式标注)。
@@ -2559,7 +2588,7 @@ async function buildMissionResult(session, opts) {
     },
     checkpoints: { entries: cpEntries.length, turnSeqs: cpTurnSeqs.slice(0, 50), rollbackAvailable: cpEntries.length > 0 },
     audit: { commands: fold.commands, irreversible: fold.irreversible.total, checkpoints: cpEntries.length, openTodos: ((session.todos) || []).filter(t => t && t.status !== 'done').length },
-    irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands },
+    irreversible: { total: fold.irreversible.total, byKind: fold.irreversible.byKind, items: fold.irreversible.items.slice(-30), legacyCommands: fold.irreversible.legacyCommands, ...(fold.irreversible.incomplete ? { incomplete: true } : {}) },
   };
 }
 // 终态盖章/再武装清理。在【任何 mission 突变点】调用(/api/mission check/update、09 回合内 mission_update):
@@ -3029,13 +3058,123 @@ function asResultObject(result) {
   if (typeof result === 'string') { try { return JSON.parse(result); } catch { return null; } }
   return null;
 }
+// A small result-derived ledger survives display shrinking. These are tool-reported effects,
+// not a durable native dispatch receipt, nor proof that the target application accepted input.
+// Never infer a macro's completed children from requested arguments (saved recordings may rewrite them).
+const IRREVERSIBLE_COMPOUND_TOOLS = new Set(['macro_run', 'batch_actions']);
+const IRREVERSIBLE_RESULT_TEXT_MAX = 2 * 1024 * 1024;
+function irreversibleResultObject(result) {
+  if (typeof result === 'string' && (result.length > IRREVERSIBLE_RESULT_TEXT_MAX || Buffer.byteLength(result, 'utf8') > IRREVERSIBLE_RESULT_TEXT_MAX)) return null;
+  if (Array.isArray(result)) {
+    if (result.length > 200) return null;
+    let text = '', bytes = 0;
+    for (const part of result.slice(0, 200)) {
+      if (typeof part?.text !== 'string') continue;
+      if (part.text.length > IRREVERSIBLE_RESULT_TEXT_MAX) return null;
+      bytes += Buffer.byteLength(part.text, 'utf8');
+      if (bytes > IRREVERSIBLE_RESULT_TEXT_MAX) return null;
+      text += part.text;
+    }
+    try { return JSON.parse(text); } catch { return null; }
+  }
+  return asResultObject(result);
+}
+function irreversibleReportedState(bare, r, depth = 0) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return 'unknown';
+  // Positive prefix evidence survives enclosing cancellation/failure. Contradictory receipts
+  // remain unknown. action_sent:false on its own is not proof that no prefix ran.
+  if (r.action_sent === true || r.acted === true) return r.outcome === 'not_dispatched' ? 'unknown' : 'reported';
+  if (r.outcome === 'unknown' || r.outcome === 'unconfirmed' || r.outcome === 'rolled_back') return 'unknown';
+  if (r.outcome === 'not_dispatched') return 'none';
+  if (bare === 'act_and_verify' && r.action_result && depth < 2) return irreversibleReportedState('input_sequence', r.action_result, depth + 1);
+  if (bare === 'input_sequence' || bare === 'act_and_verify') return 'unknown';
+  if (bare === 'ocr_click' || bare === 'vision_click' || bare === 'ocr_find_text') {
+    if (r.clicked === true || (r.clicked && typeof r.clicked === 'object' && !Array.isArray(r.clicked))) return 'reported';
+    if (r.click_error) return 'unknown';
+    if (bare === 'ocr_find_text' && r.ok === true && r.clicked === undefined) return 'none';
+    if (r.clicked === false || r.clicked === null || r.found === false || r.not_found === true) return 'none';
+    return 'unknown';
+  }
+  if (r.acted === false && (r.ok === true || r.success === true)) return 'none';
+  return r.ok === true || r.success === true ? 'reported' : 'unknown';
+}
+function irreversibleEntryMetadata(row) {
+  const out = {};
+  if (row?.effectStatus === 'reported' || row?.effectStatus === 'unknown') out.effectStatus = row.effectStatus;
+  for (const key of ['callId', 'callIdHash', 'parentTool', 'reason', 'outcome']) {
+    if (typeof row?.[key] === 'string') out[key] = row[key].slice(0, key === 'parentTool' ? 200 : 120);
+  }
+  if (Number.isInteger(row?.step) && row.step >= 0 && row.step < 200) out.step = row.step;
+  return out;
+}
+function projectBridgedIrreversible(tc0, invocationAttempted) {
+  const tc = unwrapToolInvokeCall(tc0);
+  const name = typeof tc?.name === 'string' ? tc.name : '';
+  const bare = unprefixedBridgedName(name);
+  const compound = IRREVERSIBLE_COMPOUND_TOOLS.has(bare);
+  // Bare CLI/native names must not acquire bridge semantics by collision.
+  if (bare === name || (!compound && !Object.hasOwn(IRREVERSIBLE_BRIDGED_KIND, bare))) return null;
+  const projection = { schemaVersion: 1, items: [], incomplete: false };
+  // This flag comes from the actual local call boundary, never from model arguments.
+  if (invocationAttempted === false) return projection;
+  const r = irreversibleResultObject(tc.result);
+  const callId = typeof tc.id === 'string' && tc.id.length <= 120 ? tc.id : '';
+  const callIdHash = typeof tc.id === 'string' && tc.id.length > 120 ? crypto.createHash('sha256').update(tc.id).digest('hex') : '';
+  const note = (tool, result, step, kind, reason) => {
+    const state = reason ? 'unknown' : irreversibleReportedState(unprefixedBridgedName(tool), result);
+    if (state === 'none') return;
+    if (projection.items.length >= IRREVERSIBLE_LEDGER_MAX) { projection.incomplete = true; return; }
+    projection.items.push({ kind, name: tool.slice(0, 200), detail: '',
+      ok: !!result && result.ok !== false && result.success !== false && !result.error && state === 'reported',
+      effectStatus: state, ...(callId ? { callId } : {}), ...(callIdHash ? { callIdHash } : {}), ...(step === undefined ? {} : { parentTool: name.slice(0, 200), step }),
+      ...(reason ? { reason } : {}), ...(typeof result?.outcome === 'string' ? { outcome: result.outcome.slice(0, 120) } : {}) });
+  };
+  if (!compound) { note(name, r, undefined, IRREVERSIBLE_BRIDGED_KIND[bare]); return projection; }
+  if (r?.step_invocation_schema === 1 && r.invocation_attempted === false && !Array.isArray(r.results)) return projection;
+  if (!Array.isArray(r?.results)) {
+    if (r?.outcome !== 'not_dispatched') note(name, r, undefined, 'unknown', 'compound_result_unavailable');
+    return projection;
+  }
+  const seen = new Set();
+  for (const [index, child] of r.results.slice(0, 200).entries()) {
+    // Malformed rows cannot certify either execution or a no-effect result.
+    if (!child || !Number.isInteger(child.step) || child.step < 0 || child.step >= 200 || seen.has(child.step) || typeof child.tool !== 'string') {
+      projection.incomplete = true; continue;
+    }
+    seen.add(child.step);
+    if (child.step !== index) projection.incomplete = true;
+    if (r.step_invocation_schema === 1 && child.invocation_attempted === false) {
+      if (Object.hasOwn(child, 'result')) { projection.incomplete = true; note(name, null, child.step, 'unknown', 'conflicting_invocation_result'); }
+      continue;
+    }
+    // Nested compounds are prohibited by ACC. Unexpected nested results stay unknown.
+    if (IRREVERSIBLE_COMPOUND_TOOLS.has(child.tool)) {
+      note(name, null, child.step, 'unknown', 'unexpected_nested_compound'); continue;
+    }
+    if (!Object.hasOwn(IRREVERSIBLE_BRIDGED_KIND, child.tool)) continue;
+    const prefix = name.slice(0, name.lastIndexOf('__') + 2);
+    const result = irreversibleResultObject(child.result);
+    note(prefix + child.tool, result, child.step, IRREVERSIBLE_BRIDGED_KIND[child.tool], result ? '' : 'step_result_unavailable');
+  }
+  // A complete returned prefix may end early on an error. Missing requested suffixes are not
+  // presumed to have run. Only malformed/omitted returned rows make this projection incomplete.
+  if (r.outcome === 'unknown' || r.outcome === 'unconfirmed' || r.outcome === 'rolled_back') note(name, r, undefined, 'unknown', 'compound_outcome_unknown');
+  if (r.outcome === 'not_dispatched' && projection.items.length) projection.incomplete = true;
+  if (r.results.length > 200 || (Number.isInteger(r.completed) && Number.isInteger(r.failed)
+      && r.completed + r.failed !== r.results.length)) projection.incomplete = true;
+  if (projection.incomplete && projection.items.length < IRREVERSIBLE_LEDGER_MAX) note(name, null, undefined, 'unknown', 'compound_results_incomplete');
+  return projection;
+}
+
 function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
   const byPath = new Map(); // path → {path, op, revertible} — journal entries take precedence over records
   let commands = 0;
+  let irreversibleIncomplete = false;
   const irreversible = []; // 第72波:不可逆操作正向账(收录判据见 IRREVERSIBLE_*_KIND 头注)
   const noteIrreversible = (name, input, result) => {
     const kind = irreversibleToolKind(name);
-    if (!kind || irreversible.length >= IRREVERSIBLE_LEDGER_MAX) return;
+    if (!kind) return;
+    if (irreversible.length >= IRREVERSIBLE_LEDGER_MAX) { irreversibleIncomplete = true; return; }
     const r = asResultObject(result);
     irreversible.push({ kind, name: String(name || ''), detail: irreversibleDetail(input), ok: !(r && r.ok === false) });
   };
@@ -3044,7 +3183,16 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     if (!tc || !tc.name) continue;
     const name = String(tc.name);
     const input = (tc.input && typeof tc.input === 'object') ? tc.input : {};
-    noteIrreversible(name, input, tc.result);
+    const projected = tc0.irreversibleProjection?.schemaVersion === 1 && Array.isArray(tc0.irreversibleProjection.items)
+      ? tc0.irreversibleProjection : projectBridgedIrreversible(tc0);
+    if (projected) {
+      irreversibleIncomplete ||= projected.incomplete === true;
+      for (const item of projected.items.slice(0, IRREVERSIBLE_LEDGER_MAX)) {
+        if (irreversible.length >= IRREVERSIBLE_LEDGER_MAX) { irreversibleIncomplete = true; break; }
+        irreversible.push({ kind: String(item.kind || 'unknown').slice(0, 32), name: String(item.name || name).slice(0, 200),
+          detail: String(item.detail || '').slice(0, 120), ok: item.ok === true, ...irreversibleEntryMetadata(item) });
+      }
+    } else noteIrreversible(name, input, tc.result);
     if (TURN_SUMMARY_FILE_TOOLS.has(name)) {
       const r = asResultObject(tc.result);
       // Path: prefer the tool input; fall back to the parsed result (claude workbench tools echo .path).
@@ -3120,7 +3268,7 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     }
   }
   const artifacts = [...artByPath.values()];
-  return { turnSeq: Number(turnSeq) || 0, filesChanged, commands, artifacts, irreversible };
+  return { turnSeq: Number(turnSeq) || 0, filesChanged, commands, artifacts, irreversible, ...(irreversibleIncomplete ? { irreversibleIncomplete: true } : {}) };
 }
 
 // v0.8-S0 A6: detect an interrupted (dangling) turn from providerHistory. Dangling shapes:
@@ -3189,7 +3337,7 @@ function repairProviderHistoryPairing(history) {
     if (!missing.length) continue;
     const fills = missing.map(tc => ({
       role: 'tool', tool_call_id: tc.id,
-      content: '[工具结果丢失:上次回会在执行该工具时中断,结果未保存。请勿重放此调用,按上下文继续。]',
+      content: '[工具结果丢失:上次回合已记录此调用,是否派发、执行及其结果未确认,可能已经产生影响。请勿自动重放此调用;先核实已发生的影响,需要再次执行时请取得明确授权。]',
     }));
     history.splice(j, 0, ...fills);
     repaired += fills.length;
@@ -3396,6 +3544,8 @@ function sessionProviderHistoryLength(session) {
   return session && Array.isArray(session.providerHistory) ? session.providerHistory.length : 0;
 }
 async function readSessionBodiesOmittingProvider(id, parsed, bp, writeSeqAtRead) {
+  // Protected transcripts must verify the committed body hashes, including same-count rewrites.
+  if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) return null;
   const state = sessionBodyState.get(id);
   const provRec = state && state.bodiesOk ? state.prov : null;
   if (!provRec || !provRec.stamp || !provRec.dangling || sessionWriteChains.has(id)) return null;
@@ -3433,7 +3583,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
     return null;
   }
-  if (Array.isArray(parsed)) return null; // sessions/index.json is an array, not a session; never load it as one
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null; // Never normalize a non-object head into a fresh empty session.
+  if ((Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit'))
+      && parsed.storageVersion !== SESSION_STORAGE_VERSION) return null;
   let legacy = true;
   const omitView = view === SESSION_LOAD_OMIT_PROVIDER;
   const lite = omitView && parsed && parsed.storageVersion === SESSION_STORAGE_VERSION
@@ -3462,7 +3614,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
     const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
     const bodyBad = () => !msg || !prov || msg.corrupt || prov.corrupt
-      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount);
+      || shortOf(msg, parsed.messageCount) || shortOf(prov, parsed.providerHistoryCount)
+      || !sessionBodiesMatchCommit(parsed, msg, prov);
     const countsDiffer = () => (Number.isInteger(parsed.messageCount) && msg && !msg.corrupt && msg.entries.length !== parsed.messageCount)
       || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
@@ -3489,7 +3642,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
         || String(again.updatedAt || '') !== String(parsed.updatedAt || '')
         || again.messageCount !== parsed.messageCount
         || again.providerHistoryCount !== parsed.providerHistoryCount;
-      if (moved) {
+      const commitMoved = JSON.stringify(again?.providerHistoryCommit) !== JSON.stringify(parsed.providerHistoryCommit)
+        || again?.providerHistoryRevision !== parsed.providerHistoryRevision;
+      if (moved || commitMoved) {
         if (reloadDepth >= 1) return null;   // 有界：连着两次都在写，这一趟就诚实地不给结果
         return loadSession(id, reloadDepth + 1);
       }
@@ -3501,9 +3656,20 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     const hasPrev = await fsp.stat(pm).then(() => true).catch(() => false)
       && await fsp.stat(pp).then(() => true).catch(() => false);
     if (hasPrev && (bodyBad() || countsDiffer())) {
+      if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) {
+        const [previousMessages, previousProvider] = await Promise.all([readSessionBodyFile(pm), readSessionBodyFile(pp)]);
+        if (!sessionBodiesMatchCommit(parsed, previousMessages, previousProvider)) return null;
+      }
       dropSessionBodyState(id);
-      await fsp.rename(pm, bp.messages).catch(() => {});
-      await fsp.rename(pp, bp.provider).catch(() => {});
+      if (Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit')) {
+        // Keep both verified snapshots until both copies are restored. A partial
+        // restore or process death must leave the complete recoverable pair.
+        try { await fsp.copyFile(pm, bp.messages); await fsp.copyFile(pp, bp.provider); }
+        catch { return null; }
+      } else {
+        await fsp.rename(pm, bp.messages).catch(() => {});
+        await fsp.rename(pp, bp.provider).catch(() => {});
+      }
       msg = await readSessionBodyFile(bp.messages);
       prov = await readSessionBodyFile(bp.provider);
       if (unreadable(msg) || unreadable(prov)) return null;   // hunt2-P3:同上,读不出来就不动手
@@ -3512,7 +3678,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
       dropSessionBodyState(id);
       // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
-      const bak = await loadSessionV1Backup(id);
+      const bak = Object.hasOwn(parsed, 'providerHistoryRevision') || Object.hasOwn(parsed, 'providerHistoryCommit') ? null : await loadSessionV1Backup(id);
       if (bak) return bak;
       // 无备份可退:坏正文隔离(不删,留取证),头按损坏处理。
       for (const p of [bp.messages, bp.provider]) await fsp.rename(p, p + '.corrupt').catch(() => {});
@@ -3685,10 +3851,14 @@ async function saveSession(session, opts) {
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   const finalPath = sessionPath(id);
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  let messages = Array.isArray(session.messages) ? session.messages : [];
+  let providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  let protectedHead = null, providerRevision = null, protectedCommit = null;
   // 头 = 运行时对象剥掉两个大数组 + 存储标记 + 计数(计数供 listSessions 兜底扫描/sessionMeta 不读正文)。
   const buildHeadPayload = () => {
+    if (protectedHead) return JSON.stringify({ ...protectedHead,
+      messageCount: messages.length, providerHistoryCount: providerHistory.length,
+      providerHistoryRevision: providerRevision, providerHistoryCommit: protectedCommit }, null, 2);
     const head = { ...session };
     const recentUserRequest = sessionRecentUserRequest(session);
     if (recentUserRequest) head.recentUserRequest = recentUserRequest;
@@ -3719,7 +3889,61 @@ async function saveSession(session, opts) {
   // 按 saveAgentRun 同款 per-id 写链串行化:链内按提交顺序落盘,窗口归零;链错误吞掉(下一写自愈)。
   // v2:整个「正文 append/重写 + 头写」都在链内 —— 进程内状态表与磁盘正文的一致性靠同一条链保证。
   const prevWrite = sessionWriteChains.get(id) || Promise.resolve();
+  let preserveRewindOnFailure = false;
   const writeSessionToDisk = async () => {
+    // A revision belongs to one body/head snapshot. In protected sessions take all of
+    // them together INSIDE the write chain, after earlier same-object saves committed.
+    // Stale copies must reload and reapply their explicit edit; never merge old heads.
+    let diskHead = null, diskHeadText = null, headExists = false;
+    try { diskHeadText = await fsp.readFile(finalPath, 'utf8'); diskHead = JSON.parse(diskHeadText); headExists = true; }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (headExists && (!diskHead || typeof diskHead !== 'object' || Array.isArray(diskHead))) {
+      throw Object.assign(new Error('session head is not an object'), { code: 'SESSION_HEAD_UNREADABLE' });
+    }
+    const stamped = Object.hasOwn(session, 'providerHistoryRevision') || Object.hasOwn(session, 'providerHistoryCommit');
+    const diskStamped = headExists && (Object.hasOwn(diskHead, 'providerHistoryRevision') || Object.hasOwn(diskHead, 'providerHistoryCommit'));
+    const protectedBody = DesktopExecutionHooks.enabled() || stamped || diskStamped;
+    if (protectedBody) {
+      const validRevision = value => Number.isSafeInteger(value) && value >= 0;
+      const incomingRevision = stamped ? session.providerHistoryRevision : 0;
+      const currentRevision = diskStamped ? diskHead.providerHistoryRevision : 0;
+      if (stamped && !headExists || !validRevision(incomingRevision) || !validRevision(currentRevision)
+          || incomingRevision !== currentRevision || stamped !== diskStamped
+          || diskStamped && diskHead.storageVersion !== SESSION_STORAGE_VERSION
+          || stamped && (!sessionBodyCommitValid(session) || !sessionBodyCommitValid(diskHead)
+            || JSON.stringify(session.providerHistoryCommit) !== JSON.stringify(diskHead.providerHistoryCommit))
+          || (Number(session.rewindGen) || 0) !== saveGen
+          || diskHead && ((Number(diskHead.turnSeq) || 0) > (Number(session.turnSeq) || 0)
+            || (Number(diskHead.rewindGen) || 0) > saveGen)) {
+        throw Object.assign(new Error('session provider history changed; reload before applying this edit'), { code: 'SESSION_PROVIDER_HISTORY_CONFLICT' });
+      }
+      providerRevision = currentRevision;
+      // Validate the committed body on both append and rewrite paths. A cached
+      // append plan cannot bless a corrupted on-disk head/body as a new commit.
+      if (headExists && diskHead.storageVersion === SESSION_STORAGE_VERSION) {
+        const [committedMessages, committedProvider] = await Promise.all([
+          readSessionBodyFile(sessionBodyPaths(id).messages), readSessionBodyFile(sessionBodyPaths(id).provider)]);
+        if (!committedMessages || !committedProvider || committedMessages.corrupt || committedProvider.corrupt
+            || committedMessages.unreadable || committedProvider.unreadable
+            || committedMessages.entries.length < diskHead.messageCount
+            || committedProvider.entries.length < diskHead.providerHistoryCount
+            || !sessionBodiesMatchCommit(diskHead, committedMessages, committedProvider)) {
+          throw Object.assign(new Error('committed session body must be recovered before saving'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        // An unchanged stamped head plus its verified byte prefixes identifies an
+        // uncommitted append tail. Recover it inside this write chain before planning
+        // the next save, including a stopped turn's final pairing after an IO error.
+        for (const [body, count, file] of [[committedMessages, diskHead.messageCount, sessionBodyPaths(id).messages],
+          [committedProvider, diskHead.providerHistoryCount, sessionBodyPaths(id).provider]]) {
+          if (body.entries.length !== count || body.tornAt != null) {
+            if (!diskStamped || !await truncateSessionBody(file, count ? body.lineEndBytes[count - 1] : 0)) {
+              throw Object.assign(new Error('uncommitted session tail could not be recovered'), { code: 'SESSION_BODY_UNVERIFIED' });
+            }
+            dropSessionBodyState(id);
+          }
+        }
+      }
+    }
     // 122-§2.4:链内落盘前合并 mission(见本函数头注与 mergeMissionBeforeSave)。只读【头文件】就够 ——
     // mission/kind 都在头上;读不到/解析不了(首存、损坏)一律当「磁盘没有账本」,与不传旗子逐字节等价。
     if (opts && opts.mergeMissionFromDisk) {
@@ -3729,6 +3953,25 @@ async function saveSession(session, opts) {
         payload = buildHeadPayload();
         metaSnapshot = sessionMeta(session);
       }
+    }
+    if (protectedBody) {
+      // Re-read the LIVE object's arrays, revision and head in one synchronous section;
+      // then sever every array/entry reference before doing further asynchronous IO.
+      if ((Object.hasOwn(session, 'providerHistoryRevision') || Object.hasOwn(session, 'providerHistoryCommit')) !== stamped
+          || (stamped ? session.providerHistoryRevision : 0) !== providerRevision
+          || stamped && (!sessionBodyCommitValid(session)
+            || JSON.stringify(session.providerHistoryCommit) !== JSON.stringify(diskHead.providerHistoryCommit))
+          || (Number(session.rewindGen) || 0) !== saveGen) {
+        throw Object.assign(new Error('session changed while preparing its protected snapshot'), { code: 'SESSION_PROVIDER_HISTORY_CONFLICT' });
+      }
+      messages = Array.isArray(session.messages) ? session.messages : [];
+      providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+      const msgSnapshot = serializeSessionBody(messages), provSnapshot = serializeSessionBody(providerHistory);
+      if (!msgSnapshot || !provSnapshot) throw new Error('session body not serializable');
+      messages = msgSnapshot.map(line => JSON.parse(line));
+      providerHistory = provSnapshot.map(line => JSON.parse(line));
+      protectedHead = JSON.parse(buildHeadPayload());
+      payload = buildHeadPayload(); metaSnapshot = sessionMeta(JSON.parse(payload));
     }
     const bp = sessionBodyPaths(id);
     // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
@@ -3742,13 +3985,23 @@ async function saveSession(session, opts) {
     // 旧副本补齐：调用方手里的消息是盘上正文的【严格前缀】（更短、逐行相同）= 它装载之后别的写者又追加过，
     // 它自己并没有删消息（有意删的只有撤回 rewindBump 与管家归档 opts.shrinkBody）。以前这里走慢路径，用旧数组
     // 整份重写 —— 别人刚追加的消息全丢。现在先把盘上多出来的尾巴补进它的数组再写：两边的改动都留下。
-    if (state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
+    if (!protectedBody && state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
       payload = buildHeadPayload();
-      metaSnapshot = sessionMeta(session);
+      metaSnapshot = sessionMeta(protectedBody ? JSON.parse(payload) : session);
     }
     const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msg) : null;
     const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.prov) : null;
-    let nextMsgLines, nextProvLines;
+    if (protectedBody) {
+      if (!headExists || !msgPlan || msgPlan.appendLines.length || !provPlan || provPlan.appendLines.length) {
+        if (providerRevision === Number.MAX_SAFE_INTEGER) throw Object.assign(new Error('provider history revision capacity exhausted'), { code: 'SESSION_PROVIDER_HISTORY_CAPACITY' });
+        providerRevision += 1;
+      }
+      protectedCommit = { schema: 1, revision: providerRevision,
+        messagesSha256: sessionBodyDigest(serializeSessionBody(messages)), providerSha256: sessionBodyDigest(serializeSessionBody(providerHistory)) };
+      payload = buildHeadPayload();
+      metaSnapshot = sessionMeta(JSON.parse(payload));
+    }
+    let nextMsgLines, nextProvLines, protectedRewrite = false;
     if (msgPlan && provPlan) {
       // 快路径:只 append 增量行(0 增量 = 不动正文文件,仅更新头)。
       if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, msgPlan.appendLines.join('\n') + '\n', 'utf8');
@@ -3763,22 +4016,70 @@ async function saveSession(session, opts) {
       const msgSer = serializeSessionBody(messages);
       const provSer = serializeSessionBody(providerHistory);
       if (!msgSer || !provSer) throw new Error('session body not serializable');
-      await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
-      await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      if (protectedBody && headExists) {
+        const [currentMessages, currentProvider] = await Promise.all([readSessionBodyFile(bp.messages), readSessionBodyFile(bp.provider)]);
+        if (diskHead.storageVersion === SESSION_STORAGE_VERSION && (!currentMessages || !currentProvider
+            || currentMessages.corrupt || currentProvider.corrupt || currentMessages.unreadable || currentProvider.unreadable
+            || currentMessages.entries.length !== diskHead.messageCount || currentProvider.entries.length !== diskHead.providerHistoryCount)) {
+          throw Object.assign(new Error('session bodies must be recovered before rewriting'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        if (Object.hasOwn(diskHead, 'providerHistoryCommit') && !sessionBodiesMatchCommit(diskHead, currentMessages, currentProvider)) {
+          throw Object.assign(new Error('committed session body must be recovered before rewriting'), { code: 'SESSION_BODY_UNVERIFIED' });
+        }
+        // A verified current body makes any previous snapshot stale. Never use an older
+        // EXCL snapshot as rollback for this new rewrite if prior cleanup had failed.
+        await fsp.unlink(bp.messages + '.prevbody').catch(error => { if (error.code !== 'ENOENT') throw error; });
+        await fsp.unlink(bp.provider + '.prevbody').catch(error => { if (error.code !== 'ENOENT') throw error; });
+      }
+      if (protectedBody && headExists && diskHead.storageVersion === SESSION_STORAGE_VERSION) {
+        await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL);
+        await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL);
+      } else {
+        await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+        await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
+      }
+      protectedRewrite = protectedBody;
       try {
         await atomicWriteJson(bp.messages, sessionBodyText(msgSer));
         await atomicWriteJson(bp.provider, sessionBodyText(provSer));
       } catch (werr) {
         // 进程内写失败(非崩溃)→ 立即回滚快照,磁盘回到重写前的一致态;bodiesOk=false 由外层标。
-        await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
-        await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        if (protectedBody) {
+          await fsp.copyFile(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.copyFile(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        } else {
+          await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        }
         throw werr;
       }
       nextMsgLines = msgSer;
       nextProvLines = provSer;
     }
     // 头最后写:头指向的正文状态必须先于头落盘(头=「正文有效」的声明)。
-    await atomicWriteJson(finalPath, payload);
+    // Once publication is attempted, only a confirmed unchanged old head permits
+    // rolling the rewind watermark back. Lost acknowledgements may have committed.
+    if (protectedBody) preserveRewindOnFailure = true;
+    try { await atomicWriteJson(finalPath, payload); }
+    catch (error) {
+      let published = null;
+      if (protectedBody) { try { published = await fsp.readFile(finalPath, 'utf8'); } catch { /* unknown commit: preserve both bodies and snapshots */ } }
+      if (protectedBody && published === payload) {
+        session.providerHistoryRevision = providerRevision; session.providerHistoryCommit = protectedCommit;
+      } else if (protectedBody && published === diskHeadText) {
+        preserveRewindOnFailure = false;
+        if (protectedRewrite) {
+          await fsp.copyFile(bp.messages + '.prevbody', bp.messages).catch(() => {});
+          await fsp.copyFile(bp.provider + '.prevbody', bp.provider).catch(() => {});
+        }
+      }
+      throw error;
+    }
+    // The head is the commit point. Cleanup/stat failures must not roll back this fact.
+    if (protectedBody) {
+      session.providerHistoryRevision = providerRevision;
+      session.providerHistoryCommit = protectedCommit;
+    }
     // 头已提交 → prevbody 快照使命完成(崩溃于清理前也无妨:下次读取按「头计数==正文行数」判其为陈旧快照,
     // 顺带清除,见 loadSession)。
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -3845,7 +4146,7 @@ async function saveSession(session, opts) {
     catch (werr) {
       // 撤回那一存自己没落上:盘上仍是旧代数,把水位退回去(只退自己抬的那一格;期间又有更新的撤回
       // 抬过就不动)。在链内退、先于这条链 reject —— 等这条链的 loadSession 自愈醒来时水位已经对了。
-      if (rewindBump && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
+      if (rewindBump && !preserveRewindOnFailure && sessionRewindGenHighWater.get(id) === rewindBump.gen) {
         if (rewindBump.prevHighWater > 0) sessionRewindGenHighWater.set(id, rewindBump.prevHighWater);
         else sessionRewindGenHighWater.delete(id);
       }
@@ -3864,6 +4165,15 @@ async function saveSession(session, opts) {
   }
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
   if (dropped) {
+    // Execution barriers must distinguish a committed snapshot from a legacy best-effort return.
+    // Other callers retain their existing handling of intentionally discarded stale/deleted saves.
+    if (opts && opts.requirePersisted === true) {
+      throw Object.assign(new Error('session save was not committed; execution must not continue'), {
+        code: 'SESSION_SAVE_NOT_COMMITTED',
+        reason: dropped.deleted ? 'deleted' : dropped.executionSuperseded ? 'execution_superseded'
+          : dropped.supersededTurn ? 'turn_superseded' : 'stale',
+      });
+    }
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
     // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
     if (dropped.supersededTurn) {

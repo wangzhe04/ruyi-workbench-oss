@@ -1,0 +1,34 @@
+PASS A0 服务起来了(拿到 token)
+── (A) 鉴权与开关 ──
+PASS A1 缺 token -> 403(实测 403)
+── (B) limit 与排序 ──
+PASS B1 GET /api/steward/decisions 200
+PASS B2 缺省 limit = 50(实测 50)
+PASS B3 total = 尾窗内命中过滤的总行数,坏行不计(实测 61)
+PASS B4 按时间倒序,最近的在最前(实测 61 / 60)
+PASS B5 limit 上限 200(实测 200)
+PASS B6 非法 limit 回缺省 50(实测 50)
+PASS B7 limit=1 只回最近一条
+── (C) sessionId / since 过滤 ──
+PASS C1 按线程过滤只回该线程的行(实测 30)
+PASS C2 since 只回 at 严格晚于它的行(实测 3)
+PASS C3 两个过滤条件同时生效
+PASS C4 非法 since 当没给(只读面对坏参数降级为不过滤)
+PASS C5 非法 sessionId 不炸(safeSessionId 归一后自然无命中)
+── (D) 坏行容错 ──
+PASS D1 三条坏行 + 尾部半行全部跳过,好行一条不少(实测 61)
+PASS D2 回出去的每一行都有 tool(缺 tool 的对象不算决策行)
+── (E) 密钥掩码 ──
+PASS E1 args 顶层像密钥的键被掩码(实测 ••••)
+PASS E2 嵌套对象里的密钥键同样掩码
+PASS E3 非密钥字段原样保留
+PASS E4 basis 走同一条掩码
+PASS E5 原始密钥值一个字节都没出门
+PASS E6 undoRef 原样带出(行动流水的「撤销」按钮读它)
+── (F) 只读 ──
+PASS F1 读完之后日志文件逐字节不变
+── (A2) 开关关 ──
+PASS A2 开关关 -> 409 steward.disabled(实测 409/steward.disabled)
+PASS A3 开关关时读这条路由不建 steward 目录(零持久化写入)
+
+STEWARD DECISIONS E2E: ALL PASS

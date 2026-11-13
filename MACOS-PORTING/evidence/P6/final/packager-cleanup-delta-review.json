@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T11:11:45.176Z",
+  "stage": "Final wrapper image-clone and success-only test-clone cleanup delta review",
+  "baselineCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "sourceBindings": [
+    {
+      "file": "ruyi-workbench/tools/package-macos-trial.js",
+      "baselineSha256": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+      "reviewedSha256": "da8e1ead61b96848517d5bc158ce1265152af66b987086ea5b3ccdaaa1dd395f"
+    },
+    {
+      "file": "dev-harness/macos-offline-package.e2e.js",
+      "baselineSha256": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+      "reviewedSha256": "3c8d8000c5332dce6e5ae0913edd7acd3cff3ccbe78a4774fad164aac2945a23"
+    }
+  ],
+  "changes": [
+    {
+      "file": "ruyi-workbench/tools/package-macos-trial.js",
+      "result": "approved",
+      "analysis": "Exactly one copyFileSync flag change retains COPYFILE_EXCL and adds non-forced COPYFILE_FICLONE. Copy-on-write fallback remains supported, no hardlink sharing, image/sidecar/provenance checks unchanged.",
+      "earlierReport": "/tmp/ruyi-p603-review/dmg-clone-delta-review.json"
+    },
+    {
+      "file": "dev-harness/macos-offline-package.e2e.js",
+      "result": "approved",
+      "analysis": "Only successful executions remove moved/Ruyi.app under this run’s fresh mkdtemp scratch, after all assertion failures are counted, app/input inventory verified and owned children/servers stopped. Input candidate and full scratch reports/copied metadata remain outside deletion. Failed execution keeps the App clone for diagnosis. No broad temp scan or user-data deletion added.",
+      "removedPathOwnership": "const scratch=mkdtemp(ruyi-offline-acceptance-); const moved=path.join(scratch, fixed Unicode directory); target=path.join(moved,Ruyi.app)",
+      "failureBehavior": "catch increments t.failures; cleanup checks !t.failures, so failures preserve copied App. A cleanup exception fails the fixture rather than silently reporting success."
+    }
+  ],
+  "rawSourceProof": "/tmp/ruyi-p603-review/raw-source-provenance.json",
+  "provenanceContract": "Full/Slim application source stays b662fff2 with492 matching fingerprints each and actual native inventory210/7. New wrapper commit separately identifies the two-file packager/test delta; do not relabel application provenance.",
+  "reviewedCleanupArchive": {
+    "file": "MACOS-PORTING/evidence/P6/final/reclaimed-successful-fixtures.json",
+    "sha256": "6c468e4df9684340c832dd4e7429a6bd4606b40bafebbe7fc73f3db3c5dd5d41",
+    "scope": "Parent reclaimed only4 previously successful reproducible moved App clones after verification; reports/manifests and original frozen P6-01/P6-02 distributions retained. Reviewer did not perform deletions."
+  },
+  "validation": {
+    "mainUnit": "MACOS-PORTING/evidence/P6/final/unit-dmg-clone.txt:5pass/0fail/0skip inspected",
+    "syntax": "main reports node --check passed",
+    "reviewerTestsExecuted": 0,
+    "reviewerAppRuns": 0,
+    "reviewerMounts": 0,
+    "reviewerDeletedFiles": 0
+  },
+  "codeReviewPassed": true,
+  "remainingBlockingFindings": [],
+  "remainingAcceptance": [
+    "commit exact two reviewed file blobs",
+    "rebuild final Full/Slim DMGs with split source/packager provenance",
+    "independent real serial final artifact installation, native Trash and upgrade/rollback when window released"
+  ],
+  "conclusion": "Both final deltas approved for commit. Success-only cleanup narrows retained reproducible copies without weakening failure evidence or source integrity."
+}

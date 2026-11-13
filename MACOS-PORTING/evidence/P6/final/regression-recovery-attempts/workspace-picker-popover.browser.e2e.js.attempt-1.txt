@@ -1,0 +1,26 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS P0 预置三个常用工作区与一条只在「最近用过」里的文件夹（HTTP 200）
+PASS P0 页面拿到了新配置
+PASS P0 工作台视角
+PASS P1 点顶栏工作文件夹 → 弹层出现
+PASS P1 第一项是「浏览文件夹」主按钮且打开时焦点在它上面（实测 {"first":true,"focus":true}）
+PASS P2 常用工作区每行带完整路径（实测 [["proj-alpha","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/proj-alpha"],["report final","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/My Projects/report final"],["ruyi-site","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/work/ruyi-site"]]）
+PASS P2 当前文件夹有「当前」标与 aria-current，别的行没有（实测 [[true,true,"true"],[false,false,""],[false,false,""]]）
+PASS P3 行尾三个动作是带 aria-label 的图标按钮（实测 [{"label":"上移（提高优先级） · proj-alpha","svg":true,"text":"","disabled":true},{"label":"下移（降低优先级） · proj-alpha","svg":true,"text":"","disabled":false},{"label":"设为默认工作区（排到最前） · proj-alpha","svg":true,"text":"","disabled":true}]）
+PASS P3 首行的「上移」「设为默认」禁用、「下移」可用（实测 [true,false,true]）
+PASS P4 「最近用过」只列不在常用工作区的那条（实测 ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/scratch/old-notes"]）
+PASS P5 打开时没有错误行
+PASS P3 「下移」就地调整优先级、弹层不关（实测 {"ws":["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/My Projects/report final","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/proj-alpha","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/work/ruyi-site"],"paths":["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/My Projects/report final","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/proj-alpha","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/work/ruyi-site"],"open":true}）
+PASS P5 非绝对路径 → 弹层不关、输入框下就地说明（实测 {"text":"请输入完整的绝对路径（如 C:\\Users\\me\\project）","role":"alert","invalid":"true","open":true}）
+PASS P5 再打字说明消失（实测 {"hidden":true,"invalid":"false"}）
+PASS P6 「浏览文件夹」把当前工作文件夹与标题交给原生选择器（实测 {"body":"{\"title\":\"选择工作文件夹\",\"initialDir\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/My Projects/report final\"}","current":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/My Projects/report final"}）
+PASS P6 点「浏览」后弹层收起（让位给系统对话框）
+PASS P7 再次打开弹层
+PASS P7 合法路径回车 → 弹层收起、工作文件夹换成它（实测 {"cur":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-dEYU6z/ruyi-wspick-4ZL3co/pasted-folder"}）
+PASS P8 全程无页面异常（实测 []）
+
+WORKSPACE PICKER POPOVER BROWSER E2E: ALL PASS

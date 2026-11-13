@@ -1,0 +1,83 @@
+PASS (A) normalizeConfig keeps type=tavily
+PASS (A) normalizeConfig keeps type=bocha
+PASS (A) illegal search type cleansed → builtin (zero-config default)
+PASS (A) configSchema 14 / version stamped to app VERSION (3.0.1)
+PASS (B) extraBaseUrls capped to 3 (["https://b1.com","https://b2.com","https://b3.com"])
+PASS (B) extraBaseUrls trimmed+deduped, order kept, b4 dropped by cap
+PASS (B) entry equal to main baseUrl dropped
+PASS (B) absent extraBaseUrls → [] (behavior = 现状)
+PASS (C) caps 白名单+小写归一+去重 (["asr","embedding"])
+PASS (C) 字符串/无 caps 条目不落 caps 字段(零漂移)
+PASS (D) audioBaseUrl trim 生效 (https://asr.example.com)
+PASS (D) audioBaseUrl 截 400 (400)
+PASS (D) 缺省 audioBaseUrl 不落字段(零漂移)
+PASS (D2) asrProtocol=chat-audio 保留 (chat-audio)
+PASS (D2) 非法/缺省 asrProtocol 不落字段: "transcriptions"
+PASS (D2) 非法/缺省 asrProtocol 不落字段: "CHAT-AUDIO"
+PASS (D2) 非法/缺省 asrProtocol 不落字段: "whatever"
+PASS (D2) 非法/缺省 asrProtocol 不落字段: ""
+PASS (D2) 非法/缺省 asrProtocol 不落字段: 42
+PASS (D2) 非法/缺省 asrProtocol 不落字段: null
+PASS (D2) 非法/缺省 asrProtocol 不落字段: {}
+PASS (E) asr 选择 trim 后保留
+PASS (E) provider 没了 → asr 两个一起清空(不静默改指)
+PASS (E) 缺省 = 未配置(两空)
+PASS (F) 存量形状 114a 零新增字段
+PASS (F) 存量形状 107-A1 也零新增字段(asrProtocol 不凭空出现)
+PASS (A) webSearch tavily → 2 results parsed
+PASS (A) tavily result {title,url,snippet} parsed from results[].{title,url,content}
+PASS (A) webSearch bocha → 2 results parsed
+PASS (A) bocha result {title,url,snippet} parsed from data.webPages.value[].{name,url,snippet}
+PASS (A) bocha defensive parse never crashes on unexpected shape
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay af8fd070d408)
+[wb] UI: http://127.0.0.1:58678/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :58678
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e/generated/workbench.mcp.json
+PASS ① turn ok (backup endpoint served the reply)
+PASS ① assistant text streamed from backup ("Hello, world! This is a fake streamed re")
+PASS ① exactly one failover event emitted
+PASS ① failover from=死端点(/v1) to=活端点(/v1)
+PASS ① failover reason contains connect (connect)
+PASS ① live backup received the request (count 0→1)
+PASS ② second turn ok
+PASS ② NO failover event on the second turn (stuck to the backup)
+PASS ② backup hit AGAIN directly (count 1→2)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay f8a0f40062e9)
+[wb] UI: http://127.0.0.1:58678/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (③) workbench listening
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e/generated/workbench.mcp.json
+PASS ③ turn FAILED (401 is a hard auth error, not retried elsewhere)
+PASS ③ NO failover event on a 401 (auth error → 不切换)
+PASS ③ backup endpoint was NEVER hit (count unchanged 0)
+PASS ③ errorClass is not network_down (provider_misconfigured)
+PASS ③ error surface names the 401 status (归因保留)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 29f300a611be)
+[wb] UI: http://127.0.0.1:58678/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (④) workbench listening
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e/generated/workbench.mcp.json
+PASS ④ turn produced a terminal result
+PASS ④ NO failover event when the stream died AFTER first byte (防重放)
+PASS ④ backup endpoint was NEVER hit on a mid-stream death (count unchanged 0)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay e51bd4c7ff16)
+[wb] UI: http://127.0.0.1:58678/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS (⑤) workbench listening
+PASS ⑤ got UI token
+PASS ⑤ POST config type=bocha persisted
+PASS ⑤ GET status reflects type=bocha
+PASS ⑤ bocha apiKey masked over the wire (••••4321)
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-failover-e2e/generated/workbench.mcp.json
+PASS ⑤ illegal search type → builtin on save (zero-config default)
+PASS ⑤ tavily type persisted after re-save
+PASS ⑤ provider turn ok after web_search (tavily) tool call
+PASS ⑤ a web_search tool_result was emitted
+PASS ⑤ tavily results parsed + flowed into the tool_result
+
+FAILOVER E2E: ALL PASS

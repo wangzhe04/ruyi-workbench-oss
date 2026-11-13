@@ -1,0 +1,109 @@
+
+Looking in links: /tmp/ruyi-p3-03-wheelhouse
+Processing /tmp/ruyi-p3-03-wheelhouse/annotated_doc-0.0.5-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 6))
+Processing /tmp/ruyi-p3-03-wheelhouse/annotated_types-0.8.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 7))
+Processing /tmp/ruyi-p3-03-wheelhouse/anyio-4.16.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 8))
+Processing /tmp/ruyi-p3-03-wheelhouse/attrs-26.1.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 9))
+Processing /tmp/ruyi-p3-03-wheelhouse/certifi-2026.10.23-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 10))
+Processing /tmp/ruyi-p3-03-wheelhouse/cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 11))
+Processing /tmp/ruyi-p3-03-wheelhouse/charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 12))
+Processing /tmp/ruyi-p3-03-wheelhouse/click-8.5.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 13))
+Processing /tmp/ruyi-p3-03-wheelhouse/contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 14))
+Processing /tmp/ruyi-p3-03-wheelhouse/cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 15))
+Processing /tmp/ruyi-p3-03-wheelhouse/cycler-0.12.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 16))
+Processing /tmp/ruyi-p3-03-wheelhouse/et_xmlfile-2.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 17))
+Processing /tmp/ruyi-p3-03-wheelhouse/fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 18))
+Processing /tmp/ruyi-p3-03-wheelhouse/greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 19))
+Processing /tmp/ruyi-p3-03-wheelhouse/h11-0.16.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 20))
+Processing /tmp/ruyi-p3-03-wheelhouse/httpcore-1.0.9-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 21))
+Processing /tmp/ruyi-p3-03-wheelhouse/httpx-0.28.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 22))
+Processing /tmp/ruyi-p3-03-wheelhouse/httpx_sse-0.4.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 23))
+Processing /tmp/ruyi-p3-03-wheelhouse/idna-3.20-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 24))
+Processing /tmp/ruyi-p3-03-wheelhouse/jsonschema-4.26.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 25))
+Processing /tmp/ruyi-p3-03-wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 26))
+Processing /tmp/ruyi-p3-03-wheelhouse/kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 27))
+Processing /tmp/ruyi-p3-03-wheelhouse/lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 28))
+Processing /tmp/ruyi-p3-03-wheelhouse/markdown_it_py-4.2.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 29))
+Processing /tmp/ruyi-p3-03-wheelhouse/matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 30))
+Processing /tmp/ruyi-p3-03-wheelhouse/mcp-1.30.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 31))
+Processing /tmp/ruyi-p3-03-wheelhouse/mdurl-0.1.2-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 32))
+Processing /tmp/ruyi-p3-03-wheelhouse/numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 33))
+Processing /tmp/ruyi-p3-03-wheelhouse/openpyxl-3.1.5-py2.py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 34))
+Processing /tmp/ruyi-p3-03-wheelhouse/packaging-26.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 35))
+Processing /tmp/ruyi-p3-03-wheelhouse/pdfminer_six-20260107-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 36))
+Processing /tmp/ruyi-p3-03-wheelhouse/pdfplumber-0.11.10-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 37))
+Processing /tmp/ruyi-p3-03-wheelhouse/pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 38))
+Processing /tmp/ruyi-p3-03-wheelhouse/playwright-1.64.1-py3-none-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 39))
+Processing /tmp/ruyi-p3-03-wheelhouse/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 40))
+Processing /tmp/ruyi-p3-03-wheelhouse/pycparser-3.12-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 41))
+Processing /tmp/ruyi-p3-03-wheelhouse/pydantic-2.14.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 42))
+Processing /tmp/ruyi-p3-03-wheelhouse/pydantic_settings-2.16.2-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 43))
+Processing /tmp/ruyi-p3-03-wheelhouse/pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 44))
+Processing /tmp/ruyi-p3-03-wheelhouse/pyee-14.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 45))
+Processing /tmp/ruyi-p3-03-wheelhouse/pygments-2.21.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 46))
+Processing /tmp/ruyi-p3-03-wheelhouse/pyjwt-2.15.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 47))
+Processing /tmp/ruyi-p3-03-wheelhouse/pyparsing-3.3.3-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 48))
+Processing /tmp/ruyi-p3-03-wheelhouse/pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 49))
+Processing /tmp/ruyi-p3-03-wheelhouse/pyperclip-1.11.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 50))
+Processing /tmp/ruyi-p3-03-wheelhouse/python_dateutil-4.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 51))
+Processing /tmp/ruyi-p3-03-wheelhouse/python_docx-1.2.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 52))
+Processing /tmp/ruyi-p3-03-wheelhouse/python_dotenv-1.2.4-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 53))
+Processing /tmp/ruyi-p3-03-wheelhouse/python_multipart-0.0.33-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 54))
+Processing /tmp/ruyi-p3-03-wheelhouse/python_pptx-1.0.2-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 55))
+Processing /tmp/ruyi-p3-03-wheelhouse/referencing-0.37.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 56))
+Processing /tmp/ruyi-p3-03-wheelhouse/reportlab-5.1.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 57))
+Processing /tmp/ruyi-p3-03-wheelhouse/rich-15.0.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 58))
+Processing /tmp/ruyi-p3-03-wheelhouse/rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 59))
+Processing /tmp/ruyi-p3-03-wheelhouse/shellingham-1.5.4-py2.py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 60))
+Processing /tmp/ruyi-p3-03-wheelhouse/sse_starlette-3.6.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 61))
+Processing /tmp/ruyi-p3-03-wheelhouse/starlette-1.10.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 62))
+Processing /tmp/ruyi-p3-03-wheelhouse/typer-0.28.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 63))
+Processing /tmp/ruyi-p3-03-wheelhouse/typing_inspection-0.4.5-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 64))
+Processing /tmp/ruyi-p3-03-wheelhouse/typing_extensions-4.16.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 65))
+Processing /tmp/ruyi-p3-03-wheelhouse/tzdata-2026.6-py2.py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 66))
+Processing /tmp/ruyi-p3-03-wheelhouse/uvicorn-0.54.0-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 67))
+Processing /tmp/ruyi-p3-03-wheelhouse/xlsxwriter-3.3.1-py3-none-any.whl (from -r /Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt (line 68))
+Installing collected packages: pyperclip, xlsxwriter, tzdata, typing_extensions, shellingham, rpds-py, python-multipart, python-dotenv, pypdfium2, pyparsing, PyJWT, Pygments, pycparser, psutil, pillow, packaging, numpy, mdurl, lxml, kiwisolver, idna, httpx-sse, h11, greenlet, fonttools, et_xmlfile, cycler, click, charset-normalizer, certifi, attrs, annotated-types, annotated-doc, uvicorn, typing-inspection, reportlab, referencing, python-pptx, python-docx, python-dateutil, pyee, pydantic_core, openpyxl, markdown-it-py, httpcore, contourpy, cffi, anyio, starlette, rich, pydantic, playwright, matplotlib, jsonschema-specifications, httpx, cryptography, typer, sse-starlette, pydantic-settings, pdfminer.six, jsonschema, pdfplumber, mcp
+Successfully installed PyJWT-2.15.1 Pygments-2.21.0 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.16.0 attrs-26.1.0 certifi-2026.10.23 cffi-2.1.1 charset-normalizer-3.5.2 click-8.5.0 contourpy-1.4.0 cryptography-50.0.2 cycler-0.12.1 et_xmlfile-2.0.0 fonttools-4.68.0 greenlet-3.5.6 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 httpx-sse-0.4.3 idna-3.20 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 kiwisolver-1.5.1 lxml-6.1.3 markdown-it-py-4.2.0 matplotlib-3.11.2 mcp-1.30.0 mdurl-0.1.2 numpy-2.5.4 openpyxl-3.1.5 packaging-26.3 pdfminer.six-20260107 pdfplumber-0.11.10 pillow-13.0.0 playwright-1.64.1 psutil-7.2.2 pycparser-3.12 pydantic-2.14.3 pydantic-settings-2.16.2 pydantic_core-2.50.4 pyee-14.0.0 pyparsing-3.3.3 pypdfium2-5.14.0 pyperclip-1.11.0 python-dateutil-4.0.0 python-docx-1.2.0 python-dotenv-1.2.4 python-multipart-0.0.33 python-pptx-1.0.2 referencing-0.37.0 reportlab-5.1.0 rich-15.0.0 rpds-py-2026.9.1 shellingham-1.5.4 sse-starlette-3.6.0 starlette-1.10.0 typer-0.28.0 typing-inspection-0.4.5 typing_extensions-4.16.0 tzdata-2026.6 uvicorn-0.54.0 xlsxwriter-3.3.1
+
+Looking in links: /tmp/ruyi-p3-03-wheelhouse
+Processing /tmp/ruyi-p3-03-wheelhouse/ai_computer_control-1.9.1-py3-none-any.whl
+Installing collected packages: ai-computer-control
+Successfully installed ai-computer-control-1.9.1
+
+No broken requirements found.
+
+NONEDITABLE_PACKAGE=/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-browser-offline-oly9q6/venv/lib/python3.12/site-packages/ai_computer_control/server.py
+
+PASS prepared cache is resolved by the SDK; installed binary alone is not reported ready
+PASS bundled Chromium attaches with its own ephemeral profile
+PASS actual Chromium command line uses fixture-only user-data-dir paths
+PASS cleanup observations include the actual browser process, not only its driver
+PASS real browser fills and submits a Chinese form only to the local fixture
+PASS real page screenshot returns a valid bounded PNG
+PASS browser back navigation preserves the local history
+PASS tabs can be listed and switched without losing their page state
+PASS unavailable local site returns an actual navigation error
+OWNED_CLOSE={"closed":{"ok":true,"success":true,"mode":"bundled","closed":true,"hint":"Owned browser closed."},"processesGone":true,"profilesGone":true,"remaining":[]}
+PASS browser_close removes owned Chromium/driver processes and temporary profiles
+PASS closed backend no longer claims readiness
+PASS stdio EOF lifespan closes the owned browser, driver and profile without browser_close
+PASS auto-discovered installed Mac Chromium also launches with an isolated fixture profile
+PASS installed-browser automation cleans only its owned runtime and profile
+PASS missing offline browser cache reports the real dependency gap without downloading
+PASS browser runtime failure does not disable unrelated shared file tools
+PASS failed runtime lookup creates no browser cache
+PASS absent Playwright package returns a precise failure while MCP remains available
+PASS CDP read/type followed by close never closes an existing unowned page
+PASS connected Workbench page is preserved even when new_tab=false
+CDP_REMAINING=[{"id":"82FCDA26EC3882E1F039C4783E76D532","type":"page","url":"http://127.0.0.1:59681/workbench"},{"id":"7C938B2F442E994817D61D02DFE90203","type":"browser_ui","url":"chrome://webui-toolbar.top-chrome/"},{"id":"F914A1A57C07A7F485B9E634B961B86C","type":"browser_ui","url":"chrome://omnibox-popup.top-chrome/"},{"id":"9248383C4D96E406BCFF5A7E1F123123","type":"browser_ui","url":"chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html"},{"id":"58E951C669B4FA67FD11843025ECD8E2","type":"service_worker","url":"chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome/thunk.js"},{"id":"78A945E4AD324E25FB8F39A2FEF9772A","type":"service_worker","url":"chrome-extension://glbjnfimcajjenihimblfaponejbkoph/background.js"},{"id":"2827CBA8D7E8D3474347D6BFE0C9A90A","type":"service_worker","url":"chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome/thunk.js"}]
+PASS CDP close removes every owned tab and preserves the original page and profile sentinel
+PASS Workbench JavaScript credential/data guard remains enforced
+PASS independent fixture-only CDP check confirms the original page retained its unsaved form state
+PASS MCP shutdown detaches from CDP without terminating the external browser
+ARTIFACT_DIR=/tmp/ruyi-p3-03-offline-artifacts/browser-IUBYpN
+PASS all fixture Chromium processes are gone after final cleanup
+
+MACOS BROWSER RUNTIME E2E: ALL PASS
+
+P3 BROWSER LOCKED OFFLINE REPLAY: ALL PASS

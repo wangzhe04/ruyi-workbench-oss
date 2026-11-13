@@ -58,7 +58,7 @@ async function toolboxFreePort() { return toolboxListenOnce(0); }
 // 进程退出那一刻的收尾同样走它(同步 / 异步没有区别,所以不再有 sync 形参)。
 function toolboxKillTree(child) {
   if (!child || !child.pid || child.exitCode !== null || child.signalCode) return;
-  killChildTree(child.pid);
+  return killChildTree(child);
 }
 
 function toolboxEntry(component) {
@@ -93,7 +93,7 @@ function startToolboxService(component) {
         toolboxKillTree(stale);      // 残留的启动器连同它的树一起收掉,别留孤儿
       }
     }
-    entry.error = ''; entry.stderrTail = ''; entry.stopping = false;
+    entry.error = ''; entry.stderrTail = ''; entry.stopping = false; entry.cleanup = null;
     const first = await toolboxProbe(svc.port, svc.health, svc.component);
     if (first === 'ours') {
       Object.assign(entry, { state: 'running', port: svc.port, owned: false, child: null, pid: 0, startedAt: Date.now() });
@@ -104,16 +104,20 @@ function startToolboxService(component) {
     if (!port) { Object.assign(entry, { state: 'failed', error: 'no-free-port' }); logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'no-free-port' }); return entry; }
     let child = null;
     try {
-      child = cp.spawn(component.run.command, component.run.args, {
+      child = ProcessRuntime.spawn(component.run.command, component.run.args, {
         cwd: component.run.cwd, shell: false, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'],
         env: { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...component.run.env, [svc.portEnv]: String(port), RUYI_TOOLBOX_PARENT_PID: String(process.pid) },
-      });
+      }, { kind: 'toolbox', componentId: component.id });
     } catch (err) {
       Object.assign(entry, { state: 'failed', error: 'spawn: ' + String(err && err.message || err).slice(0, 200) });
       logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'spawn' });
       return entry;
     }
     Object.assign(entry, { state: 'starting', port, owned: true, child, pid: child.pid || 0 });
+    const runtimeHandle = ProcessRuntime.handle(child);
+    if (ProcessRuntime.result(child)?.scope === 'owned-group-and-observed') {
+      void ProcessRuntime.completion(runtimeHandle).then(result => finishToolboxCleanup(entry, child, result));
+    }
     let spawnError = '';
     let gaveUp = false;   // 健康窗口内没起来、这一趟由我们杀掉 —— 见下面「没起来」那段
     child.on('error', err => { spawnError = String(err && err.message || err).slice(0, 200); });
@@ -125,7 +129,8 @@ function startToolboxService(component) {
       if (entry.child !== child) return;
       if (gaveUp) { logEvent({ kind: 'toolbox_service', action: 'stop', id: component.id, pid: entry.pid, code, signal: signal || '' }); return; }
       const was = entry.state;
-      entry.state = entry.stopping ? 'stopped' : (was === 'starting' ? 'failed' : 'exited');
+      entry.state = entry.stopping ? (ProcessRuntime.result(child)?.scope === 'owned-group-and-observed' ? 'stopping' : 'stopped')
+        : (was === 'starting' ? 'failed' : 'exited');
       if (!entry.stopping) entry.error = 'exit ' + (code === null ? String(signal || '') : code);
       logEvent({ kind: 'toolbox_service', action: entry.stopping ? 'stop' : 'exit', id: component.id, pid: entry.pid, code, signal: signal || '' });
     });
@@ -161,12 +166,28 @@ function startToolboxService(component) {
 // 设置页的显式启动与对账照旧立刻起。修前每按一次麦克风都重新拉起一遍,一直起不来的组件每次都让用户白等最长 20 s。
 function toolboxRetryCooldownMs(failures) { return Math.min(300000, 15000 * 2 ** Math.max(0, (Number(failures) || 1) - 1)); }
 
+function finishToolboxCleanup(entry, child, result) {
+  if (entry.child !== child) return;
+  entry.cleanup = result;
+  if (result.incomplete) {
+    entry.state = 'failed';
+    entry.error = entry.error || 'cleanup-unconfirmed';
+  } else {
+    if (entry.error === 'cleanup-unconfirmed') { entry.error = ''; entry.state = entry.stopping ? 'stopped' : 'exited'; }
+    else if (entry.stopping && entry.state !== 'failed') entry.state = 'stopped';
+  }
+}
+
 function stopToolboxService(id) {
   const entry = toolboxServices.get(id);
   if (!entry) return;
   entry.stopping = true;
-  if (entry.owned && entry.child) toolboxKillTree(entry.child);   // 接管来的(用户自己起的)不杀
-  if (entry.state !== 'failed') entry.state = 'stopped';
+  const child = entry.owned ? entry.child : null;
+  if (child) entry.cleanup = toolboxKillTree(child) || ProcessRuntime.result(child);
+  if (entry.cleanup?.scope === 'owned-group-and-observed') {
+    if (entry.state !== 'failed') entry.state = 'stopping';
+    void ProcessRuntime.waitForCleanup(child).then(result => finishToolboxCleanup(entry, child, result));
+  } else if (entry.state !== 'failed') entry.state = 'stopped';
 }
 // 进程退出那一刻(13 cleanupMcp):同步杀干净自己拉起的。如意被强杀时走不到这里 —— 那种情况靠组件自己的父进程看门狗。
 function stopAllToolboxServicesSync() {
@@ -357,6 +378,8 @@ function toolboxStatusView(config) {
       provides: c.kind === 'service' ? c.provides.map(p => p.type) : ['mcp'],
       state: off ? 'disabled' : (c.kind === 'mcp' ? 'registered' : (entry ? entry.state : 'idle')),
       ...(c.kind === 'service' ? { port: entry ? entry.port : c.service.port, owned: Boolean(entry && entry.owned) } : {}),
+      ...(entry && entry.cleanup ? { cleanupScope: entry.cleanup.scope, cleanupIncomplete: entry.cleanup.incomplete,
+        cleanupEscapeCoverage: entry.cleanup.escapeCoverage, cleanupUnconfirmed: entry.cleanup.unconfirmed } : {}),
       ...(entry && entry.error ? { error: entry.error, stderrTail: redact(entry.stderrTail).slice(-600) } : {}),
     };
   });

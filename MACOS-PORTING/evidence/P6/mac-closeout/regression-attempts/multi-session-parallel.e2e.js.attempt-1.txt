@@ -1,0 +1,7 @@
+PASS workbench starts
+PASS both session turns complete without superseding each other
+PASS second session starts before the first session finishes (real overlap)
+PASS 116h: steward 关时两条并行会话回合零仲裁事件(不排队、不占位)
+PASS both completed replies are persisted independently
+
+MULTI SESSION PARALLEL E2E: ALL PASS

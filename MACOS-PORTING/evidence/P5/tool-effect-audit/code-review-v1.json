@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T12:35:59.712Z",
+  "verdict": "changes_requested_two_followup_findings_first_three_closed",
+  "scope": "独立源码diff审查及修后复核；另阅读完整HTTP/stdio离线e2e、synthetic MCP、Python5项契约和真实入口新增摘要断言。审查者仅运行两次纯源码函数命令，不加载server、不派发工具、不运行GUI或完整套件。此报告保留初版/修后三次发现的历史及新测试/不完整前缀问题。",
+  "worktree": "/tmp/ruyi-p5-effect-worktree",
+  "implementationBase": "e529d370",
+  "reviewedProjectionSource": {
+    "path": "ruyi-workbench/app/src/02-session-store.js",
+    "sha256": "d903553d5e49b5c02541ae9c53eac15726a16d9221beedba763ac31c42297e6c"
+  },
+  "snapshotNote": "本报告绑定纯反例读取的初版02字节和已阅读的初版diff。三项发现已先报告并告知实施者可以修正；不能用本报告宣称之后变化的工作树字节已通过。",
+  "findings": [
+    {
+      "id": "EFA1",
+      "priority": 2,
+      "status": "closed_by_source_review_and_pure_reproduction",
+      "title": "input_sequence/act_and_verify缺少动作证据时被generic ok升级为reported",
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "function": "irreversibleReportedState",
+      "reproducibleInputs": [
+        "input_sequence {ok:true,action_sent:false}",
+        "input_sequence {ok:true}",
+        "act_and_verify {ok:false,action_result:{ok:true}}"
+      ],
+      "actual": "三个均得到effectStatus=reported；前两个还得到ok=true。",
+      "issue": "特殊动作契约被最后的ok===true||success===true通用成功兜底覆盖。旧版成功外壳或action_result的ok不能单独证明input_sequence已发事件；这违反此次‘input_sequence/act_and_verify看action_sent/unknown’的边界。新unit目前还明确期待第三例reported，不能仅靠现有测试通过接受。",
+      "correction": "为这两个特殊工具先解释已知action_sent/acted及nested action_result契约；缺乏动作证据、仅false但无法排除prefix或字段缺失时保留unknown，明确not_dispatched才可none。不要由generic ok把它们升级为reported；已action_sent=true但外层验证失败仍应reported。",
+      "validation": "直接/代理/宏内三路覆盖上述反例，以及action_sent=true+外层失败、明确not_dispatched和unknown，防止两端互相过度推断。",
+      "resolution": "input_sequence/act_and_verify缺明确action_sent/acted时直接unknown；act_and_verify嵌套action_result按input_sequence规则，不走generic ok兜底。"
+    },
+    {
+      "id": "EFA2",
+      "priority": 2,
+      "status": "closed_by_source_review_and_pure_reproduction",
+      "title": "typed prevalidation与正面动作证据矛盾时被当成确定无副作用",
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "function": "projectBridgedIrreversible",
+      "reproducibleInput": "schema1的input_sequence子步invocation_attempted=false，同时result={ok:true,action_sent:true}。",
+      "actual": "直接continue，投影items=[]且incomplete=false。",
+      "issue": "同一返回记录的明确矛盾被静默消掉。协议标记本身不是独立执行证明；既然本投影对其他矛盾receipt保留unknown，就不能在该分支输出完整无副作用账。",
+      "correction": "在使用typed false排除子步前识别正面或不确定动作证据冲突；冲突保留unknown并标incomplete/明确reason。合法false预校验记录仍可排除。不要把矛盾升级成reported。",
+      "validation": "schema1 false+sent/acted true、false+unknown、正常false无result分别验证；未知schema不得按版本1排除。",
+      "resolution": "版本1逐步invocation_attempted=false但存在result时记录conflicting_invocation_result，保留unknown并标incomplete。"
+    },
+    {
+      "id": "EFA3",
+      "priority": 2,
+      "status": "closed_by_source_review_and_pure_reproduction",
+      "title": "截断callId破坏可关联的调用身份",
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "functions": [
+        "projectBridgedIrreversible",
+        "irreversibleEntryMetadata"
+      ],
+      "reproducibleInput": "两个真实callId分别为'x'.repeat(120)+'A'与同前缀+'B'。",
+      "actual": "两个投影都输出同一个120字符callId，且该ID不是任何一个原调用的完整ID。",
+      "issue": "bounded文本被当成完整标识输出，会使同回合相同子步无法区分，也不能按它关联原tool_call。单纯保留step不能修复跨调用冲突。",
+      "correction": "保持准确callId；若必须设长度界，显式标记截断并携带原ID稳定hash或不可混淆的本回合call ordinal，而不是把前缀放在看似完整的callId字段。fold应保留这种归属元数据。",
+      "validation": "长ID同前缀、相同工具/step、跨回合fold+保存重载；验证每条仍可唯一关联，不能只断言字段长度。",
+      "resolution": "长ID不再输出截断callId，而是完整原ID的SHA-256 callIdHash；fold元数据白名单保留hash。"
+    },
+    {
+      "id": "EFA4",
+      "priority": 2,
+      "status": "open",
+      "title": "离线e2e断言失败但清理成功时删除了隔离证据根",
+      "file": "dev-harness/compound-effect-audit.e2e.js",
+      "location": "top-level catch/finally",
+      "trigger": "任一check/assertion失败，但finally的owned cleanup正常成功。",
+      "issue": "catch仅调用t.fail，没有retained=true；随后if(!retained) rmSync(root)删掉隔离session/provider/stdio现场。初次缺helper恰因cleanup失败而保留，不能证明普通失败也保留。",
+      "correction": "在顶层catch置retained=true；evidence结果同时记录retainedRoot实际路径，清理仍按既有owned流程完成。测试失败不能删除原始现场或因清理成功被视为可删。",
+      "validation": "可静态检查该catch/finally控制流；如故障注入验证，必须保留失败日志/隔离根路径，不能把预期注入混成产品失败。"
+    },
+    {
+      "id": "EFA5",
+      "priority": 2,
+      "status": "open",
+      "title": "缺号或乱序的returned prefix被标为完整",
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "function": "projectBridgedIrreversible",
+      "trigger": "schema1 results仅一行step7，completed1/failed0且input_sequence.action_sent=true。",
+      "actual": "保留step7 reported但incomplete=false。",
+      "issue": "真实_run_batch从step0开始，所有校验/执行行依次返回，因此合法prefix的step应连续且与数组位置一致。当前只查范围/重复和总数，漏掉前缀缺失/乱序。它不能据此猜测缺失步骤做过什么，但也不能称证据完整。新stdio partial fixture复用了step1作为首行，未模拟真实0/1返回前缀。",
+      "correction": "对认可compound返回检查连续前缀归属；缺号、乱序或起点非0标incomplete并保留unknown总项，不补造缺失叶子。可继续保留有正面结果的已返回子步。把正常partial fixture改成真实0/1前缀，再单列畸形前缀负例。",
+      "validation": "缺号起点、内部gap、乱序、合法stop失败前缀、continue含预拒绝行；保存/fold仍保留incomplete/unknown。"
+    }
+  ],
+  "unresolvedFindings": [
+    "EFA4",
+    "EFA5"
+  ],
+  "acceptedSourceObservations": [
+    "Python invocation_attempted在asyncio.sleep(0)后、紧邻_invoke前置true；每步返回及捕获Exception记录尝试；明确batch顶层/逐步校验拒绝false。只是Python调用尝试，不冒称ACC/native ACK。",
+    "09直连和12代理路径在本地client.callTool边界设置内部回调；已知本地权限/策略/参数拒绝不会到该回调。尚未收到的取消结果不从请求补造执行步骤。",
+    "09保存投影时使用rawResult，展示结果仍用bounded副本；本次不从压缩后的请求或请求宏steps推断子步完成。",
+    "02只在明确compound结果数组内按白名单解释裸子步；对未知/无法解析复合结果生成unknown，不把每个宏都标desktop。",
+    "投影设2Mi字符文本及200分段/子步界、50输出行界；fold设200行并传递incomplete，13d/mission结果保留不完整标记。reported与工具ok已分开，fold不会把effectStatus=unknown提升为true。"
+  ],
+  "nonblockingBoundaries": [
+    "reported是工具回报的副作用，不是应用状态确认、独立派发或可全局撤销证明。",
+    "Python CancelledError中断整个batch且没有返回results时，不能声称保存其未返回的完整prefix；外层unknown仍需保留。",
+    "旧native/CLI账条仍走旧分类；不要把本次有限ACC宏/input修复宣布成所有工具的完整不可逆性证明。",
+    "当前纯投影对直接叶子沿用irreversibleDetail(input)，会摘录最多120字符输入。涉及OCR文本/剪贴板等时，应继续遵循既有隐私输出边界，不能把小投影称作纯结构元数据或独立执行凭证。",
+    "最终diff、真实普通入口turn_summary断言、Python契约与来源冻结仍待后续；本报告不是最终源码/运行验收。"
+  ],
+  "pureReproduction": {
+    "command": "node - <<'JS'\nconst fs=require('fs'),path=require('path'),crypto=require('crypto');\nconst {functionBlock}=require('./dev-harness/lib/source-slice');\nconst base=fs.readFileSync('ruyi-workbench/app/src/02-session-store.js','utf8');\nconst kinds=fs.readFileSync('ruyi-workbench/app/src/02f-turn-effect-kinds.js','utf8');\nconst region=base.slice(base.indexOf('const IRREVERSIBLE_COMPOUND_TOOLS'),base.indexOf('\\nfunction buildTurnSummary'));\nconst {projectBridgedIrreversible:project}=new Function(kinds+'\\n'+functionBlock(base,'asResultObject')+'\\n'+region+'\\nreturn {projectBridgedIrreversible};')();\nconst call=(tool,result,id='same_call')=>({id,name:'ai_computer_control__'+tool,input:{},result});\nconst cases=[\n ['input_sequence_explicit_false',call('input_sequence',{ok:true,action_sent:false})],\n ['input_sequence_missing_dispatch_fields',call('input_sequence',{ok:true})],\n ['act_verify_untyped_child',call('act_and_verify',{ok:false,action_result:{ok:true}})],\n ['typed_prevalidation_conflicts_with_sent',call('macro_run',{step_invocation_schema:1,success:true,completed:1,failed:0,results:[{step:0,tool:'input_sequence',ok:true,invocation_attempted:false,result:{ok:true,action_sent:true}}]})]\n].map(([name,tc])=>({name,input:tc,output:project(tc,true)}));\nconst long='x'.repeat(120);\nconst a=project(call('input_sequence',{ok:true,action_sent:true},long+'A'),true).items[0];\nconst b=project(call('input_sequence',{ok:true,action_sent:true},long+'B'),true).items[0];\nconsole.log(JSON.stringify({pureSourceFunctionsOnly:true,serverNotLoaded:true,sourceSha256:crypto.createHash('sha256').update(base).digest('hex'),cases,callAttribution:{originalIdsDistinct:true,projectedIdsEqual:a.callId===b.callId,projectedCallId:a.callId}},null,2));\nJS",
+    "cwd": "/tmp/ruyi-p5-effect-worktree",
+    "executionCount": 1,
+    "exitCode": 0,
+    "method": "从已读取的真实02f全文及02投影纯函数区间构造函数，使用仓库source-slice准确提取asResultObject；不加载生成server或任何工具服务。",
+    "output": {
+      "pureSourceFunctionsOnly": true,
+      "serverNotLoaded": true,
+      "sourceSha256": "d903553d5e49b5c02541ae9c53eac15726a16d9221beedba763ac31c42297e6c",
+      "cases": [
+        {
+          "name": "input_sequence_explicit_false",
+          "input": {
+            "id": "same_call",
+            "name": "ai_computer_control__input_sequence",
+            "input": {},
+            "result": {
+              "ok": true,
+              "action_sent": false
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "same_call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "input_sequence_missing_dispatch_fields",
+          "input": {
+            "id": "same_call",
+            "name": "ai_computer_control__input_sequence",
+            "input": {},
+            "result": {
+              "ok": true
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "same_call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "act_verify_untyped_child",
+          "input": {
+            "id": "same_call",
+            "name": "ai_computer_control__act_and_verify",
+            "input": {},
+            "result": {
+              "ok": false,
+              "action_result": {
+                "ok": true
+              }
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__act_and_verify",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "reported",
+                "callId": "same_call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "typed_prevalidation_conflicts_with_sent",
+          "input": {
+            "id": "same_call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "success": true,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 0,
+                  "tool": "input_sequence",
+                  "ok": true,
+                  "invocation_attempted": false,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ]
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [],
+            "incomplete": false
+          }
+        }
+      ],
+      "callAttribution": {
+        "originalIdsDistinct": true,
+        "projectedIdsEqual": true,
+        "projectedCallId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    }
+  },
+  "testCoverageReview": {
+    "existingUnit": "只阅读初版compound-effect-audit.test.js，没有运行该测试文件。作者报告11例中10过、batch([null])测试构造器自身报错，后者不据此判为产品错误。",
+    "additionalRequiredCases": [
+      "EFA1特殊动作字段缺失/false不被generic ok升级。",
+      "EFA2矛盾versioned markers保留unknown。",
+      "EFA3长call身份在fold与持久重载后保持可关联。",
+      "完整离线Provider direct/proxy/本地deny与attempted异常路径；验证实际turn_summary及fold，不只测纯project。",
+      "Python真实batch的版本/attempted时机、prevalidate false、返回partial prefix与异常；不使用GUI或输入来测试这些数据契约。",
+      "EFA4失败现场保留控制流；EFA5非连续returned prefix的unknown/incomplete。"
+    ]
+  },
+  "actionsThisReview": {
+    "pureReproductionCommands": 2,
+    "GUIActions": 0,
+    "serverStarts": 0,
+    "toolDispatches": 0,
+    "processSnapshots": 0,
+    "signatures": 0,
+    "sourceEdits": 0,
+    "testEdits": 0,
+    "originalEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/tool-effect-audit/code-review-v1.json"
+    ]
+  },
+  "hardAbortGateStatus": "open",
+  "phaseStatus": "in_progress",
+  "followupReview": {
+    "at": "2026-11-11T12:39:47.577Z",
+    "projectionSourceSha256": "1d03fc96669af9dbc584b5b80e3eaf72250c99ffca207684f36b1ca3892364f2",
+    "firstThreeClosed": true,
+    "pureCommand": "node - <<'JS'\nconst fs=require('fs'),crypto=require('crypto');\nconst {functionBlock}=require('./dev-harness/lib/source-slice');\nconst src=fs.readFileSync('ruyi-workbench/app/src/02-session-store.js','utf8');\nconst kinds=fs.readFileSync('ruyi-workbench/app/src/02f-turn-effect-kinds.js','utf8');\nconst region=src.slice(src.indexOf('const IRREVERSIBLE_COMPOUND_TOOLS'),src.indexOf('\\nfunction buildTurnSummary'));\nconst project=new Function('crypto','Buffer',kinds+'\\n'+functionBlock(src,'asResultObject')+'\\n'+region+'\\nreturn projectBridgedIrreversible;')(crypto,Buffer);\nconst call=(tool,result,id='call')=>({id,name:'ai_computer_control__'+tool,input:{},result});\nconst actions=[\n ['sequence_false',call('input_sequence',{ok:true,action_sent:false})],\n ['sequence_missing',call('input_sequence',{ok:true})],\n ['verify_missing',call('act_and_verify',{ok:false,action_result:{ok:true}})],\n ['conflicting_attempt',call('macro_run',{step_invocation_schema:1,completed:1,failed:0,results:[{step:0,tool:'input_sequence',invocation_attempted:false,result:{ok:true,action_sent:true}}]})],\n ['nonprefix_step',call('macro_run',{step_invocation_schema:1,completed:1,failed:0,results:[{step:7,tool:'input_sequence',invocation_attempted:true,result:{ok:true,action_sent:true}}]})]\n].map(([name,input])=>({name,input,output:project(input,true)}));\nconst ids=['x'.repeat(120)+'A','x'.repeat(120)+'B'].map(id=>project(call('input_sequence',{ok:true,action_sent:true},id),true).items[0]);\nconsole.log(JSON.stringify({sourceSha256:crypto.createHash('sha256').update(src).digest('hex'),pureSourceFunctionsOnly:true,serverNotLoaded:true,actions,longIdItems:ids},null,2));\nJS",
+    "pureOutput": {
+      "sourceSha256": "1d03fc96669af9dbc584b5b80e3eaf72250c99ffca207684f36b1ca3892364f2",
+      "pureSourceFunctionsOnly": true,
+      "serverNotLoaded": true,
+      "actions": [
+        {
+          "name": "sequence_false",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__input_sequence",
+            "input": {},
+            "result": {
+              "ok": true,
+              "action_sent": false
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "sequence_missing",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__input_sequence",
+            "input": {},
+            "result": {
+              "ok": true
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "verify_missing",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__act_and_verify",
+            "input": {},
+            "result": {
+              "ok": false,
+              "action_result": {
+                "ok": true
+              }
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__act_and_verify",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call"
+              }
+            ],
+            "incomplete": false
+          }
+        },
+        {
+          "name": "conflicting_attempt",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 0,
+                  "tool": "input_sequence",
+                  "invocation_attempted": false,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ]
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 0,
+                "reason": "conflicting_invocation_result"
+              },
+              {
+                "kind": "unknown",
+                "name": "ai_computer_control__macro_run",
+                "detail": "",
+                "ok": false,
+                "effectStatus": "unknown",
+                "callId": "call",
+                "reason": "compound_results_incomplete"
+              }
+            ],
+            "incomplete": true
+          }
+        },
+        {
+          "name": "nonprefix_step",
+          "input": {
+            "id": "call",
+            "name": "ai_computer_control__macro_run",
+            "input": {},
+            "result": {
+              "step_invocation_schema": 1,
+              "completed": 1,
+              "failed": 0,
+              "results": [
+                {
+                  "step": 7,
+                  "tool": "input_sequence",
+                  "invocation_attempted": true,
+                  "result": {
+                    "ok": true,
+                    "action_sent": true
+                  }
+                }
+              ]
+            }
+          },
+          "output": {
+            "schemaVersion": 1,
+            "items": [
+              {
+                "kind": "desktop",
+                "name": "ai_computer_control__input_sequence",
+                "detail": "",
+                "ok": true,
+                "effectStatus": "reported",
+                "callId": "call",
+                "parentTool": "ai_computer_control__macro_run",
+                "step": 7
+              }
+            ],
+            "incomplete": false
+          }
+        }
+      ],
+      "longIdItems": [
+        {
+          "kind": "desktop",
+          "name": "ai_computer_control__input_sequence",
+          "detail": "",
+          "ok": true,
+          "effectStatus": "reported",
+          "callIdHash": "dafe4649f67b9e6674e24367ff2c123cc8a72d2f3d91d3ff712bd3f9ef0d3a8f"
+        },
+        {
+          "kind": "desktop",
+          "name": "ai_computer_control__input_sequence",
+          "detail": "",
+          "ok": true,
+          "effectStatus": "reported",
+          "callIdHash": "a484731b00df06ddd43ffacee0e8ddef0555dd4e434aa3e68215be4a5b498d76"
+        }
+      ]
+    },
+    "sourceCorrectionsAlsoObserved": "解析预算改UTF-8字节计数；bridge投影detail固定空，不再摘录请求文本。",
+    "newTestSourceAssessment": {
+      "offline": "真实HTTP会话、实际stdio MCP往返、实际磁盘/mission读取，MCP返回值为明确synthetic数据。direct/proxy大结果、default deny无MCP call、wait/read、partial、unknown及input_sequence叶子均有断言。不能称synthetic MCP响应为native dispatch/effect证明。",
+      "python": "真实_run_batch函数上patch registry/sleep，无桌面API：验证预拒绝false、成功/异常true、stop前缀及取消检查位于invoke前；5项属于离线契约。",
+      "nativeEntry": "allow新增同trace turn_summary两行focus/input，准确callId/step/parentTool；deny/cancel新增空账断言，和既有receiver/audit零变更断言互补。此夹具已经修改，本轮冻结须绑定新源，不能称为上一轮未改extra fixture。",
+      "knownLimits": "新增测试尚有EFA4失败现场保留和EFA5畸形prefix覆盖需要修。未由本审查运行这些e2e或Python套件。"
+    },
+    "authorLogsRead": {
+      "unitV2": "12 tests /12 pass/0fail/0skip",
+      "pythonV1": "5 tests OK",
+      "offlineV1": "原缺helper/bridge0导致首摘要失败，随后Missing owned service identity清理失败；失败日志保留，作者报告已按身份核验处置自有无子服务并构建helper。",
+      "offlineV2": "ALL PASS（作者运行，不是本审查者执行）",
+      "nativeV1": "ALL PASS（作者运行，含新增摘要断言；本审查者未运行GUI）",
+      "root": "/tmp/ruyi-p5-effect-evidence/development",
+      "interpretation": "初次失败不删除、不改写成首跑全绿；现有日志阅读不代替修后冻结/独立验收。"
+    }
+  }
+}

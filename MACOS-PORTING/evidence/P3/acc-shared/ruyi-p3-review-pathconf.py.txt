@@ -1,0 +1,14 @@
+import os,sys,tempfile,json
+from pathlib import Path
+from unittest.mock import patch
+with tempfile.TemporaryDirectory(prefix='p3-review-pathconf-') as d:
+ os.environ.update(HOME=d,USERPROFILE=d,WCW_DATA_DIR=d+'/data',ACC_TOOLSETS='filesystem')
+ sys.path.insert(0,str(Path.cwd()/'mcp/ai-computer-control/src'))
+ from ai_computer_control.tools import safety
+ root=Path(d)/'Parent';root.mkdir()
+ with patch.object(safety,'_CUSTOM',{'protected_paths':[str(root/'Protected')]}):
+  target=str(root/'protected'/'new.txt')
+  before=safety.protected_path_reason(target)
+  with patch.object(safety.os,'pathconf',side_effect=OSError('case semantics unavailable')):
+   after=safety.protected_path_reason(target)
+  print(json.dumps({'before_pathconf_failure':before,'after_pathconf_failure':after}))

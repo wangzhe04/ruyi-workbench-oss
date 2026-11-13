@@ -1,0 +1,117 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 三条线程已建（sess_22d44a94408eac90 / sess_356889348960d5d2 / sess_30f1717f216ac1bd）
+PASS A4 事项容器已建（mission_70558ad4d8fa6ed1）
+PASS A4c 空验收事项与它那条无账本线程已建（mission_8dece028811c8af8 / sess_e0ddb85843079955）
+PASS A4d 那条无账本线程挂进了空验收事项（实测 200 {"ok":true,"missionId":"mission_8dece028811c8af8","sessionId":"sess_e0ddb85843079955","changed":true,"mission":{"schema":1,"missionId":"mission_8dece028811c8af8","title":"没人记过验收的那件","goal":"","acceptance":[],"budget":{},"cwd":"","createdAt":"2026-11-12T11:26:29.804Z","updatedAt":"2026-11-12T11:26:29.897Z","sessionIds":["sess_e0ddb85843079955"]}}）
+PASS A4b 线程 C 定了会话级权限档（B3 的「与全局不同」那一侧；实测 plan）
+PASS A5 线程 A 停在 question 待决（等你）
+PASS A6 线程 B 的回合一直在飞（在跑）
+PASS A7c 那条无账本线程跑到了收工档（实测 true）
+PASS A7 四条线程都进了投影，其中两条挂在同一个事项下（实测 4 行）
+PASS A7b 117h 第 0 步的字段真的在行上（missionTitle / acceptanceItems）
+PASS A8 Edge/Chrome found
+PASS A9 browser target available
+PASS A10 计时器探针已装上
+PASS B1 一行状态说「1 条在跑 · 1 条等你」
+PASS B1b 左栏常开：进壳那一刻任务索引就在屏幕上（3 件），一行状态不再是开关（无 aria-expanded）
+PASS B2 ≥1000px 时管家视角的右栏常驻（121-K4：它是栅格里的一列，不再是 fixed 浮层）
+PASS B2b 焦点线程是【等你】那条（focusThreadFor：等你＞在跑＞失败＞最近；实测「等华南的表」）
+PASS B2c 它就是【同一个】抽屉节点被搬进 #stewardFocus（实测 mount=docked parent=stewardFocus）
+PASS B2d 看板没打开时也只有三张表（抽屉 + avatar + 看板各一；121-K2b 之前看板那张要等点开才起，现在左栏常开、它一直在跑，节拍改由 pollTick 判；实测 [5000,5000,5000]）
+PASS C1 左栏把任务索引画出来了（常开，不用先点开）
+PASS C1b 点一行状态＝把左栏滚到「等你」那一组（并保证那一组是展开的；实测 {"found":true,"collapsed":false}）
+PASS C2 按任务分成三件（实测 3）
+PASS C3 事项行显示【容器】标题（117h 第 0 步的 missionTitle；实测「季度收尾」）
+PASS C4 验收 a/b 印在卡尾那一行事实里，且整组只印一次（实测 ["验收 1/22 条线程"]）
+PASS C4b 任务行显示线程数（行上一枚小计数「2」＋卡尾事实行那一枚）
+PASS C4c 那件「没人记过验收」的活在左栏里（找 mission_8dece028811c8af8，屏上有 ["mission_70558ad4d8fa6ed1","sess_30f1717f216ac1bd","sess_e0ddb85843079955"]）
+PASS C4c 它印的是「未记录验收」（修前这里什么都不说；实测 ["未记录验收"]）
+PASS C4d 记过验收的那件仍然印 a/b，不印「未记录验收」（实测 ["验收 1/22 条线程"]）
+PASS C4e 自带账本的那条【记过】，看板闭嘴（实测 [""]）
+PASS C5 自成事项（1 事项 = 1 线程）不画事项层（实测 grouped=false hasHead=false）
+PASS C5b 那个名字在整组【看得见的字】里恰好出现一次（修前事项头与线程行各印一遍 —— §11.15.2 病 2 的「季度复盘 / 季度复盘」；实测 1 次）
+PASS C5c ≥2 条线程的事项【仍然】画那一行小标题「事项名 · N 条」（实测「季度收尾」＋["需要你"]）
+PASS C6 线程行按事项归位（M 两条、C 一条）
+PASS C7 线程行五态经 mission-state.js，写在卡头那枚药丸上（A=needs_you / B=running）
+PASS C7b 药丸上那句人话仍然只出自 t('mission.state.*')（实测「进行中」）
+PASS C7c 色 ≠ 态：线程卡上零颗按状态上色的点，只有一根色条＋一颗线程色点（实测 A 状态点=0 色点=1 色条=1）
+PASS C8 等你那条给出等待原因（116h 的 wait.label 单点判定；实测「等你(1 条待决)」）
+PASS C8b 没在等的那条【不再重复印状态】（药丸已经说了；实测等待行「」／药丸「进行中」）
+PASS C9 跟随全局的行【不印】权限与模型（实测 A=[] B=[]）
+PASS C9b 定过会话级权限档的那一行【印】出紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ["permission","model"]）
+PASS C10 行操作齐备（优先／停止／打开＝去工作台），不再有第二枚「在工作台打开」（实测 ["prioritize","stop","open",null,null,null,null]）
+PASS C10b 挂着 question 待决的那一行有「它在问你」pill（实测 ["它在问你"]）
+PASS C10c 在跑（没人在问你）的那一行【没有】这枚 pill（实测 []）
+PASS C10e 有「它在问你」的那一行不再并排印一枚五态药丸（态仍在卡上：needs_you；实测药丸「」）
+PASS C10f 没有待决的那一行照印五态药丸（实测「进行中」）
+PASS C10g 卡头右侧只有一段 meta（「最后动静」），钱与验收只在卡尾那一行（实测卡头 ["刚刚"]）
+PASS C10h 「＋ 线程」收进卡尾的次级动作，事项头上一枚不剩（实测 事项头=0 A 卡尾=1 C 卡尾=1）
+PASS C10d 点这枚 pill 就是打开抽屉（问答框在那儿）
+PASS C12 同一条线程在【看板卡】与【线程详情栏卡头】上是同一个色号，且逐字等于那张模块级登记表发的号（实测 看板=1 详情栏=1 登记表=1）
+PASS C12b 同一个任务下的两条线程拿【同一个】号（线程继承任务色；实测 A=1 B=1）
+PASS C12c 发出来的号落在四色循环里，两个不同的【任务】两个号（1..4；实测 M=1 C=2）
+PASS C12d 色条真的画出来了：看板卡上 3px 实色、同一条线程在看板与详情栏同色、同一任务的两条线程同色（实测 A=3px|rgb(211, 130, 115) 详情栏=3px|rgb(211, 130, 115) B=3px|rgb(211, 130, 115)）
+PASS C12e 不同任务的色条是不同的颜色值（实测 M=3px|rgb(211, 130, 115) C=3px|rgb(115, 211, 152)）
+PASS C11 点开看板不再多一条计时器（收起时就已经是三张，121-K2b 删掉了「看板关着不刷」那道门；实测 [5000,5000,5000]）
+PASS V1 并发上限那一条在紧凑密度下收起（看板密度才出现；实测 rgb(26, 36, 54)|none|none）
+PASS V2 多线程任务是一行任务行（与线程行同一枚卡基元），不再是一张把线程行裹起来的玻璃卡
+PASS V3 同一个任务下第一条线程行不画上边线、第二条画 1px 分隔线，两条都缩进 --sp-5=20px（121-K4：缩进改由 padding 给；实测 0px|1px|20px）
+PASS V4 每条线程行的名字都真的占着宽度（不会被 pill 与时间挤成 0；实测 [65,66,65,65,66]）
+PASS V5 「全部暂停」的可点态与「真有几条可暂停」一致（可暂停 0 条，按钮 disabled=true）
+PASS D1 改「同时最多」为 3 → GET /api/steward/arbiter.maxParallel === 3（116h 即时生效）
+PASS D1b 界面回填的是后端真答应了的数
+PASS D2 点「优先」→ 后端回了稳定信封，界面照说（实测「它没在排队，不用插。」）
+PASS E1 派发 steward:focus-thread 把「现在这一件」切到另一条（钉住，不再被自动挑选换走）
+PASS F1 抽屉的 × 把右栏收成窄条（data-collapsed=1、栏本身不 hidden；实测 collapsed=「1」hidden=false）
+PASS F1b 偏好只写 wcw.stewardSideCollapsed=1（浮层时代的 wcw.stewardNowClosed 仍然一个字都没写；实测 side=「1」now=「」）
+PASS F1c 收起时抽屉那一份收摊（hidden、回 overlay 挂法 —— 藏在窄条后面也不许留一张表在跑；实测 hidden=true parent=stewardShell mount=overlay）
+PASS F1d 收起之后 syncNow 的后续几拍没有把右栏顶回来（实测 collapsed=「1」drawerHidden=true）
+PASS F2 点行标题把收起的右栏展开、焦点钉到这一条（右栏预览由点行承担，不再占一枚按钮）
+PASS F2b 展开写回偏好 0（不是删掉：刷新后仍按用户最后一次选择）；左栏照旧开着（实测 side=「0」）
+PASS F3 行菜单里的「打开」切到工作台并选中这一条（实测 mode=classic title=「等华南的表」）
+PASS F3b 到了工作台，管家视角的右栏随视角一起收起（实测 hidden=true）
+PASS F3c 切回管家：右栏展开、焦点仍在 A（实测「等华南的表」collapsed=「」）
+PASS E2 第四条线程在浏览器取过行之后才建出来（sess_51c8ba0779cddba2）
+PASS E2a 服务端投影里确实有它 —— 看板此刻取不到它的唯一原因是【行还没刷】
+PASS E2b 线程在看板取过行【之后】才建出来，但 thread.created 推送一到左栏当场就有了它（121-K2b §6.3 指标 e；实测 ["sess_22d44a94408eac90","sess_356889348960d5d2","sess_30f1717f216ac1bd","sess_51c8ba0779cddba2","sess_e0ddb85843079955"]）
+PASS E2c 右栏把这条【刚建出来的】线程打开（实测「刚开的这一条」）
+PASS E2d 中途【没有】回落到自动挑选的那条（修前 currentFocusId 不认这一钉，会把抽屉顶成「等华南的表」；实测轨迹 ["读取中…","刚开的这一条"]）
+PASS E2e 焦点事件同时触发了那一刷：这一钉随后被真行核实（文件头刷新纪律的「焦点事件」这一刷）
+PASS E2f 一条【不存在】的线程只被信任到那一刷跑完为止，随后交回原判据、回落自动挑选（实测「等华南的表」）
+PASS R1 两条【无账本、已跑完一个回合】的线程就位（status=none ＋ turnSeq>0 ＋ 此刻没在跑 → 五态就是「已收工」；sess_230f1dd4987dd227 / sess_902766e187aea4f0）
+PASS R2 右栏重新开在线程 E 上：状态行「已收工」、标题「它最后说」——这就是递话进来【之前】的那一帧（实测 state=「已收工」head=「它最后说」）
+PASS R3 线程 E 的新回合真的在飞（服务端投影 activeTurn=true）—— 递话的服务端那一半已经发生，且它发生在抽屉那一次强刷【之后】
+PASS R4 强刷读到的还是「已收工」时，【下一拍】（5 s 下限那一档）真的去复核了：状态行变「进行中」、标题变「它正在说」（实测 105ms；修前强刷把 lastPollAt 记成当下，下一次复核要等一整个空闲节拍 120000ms）
+PASS R4b 同一拍里【状态行】也纠了过来：五态只有事项面知道，那一拍必须把事项切片一起重拉（live 假→真与既有的真→假对称；实测「进行中」）
+PASS R5 右栏开在线程 F 上，且是「已收工」那一帧（实测 state=「已收工」）
+PASS R6 线程 F 的新回合也在飞了（服务端投影 activeTurn=true）
+PASS R7 推送到了就【自己发现】：一次交互都没有，右栏在 3 s 内从「已收工」＋「它最后说」翻成「进行中」＋「它正在说」（121-K2b 还清 32 号文 §5 记的那笔债；实测 state=「进行中」head=「它正在说」）
+PASS R8pre0 断连测试用的这一条【无账本、已跑完一个回合】线程就位（sess_1770376ffe8b4afa）
+PASS R8pre1 右栏（此刻仍连着）开在线程 F2 上，是「已收工」那一帧——断连测试的干净起点
+PASS R8pre2 事件流真的断了：断连期间新挂进事项的这条线程 1.2 s 内没有出现在左栏（推送死了，兜底节拍 120000ms 太慢；实测 shown=false）
+PASS R8pre3 线程 F2 的新回合真的在飞了（服务端投影 activeTurn=true）——这一步发生在抽屉那次强刷【之后】、事件流【断连期间】
+PASS R8pre4 断连时右栏【自己不会翻】：1.2 s 过去仍是「已收工」——这就是 R8 要救的那一帧（实测「已收工」）
+PASS R8 断连时对【右栏已经开着的那条线程】再点一次行上的「打开」→ 5 s 内状态行由「已收工」变「进行中」、「它最后说」换成「它正在说」（实测 135ms；事件流已断连，这一路走的是 syncNow 自己的 HTTP 强刷，不经推送——这才是 R8 真正要考的门）
+PASS R8b 换上来的是【新那一回合】流出来的话，不是上一回合的落盘原话（实测「开工了…」）
+PASS R8fin 收摊：切回管家视角重新触发连接（S 组接下来靠推送）
+PASS S1b 另外两种状态也就位：一条停在 question 待决（等你，sess_a56e4ed961cab202）、一条回合挂着（在跑，sess_9e27754e6b3e5e11）
+PASS S1 第三种状态就位：一条跑完一个回合、此刻没在跑的线程（五态「已收工」；sess_2354ee0fbd0f2d7c）
+PASS S2 焦点栏按【服务端行序】叠在途那几条（117s-A 的状态优先序在 13d 排一次，右栏原样消费、只过滤不重排）：列内 ["sess_a56e4ed961cab202","sess_9e27754e6b3e5e11","sess_1770376ffe8b4afa","sess_51c8ba0779cddba2","sess_30f1717f216ac1bd"] 是服务端 12 条行序的子序列，且每条 tone 都在途（实测 ["attention","active","active","active"]；左栏同判据 [["sess_a56e4ed961cab202","needs_you",""],["sess_9e27754e6b3e5e11","running",""],["sess_b0d79b870c73de07","blank",""],["sess_2354ee0fbd0f2d7c","done",""],["sess_1770376ffe8b4afa","stopped",""],["sess_902766e187aea4f0","stopped",""],["sess_230f1dd4987dd227","stopped",""],["sess_356889348960d5d2","stopped",""],["sess_22d44a94408eac90","stopped",""],["sess_51c8ba0779cddba2","dispatching",""],["sess_30f1717f216ac1bd","dispatching",""],["sess_e0ddb85843079955","done",""]]）
+PASS S3 焦点那一条【就是那份抽屉】（同一个节点仍挂在 #stewardFocus 里），它不再另画一条小行：列内 5 格 → 4 条小行 ＋ 1 份抽屉
+PASS S4 已收工的那条【不进焦点栏】（其它在途只叠非收工的；实测 不在栏里）
+PASS S5 等你的那条多一行「它在问你」（行上 asksYou.text，06i 单点算出）并给出就地回答口（实测「华南那张表要等吗？」answer=true）
+PASS S5b 在跑的那条是展开档（tone=active）且状态药丸说的是五态人话（实测 tone=active「进行中」）
+PASS S5d 焦点栏那条在途小行（D4 最紧密度卡）的色号问的是同一张登记表，色条 3px 实色真画出来了（实测 小行=1 登记表=1 色条=3px|rgb(211, 130, 115)）
+PASS S5c F5a：两条不同五态的状态药丸各带一枚【不同】的字形（等你／在跑；实测 ["M20.5 12.2c0 3.87-3.8 7-","M7.4 12h2l1.4-2.9 2.4 5."]）
+PASS S6 右栏头上那个数随标题条退役（计数改由顶栏胶囊与左栏组头承担；实测「」）
+PASS S7 点左栏那条已收工的行 → 5 s 内它成为抽屉本体，抽屉里的内容【就是这条线程的】（标题「这件已经收工了」；实测 48ms）
+PASS S7b 换焦点只换「谁是抽屉」：在途那几条小行一个没变（换焦点前 ["sess_a56e4ed961cab202","sess_9e27754e6b3e5e11","sess_51c8ba0779cddba2","sess_30f1717f216ac1bd"]，换焦点后 ["sess_a56e4ed961cab202","sess_9e27754e6b3e5e11","sess_51c8ba0779cddba2","sess_30f1717f216ac1bd"]）
+PASS S8 就地回答按下去的【那一帧】：那条线程已经是抽屉本体，光标已经在抽屉既有的输入口里（实测 activeElement=stewardDrawerInput，不是抽屉加载时自己抓走的 stewardDrawerTitle；6ms）
+PASS S8b 抽屉里开着的正是那一条（标题「这件在等你答」），闸落之后光标仍在抽屉的输入口里（实测 stewardDrawerAskInput）—— 答案因此走抽屉那唯一一条递话路径，右栏没有第二个输入框
+PASS G1 缩到 900px → 「现在这一件」不常驻（抽屉退回覆盖式）
+PASS G1b 因为窄而收起不算用户「关掉」，本机偏好不被写脏
+PASS H1 切回经典壳后管家侧零残留定时器（实测 [10000,1000]）
+PASS H2 右栏收起；左栏照旧在，且「＋」改口说「新线程」（实测「新线程」）
+
+STEWARD BOARD E2E: ALL PASS

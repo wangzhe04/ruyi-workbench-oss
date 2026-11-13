@@ -1,0 +1,11 @@
+Error: Nonportable native dependency: Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libXau.6.dylib -> /DLC/PIL/.dylibs/libXau.6.dylib
+    at nativeAudit (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:122:15)
+    at buildMacOffline (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-offline.js:106:65)
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-offline.js:141:19)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47

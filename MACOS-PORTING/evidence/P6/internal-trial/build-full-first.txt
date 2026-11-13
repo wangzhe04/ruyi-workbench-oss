@@ -1,0 +1,12 @@
+Error: codesign failed: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-build-SDukRx/image/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/cd.cpython-312-darwin.so: code object is not signed at all
+
+    at run (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/macos-offline-lib.js:68:50)
+    at signTrial (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:40:13)
+    at buildTrial (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:138:24)
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/tools/package-macos-trial.js:190:17)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)

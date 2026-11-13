@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_current_mac_local_delivery_scope",
+  "phaseStatus": "in_progress_external_acceptance_pending",
+  "remainingNecessaryLocalCodeOrUITestFindings": 0,
+  "method": "Read-only review of the final local-delivery documentation and TASKS state, comparison with the independently reviewed frozen engineering/native/physical/drag evidence, and source/build fingerprint checks. No tests or UI operations were initiated for this closeout review.",
+  "reviewedFiles": [
+    "MACOS-PORTING/05-P4-DESKTOP-APP.md",
+    "MACOS-PORTING/10-TRACKING.md",
+    "MACOS-PORTING/README.md",
+    "MACOS-PORTING/TASKS.json",
+    "MACOS-PORTING/evidence/P4/local-closeout.json",
+    "MACOS-PORTING/evidence/P4/bridge/native-drop/README.md",
+    "ruyi-workbench/desktop-macos/README.md"
+  ],
+  "sourceAndEvidenceBinding": {
+    "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "deliveryState": "reviewed_worktree_ready_for_commit",
+    "frozenSnapshot": "frozen-local-regression/source-fingerprint.json",
+    "snapshotFiles": 39,
+    "unchangedFiles": 38,
+    "soleChangedFile": "ruyi-workbench/desktop-macos/README.md",
+    "changeScope": "Documentation updated after the frozen checks to describe actual sleep/login evidence, reuse of a frozen App through RUYI_DESKTOP_TEST_APP and the acceptance-only microphone option. Production and test sources in the frozen snapshot remain unchanged.",
+    "nativeBuildInputsMatchedCurrentDist": 6,
+    "nativeBuildInputMismatches": 0,
+    "oldFingerprintRecordsPreserved": true,
+    "finalDocumentationSnapshot": "Implementation agent will record final documentation fingerprints separately before delivery. The old engineering results retain their original source binding.",
+    "independentReviews": [
+      "frozen-local-regression/review.json",
+      "media/physical/reporting-delay/review.json",
+      "bridge/native-drop/review.json"
+    ]
+  },
+  "localPackages": {
+    "P4-01": "Current-host AppKit/WKWebView host and service management pass. Latest frozen host result is 31 passed after Documents permission recovery, with the earlier failure preserved.",
+    "P4-02": "Current-host controlled bridge and actual chooser/Finder/shortcuts/notification/menu/Safari/Code Diff plus user-assisted file/directory drag pass their reviewed scopes. Current bridge result is 47, with three denied-permission conditional branches unexecuted in the granted state.",
+    "P4-03": "Current-host synthetic media36, valid physical 647.5ms PCM and CFT148 voice98/stream39/warmup58 pass their stated scopes. Same-run track/native-stop boundaries, final none, zero sends and owned-process cleanup have independent evidence.",
+    "P4-04": "Current-host lifecycle23, backend suspension/scheduler reconciliation/process cleanup, actual short sleep/SSE and login registration then cancellation pass their stated local scopes. Formal identity remains deferred.",
+    "assessment": "All four local deliveries are supported. P4-04 and the P4 phase appropriately retain in-progress status for the outstanding acceptance scope."
+  },
+  "documentationAudit": {
+    "phaseAndTrackingAgree": true,
+    "TASKSLocalDeliveryDone": true,
+    "TASKSPhaseInProgress": true,
+    "nativeDragCancellationLimitPreserved": true,
+    "historicalFailuresAndChronologyRetained": true,
+    "desktopREADMECommandsAndMicrophoneOptionMatchImplementation": true,
+    "resolvedFindings": [
+      {
+        "field": "P4.acceptanceScope.desktopAccess",
+        "resolution": "The stale awaiting-assisted-drag state was replaced with current-host UI acceptance completed and fixture cleanup status. Independently verified."
+      },
+      {
+        "field": "P4.completionAudit.requirements[V10-drop].available",
+        "resolution": "Actual trace, persistence, cleanup and review files now describe the available evidence. The old HTTP/static-only description is preserved as priorAvailable. Independently verified."
+      }
+    ]
+  },
+  "limitsPreserved": [
+    "Directory cancellation is user reported and supported by trace counts and the source handler. There is no selected-session cwd snapshot immediately before cancellation.",
+    "Physical sleep was one approximately 2.816-second Software Sleep/DarkWake cycle. Physical-fixture scheduler was disabled, and precise pre-sleep cursor continuity was not established. Separate automated lifecycle coverage remains correctly scoped.",
+    "The successful microphone run establishes an OS-level grant and valid physical capture. Earlier real refusal/retry evidence is at the WebKit origin layer.",
+    "Existing browser media regressions pass in CFT148. Ordinary Chrome156 native fake-getUserMedia hang remains recorded.",
+    "Three notification denied/ungranted conditional assertions were not executed in the latest granted-permission bridge run. Earlier evidence retains its own candidate attribution."
+  ],
+  "externalAcceptance": {
+    "formalIdentity": "deferred_by_user; formal bundle ID/Team ID/Developer ID Keychain/TCC and upgrade access remain P4-04/P6 work",
+    "macOS14": "unverified; O2/P6 carryover",
+    "Windows": "same-candidate P4 regression unverified; no P4 waiver recorded",
+    "fullP4Acceptance": false
+  },
+  "deliveryFollowthrough": [
+    "Record the final documentation/evidence fingerprints separately from the preserved frozen test snapshot.",
+    "Commit and report the reviewed local implementation with its final commit identifier and the outstanding acceptance scope."
+  ],
+  "conclusion": "The current Mac P4 local implementation, interaction acceptance and documentation closeout are supported by the reviewed evidence. No additional mandatory local implementation or UI test gap was identified. This supports local delivery and commit preparation while the full P4 phase remains in progress for the recorded external acceptance."
+}

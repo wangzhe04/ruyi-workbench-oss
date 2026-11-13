@@ -1,0 +1,40 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 Edge/Chrome found
+PASS A4 browser target available
+PASS A5 应用就绪
+PASS H1a 管家 steward_thread_new 开出线程(sess_0d299d68a91100f8)
+PASS H1b 那个回合在服务端跑起来了(信封 resumable.live === true)
+PASS H1c 信封带出 relay.channel === 'steer'(13h 那条递话阶梯的原判;实测 {"channel":"steer"})
+PASS H2a 抽屉按这条线程打开
+PASS H2b 工作台视角按这条线程打开,「它正在跑(这一回合是在别处起的)」那张卡在屏上
+PASS H2c 前端把服务端那条判定收下了(实测 steer/sess_0d299d68a91100f8)
+PASS H2d 后台回合空输入时显示停止
+PASS H2e 没有重复的后台回合状态与停止入口
+PASS H3 按下之前按钮写的是「插话」而不是「发送」(实测「插话」)
+PASS H4a 这一发走的是插话那条路(审计 intervention/source:steer)
+PASS H4b 零 turn_kill —— 那个回合没有被 supersede 掉(实测 [])
+PASS H4c 上游 provider 的那一发请求没有被中止(aborted 0 → 0)
+PASS H5a 那个回合自己跑到收尾(没有被打断)
+PASS H5b 插话作为一条 steered 用户消息落盘(实测 ["顺手把编号 QX7 也带上"])
+PASS H5c 插话真的进了模型(fake provider 把最后一条 user 原样回读进助手正文;实测 ["回答完毕:[用户插话] 顺手把编号 QX7 也带上\n\n<workbench-memory-check mode=\"default\""])
+PASS H5d 全程零 turn_kill(修前这里是 reason:"superseded")
+PASS H6 屏幕上看得到那句插话
+PASS H7a 回合结束后活回合卡收起、relay 键也没了(服务端说空闲)
+PASS H7b 空闲线程上按钮回到「发送」(实测「发送」)
+PASS H7c 空闲时照旧起一个【新回合】(这条路一个字没改)
+PASS H8pre 管家已关（把「收工后管家接着动手」这个变量从判据里消掉；实测 200）
+PASS H8pre2 起 ① 之前线程真的空着（服务端没有在途回合、本页不在流）
+PASS H8a 本页自己起的回合跑起来了（state.streaming）
+PASS H8a2 ① 起的是一个【新】回合：盘上多了一条普通用户消息「YY8-run」（不是插话）
+PASS H8b0 种 ② 的那一刻 ① 的回合还在流（HOLD8 闸门还没放行）
+PASS H8b 前置：回合期间这条会话的快照是 steer（实测 steer/sess_0d299d68a91100f8）
+PASS H8c 回合自己跑到收尾
+PASS H8d 服务端已经释放这条会话（GET 信封里不再有 relay 键）
+PASS H8e 前置成形：信念过期时按钮写的正是「插话」（用户截图里那一枚；实测「插话」）
+PASS H8f 这句话真的发出去了，而且是一条【普通】用户消息（修前它被路由到 /api/steer，服务端拒了，一个字都没落盘 —— 用户看到的就是那句「插话失败：请求失败。」）
+PASS H8g 用户消息条数真的涨了（起的是一个新回合，不是往一个已经没了的回合里递话）
+PASS H8h 这一发【没有】走插话那条路（审计里 intervention/source:steer 一条都没新增）
+PASS H8i 自纠正把那份过期信念清掉了（实测「」）
+
+CLASSIC WINDOW LIVE STEER E2E: ALL PASS

@@ -91,7 +91,8 @@ test('[E4] 接线:runProcess、shell 会话、覆盖包、进程取证都走按�
   assert.match(functionBlock(desktop, 'decodeBestEffort'), /decodeConsoleTextFn\(buf\)/);
   const shell = functionBlock(readSrcFile('11-native-tools.js'), 'shellStart');
   assert.match(shell, /createConsoleLineDecoder\(\)/);
-  assert.ok(!/new StringDecoder\('utf8'\)/.test(shell), 'shell 会话不再一律按 UTF-8');
+  assert.match(shell, /if \(!isMacShell\) return createConsoleLineDecoder\(\)/, 'PowerShell 会话继续按行判编码');
+  assert.match(shell, /new StringDecoder\('utf8'\)/, 'Mac bash 使用即时 UTF-8 流解码');
   assert.match(functionBlock(readSrcFile('11-native-tools.js'), 'shellSend'), /shellInputForPowerShell\(/);
   const overlay = readSrcFile('13c-overlay-routes.js');
   assert.match(functionBlock(overlay, 'extractOverlayZip'), /-EncodedCommand/);

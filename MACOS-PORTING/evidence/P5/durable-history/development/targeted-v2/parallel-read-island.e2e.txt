@@ -1,0 +1,16 @@
+PASS A: 四个调用全部执行完成
+PASS A: [read,read,todo_write,read] 是 parallel、宽度 3(实得 [["parallel",3]])
+PASS A: iter_timing.parallelBatch 为真
+PASS A: 落盘顺序 = 模型发出顺序(实得 file_read,file_read,todo_write,file_read)
+PASS A: 每个读拿到自己那份内容(配对不串)
+PASS B: 四个调用全部执行完成
+PASS B: 岛 = 前两个读,宽度 2(实得 [["parallel",2]])
+PASS B: 编辑照常生效
+PASS B: 编辑【之后】的读读到编辑后的内容,没被提前并发(实得 "EDITED_1")
+PASS B: 落盘顺序不变
+PASS C: 三个调用全部执行完成
+PASS C: [edit,read,read] 第一个就是阻塞调用,整批串行(实得 ["serial"])
+PASS D: [read,edit,read] 岛只有 1 个,串行(read-pool 的 mixed 口径不变)
+PASS E: 纯只读批照旧 parallel、宽度 3
+
+PARALLEL READ ISLAND E2E: ALL PASS

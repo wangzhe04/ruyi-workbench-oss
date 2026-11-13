@@ -1,0 +1,103 @@
+── (A) 合并语义 ──
+PASS A1 首次写入:新建条目(merged:false)
+PASS A2 库里恰好一条
+PASS A2b 新条目 mergedFrom 是空数组(形状一致)
+PASS A3 同义写入合并进【旧 id】,不新增条目
+PASS A4 合并后库里仍然只有一条
+PASS A5 text 取新(用户最近一次的说法)
+PASS A6 confidence = min(1, max(old,new)+0.1)(got 0.7)
+PASS A7 旧来源 ref 进 mergedFrom
+PASS A8 当前来源更新为最新那条
+PASS A9 updatedAt 更新,createdAt 不动
+PASS A10 连续同义写入始终只有一条
+PASS A11 mergedFrom 封顶 5(got 5)
+PASS A12 confidence 封顶 1(只升不降)
+PASS A13 不同 kind 的同义内容【不】合并(各记各的)
+PASS A14 库里两条
+── (B) 否决后同义拒写 ──
+PASS B1 否决成功
+PASS B2 同义内容拒绝写回(稳定信封 vetoed_duplicate)
+PASS B3 拒写是【零写入】(库逐字节不变)
+── (E) 敏感过滤 ──
+PASS E1 密钥形状的内容确定性拒绝
+PASS D1 落盘的 memory-v1.json 里没有 isNew 字段(它是纯派生)
+── (C) 面板六路由 ──
+PASS C0 服务起来了(拿到 token)
+PASS C1 缺 token -> 403(与同族 /api/steward/* 一致;got 403)
+PASS C2 GET /api/steward/memory 200
+PASS C2b 按 kind 分组,五类齐全(空组也在)
+PASS C2c 刚写的条目带 isNew:true(createdAt 距今 <24h)
+PASS C2d counts 齐整(total/active/vetoed;got {"total":2,"active":1,"vetoed":1,"isNew":2})
+PASS C3 ?kind= 只回那一组
+PASS C3b 非法 kind -> 400 invalid_request(稳定信封没被归一成 api.request_failed;got invalid_request)
+PASS C4 edit 200
+PASS C4b text 改掉了
+PASS C4c 用户面板改的条目 confidence:1
+PASS C4d 来源标 user_panel
+PASS C4e 旧 version 提交 -> 409 version_conflict(got 409/version_conflict)
+PASS C4f 不存在的 id -> 404 not_found
+PASS C4g 面板不是绕过敏感过滤的后门
+PASS C5 veto 200 且状态变 vetoed
+PASS C6 restore 把 vetoed 拉回 active
+PASS C6b restore 幂等(已 active 再调是无操作)
+PASS C7 export 200 且带 entries 数组
+PASS C7b export 只含 active(被否决的不导出)
+PASS C7c export 不含 isNew 这类派生视图字段
+PASS C7d(E2)export 里零密钥形状字符串
+PASS C7e export 只含条目本身的字段
+PASS C8 confirm 大小写不同 -> 400(必须逐字 'clear')
+PASS C8b 缺 confirm -> 400
+PASS C8c 拒绝的 clear 是零写入
+PASS C9 confirm:'clear' 清空(removed 2)
+PASS C9b 库真的空了
+── (G) 时效 expiresAt ──
+PASS G1a 已经过去的到期日 -> 拒,不落库(第二轮走查 F12)
+PASS G1 带过期时间的写入成功
+PASS G1b expiresAt 原样落盘
+PASS G2 带未来到期日的写入成功
+PASS G3 过期条目【不出现】在检索结果里(实得 1 条)
+PASS G4 未过期的照常出现
+PASS G5 显式 includeExpired 时能拿到过期条目(是过滤,不是删除)
+PASS G6 过期条目仍在面板上列着(时效是过滤不是删除)
+PASS G6b 面板给它打了 expired 标
+PASS G6c 没过期的那条 expired:false
+PASS G7 同义写入合并进那条已过期的条目
+PASS G7b **合并时旧的已过期且没给新到期日 -> 到期日被清掉**(用户又说了一遍,这条就是当下有效的)
+PASS G7c 于是它重新出现在检索结果里(写了不等于没写)
+PASS G8 再次同义写入仍然合并
+PASS G8b 给了新到期日就用新的
+PASS G9 非法到期日清洗成空串(= 永不过期,绝不静默当成已过期)
+PASS G10 不给到期日 = 空串(绝大多数条目就该是这样)
+── (H) 作用域 scope ──
+PASS H1 project 档写入成功
+PASS H1b 作用域键由**服务端**从来源会话的 cwd 推出来(实得 project:db6c89ae3fd21e63)
+PASS H2 不说就是全局(空串)
+PASS H3 **模型自己填的键不算数** —— scope 只认 global/project 两个词(枚举校验直接拒),键永远服务端推(31 号文 §2.6 红线)
+PASS H4 不传 scope = 不筛(项目条目照常拿得到)
+PASS H5 传本项目 = 全局 ＋ 本项目都在
+PASS H6 传【别的】项目 -> 本项目那条不出现
+PASS H6b 但全局那条仍然在(全局到处算数)
+PASS H7 面板把 scope 原样带出
+PASS H7b 面板另给一句人话(实得「只在某个项目里成立(db6c89ae)」)
+PASS H7c 全局那条没有标签(不是所有条目都印)
+PASS H8 同义写入合并
+PASS H8b 没重新表态 -> 作用域【不动】(它不会「到期」,不该被悄悄改)
+── (Q) 来源 quote ──
+PASS Q1 不带 quote → invalid_request(修前只核对角色,直接 ok:true 入库)
+PASS Q2 编一句「用户说过」的话当引文 → quote_not_found(got quote_not_found)
+PASS Q2b 引文是改述而不是原话 → quote_not_found
+PASS Q3 引一句无关的真话再配上编出来的 policy → quote_unrelated(got quote_unrelated)
+PASS Q4 引文碎片太短(<6 字且不是整条消息)→ invalid_request
+PASS Q5 被拒的四次都没有落库(条数不变)
+PASS Q6 引原话片段且用词相合 → 写入(got true)
+PASS Q6b 引文随条目落库(sourceQuote,面板/导出里看得见它凭哪句话记的)(got "我习惯周一整理上周任务")
+PASS Q7 引文与消息只差空白排版 → 认(got true)
+PASS Q8 用户整条消息只有三个字时,整条当引文可以(got true)
+PASS Q9 助手消息当来源仍是 source_not_user(角色闸先于 quote 闸)
+PASS Q10 英文原话配中文转述(跨语种不比词面)放行(got true)
+PASS Q10b 跨语种也不能编引文
+PASS Q11 面板编辑后 sourceQuote 清空
+── (F) 开关关 ──
+PASS F1 开关关时六条路由全部 409 steward.disabled
+
+STEWARD MEMORY E2E: ALL PASS

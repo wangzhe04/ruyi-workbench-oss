@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-02",
+  "status": "in_progress",
+  "baseline": "0a430880",
+  "deliveryCommit": null,
+  "sha256": {
+    "ruyi-workbench/app/server.js": "b90bcdeca38b9c6ff48a0ebd752fd18756b40205c2119026c17b77bb20b9b969",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "dcf941fe0635f6f32ac5d3c5ae4187da09b39441488ed078b19aa31611596e12",
+    "ruyi-workbench/resources/macos-process-helper.c": "0f790f771b144851cfecfb4cc3f1f4e43bde7f518ed4e41dd8e1a1206eeddc5c",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "055596401cc35d5b7e7010b8d557fc482219aa868d26542329e9721484daf3c9"
+  },
+  "verification": {
+    "claudeWorkflow": "53/53",
+    "kimiAdapter": "127/127",
+    "toolbox": "41/41",
+    "mcpUnit": "21/21",
+    "independentReview": "pass",
+    "finalFast": {
+      "exitCode": 0,
+      "staticPass": 80,
+      "staticFail": 0,
+      "unit": {
+        "tests": 2508,
+        "pass": 2490,
+        "fail": 0,
+        "skip": 18
+      },
+      "residualTestBrowsers": 0
+    },
+    "runtimeE2e": [
+      "34/34",
+      "34/34"
+    ],
+    "cleanupE2e": "33/33"
+  },
+  "remainingScope": [
+    "git and persistent shell integration",
+    "fine-grained tool owners and legacy PID migration",
+    "unobserved escaped descendants",
+    "helper capability/readiness and loss handling",
+    "Windows and macOS14 runtime validation"
+  ]
+}

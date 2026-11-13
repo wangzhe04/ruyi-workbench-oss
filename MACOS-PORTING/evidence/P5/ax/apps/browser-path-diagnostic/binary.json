@@ -1,0 +1,59 @@
+{
+  "kind": "binary",
+  "executable": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "resolved": "/Users/jiming/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "args": [
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-sync",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--use-mock-keychain",
+    "--password-store=basic",
+    "--window-size=1200,850",
+    "--force-renderer-accessibility=complete",
+    "--user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-cft-path-diagnostic-8KgSKi/binary-profile",
+    "--remote-debugging-port=54223",
+    "about:blank"
+  ],
+  "beforeCleanup": {
+    "pid": 25250,
+    "exitCode": null,
+    "signal": null,
+    "cdp": "{\n   \"Browser\": \"Chrome/148.0.7778.96\",\n   \"Protocol-Version\": \"1.3\",\n   \"User-Agent\": \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36\",\n   \"V8-Version\": \"14.8.178.14\",\n   \"WebKit-Version\": \"537.36 (@8625e066febc721e015ea99842da12901eb7ed73)\",\n   \"webSocketDebuggerUrl\": \"ws://127.0.0.1:54223/devtools/browser/491655f0-a9c6-43b3-8bd3-794237ec62ac\"\n}\n",
+    "elapsed": 533,
+    "stdout": "",
+    "stderr": "[25250:746073:1110/185514.155999:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:\nERROR: Failed normalizing string\n  tag: 19\nERROR: Failed normalizing subject\n\n\nDevTools listening on ws://127.0.0.1:54223/devtools/browser/491655f0-a9c6-43b3-8bd3-794237ec62ac\n"
+  },
+  "processes": [
+    {
+      "pid": 25250,
+      "created": "1794308113927395"
+    },
+    {
+      "pid": 25256,
+      "created": "1794308114007555"
+    },
+    {
+      "pid": 25262,
+      "created": "1794308114151341"
+    },
+    {
+      "pid": 25261,
+      "created": "1794308114150033"
+    },
+    {
+      "pid": 25264,
+      "created": "1794308114181557"
+    },
+    {
+      "pid": 25263,
+      "created": "1794308114181154"
+    }
+  ],
+  "remaining": [],
+  "exitCode": null,
+  "signal": "SIGKILL",
+  "stdout": "",
+  "stderr": "[25250:746073:1110/185514.155999:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:\nERROR: Failed normalizing string\n  tag: 19\nERROR: Failed normalizing subject\n\n\nDevTools listening on ws://127.0.0.1:54223/devtools/browser/491655f0-a9c6-43b3-8bd3-794237ec62ac\n"
+}

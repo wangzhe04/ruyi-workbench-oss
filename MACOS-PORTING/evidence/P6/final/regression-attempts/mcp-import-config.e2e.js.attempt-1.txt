@@ -1,0 +1,38 @@
+── P 段: 解析器(JSON/TOML/插值/错误) ──
+PASS P1 .mcp.json 解析出 2 条(stdio + sse)
+PASS P2 stdio command ${VAR} 插值 (got C:/exp/server.exe)
+PASS P3 args %VAR% 插值 (got ["--flag","8080"])
+PASS P4 env/cwd 插值
+PASS P5 sse 条目 49c 起可导入(不再 unsupported)
+PASS P5b headers 密钥引用不展开(防明文落盘)
+PASS P6 TOML 解析出 2 个 mcp_servers 段(跳过 other_section)
+PASS P7 TOML github 段 command/args/env/cwd 全提取
+PASS P8 TOML 第二段 fetch 提取(多段不互吞)
+PASS P9 文件缺失 -> error 不抛
+PASS P10 坏 JSON -> error
+PASS P11 JSON 无 mcpServers -> error
+PASS P12 未知格式 -> error
+── S 段: 静态锁 ──
+PASS S1 scan/apply handler 在
+PASS S2 ROUTE_AUTH scan/apply token 条目在
+PASS S3 解析器 export(scanMcpSources/parseMcpConfigFile)
+── H 段: HTTP scan/apply ──
+PASS workbench up
+PASS H1 scan 200 ok
+PASS H2 scan 多源合并(stdio-srv + github + fetch)
+PASS H3 scan 含 sse 条目(49c 起可导入,不再 unsupported)
+PASS H4 scan 无解析错误(两文件均合法)
+PASS H5 scan conflict 检测(撞 config 已有 id 标 conflict=true)
+PASS H6 apply 200 ok
+PASS H7 apply 写 stdio + sse(49c 远程已落地)
+PASS H7b apply 跳过缺 url 的远程条目
+PASS H8 config.externalMcpServers 含 stdio + sse
+PASS H8b 远程条目落盘形状(transport/url)
+PASS H8c 持久 headers 解密后逐字保留 ${VAR} 引用(未展开密钥)
+PASS H9 apply id 撞名 -> 更新(非追加)
+PASS H10 撞名条目 command 已更新
+PASS H11 撞名未产生重复条目
+PASS H13 apply 带掩码的条目 -> 值清空、磁盘零掩码(107-S0b)
+PASS H12 apply 超 10 上限 -> skip 带原因
+
+MCP IMPORT CONFIG E2E: ALL PASS

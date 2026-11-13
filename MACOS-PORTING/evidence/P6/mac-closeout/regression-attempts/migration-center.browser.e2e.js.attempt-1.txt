@@ -1,0 +1,23 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS M1 #migrationCenter 挂进设置「迁移中心」页签 #stab-migration
+PASS M2 工作台视角出现首启卡(非模态、没抢焦点)
+PASS M2b 卡片标题是「发现可以迁移的内容」(实「发现可以迁移的内容」)
+PASS M3 切到管家视角,首启卡仍然看得见
+PASS M4 点「以后再说」卡片消失
+PASS M4b 服务端记了「看过了」(scan.prompt.show=false)
+PASS M5 刷新后首启卡不再出现
+PASS M6 迁移中心页签里渲染出 claude-md 那一行,状态「已导入」
+PASS M6b 老版本一栏如实说「没有发现」
+PASS M8 技能行默认不勾,「复制到如意」按钮禁用 → {"status":"live","checked":false,"disabled":true}
+PASS M8b 技能组提示说清「直接读取」与「复制到如意」的区别
+PASS M8c 勾上之后按钮可点
+PASS M8d 复制后行状态变「已复制到如意」,按钮回到禁用
+PASS M8e 结果就地显示(带「撤销这次复制」)
+PASS M8f 服务端确实落了副本(注册表里来源 user、copiedFrom=claude-code)
+PASS M7 页面零未捕获异常
+
+MIGRATION CENTER BROWSER E2E: ALL PASS

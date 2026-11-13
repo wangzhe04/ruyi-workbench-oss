@@ -1,0 +1,45 @@
+{
+  "label": "facts",
+  "argv": [
+    "node",
+    "dev-harness/facts.static.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-brg5hbbg/home",
+    "USERPROFILE": "/tmp/rd-brg5hbbg/userprofile",
+    "APPDATA": "/tmp/rd-brg5hbbg/appdata",
+    "LOCALAPPDATA": "/tmp/rd-brg5hbbg/localappdata",
+    "RUYI_HOME": "/tmp/rd-brg5hbbg/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-brg5hbbg/data",
+    "WCW_DATA_DIR": "/tmp/rd-brg5hbbg/acc-data",
+    "TMPDIR": "/tmp/rd-brg5hbbg/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-brg5hbbg/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-brg5hbbg/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib"
+  },
+  "startedAt": "2026-11-11T19:59:04.611733+00:00",
+  "freezeSha256": "8a7e06a917d9c14494079114a27eaf6f7c6b06bae46d2f5539bd1bd27d539b7f",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T19:59:04.771380+00:00",
+  "elapsedSeconds": 0.15955350000876933,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-image-delivery-v2/facts.log",
+    "bytes": 2337,
+    "sha256": "a06285883e0d40dd2a53b3a4caacec6de15fc55155c5e192fafd3959425722e2"
+  }
+}

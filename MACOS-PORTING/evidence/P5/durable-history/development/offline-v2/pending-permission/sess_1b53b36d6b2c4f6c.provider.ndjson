@@ -1,0 +1,2 @@
+{"role":"user","content":"HISTORY_DENIED_INTENT\n\n[本条消息发送于 2026-11-11 19:14 周三(本地时间 UTC+08:00)]"}
+{"role":"assistant","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"tool_invoke_edit","arguments":"{\"name\":\"file_write\",\"arguments\":{\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt\",\"content\":\"must not write\"}}"}}]}

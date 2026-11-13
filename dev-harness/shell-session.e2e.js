@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
+const { shellTool, echo: shellEcho, cwdCommand } = require('./lib/platform-shell-fixture');
 (async () => {
 // E2E (v0.8-S2): persistent shell sessions on the native provider engine. Offline; drives the workbench
 // via the fake OpenAI server (FAKE_TOOL_SEQUENCE) for the in-turn tool loop, then hits the token-gated
@@ -6,7 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // and to exercise concurrency-cap + kill. One workbench + one fake for the whole run. Ports 8967-8969.
 //
 // Coverage:
-//  (a) SEQUENCE [shell_start{shellId:'s1'}(不传 cwd), shell_send{input:'(Get-Location).Path'}] in ONE turn whose
+//  (a) SEQUENCE [shell_start{shellId:'s1'}(不传 cwd), shell_send{input:cwdCommand}] in ONE turn whose
 //      cwd is SESS_CWD → start ok + send output prints SESS_CWD (proves the session persisted BETWEEN the two tool
 //      calls, and — 107-S0 — that a cwd-less shell starts in the turn's working folder, not the user's home).
 //  (b) cross-turn survival + UI-token通路: after the turn, POST /api/tools/shell_poll {shellId:'s1'}
@@ -33,8 +34,8 @@ const SESS_CWD = path.join(HOME, 'sess-cwd');
 const OTHER = path.join(HOME, 'explicit-cwd');
 const DENY = path.join(HOME, 'no-exec');
 // 比路径:realpath.native 展开 8.3 短名再小写;输出里只认「整行就是一个盘符路径」的行(PowerShell 的 PS 提示行不算)。
-const canon = p => { try { return fs.realpathSync.native(String(p)).replace(/[\\/]+$/, '').toLowerCase(); } catch { return path.resolve(String(p || '')).replace(/[\\/]+$/, '').toLowerCase(); } };
-const printsDir = (out, dir) => String(out || '').split(/\r?\n/).some(l => { const t = l.trim(); return /^[a-z]:[\\/]/i.test(t) && canon(t) === canon(dir); });
+const canon = p => { let value; try { value = fs.realpathSync.native(String(p)); } catch { value = path.resolve(String(p || '')); } value = value.replace(/[\\/]+$/, ''); return process.platform === 'win32' ? value.toLowerCase() : value; };
+const printsDir = (out, dir) => String(out || '').split(/\r?\n/).some(l => { const t = l.trim(); return path.isAbsolute(t) && canon(t) === canon(dir); });
 const outHead = out => JSON.stringify(String(out || '').trim().slice(0, 200));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -95,7 +96,7 @@ function postStream(port, payload) {
     // (a) SEQUENCE: start s1 (deterministic id, 107-S0:不传 cwd) then send (Get-Location).Path — both in one turn.
     const seq = JSON.stringify([
       { name: 'shell_start', args: { shellId: 's1' } },
-      { name: 'shell_send', args: { shellId: 's1', input: '(Get-Location).Path' } },
+      { name: 'shell_send', args: { shellId: 's1', input: cwdCommand } },
     ]);
     const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_TOOL_SEQUENCE: seq }, windowsHide: true });
     fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
@@ -160,25 +161,25 @@ function postStream(port, payload) {
     // f1 shell_start 不传 cwd → 会话 cwd(不是 defaultWorkspace=WORK,也不是家目录)。
     const f1 = await tool(WB_PORT, token, 'shell_start', { shellId: 's6', sessionId: sid });
     ok(f1.result && f1.result.ok === true && canon(f1.result.cwd) === canon(SESS_CWD), '(f1) shell_start without cwd → cwd is the session cwd (got ' + JSON.stringify(f1.result && (f1.result.cwd || f1.result.error)) + ')');
-    const f1s = await tool(WB_PORT, token, 'shell_send', { shellId: 's6', input: '(Get-Location).Path' });
+    const f1s = await tool(WB_PORT, token, 'shell_send', { shellId: 's6', input: cwdCommand });
     ok(printsDir(f1s.result && f1s.result.output, SESS_CWD), '(f1) (Get-Location).Path prints the session cwd (got: ' + outHead(f1s.result && f1s.result.output) + ', home ' + JSON.stringify(os.homedir()) + ')');
     // f2 显式 cwd → 就用它(会话 cwd 不抢)。
     const f2 = await tool(WB_PORT, token, 'shell_start', { shellId: 's7', sessionId: sid, cwd: OTHER });
-    const f2s = await tool(WB_PORT, token, 'shell_send', { shellId: 's7', input: '(Get-Location).Path' });
+    const f2s = await tool(WB_PORT, token, 'shell_send', { shellId: 's7', input: cwdCommand });
     ok(f2.result && f2.result.ok === true && printsDir(f2s.result && f2s.result.output, OTHER), '(f2) shell_start with explicit cwd prints that cwd (got: ' + outHead(f2s.result && f2s.result.output) + ')');
     // f3/f4/f5 同一个闸的另两个执行工具:powershell_run / script_run 缺省也跑在会话 cwd,显式 cwd 照用。
-    const f3 = await tool(WB_PORT, token, 'powershell_run', { command: '(Get-Location).Path', sessionId: sid, timeoutMs: 30000 });
+    const f3 = await tool(WB_PORT, token, shellTool, { command: cwdCommand, sessionId: sid, timeoutMs: 30000 });
     ok(f3.result && printsDir(f3.result.stdout, SESS_CWD), '(f3) powershell_run without cwd runs in the session cwd (got: ' + outHead(f3.result && (f3.result.stdout || f3.result.stderr || f3.result.error)) + ')');
     const f4 = await tool(WB_PORT, token, 'script_run', { language: 'node', code: 'console.log(process.cwd())', sessionId: sid, timeoutMs: 30000 });
     ok(f4.result && printsDir(f4.result.stdout, SESS_CWD), '(f4) script_run without cwd runs in the session cwd (got: ' + outHead(f4.result && (f4.result.stdout || f4.result.stderr || f4.result.error)) + ')');
-    const f5 = await tool(WB_PORT, token, 'powershell_run', { command: '(Get-Location).Path', sessionId: sid, cwd: OTHER, timeoutMs: 30000 });
+    const f5 = await tool(WB_PORT, token, shellTool, { command: cwdCommand, sessionId: sid, cwd: OTHER, timeoutMs: 30000 });
     ok(f5.result && printsDir(f5.result.stdout, OTHER), '(f5) powershell_run with explicit cwd runs there (got: ' + outHead(f5.result && (f5.result.stdout || f5.result.error)) + ')');
     // f6 会话 cwd 就是 execute:false 的工作区 → shell_start／powershell_run 不传 cwd 仍被拒,且没起 shell。
     const mkDeny = await apiPost(WB_PORT, token, '/api/sessions', { title: '107-S0 禁止执行', cwd: DENY });
     const denySid = mkDeny && mkDeny.session && mkDeny.session.id;
     const f6 = await tool(WB_PORT, token, 'shell_start', { shellId: 's8', sessionId: denySid });
     ok(!!denySid && f6.result && f6.result.ok === false && f6.result.code === 'not-allowed', '(f6) shell_start in a session whose cwd is an execute:false workspace → denied (got ' + JSON.stringify(f6.result).slice(0, 160) + ')');
-    const f6ps = await tool(WB_PORT, token, 'powershell_run', { command: 'Write-Output SHOULD_NOT_RUN', sessionId: denySid });
+    const f6ps = await tool(WB_PORT, token, shellTool, { command: shellEcho('SHOULD_NOT_RUN'), sessionId: denySid });
     ok(f6ps.result && f6ps.result.ok === false && f6ps.result.code === 'not-allowed', '(f6) powershell_run without cwd in that session → denied');
     const f6list = await tool(WB_PORT, token, 'shell_list', {});
     ok(!((f6list.result && f6list.result.shells) || []).some(s => s.shellId === 's8'), '(f6) the denied shell s8 was never started');

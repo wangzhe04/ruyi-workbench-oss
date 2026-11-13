@@ -1,0 +1,22 @@
+PASS P0 前置:真服务起得来、拿得到令牌
+PASS H1a default 档日常 web_fetch:零弹窗且真抓到(asks=0, hits=1, res={"ok":true,"url":"http://127.0.0.1:63421/page?id=7","title":"t","text":"t\nhello benign page","offset":0,"totalChars":19)
+PASS H1b default 档载荷网址:弹权限窗,窗里的 input 就是那条网址(asks=1)
+PASS H1c 用户拒绝后请求没发出去(被抓页零命中=true)
+PASS H1d default 档超长搜索词:弹权限窗(asks=1)
+PASS H2a auto 档日常 web_fetch:零弹窗(asks=0)
+PASS H2b auto 档载荷网址:弹窗,拒绝后零请求(asks=1, hits=0)
+PASS H3a node fetch 外发:auto 档停下来问,拒绝后脚本没跑(asks=1, 标记文件存在=false)
+PASS H3b node https.request:auto 档停下来问,拒绝后脚本没跑(asks=1, 标记文件存在=false)
+PASS H3c 读数据根 runtime.json:auto 档停下来问,拒绝后脚本没跑(asks=1, 标记文件存在=false)
+PASS H3d fs.rmSync 递归删除:auto 档停下来问,拒绝后脚本没跑(asks=1, 标记文件存在=false)
+PASS H3e 无害脚本(只写本地文件):auto 档零弹窗且真跑了(asks=0, res={"ok":true,"code":0,"timedOut":false,"interrupted":false,"cleanupScope":"owned-group-and-observed","cleanupIncomplete":f)
+PASS H3f 读工程自己的 package.json 之类本地文件:零弹窗(asks=0)
+PASS H4a bypass 档载荷网址:不弹窗、照抓(行为不变;asks=0, hits=1)
+PASS H4b bypass 档网络脚本:不弹窗、照跑(asks=0)
+── (P) 管家代答路径(进程内直调 steward_decide) ──
+PASS P1 S1:带载荷的 web_fetch 待决,管家不代批(实得 {"error":"propose_required","reason":"web_payload","blockedBy":"web_payload","message":"工具 web_fetch 这次的网址 / 查询带了大段数据,可能是在往外传内容 —— 这一条必须你亲自决定"})
+PASS P2 S2:网络外发的脚本待决,管家不代批(实得 {"error":"propose_required","reason":"network_egress","blockedBy":"network_egress","message":"工具 script_run 这次要执行的命令会访问外部网络,可能在外传数据 —— 这一条必须你亲自决定"})
+PASS P3 S2:读数据根密钥的脚本待决,管家不代批(实得 {"error":"propose_required","reason":"dataroot_read","blockedBy":"dataroot_read","message":"工具 script_run 这次要执行的命令会读取如意数据目录里的密钥 / 状态文件,可能在外传数据 —— 这一条必须你亲自决定"})
+PASS P4 对照:日常 web_fetch 待决不被这三道新闸拦(实得 {"error":"delivery_unavailable","message":"permission consumer is not live"})
+
+SECURITY GATES W2 E2E: ALL PASS

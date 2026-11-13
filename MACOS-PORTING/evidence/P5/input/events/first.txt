@@ -1,0 +1,37 @@
+PASS actual MCP discovers ready native input and application tools
+PASS new input registrations preserve live file-write checkpoint coverage
+PASS input starts with the exact owned window in foreground
+PASS empty chord components are refused before input
+PASS unknown Mac key is refused before input
+PASS short text reaches the real AppKit editor through keyboard events
+PASS Cmd+A and direct Unicode events preserve Chinese and surrogate pairs
+PASS fixture saves the current clipboard immediately before seeding its own image and private format
+PASS automatic Chinese multiline route uses real Cmd+V and preserves text verbatim
+PASS Cmd+V restores the prior image and private clipboard bytes
+PASS auto-pasted single-line trailing newline becomes a real Enter
+Mouse move diagnostic {"ok":false,"error":"DesktopError: Another window covers the requested mouse point","code":"target_occluded"}
+FAIL logical-point pointer movement is confirmed by an independent cursor observation
+Click diagnostic {"ok":false,"error":"DesktopError: Another window covers the requested mouse point","code":"target_occluded"}
+FAIL double click reaches the owned view with balanced button events
+FAIL right and middle clicks reach the receiver and release their buttons
+Scroll diagnostic {"ok":false,"error":"DesktopError: Another window covers the requested mouse point","code":"target_occluded"}
+Horizontal diagnostic {"ok":false,"error":"DesktopError: Another window covers the requested mouse point","code":"target_occluded"}
+FAIL vertical and horizontal wheel events reach the correct owned view
+Drag diagnostic {"ok":false,"error":"DesktopError: Another window covers the requested mouse point","code":"target_occluded"}
+FAIL drag stays in the exact target and releases the owned button
+PASS off-target coordinates are refused before any click
+PASS changed same-process focus refuses keyboard input without editing the prior target
+PASS covered target refuses the mouse action before clicking
+FAIL focus change during a real drag reports its partial side effect
+PASS interrupted drag releases its owned button
+FAIL input works again after focus recovery and partial-action cleanup
+PASS unresolvable application produces a typed failure
+Launch diagnostic {"ok":false,"error":"DesktopError: Application launch was requested but its running identity is unconfirmed","code":"application_launch_unconfirmed","action_sent":true,"outcome":"unconfirmed"}
+FAIL LaunchServices starts the controlled app and confirms actual bundle and process identity
+FAIL application readiness includes an actually observed window target
+PASS launched fixture terminates on its own bounded timer
+PASS owned input MCP and native worker cleanup is confirmed
+PASS fixture restores the pre-test clipboard after its last controlled content
+PASS owned input receiver is reaped
+
+MACOS INPUT EVENTS E2E: FAIL (9)

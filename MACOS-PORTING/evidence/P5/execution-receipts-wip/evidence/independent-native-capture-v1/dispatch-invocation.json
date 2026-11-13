@@ -1,0 +1,49 @@
+{
+  "label": "dispatch",
+  "argv": [
+    "node",
+    "dev-harness/macos-execution-dispatch.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rd-ijoh_19z/home",
+    "USERPROFILE": "/tmp/rd-ijoh_19z/userprofile",
+    "APPDATA": "/tmp/rd-ijoh_19z/appdata",
+    "LOCALAPPDATA": "/tmp/rd-ijoh_19z/localappdata",
+    "RUYI_HOME": "/tmp/rd-ijoh_19z/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rd-ijoh_19z/data",
+    "WCW_DATA_DIR": "/tmp/rd-ijoh_19z/acc-data",
+    "TMPDIR": "/tmp/rd-ijoh_19z/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rd-ijoh_19z/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rd-ijoh_19z/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "RUYI_EXECUTION_DISPATCH_REQUIRED": "1",
+    "RUYI_EXECUTION_CONTEXT_HELPER": "/tmp/ruyi-p5-native-capture-receipts-helper",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_EXECUTION_DISPATCH_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch-results.json"
+  },
+  "startedAt": "2026-11-11T23:02:21.596417+00:00",
+  "freezeSha256": "8c480a83cdc82342f22d341a3741de7df830d1c9f82c7697cae9b88519400e2b",
+  "attempt": 1,
+  "runtimeVersions": {
+    "pythonExecutable": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "pythonVersion": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "mcpVersion": "1.30.0",
+    "mcpModule": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp/__init__.py",
+    "mcpMetadataPath": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/mcp-1.30.0.dist-info/METADATA",
+    "mcpMetadataSha256": "3880c29896149862971af57942e3e5c0ad2a909696a66b9811c62f6e47e65111",
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0"
+  },
+  "finishedAt": "2026-11-11T23:02:25.137822+00:00",
+  "elapsedSeconds": 3.5413115420087706,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-native-capture-v1/dispatch.log",
+    "bytes": 2853,
+    "sha256": "1b1c427488d350c2760b45519bc3e83c132e93a969723c70018fd01eee4ade07"
+  }
+}

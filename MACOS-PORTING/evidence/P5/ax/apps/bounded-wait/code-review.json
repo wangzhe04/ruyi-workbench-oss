@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T11:14:50.765566+00:00",
+  "scope": "Shared HTTP request cancellation, CDP target wall-clock budget, Windows launcher compatibility, bounded browser startup diagnostics and controlled nonresponding endpoint cleanup.",
+  "status": "code_review_passed_effective_independent_functional_acceptance_recorded",
+  "sourceHashesAtInitialReview": {
+    "dev-harness/lib/browser-fixture.js": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+    "dev-harness/unit/browser-fixture-deadline.test.js": "af249e0280a56143ffea0f4555037ad461938e5bef0ab1eab2cd0746dfa692e0",
+    "dev-harness/macos-input-apps.e2e.js": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe"
+  },
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedByReviewer": false,
+  "findings": [
+    {
+      "id": "WAIT1",
+      "severity": "P2",
+      "status": "closed_by_source_review",
+      "file": "dev-harness/lib/browser-fixture.js",
+      "section": "waitForTarget per-request timeout",
+      "finding": "http.request timeout is socket inactivity. Math.min(500, remaining) does not bound the wall-clock lifetime of a response that continuously trickles bytes. The implementation guarantees an overall abort deadline, while the stated per-HTTP <=500ms contract is stronger.",
+      "requiredResolution": "Either provide a per-attempt absolute cancellation bound, or accurately define the supported contract as <=500ms idle timeout plus a global 15-second deadline.",
+      "resolution": "Contract explicitly specifies an HTTP idle budget of at most 500ms and a separate monotonic global 15-second wall-clock deadline with active cancellation. It makes no per-HTTP absolute-500ms guarantee. Trickle progress cannot extend the global budget.",
+      "independentRuntimeVerification": "pending frozen independent execution"
+    },
+    {
+      "id": "WAIT2",
+      "severity": "P2",
+      "status": "closed_by_source_review",
+      "file": "dev-harness/lib/browser-fixture.js",
+      "section": "waitForTarget after awaiting request",
+      "finding": "The loop checks its monotonic deadline before awaiting HTTP but accepts a matching returned target without rechecking the deadline or abort state. A late callback processed before the abort timer may be accepted after budget exhaustion.",
+      "requiredResolution": "Recheck monotonic deadline and overall abort signal immediately after await and before accepting a target.",
+      "resolution": "Immediately after request resolves, waitForTarget checks both the overall abort signal and the monotonic deadline before examining or accepting a target. A controlled microtask test crosses the budget before the timer callback executes and confirms no late target is accepted.",
+      "independentRuntimeVerification": "pending frozen independent execution"
+    },
+    {
+      "id": "WAIT3",
+      "severity": "P2",
+      "status": "closed_by_source_review",
+      "file": "dev-harness/lib/browser-fixture.js",
+      "section": "waitForTarget final liveness diagnostic",
+      "finding": "The early launcher-exit path recognizes signalCode, while final diagnostics treat exitCode===null as alive even for a signaled process.",
+      "requiredResolution": "Use the same exitCode/signalCode liveness predicate in the final diagnostic.",
+      "resolution": "Final liveness checks exitCode===null together with absent signalCode. A signal-terminated launcher is reported as exited, including the observed signal.",
+      "independentRuntimeVerification": "pending frozen independent execution"
+    }
+  ],
+  "coverageReview": [
+    "The seventh request signal argument and fourth waitForTarget budget argument preserve existing six- and three-argument call forms. Existing request timeout semantics for other callers remain.",
+    "Response error settlement supports aborting incomplete response bodies without an unhandled response error. The global abort controller is cleared in finally after discovery completes.",
+    "Existing unit launcher fixture responds with HTTP200 empty list before the target. The added delayed-listen case covers launcher exit before the CDP endpoint exists and retains discovery within the real grace window.",
+    "BLOCK_CDP binds a separate owned nonresponding endpoint while the actual browser uses its own port. Final cleanup closes blocker connections and server after clipboard restoration.",
+    "Browser diagnostics are bounded to 8192 UTF-16 characters. Describing this as an exact 8KiB byte budget would be inaccurate.",
+    "Eight focused unit cases now include real never-headers and trickle HTTP, response-body abort settlement, delayed target/port publication, callback-vs-timer late-target rejection, response diagnostics and signal-terminated liveness. Unit mock changes are scoped to the individual test.",
+    "The overall timer is cleared in finally on success or failure. A pending request is actively destroyed through AbortSignal cancellation, allowing existing caller finally blocks to retain clipboard restoration ordering. Existing request callers with no signal keep their previous semantics."
+  ],
+  "mainAgentEvidenceRead": [
+    {
+      "log": "unit-first.txt",
+      "sha256": "731757322798315b9adad0dac0af3c208f6774627ec320ba7e06e8a054b3e4cb",
+      "executor": "main agent; existing evidence read by reviewer"
+    },
+    {
+      "log": "blocked-discovery/run.txt",
+      "sha256": "a21930ba6c7c87be69d90f7a9d6b67c647fd6bd6fa6f5268e99c82150681af51",
+      "executor": "main agent; existing evidence read by reviewer",
+      "passLines": 10,
+      "failLines": 1
+    },
+    {
+      "log": "blocked-discovery/browser-startup.json",
+      "sha256": "0b51e1f64eebc791fff93ba085913902c477f87f2e8658328539a2dbec9aebe7",
+      "executor": "main agent; existing evidence read by reviewer",
+      "elapsedMs": 15003.105584,
+      "injectedNonrespondingEndpoint": true
+    },
+    {
+      "log": "unit-reviewed.txt",
+      "sha256": "b89222e962508f007ec0f4a5704e8f80e812bf9d9010ab4e13410e059dedca0f",
+      "executor": "main agent; existing evidence read by reviewer",
+      "tests": 7,
+      "allPass": true
+    },
+    {
+      "log": "unit-final.txt",
+      "sha256": "6a7d89cb6228a81508846b36d99dda8bb6d1b71e8d1468716120ccb95c3c190e",
+      "executor": "main agent; existing evidence read by reviewer",
+      "tests": 8,
+      "allPass": true
+    },
+    {
+      "log": "default/run.txt",
+      "sha256": "85a02c2bd086396348a14bf566ad4d010a6416bb90504330e3b8d006e5485ea8",
+      "executor": "main agent; existing evidence read by reviewer",
+      "passLines": 19,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "ax/run.txt",
+      "sha256": "1556a537e96777f8b2a135a38d3aa34df2fc6d5b4701326afe3fd72798298f79",
+      "executor": "main agent; existing evidence read by reviewer",
+      "passLines": 31,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "renderer/run.txt",
+      "sha256": "dc44531890c7e8a15046918a0b1674be7da35b980056babdbdc85f3becae2a63",
+      "executor": "main agent; existing evidence read by reviewer",
+      "passLines": 33,
+      "failLines": 0,
+      "allPass": true
+    }
+  ],
+  "historicalNote": "The earlier CFT startup hang root cause remains undetermined. This change bounds discovery and protects access to cleanup. It is not evidence that the underlying CFT startup issue is fixed.",
+  "pendingAcceptance": "Freeze the updated full candidate including shared helper and eight-case unit file, then perform separately authorized independent functional/negative and focused-unit execution. Main-agent prefreeze successes are retained separately. Current phase remains in_progress.",
+  "sourceHashesAtFinalReadOnlyReview": {
+    "dev-harness/lib/browser-fixture.js": "dc3eb43d19b93a28f2353fb5090f647cee031efe5a6386c81781490ec8545525",
+    "dev-harness/unit/browser-fixture-deadline.test.js": "91091da6d3c19184c05a045ff4b054b35a976ac340573e694056539de1391ff4",
+    "dev-harness/macos-input-apps.e2e.js": "47a38747f5b5692ea4a0090d0721163aabccd0f1d01efeef0e68cf38c35326fe"
+  },
+  "openActionableFindings": [],
+  "frozenCandidateBinding": "../source-fingerprint-bounded.json",
+  "frozenSourceFiles": 61,
+  "frozenSourceFingerprintSha256": "e2555ee8df423067d718d1534813bb0bb4f910b870d3821ad3577b8cc6ce425e",
+  "independentAcceptancePending": "../independent-bounded/review.json",
+  "independentAcceptanceEvidence": "independent-completion/review.json",
+  "finalSourceFingerprint": "source-fingerprint-worker-ready.json",
+  "sourceReuseEvidence": "source-reuse-review.json"
+}

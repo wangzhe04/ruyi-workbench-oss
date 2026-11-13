@@ -1,0 +1,27 @@
+PASS (a) init ok, err=undefined
+PASS (a) init 登记 3 个假设
+PASS (a) 缺 id 自动生成 H3
+PASS (a) stats total=3 pending=3
+PASS (b) H1 证伪 → refuted
+PASS (b) stats refuted=1 pending=2
+PASS (c) H2 支持 → supported
+PASS (d) H3 无结论 → 保持 pending
+PASS (e) H1 已 refuted, supports 不能复活(拒绝)
+PASS (f) H2 证伪 → refuted
+PASS (f) H2 矛盾证据触发 contradictionWarning
+PASS (g) conclude pending 假设拒绝
+PASS (g) conclude refuted 假设拒绝
+PASS (h) H1 refutes x2 触发 duplicateWarning
+PASS (i) conclude 锁定 H1(supported)
+PASS (i) 竞争假设 H2(supported)+H3(pending) 未排除 → earlyStopWarning 含两者
+PASS (i) pendingHypotheses 含 H2 和 H3
+PASS (j) 已锁定 H1,重复 conclude 拒绝
+PASS (j) confirmed 假设不能再实验
+PASS (k) status 统计正确(pending=1 supported=2)
+PASS (l) 非法 action 拒绝
+PASS (l) test 缺 result 拒绝
+PASS (l) 不存在 hypothesisId 拒绝
+PASS (l) 缺 ledger 拒绝
+PASS (l) init 空假设拒绝
+
+DEBUG-HYPOTHESIS E2E: ALL PASS

@@ -1,0 +1,94 @@
+PASS S1 默认引擎:GBK 文件里的中文搜得到、命中文本是解码后的(engine=rg got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/gbkdir/u.txt","relativePath":"u.txt","line":1,"text":"你好 utf8 file"},{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c)
+PASS S2 默认引擎:如实报 nonUtf8Files(got [{"relativePath":"g.txt","encoding":"gb18030"}])
+PASS S1b 默认引擎:UTF-8 文件照常命中
+PASS S1 JS 引擎:GBK 文件里的中文搜得到、命中文本是解码后的(engine=js got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/gbkdir/g.txt","relativePath":"g.txt","line":1,"text":"你好 hello 世界"},{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0)
+PASS S2 JS 引擎:如实报 nonUtf8Files(got [{"relativePath":"g.txt","encoding":"gb18030"}])
+PASS S1b JS 引擎:UTF-8 文件照常命中
+PASS S1c ASCII 模式命中 GBK 文件里的行:同一行里的中文不再是乱码(got {"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/gbkdir/g.txt","relativePath":"g.txt","line":1,"text":"你好 hello 世界"})
+PASS S3 命中数恰等于 maxResults 不报 truncated(engine=rg got truncated=undefined)
+PASS S3b 上限之后还有命中 → truncated:true(got true)
+PASS S3c maxResults:0 按默认(got 2)
+PASS R1 x.docx 损坏文档/二进制拒绝(got {"ok":false,"code":"document_invalid","error":"File is not a zip file","hint":"Check the file format; for containers archive_unzip can inspe)
+PASS R1 x.xlsx 损坏文档/二进制拒绝(got {"ok":false,"code":"document_invalid","error":"File is not a zip file","hint":"Check the file format; for containers archive_unzip can inspe)
+PASS R1 x.jar 损坏文档/二进制拒绝(got {"ok":false,"code":"binary","error":"binary or image file","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/x)
+PASS R1 x.sqlite 损坏文档/二进制拒绝(got {"ok":false,"code":"binary","error":"binary or image file","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/x)
+PASS R1 x.dat 损坏文档/二进制拒绝(got {"ok":false,"code":"binary","error":"binary file (NUL bytes in the first 8KB)","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi)
+PASS R1 x.log 损坏文档/二进制拒绝(got {"ok":false,"code":"binary","error":"binary file (NUL bytes in the first 8KB)","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi)
+PASS R1b 损坏文档/缺依赖的 hint 指向修复办法(got Check the file format; for containers archive_unzip can inspect the entries.)
+PASS R1c .sqlite 的 hint 指向查询办法(got 这是数据库文件,不是文本:没有原生读取工具,请用 script_run 写 python(sqlite3 模块)或命令行查询)
+PASS R2 带 UTF-16 BOM 的文本照常可读(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/u16.txt","content":"hi 你好\nabc\n","offset":0,"siz)
+PASS R3 limit:0 不给「空内容 + nextOffset=0」的死循环(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/a.txt","content":"line1\nline2 hello\nline3\n","offset":0,"size":24,")
+PASS R3b lineLimit:0 同上(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/a.txt","mode":"lines","content":"1\tline1\n2\tline2 hello\n3\tline3",)
+PASS R3c limit:1 落在增补平面字符上不劈开代理对、也不回「空内容 + nextOffset=0」(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/emoji.txt","content":"😀","offset":0,"size":9,"totalChars":5,"truncat)
+PASS W1 encoding:latin1 写中文 → unencodable,文件不落盘(got {"ok":false,"code":"unencodable","error":"character \"你\" (U+4F60) at index 0 cannot be encoded as latin1","path":"/var/folders/r3/pmqdt9dn1)
+PASS W1 encoding:ascii 写中文 → unencodable,文件不落盘(got {"ok":false,"code":"unencodable","error":"character \"你\" (U+4F60) at index 0 cannot be encoded as ascii","path":"/var/folders/r3/pmqdt9dn18)
+PASS W1 encoding:binary 写中文 → unencodable,文件不落盘(got {"ok":false,"code":"unencodable","error":"character \"你\" (U+4F60) at index 0 cannot be encoded as binary","path":"/var/folders/r3/pmqdt9dn1)
+PASS W1b latin1 能表示的字符照常写(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/lat.txt",)
+PASS W2 新建 .txt 内容统一 CRLF → 保留 CRLF(got "a\r\nb\r\n")
+PASS W2b 新建 .txt 的 LF 内容照旧
+PASS W2c 新建 .txt 内容混用换行 → 规范成 LF(got "a\nb\nc\n")
+PASS W2d 新建 .cmd 仍默认 CRLF
+PASS W2e lineEnding:"crlf" 强制 CRLF
+PASS W2f lineEnding:"lf" 强制 LF(连 .cmd 也听显式的)
+PASS W2g lineEnding:"preserve" 原样写入
+PASS W2h 已存在的 LF 文件覆写:仍按原风格 LF(既有行为不变;got "p\nq\n")
+PASS W2i 已存在的 CRLF 文件覆写:仍按原风格 CRLF
+PASS W3 ~/x.txt 展开成家目录,不再在工作区里建「~」文件夹(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/fakehome/x.txt","op":"create","bytes":2,"sourceLi)
+PASS W3b %USERPROFILE%/y.txt 同样展开(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/fakehome/y.txt","op":"create","bytes":2,"sourceLi)
+PASS W3c `~keep.txt` 这种真实文件名不被当成家目录
+PASS W3d 展开后落在工作区外 → 围栏照常拒(got {"ok":false,"error":"这个位置在工作文件夹外面,已拒绝写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」","code":"not-allowed","path":"/var/folders/r3/pmqdt9dn)
+PASS W3e 纯函数:~ / ~/ / ~\ 展开,~a 与 ~$x 不展开
+PASS W3f 纯函数:%USERPROFILE% / %HOMEPATH% / %APPDATA% 只在开头展开,未知变量原样
+PASS G1 glob「./src/*.js」配得上(got [{"relativePath":"src/app.js","mtime":1793653553333}])
+PASS G1b root 内的绝对 pattern 改写成相对 root(got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF","files":[{"relativePath":"src/app.js","mtime":1793653553333}],"truncated":false,"patternNote":"the absolute )
+PASS G1c root 外的绝对 pattern → 空表 + patternNote(got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF","files":[],"truncated":false,"patternNote":"the pattern is an absolute path outside root, so it matches noth)
+PASS G1d file_list「./src/*.js」同样配得上(got [{"relativePath":"src/app.js","type":"file","size":1}])
+PASS G1e file_list 的绝对 glob(got [{"relativePath":"src/app.js","type":"file","size":1}])
+PASS G2 glob 在默认 12 层处被截:depthLimited:true + hint(got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF","files":[],"truncated":false,"depthLimited":true,"depthCutDirs":["d0/d1/d2/d3/d4/d5/d6/d7/d8/d9/d10/d11/d12"],"depthHint":"glob:)
+PASS G2b 放开 maxDepth 就找得到、不再报截断(got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF","files":[{"relativePath":"d0/d1/d2/d3/d4/d5/d6/d7/d8/d9/d10/d11/d12/)
+PASS G2c file_list 同样报 depthLimited(got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF","files":[{"relativePath":"a.txt","type":"file","size":24},{"relativePath":"d0","type":"directory"},{"relativePath":"emoji.txt",")
+PASS G2d 被截的目录里是空的 → 不报 depthLimited(没东西可漏;got {"ok":true,"root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/emptydeep","files":[{"relativePath":"e1","type":"directory"},{"relativePath":"e1/e2","type":"directory"}]})
+PASS E1 file_move 目标是目录 → 信封(got {"ok":false,"code":"target_is_directory","error":"目标是一个已存在的目录","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/dd","hint":"to 要写)
+PASS E1 file_copy 目标是目录 → 信封(got {"ok":false,"code":"target_is_directory","error":"目标是一个已存在的目录","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/dd","hint":"to 要写)
+PASS E1b 失败后源文件还在
+PASS E2 archive_zip dest 是目录 → 信封(got {"ok":false,"code":"target_is_directory","error":"dest 是一个已存在的目录,不是 .zip 文件","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/dd")
+PASS E3 archive_unzip src 是目录 → is_directory(got {"ok":false,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/dd","errno":"EISDIR","detail":"EISDIR","code":"is_directory","error")
+PASS E3b destDir 是已存在的文件 → not_a_directory(got {"ok":false,"code":"not_a_directory","error":"destDir 是一个已存在的文件,不是目录","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/a.txt","hi)
+PASS E4 file_write 父级是文件 → 信封(got {"ok":false,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/a.txt/x.txt","errno":"EEXIST","detail":"EEXIST: file already exists,)
+PASS E5 file_read 路径含 NUL → bad_path 信封(got {"ok":false,"path":"a\u0000b","errno":"ERR_INVALID_ARG_VALUE","detail":"The argument 'path' must be a string without null bytes","code":"bad_path","error":"路径含有)
+PASS E5 file_write 路径含 NUL → bad_path 信封(got {"ok":false,"path":"a\u0000b","errno":"ERR_INVALID_ARG_VALUE","detail":"The argument 'path' must be a string without null bytes","code":"bad_path","error":"路径含有)
+PASS E5 file_delete 路径含 NUL → bad_path 信封(got {"ok":false,"path":"a\u0000b","errno":"ERR_INVALID_ARG_VALUE","detail":"The argument 'path' must be a string without null bytes","code":"bad_path","error":"路径含有)
+PASS E5 file_edit 路径含 NUL → bad_path 信封(got {"ok":false,"path":"a\u0000b","errno":"ERR_INVALID_ARG_VALUE","detail":"The argument 'path' must be a string without null bytes","code":"bad_path","error":"路径含有)
+PASS E6 audio_transcribe 路径是目录 → 信封(got {"ok":false,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/dir.wav","errno":"EISDIR","detail":"EISDIR: illegal operation on a d)
+PASS E7 file_edit oldText:"" → 信封,不抛(got {"ok":false,"code":"invalid-arguments","tool":"file_edit","error":"file_edit: 'oldText' must not be empty (string)","expected":{"path":"string","oldText":"strin)
+PASS E7b glob pattern:"" → 信封,不抛(got {"ok":false,"code":"invalid-arguments","tool":"glob","error":"glob: 'pattern' must not be empty (string)","expected":{"pattern":"string"},"hint":"fix the argume)
+PASS E7c glob pattern:"./" → 信封,不抛(got {"ok":false,"code":"invalid-arguments","error":"pattern is empty after removing \"./\"","root":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws)
+PASS M1 工作区外的源路径:存在与不存在给同一个围栏答案,不泄露存在性(got not-allowed / not-allowed)
+PASS M1b 区外文件没被移走
+PASS M1c file_copy 同理(got not-allowed / not-allowed)
+PASS M2 file_move 到自己身上:不动、不记检查点(got {"ok":true,"from":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/self.txt","to":"/var/folders/r3/pmqdt9dn18d2mgcqx journal 12→12)
+PASS M2b 普通移动照常
+PASS M3 win32:同 dev+ino 仅大小写不同 → case-only(允许改名)
+PASS M3b darwin 同理
+PASS M3c linux:大小写敏感,同 ino 只可能是硬链接,不当改名
+PASS M3d win32:ino 不同 = 两个文件 → 照常「目标已存在」
+PASS M3e 逐字相同 → identical;目标不存在 → null
+PASS Z1 同名输入保留相对结构,包内两个名字不同(got ["d1/n.txt","d2/n.txt"])
+PASS Z1b 改了名的输入如实报告(got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/d1/n.txt","zipName":"d1/n.txt"},{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/d2/n.txt","zipName":"d2/n.txt"}])
+PASS Z1c 解压后两份内容都在、互不覆盖(got {"ok":true,"src":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/c.zip","destDir":"/var/folders/r3/pmqdt9dn18d2mgcq)
+PASS Z2 重复输入只打一份并报告(got [{"name":"a.txt","size":24,"compressedSize":22}] ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/a.txt"])
+PASS Z3 dest 在被打包的目录里时不把自己装进去(got ["d1/","d1/n.txt"])
+PASS Z4 符号链接不入包但如实报 skippedLinks(got {"ok":true,"dest":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/lk.zip","op":"create","entries":2,"files":1,"bytes":205,"skippedLinks":1,"linksHint":"symbolic links are neve)
+PASS Z5 原子写不留临时文件
+PASS Z5b 覆盖已有 zip 仍走 modify 检查点(got modify)
+PASS Z6 包内路径冲突整包拒绝,一个文件都不写(got {"ok":false,"code":"entry_conflict","error":"压缩包内的条目路径互相冲突:「f」既被当作文件、又被当作其它条目的上级目录","entry":"f","filesExtracted":0,"hint":"这个包本身有问题(同一路径既是文件又是目录),未解压任何文件"})
+PASS Z7 盘上冲突:报 partial + filesExtracted,不抛裸 EEXIST(got {"ok":false,"error":"解压写入失败: EEXIST: file already exists, mkdir '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/disk-out/d'","filesExtracted":1,"bytesExtracted":3,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000)
+PASS Z7b 已写成的文件如实在盘上(与 filesExtracted 一致)
+PASS X1 maxFiles:0 按默认,不再只回 1 条(got 41 条)
+PASS X1b maxFiles:-5 同上(got 41 条)
+PASS X2 oldText==newText:不写盘、不记检查点(got {"ok":true,"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/same.txt","op":"skip","unchanged":true,"replacements":0,"sourceLineEn)
+PASS X2b 真改动照常
+PASS X3 文案:不再点名不存在的 read_file,not_utf8 不再只说 UTF-8
+PASS X3b not_utf8 文案提到 GBK / UTF-16(got {"ok":false,"code":"not_utf8","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2files-ws-D9n9wF/bin-ish.txt","error":"文件既不是有效的 UTF-8 / GBK / UTF-16 文本(可能是其它本地编码或二进制);file_edit 只编辑能无损往返的文)
+
+TOOL AUDIT R2 FILES E2E: ALL PASS

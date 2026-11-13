@@ -1,0 +1,2 @@
+PASS real rg main search and high-byte supplementary scan preserve UTF-8 and GBK matches
+executable=/Applications/ChatGPT.app/Contents/Resources/codex-cli/codex-path/rg

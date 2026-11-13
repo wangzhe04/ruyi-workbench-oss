@@ -1,0 +1,25 @@
+PASS fixture: 2 条记忆落盘
+PASS extract: 5 条输入 -> 2 条合法(过滤非法 type/自环/坏 id)
+PASS extract: 首条字段正确
+PASS extract: evidenceRef 保留
+PASS extract: sourceRunId 取自 run.id
+PASS extract: 无 evidenceRef 时留空,合法
+PASS extract: 无 memoryRelations -> 空数组
+PASS extract: null structuredResult -> 空数组
+PASS extract: null run -> 空数组(sourceRunId 空)
+PASS extract: 超 maxItems 截断到 20
+PASS propose+catalog: evidenceRef 命中 run.evidence -> Verified=true
+PASS propose+catalog: evidenceRef 未命中 -> Verified=false
+PASS propose 无 catalog: Verified=false(仅存档)
+PASS e2e 钩子: 2 条合法提议成功落盘
+PASS e2e 钩子: 含 realEventId 的提议 Verified=true(内存内校验生效)
+PASS e2e: 自动提议落盘为 pending(confirmed:false,用户确认前)
+PASS e2e 防御: 幽灵 to id -> ok:false 不抛异常(节点结果不受影响)
+PASS 向后兼容: 无 memoryRelations 的 gate 输出 -> 零提议
+PASS promptSection: 暴露记忆 id(模型可引用)
+PASS promptSection: 两条记忆均含 id
+PASS 确认链路: 自动提议产生 >=2 条 pending
+PASS 确认链路: 自动提议的 pending 边可被用户确认
+PASS 确认链路: 确认 contradicts 后 conflictMap 双向收录
+
+ALL PASS (R4-S2 memory-graph auto-proposal)

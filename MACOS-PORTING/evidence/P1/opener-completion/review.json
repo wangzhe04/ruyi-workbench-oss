@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Mac LaunchServices handoff completion and bounded launcher lifetime",
+    "office/browser realpath and file-URL classification",
+    "Fixed-directory reveal integration and test interception"
+  ],
+  "resolvedFindings": [
+    "Generic open builders still used Explorer on Mac",
+    "Fixed-directory reveal still ran through managed tree execution instead of delegated opener",
+    "Old HTTP missing-opener test assumed Explorer absence on every non-Windows host"
+  ],
+  "blockingFindings": 0,
+  "tests": {
+    "opener": 18,
+    "runtimeStart": 26,
+    "httpHardeningUnit": 16
+  },
+  "limitations": [
+    "Finder visible state is unverified; automation preflight returned -1744",
+    "Initial legacy fixtures triggered system positioning before interception was corrected",
+    "System-default browser tab preservation is unknown and returned as null",
+    "Windows actual runtime remains unverified"
+  ]
+}

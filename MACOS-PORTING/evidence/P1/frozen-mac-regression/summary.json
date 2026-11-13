@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+  "sourceHashesVerified": true,
+  "selectedSuites": 29,
+  "selectedAssertions": 818,
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1120,
+    "fail": 0
+  },
+  "buildFresh": true,
+  "diffCheck": true,
+  "unreproducedMediaFailure": true,
+  "allDefaultE2eExecuted": false,
+  "e2eInventory": {
+    "total": 564,
+    "default": 557,
+    "live": 7
+  },
+  "stageComplete": true,
+  "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+  "committedSourceHashesVerified": true,
+  "closeoutDate": "2026-11-03",
+  "closeoutEvidence": "../closeout/README.md",
+  "windowsGate": "waived_by_user_for_P1",
+  "finderVisible": "handoff_P4-02_V10"
+}

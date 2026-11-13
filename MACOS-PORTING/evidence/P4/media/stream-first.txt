@@ -1,0 +1,18 @@
+PASS existing WebM/Opus remains preferred when available
+PASS MP4-only WebKit can expose the normal microphone entry
+PASS unsupported formats and insecure origins remain unavailable
+(node:15956) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/net.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL native media acceptance exits normally "failed"
+FAIL native media acceptance returned all required assertions
+ASR fixture uploads [{"filename":"voice.wav","bytes":34459,"mp4":false},{"filename":"voice.m4a","bytes":7010,"mp4":true},{"filename":"voice.wav","bytes":35825,"mp4":false}]
+PASS only three completed recordings reach the loopback ASR provider (received 3)
+PASS loopback provider receives real 16kHz mono 16-bit WAV
+PASS fallback multipart contains actual MP4 container bytes and matching filename
+PASS actual WebKit PCM blocks and finalization reach the loopback streaming provider
+PASS stream cancel and initialization failure delete their upstream sessions
+Native media reports /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-native-media-Hvad8s
+
+MACOS DESKTOP MEDIA E2E: FAIL (2)

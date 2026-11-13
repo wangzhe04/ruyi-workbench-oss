@@ -1,0 +1,92 @@
+── P1 段: fake-mcp 直连(29 件清单 + 新契约逐件直调) ──
+PASS P1 initialize → serverInfo fake-mcp
+PASS P1 tools/list 恰好 29 件(21 + 49b 新增 7 件生态工具 + v1.9 ocr_image) (got 29)
+PASS P1 29 件名集与契约清单一致
+PASS P1 每件都有 object inputSchema
+PASS P1 read_file {ok,content,size} 契约
+PASS P1 read_file max_bytes 是字节预算(截内容不截 size)
+PASS P1 read_file 不存在 → isError + ok:false
+PASS P1 write_file {success, bytes_written}
+PASS P1 write_file append 真追加
+PASS P1 write_document 新形状含 output_path 且真落盘
+PASS P1 write_excel {success, rows, output_path}
+PASS P1 write_pdf {success, pages, font}
+PASS P1 write_pdf 非 .pdf 路径 → 报错(ACC 契约镜像)
+PASS P1 write_pptx {success, slides}
+PASS P1 excel_beautify 改写既有文件 ok
+PASS P1 excel_beautify 不存在文件 → 报错(改写类契约)
+PASS P1 excel_chart {success, anchor}
+PASS P1 chart_image {success, bytes} 真落盘
+PASS P1 image_resize ok 包络 + new_size 按比例
+PASS P1 image_resize 源不存在 → ok:false
+PASS P1 window_screenshot 无 output_path → 回 base64(不落盘)
+PASS P1 window_screenshot 有 output_path → 落盘回 path
+PASS P1 get_clipboard_image 无 save_path → base64
+PASS P1 get_clipboard_image 有 save_path → 落盘
+PASS P1 delete_file {success} 真删除
+PASS P1 delete_file 不存在 → 报错
+PASS P1 add 回归(旧契约不动)
+PASS P1 edit_file 唯一替换真落盘 + output_path
+PASS P1 edit_file 0 次出现 → 报错(唯一性闸)
+PASS P1 edit_file 缺失文件 → 报错
+PASS P1 fetch 公网 ok 包络
+PASS P1 fetch 回环地址 → refused(SSRF 形状)
+PASS P1 memory_save 首存
+PASS P1 memory_read 命中
+PASS P1 memory_list 搜索命中
+PASS P1 memory_delete 删除
+PASS P1 memory_read 删后 found:false 但 ok:true
+PASS P1 sequential_thinking 契约形状
+PASS P1 sequential_thinking 空 thought → 报错
+── P3 段: fake 写族 == BRIDGED_WRITE_PATH_ARGS 键集 ──
+PASS P3 fake-mcp 写族工具集 === 快照表键集 (16 件)
+── P2 段: workbench 集成(快照表全操作形回归) ──
+PASS P2 workbench up on :49284
+PASS P2 session created
+PASS P2 provider 调满 14 步 (got 14)
+PASS P2① doc.docx 落盘
+PASS P2① book.xlsx 落盘
+PASS P2① doc.pdf 落盘
+PASS P2① deck.pptx 落盘
+PASS P2① note.txt 落盘
+PASS P2① chart.png 落盘
+PASS P2① chart_small.png 落盘
+PASS P2① win.png 落盘
+PASS P2① clip.png 落盘
+PASS P2① moved.txt 落盘
+PASS P2① note_copy.txt 落盘
+PASS P2① doomed.txt 被删
+PASS P2① src.txt 被移走
+PASS P2① note.txt 内容正确(copy 源未被 move 误伤)
+PASS P2② journal 有 doc.docx 的 create 条目
+PASS P2② journal 有 book.xlsx 的 modify 条目
+PASS P2② journal 有 doc.pdf 的 create 条目
+PASS P2② journal 有 deck.pptx 的 create 条目
+PASS P2② journal 有 note.txt 的 create 条目
+PASS P2② journal 有 chart.png 的 create 条目
+PASS P2② journal 有 chart_small.png 的 create 条目
+PASS P2② journal 有 win.png 的 create 条目
+PASS P2② journal 有 clip.png 的 create 条目
+PASS P2② journal 有 doomed.txt 的 delete 条目
+PASS P2② journal 有 moved.txt 的 create 条目
+PASS P2② journal 有 note_copy.txt 的 create 条目
+PASS P2② book.xlsx 两条 modify(beautify+chart 各自快照)
+PASS P2② move 源侧 src.txt 记 delete
+PASS P2② 全部条目同 turnSeq(一回合)
+PASS P2③ 整轮回撤 ok
+PASS P2③ doc.docx 已撤(新建消失)
+PASS P2③ book.xlsx 已撤(新建消失)
+PASS P2③ doc.pdf 已撤(新建消失)
+PASS P2③ deck.pptx 已撤(新建消失)
+PASS P2③ note.txt 已撤(新建消失)
+PASS P2③ chart.png 已撤(新建消失)
+PASS P2③ chart_small.png 已撤(新建消失)
+PASS P2③ win.png 已撤(新建消失)
+PASS P2③ clip.png 已撤(新建消失)
+PASS P2③ moved.txt 已撤(新建消失)
+PASS P2③ note_copy.txt 已撤(新建消失)
+PASS P2③ doomed.txt 恢复原文
+PASS P2③ src.txt 恢复(move 源复活)
+PASS P2③ 工作区回到只剩两个预置文件 (got: doomed.txt,src.txt)
+
+FAKE-MCP-CONTRACT E2E: ALL PASS

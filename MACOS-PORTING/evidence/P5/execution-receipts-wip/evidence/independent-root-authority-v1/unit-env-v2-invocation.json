@@ -1,0 +1,43 @@
+{
+  "label": "unit-env-v2",
+  "argv": [
+    "node",
+    "--test",
+    "dev-harness/unit/desktop-execution-runtime.test.js",
+    "dev-harness/unit/server-ownership.test.js",
+    "dev-harness/unit/desktop-execution-ledger.test.js",
+    "dev-harness/unit/credential-recovery.test.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "environmentOverrides": {
+    "HOME": "/tmp/rra-f5ts1vqa/home",
+    "USERPROFILE": "/tmp/rra-f5ts1vqa/userprofile",
+    "APPDATA": "/tmp/rra-f5ts1vqa/appdata",
+    "LOCALAPPDATA": "/tmp/rra-f5ts1vqa/localappdata",
+    "RUYI_HOME": "/tmp/rra-f5ts1vqa/data",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/rra-f5ts1vqa/data",
+    "WCW_DATA_DIR": "/tmp/rra-f5ts1vqa/acc-data",
+    "TMPDIR": "/tmp/rra-f5ts1vqa/tmp",
+    "XDG_CONFIG_HOME": "/tmp/rra-f5ts1vqa/xdg-config",
+    "XDG_CACHE_HOME": "/tmp/rra-f5ts1vqa/xdg-cache",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "startedAt": "2026-11-11T17:51:30.734170+00:00",
+  "freezeSha256": "8a36b7f45776059761cd23d08f136cc142ddd517523ec07e2bb2a34b6c9086e5",
+  "attempt": 1,
+  "runtimeVersions": {
+    "nodeExecutable": "/Users/jiming/.local/bin/node",
+    "nodeVersion": "v24.15.0",
+    "hostPlatform": "Darwin",
+    "hostMachine": "arm64"
+  },
+  "finishedAt": "2026-11-11T17:51:32.052582+00:00",
+  "elapsedSeconds": 1.3182863330002874,
+  "exitCode": 0,
+  "log": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/independent-root-authority-v1/unit-env-v2.log",
+    "bytes": 6813,
+    "sha256": "a7130d1f80f32e225f4c68137a211cc75e1da24d8e03dbf81ac881224f408a81"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T07:59:03.971Z",
+  "priorFingerprint": "source-fingerprint-final.json",
+  "commitFingerprint": "source-fingerprint-commit.json",
+  "sourceFiles": 51,
+  "changes": [
+    {
+      "file": "dev-harness/fixtures/macos-clipboard-fixture.h",
+      "removedBytes": 1,
+      "expectedRemovedBytes": 1,
+      "removedBytesAllLF": true,
+      "unchangedPrefix": true,
+      "indexOriginalHash": "2d1dc0d04a94e9cd86c613862d2ec10c07fb8fd0cc6bbec0feff862895125d56",
+      "originalMatchesExecutedFingerprint": true,
+      "currentHash": "b4d69a5081566e0d91fd5c0ae732b1c619e1cef06acd2c5ed441f497a778f9e4",
+      "currentMatchesCommitFingerprint": true,
+      "exactReconstructionMatches": true,
+      "currentEndsInSingleLF": true
+    },
+    {
+      "file": "mcp/ai-computer-control/src/ai_computer_control/utils/text_input.py",
+      "removedBytes": 2,
+      "expectedRemovedBytes": 2,
+      "removedBytesAllLF": true,
+      "unchangedPrefix": true,
+      "indexOriginalHash": "062b0e2e8c30ab4f277d78c9e3762326c3a601e13a0ce4562c5448d932ca88fc",
+      "originalMatchesExecutedFingerprint": true,
+      "currentHash": "e10ddf87becb87adcd583afdb40181f34f3140a30e210e539154a9e89717ae6a",
+      "currentMatchesCommitFingerprint": true,
+      "exactReconstructionMatches": true,
+      "currentEndsInSingleLF": true
+    }
+  ],
+  "other49HashesMatch": true,
+  "currentCommitCandidateDrift": [],
+  "semanticEquivalenceApproved": true,
+  "testsRerun": false,
+  "reason": "The new files differ from the executed final51 candidate only by removing one and two LF bytes beyond their final code lines. Their exact original bytes remain in the index and are reconstructed without changing any prefix byte. The functional/engineering acceptance therefore applies to this commit candidate.",
+  "stagedFinalDiffCheck": {
+    "implementationCommit": "508174dc2ba77c930cadb7b5a5d5b784e17a72d9",
+    "postCommitCheckExit": 0,
+    "cachedCheckExit": 0,
+    "indexEmpty": true
+  },
+  "originalExecutionAndFingerprintRecordsPreserved": true
+}

@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T12:56:04.109972+00:00",
+  "mode": "read_and_hash_reuse_no_independent_full_engineering_rerun",
+  "engineeringFreeze": {
+    "path": "/tmp/ruyi-p5-effect-evidence/engineering-freeze-v1.json",
+    "bytes": 52367,
+    "sha256": "1ee76254e3fb45c325761b9778393840f3f07ee69bddd8f38a75f98fc73e276d"
+  },
+  "finalFreeze": {
+    "path": "/tmp/ruyi-p5-effect-evidence/candidate-freeze.json",
+    "bytes": 52597,
+    "sha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e"
+  },
+  "all207EngineeringSourcesIdenticalInFinalFreeze": true,
+  "sameActualArtifacts": true,
+  "onlyAddedFinalSource": [
+    "dev-harness/mission-result.e2e.js"
+  ],
+  "extraSourceHandling": "mission-result.e2e.js was bound after correcting its old source-shape assertion to call the real function and assert Array return; related-v1 failure retained, related-v2 pass source matches final208 freeze. syntax-after-harness.log also records1161/0. No product-source change between engineering207 freeze and final208 freeze.",
+  "reusedResults": {
+    "syntaxFiles": 1161,
+    "syntaxFailed": 0,
+    "buildFresh": true,
+    "fullUnitPassed": 2521,
+    "fullUnitExistingSkipped": 18,
+    "fullUnitFailed": 0,
+    "fastPassed": 80,
+    "fastFailed": 0,
+    "fastFlaky": 0,
+    "fastOptInSkipped": 7,
+    "fastContainsUnitPreflight": true,
+    "preflightUnitPassed": 2521,
+    "relatedPassCounts": {
+      "mission-result.e2e.js.log": 62,
+      "turn-stop-supersede.e2e.js.log": 32,
+      "provider-turnloop-hardening.e2e.js.log": 31
+    }
+  },
+  "commands": {
+    "engineering": [
+      {
+        "label": "syntax",
+        "command": [
+          "node",
+          "dev-harness/syntax-gate.js"
+        ],
+        "start": "2026-11-11T12:43:48.364252+00:00",
+        "exitCode": 0
+      },
+      {
+        "label": "build",
+        "command": [
+          "node",
+          "ruyi-workbench/app/build.js",
+          "--check"
+        ],
+        "start": "2026-11-11T12:44:14.292274+00:00",
+        "exitCode": 0
+      },
+      {
+        "label": "unit",
+        "command": [
+          "node",
+          "--test",
+          "dev-harness/unit/*.test.js"
+        ],
+        "start": "2026-11-11T12:44:14.433812+00:00",
+        "exitCode": 0
+      },
+      {
+        "label": "fast",
+        "command": [
+          "node",
+          "dev-harness/run-all.js",
+          "--fast"
+        ],
+        "start": "2026-11-11T12:46:11.514126+00:00",
+        "exitCode": 0
+      }
+    ],
+    "related": [
+      {
+        "command": [
+          "node",
+          "dev-harness/mission-result.e2e.js"
+        ],
+        "start": "2026-11-11T12:50:26.109132+00:00",
+        "exitCode": 0
+      },
+      {
+        "command": [
+          "node",
+          "dev-harness/provider-turnloop-hardening.e2e.js"
+        ],
+        "start": "2026-11-11T12:50:27.949631+00:00",
+        "exitCode": 0
+      },
+      {
+        "command": [
+          "node",
+          "dev-harness/turn-stop-supersede.e2e.js"
+        ],
+        "start": "2026-11-11T12:50:51.486720+00:00",
+        "exitCode": 0
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/build.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/commands.json",
+      "bytes": 732,
+      "sha256": "67e791c8b4adbc82873dd57a14838b101b84f33bba846f4b165b637bacdda5e9"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/fast.log",
+      "bytes": 5737,
+      "sha256": "ff620bdf1dde20a9e9b0266ce0e59dac7b32a400024ddb51b4815403b943dec7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/runner-last-run.log",
+      "bytes": 3471,
+      "sha256": "a487bdee8221892df74d968185cb63f2e786fa37236177454e2db12a0ce3f96e"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/runner-last-unit-run.log",
+      "bytes": 396006,
+      "sha256": "0bc17ae576c0c79f58bc1ec552b089b9fe842126ff8edebaf73e8744766e26d8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/syntax-after-harness.log",
+      "bytes": 60,
+      "sha256": "6982adb3f08e293865d888c93d508ea92ce5080bea60ef660ea9b0b7b60bf93a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/syntax.log",
+      "bytes": 60,
+      "sha256": "6982adb3f08e293865d888c93d508ea92ce5080bea60ef660ea9b0b7b60bf93a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v2/unit.log",
+      "bytes": 395193,
+      "sha256": "5bca19a1042364a3d8e936ec14848fef361cf2b3afad03ffc2bb1d3af885bc71"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/commands.json",
+      "bytes": 489,
+      "sha256": "e9f8d7477da6c6e406115249b91547488d173546e1e014f0eea8773b29a86abb"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/mission-result.e2e.js.log",
+      "bytes": 3401,
+      "sha256": "60e0a9c69668582052473cbeca277172ec9a73d04674797b2d3025eb1ed801e4"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/provider-turnloop-hardening.e2e.js.log",
+      "bytes": 2655,
+      "sha256": "dccd0e46d7e2d9b8c2835c3e8b04b08ba9a8b793fdedd552a01f1d9b4a8b5073"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/related-v2/turn-stop-supersede.e2e.js.log",
+      "bytes": 2458,
+      "sha256": "33bbce77a6fc340dfa8117d8d6b3c4de7ff1dbab91bc6403ab65fdafc4b72c7f"
+    }
+  ],
+  "historyRetained": [
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/build.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/fast.log",
+      "bytes": 9109,
+      "sha256": "54c3ce549adb0a6c8adfdf00fb5b1a376798666c805b92dc50173aa1003a3617"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/runner-last-run.log",
+      "bytes": 3472,
+      "sha256": "010ff83a608af8e03314943dcc6124c81a7028705d19bbc1cccff56c4f5e193b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/runner-last-unit-run.log",
+      "bytes": 395965,
+      "sha256": "7080bd3d28415eab019c2a64f6820e58ddc516a312e53e06681a318cb197d14c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/syntax.log",
+      "bytes": 60,
+      "sha256": "6982adb3f08e293865d888c93d508ea92ce5080bea60ef660ea9b0b7b60bf93a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/gates-v1/unit.log",
+      "bytes": 395050,
+      "sha256": "bbd902a4183a4d9b37a938f1211d5dc618823817d3d8a6285ef82f47af1752da"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/related-v1/mission-result.e2e.js.log",
+      "bytes": 3401,
+      "sha256": "0c3693584252d0c2a6d94a939693a7762719664cf091ff83855e5e24e6b0e3c0"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/offline-v1.log",
+      "bytes": 479,
+      "sha256": "1b3b311943cbc8ec721fcbe1fee3cd365b8207d1c5685343bc7fcbe70a69da8d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-effect-evidence/development/offline-v1-recovery.json",
+      "bytes": 358,
+      "sha256": "8853bf18ae35595e256e7b1ba84954d5084d41b861842efb0cd85e39fc416d99"
+    }
+  ]
+}

@@ -448,11 +448,37 @@ function killOwnProcessTree(pid, opts = {}) {
     });
   });
 }
-function killPosixChildTree(pid) {
+function killPosixChildTree(pid, ownedChild) {
+  if (process.platform === 'darwin') {
+    if (!(ownedChild instanceof cp.ChildProcess) || ownedChild.pid !== Number(pid)) {
+      return { killed: [], scope: 'unknown', incomplete: true, skipped: 'process-handle-required' };
+    }
+    const helper = path.join(externalRoot(), 'runtime', 'macos', 'ruyi-process-helper');
+    const result = cp.spawnSync(helper, ['--terminate-child-tree', String(pid)], {
+      encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024,
+    });
+    const output = String(result.stdout || '');
+    const killed = output.split(/\r?\n/).map(line => /^KILLED (\d+)$/.exec(line))
+      .filter(Boolean).map(match => Number(match[1]));
+    const counts = /^EXIT-COUNTS (\d+) (\d+) (\d+)$/m.exec(output);
+    const exits = counts ? { terminated: Number(counts[1]), alreadyExited: Number(counts[2]), unconfirmed: Number(counts[3]) } : {};
+    const observed = /^OBSERVED-TREE (\d+) (\d+)$/m.exec(output);
+    const numbers = counts && observed ? [...counts.slice(1), ...observed.slice(1)].map(Number) : [];
+    const validCounts = numbers.length === 5 && numbers.every(value => Number.isSafeInteger(value) && value >= 0 && value <= 32768)
+      && numbers[3] >= 1 && exits.terminated + exits.alreadyExited + exits.unconfirmed === numbers[3]
+      && numbers[4] === killed.length && new Set(killed).size === killed.length
+      && exits.terminated <= numbers[4] && numbers[4] - exits.terminated <= exits.unconfirmed;
+    const incomplete = !!result.error || result.status !== 0 || !output.startsWith('RUYI-PROCESS-V1\n') || !validCounts || exits.unconfirmed > 0;
+    if (incomplete && ownedChild && ownedChild.exitCode === null && ownedChild.signalCode === null) {
+      try { if (ownedChild.kill('SIGKILL') && !killed.includes(pid)) killed.push(pid); } catch { /* report incomplete */ }
+      return { killed, ...(validCounts ? exits : {}), scope: 'direct-child', incomplete: true };
+    }
+    return { killed, ...(validCounts ? exits : {}), scope: 'observed-tree', incomplete };
+  }
   // hunt2-engines#11:POSIX 修前只杀根 —— CLI 的 Bash 工具、MCP 子进程、ACP 终端拉起的孙辈全成孤儿,回合停了它们还在跑。
   // Linux 按 Windows 那一支同一条判据认子孙(dev-harness/lib/kill-own-tree.js 同款):从 /proc 快照里按父号往下找,
   // 只认启动时刻不早于父亲的(父号过期撞号的陌生进程比「父亲」还老,按构造排除);**先快照再杀根**(根一死子孙就被
-  // 过继给 init,父号对不上了),杀每个子孙前再核一次启动时刻,号被复用就不杀。没有 /proc(macOS)仍只杀根。
+  // 过继给 init,父号对不上了),杀每个子孙前再核一次启动时刻,号被复用就不杀。其他没有 /proc 的平台仍只杀根，macOS 由上方原生 helper 处理。
   const readStat = id => {
     try {
       const stat = fs.readFileSync(`/proc/${id}/stat`, 'utf8');
@@ -492,8 +518,15 @@ function killPosixChildTree(pid) {
 //     跑完(实测父进程 150 ms 退出、脚本 1.5 s 后照写,2/2)。-EncodedCommand 的参数只含 [A-Za-z0-9+/=],cmd 里没有注入面。
 // cmd 的命令行上限 8191 字符;超了(不会,这里留着防以后脚本变长)就退回直接 spawn。
 function killChildTree(pid) {
+  const ownedChild = pid instanceof cp.ChildProcess ? pid : null;
+  const supervised = ownedChild && ProcessRuntime.stopChild(ownedChild);
+  if (supervised) return supervised;
+  if (ownedChild && (ownedChild.exitCode !== null || ownedChild.signalCode !== null)) {
+    return { killed: [], scope: 'observed-tree', incomplete: true, skipped: 'root-exited' };
+  }
+  if (ownedChild) pid = ownedChild.pid;
   if (!pid) return;
-  if (process.platform !== 'win32') { killPosixChildTree(pid); return; }
+  if (process.platform !== 'win32') return killPosixChildTree(pid, ownedChild);
   try {
     const args = ownTreeKillCommand(pid);
     const inner = `start "" /b powershell.exe ${args.join(' ')}`;
@@ -506,6 +539,9 @@ function killChildTree(pid) {
     try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
   }
 }
+
+ProcessRuntimeHooks.helperPath = () => path.join(externalRoot(), 'runtime', 'macos', 'ruyi-process-helper');
+ProcessRuntimeHooks.stopUnsupervised = killChildTree;
 
 // 47b/长工具保活:按工具声明式超时表(裸名小写)。未知工具默认 15min 有界上限;
 // 已知工具仍按其自身参数上限收紧 ——
@@ -945,6 +981,41 @@ function mcpBridgeError(message, kind) {
   return e;
 }
 
+// MCP transport metadata belongs to the host call context, outside model arguments.
+// Clone a small JSON object so an awaited send cannot observe later metadata mutation.
+function mcpCallToolParams(name, args, options) {
+  const params = { name, arguments: args || {} };
+  if (options && Object.prototype.hasOwnProperty.call(options, 'meta')) {
+    const meta = options.meta;
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('mcp metadata must be an object');
+    const encoded = options.executionCheck ? JSON.stringify(copyOrdinaryJsonData(meta)) : JSON.stringify(meta);
+    if (Buffer.byteLength(encoded, 'utf8') > 4096) throw new Error('mcp metadata exceeds 4096 bytes');
+    const copied = JSON.parse(encoded);
+    if (!copied || typeof copied !== 'object' || Array.isArray(copied)) throw new Error('mcp metadata must serialize to an object');
+    params._meta = copied;
+  }
+  return params;
+}
+
+// A real, safe tools/call roundtrip must preserve both reserved metadata and SDK numeric types.
+// The schema-shape flag alone is insufficient. Never cache this across an MCP child replacement.
+async function probeDesktopExecutionReceipts(client, options = {}) {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const probeValues = { integer: 1000000000000000100, exponent: 1e21, decimal: 0.0000001,
+    subnormal: Number.MIN_VALUE, zero: 0, unicode: '你好🚀' };
+  const expected = executionArgumentsDigest(probeValues);
+  const result = await client.callTool('execution_receipt', { invocation_id: '0'.repeat(32), probe_values: probeValues },
+    8000, { ...options, meta: { 'org.ruyi.workbench/execution-probe-v1': { schema: 1, nonce } } });
+  const probe = result?.metadata_probe;
+  if (result?.ok !== true || result.execution_receipt_version !== 1 || result.semantic_validation?.semantic_version !== 1 || !probe || probe.schema !== 1 || probe.nonce !== nonce
+      || probe.context_required !== true || probe.args_semantic_codec !== 'ruyi-sdk-json-v1' || probe.received_semantic_sha256 !== expected
+      || !/^[a-f0-9]{32}$/.test(probe.acc_worker_id || '') || !Number.isSafeInteger(probe.acc_pid) || probe.acc_pid <= 0) {
+    return { ok: false, code: 'execution_receipts_unavailable', outcome: 'not_dispatched', action_sent: false };
+  }
+  return { ok: true, receiptVersion: 1, argumentsCodec: probe.args_semantic_codec,
+    accWorkerId: probe.acc_worker_id, accPid: probe.acc_pid, contextRequired: true };
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -973,6 +1044,10 @@ class McpStdioClient {
   // Send one JSON-RPC request and await its result (by id). Rejects on timeout/child death.
   _rpc(method, params, timeoutMs = 8000, options = {}) {
     return new Promise((resolve, reject) => {
+      if (method === 'tools/call') {
+        const refusal = DesktopExecutionHooks.callRefusal(this, params?.name, params?.arguments, options);
+        if (refusal) return reject(Object.assign(new Error(refusal.error), { code: refusal.code }));
+      }
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) {
         return reject(new Error('mcp client not running'));
       }
@@ -1004,7 +1079,11 @@ class McpStdioClient {
         if (signal.aborted) { abortHandler(); return; }
       }
       try {
-        this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n', 'utf8');
+        const packet = { jsonrpc: '2.0', id, method, params: params || {} };
+        const safePacket = options.executionCheck ? copyOrdinaryJsonData(packet) : packet;
+        const encoded = JSON.stringify(safePacket);
+        if (options.executionCheck) options.executionCheck(safePacket);
+        this.child.stdin.write(encoded + '\n', 'utf8');
       } catch (e) {
         cleanup(); this._pending.delete(id); reject(e);
       }
@@ -1074,15 +1153,17 @@ class McpStdioClient {
     if (this.started) return;
     this.started = true;
     const s = batchSafeSpawn(this.command, this.args);   // transparently wrap .cmd/.bat
+    const spawnEnv = DesktopExecutionHooks.clientEnvironment(this.id, bridgedServerSpawnEnv(process.env, this.env), this);
+    this.executionContextRequired = spawnEnv.RUYI_EXECUTION_CONTEXT_REQUIRED === '1';
     let child;
     try {
-      child = cp.spawn(s.command, s.args, {
+      child = ProcessRuntime.spawn(s.command, s.args, {
         cwd: this.cwd,
-        env: bridgedServerSpawnEnv(process.env, this.env),
+        env: spawnEnv,
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         ...s.opts,
-      });
+      }, { kind: 'mcp', serverId: this.id });
     } catch (e) {
       this.dead = true;
       throw new Error(`spawn failed: ${e && e.message ? e.message : e}`);
@@ -1133,27 +1214,36 @@ class McpStdioClient {
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs, options = {}) {
+    const refusal = DesktopExecutionHooks.callRefusal(this, name, args, options);
+    if (refusal) return refusal;
     // 条目 disabledTools/enabledTools 在调用时再挡一道(目录里已经滤掉;这里防裸名容错路由或旧目录缓存绕过)。
     if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
     // 超时:调用方显式给的优先,其次条目的 toolTimeoutMs,最后按工具名的内置表。
     const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
+      const res = await this._rpc('tools/call', mcpCallToolParams(name, args, options), limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
-      if (e && e.mcpTimeout) {
-        // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
-        // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
-        try { this.kill(); } catch { /* already dead */ }
-        return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 桥接进程树已终止(防僵尸执行),下次调用将自动重连` };
-      }
-      if (e && e.mcpAborted) {
-        // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
-        // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
-        try { this.kill(); } catch { /* already dead */ }
-        return { ok: false, error: '工具已因用户插话中断；桥接进程树已终止，模型将立即处理新指令', steerInterrupted: true };
+      if (e && (e.mcpTimeout || e.mcpAborted)) {
+        // _rpc already sent the cooperative cancellation notification. Report the verified
+        // cleanup scope from the actual child handle, including dependency/identity failures.
+        let cleanup;
+        const stoppedChild = this.child;
+        try {
+          cleanup = this.kill();
+          if (cleanup && cleanup.scope === 'owned-group-and-observed') {
+            const confirmed = await ProcessRuntime.waitForCleanup(stoppedChild);
+            if (confirmed) cleanup = confirmed;
+          }
+        } catch { cleanup = { scope: 'unknown', incomplete: true }; }
+        const description = cleanup ? (cleanup.incomplete ? '桥接子进程清理未确认完成' : '已核验的桥接子进程已终止') : '桥接进程树已终止';
+        const fields = cleanup ? { cleanupScope: cleanup.scope, cleanupIncomplete: cleanup.incomplete === true,
+          ...(cleanup.escapeCoverage ? { cleanupEscapeCoverage: cleanup.escapeCoverage, cleanupUnconfirmed: cleanup.unconfirmed } : {}) } : {};
+        if (e.mcpTimeout) return { ok: false, ...fields,
+          error: `tool timed out after ${Math.round(limit / 1000)}s; ${description}${cleanup ? '' : '(防僵尸执行)'},下次调用将自动重连` };
+        return { ok: false, ...fields, error: `工具已因用户插话中断；${description}，模型将立即处理新指令`, steerInterrupted: true };
       }
       return { ok: false, error: m };
     }
@@ -1162,9 +1252,10 @@ class McpStdioClient {
   kill() {
     this.dead = true;
     this._failAllPending(new Error('mcp client killed'));
+    if (this.child) this.lastCleanup = killChildTree(this.child);
     try { if (this.child && this.child.stdin) this.child.stdin.end(); } catch { /* ignore */ }
-    if (this.pid) killChildTree(this.pid);
     this.child = null;
+    return this.lastCleanup;
   }
 }
 
@@ -1492,10 +1583,12 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs, options = {}) {
+    const refusal = DesktopExecutionHooks.callRefusal(this, name, args, options);
+    if (refusal) return refusal;
     if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
     const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
-      const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
+      const res = await this._rpc('tools/call', mcpCallToolParams(name, args, options), limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
@@ -2764,10 +2857,13 @@ function stopSession(sessionId, reason = 'stopped') {
     try { entry.abort(); } catch { /* ignore */ }
   } else if (!entry.exited && entry.child && entry.child.exitCode === null) {
     entry.exited = true;
-    killChildTree(entry.pid);
+    entry.cleanup = killChildTree(entry.child);
+    if (entry.cleanup && entry.cleanup.incomplete && typeof entry.onEvent === 'function') {
+      try { entry.onEvent({ type: 'stderr', text: '[子进程清理尚未确认完成]\n' }); } catch { /* observer closed */ }
+    }
   }
   activeChildren.delete(sessionId);
-  logEvent({ kind: 'turn_kill', sessionId, reason });
+  logEvent({ kind: 'turn_kill', sessionId, reason, ...(entry.cleanup ? { cleanupScope: entry.cleanup.scope, cleanupIncomplete: entry.cleanup.incomplete === true } : {}) });
   return true;
 }
 

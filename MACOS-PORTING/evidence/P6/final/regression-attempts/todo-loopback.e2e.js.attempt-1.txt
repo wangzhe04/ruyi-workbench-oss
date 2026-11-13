@@ -1,0 +1,18 @@
+PASS workbench up on :64927
+PASS UI token scraped from index.html
+PASS session created
+PASS child: initialize ok
+PASS child: todo_write returns ok:true via loopback (got: {
+  "ok": true,
+  "count": 2
+})
+PASS child: loopback reported count === 2 (got 2)
+PASS session.todos.length === 2 after loopback (got 2)
+PASS bare child: todo_write → isError:true, ok:false
+PASS bare child: guiding error mentions 工作台会话上下文 (got: {
+  "ok": false,
+  "error": "todo 需要工作台会话上下文",
+  "hint": "独立 MCP 模式不支持"
+})
+
+TODO-LOOPBACK E2E: ALL PASS

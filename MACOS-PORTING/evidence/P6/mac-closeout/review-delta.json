@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-12T14:55:32.895928+00:00",
+  "kind": "Read-only post-official-run delta review; original freeze and review retained",
+  "result": "pass_code_review",
+  "findings": [],
+  "previousReview": "code-review-frozen.json",
+  "previous40FilesUnchanged": true,
+  "reviewedDeltaFiles": [
+    {
+      "path": "README.md",
+      "sha256": "763672f14997e3e96b111295d181531e0b47650cf2c755e28ecad0ff4ae529ff"
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "f0486f928b6840f15d7182c7b8af9a8ea4c762c902d3f582aeb64c876f9cf3cb"
+    },
+    {
+      "path": "dev-harness/macos-input-events.e2e.js",
+      "sha256": "3487bad259094485a15393d95ab2316dc733a5b62d3c58c836ba7d4a0d55696c"
+    },
+    {
+      "path": "dev-harness/macos-observe.e2e.js",
+      "sha256": "a10be5ffd9f15d38edd8ed603b1bd32df16f7c96e57dc60aa51bc16e3c86742a"
+    },
+    {
+      "path": "dev-harness/macos-ocr.e2e.js",
+      "sha256": "0f211a20c8f052570ec0d68c963abc48cfdb6d67e70b6739426ef055c1d397df"
+    }
+  ],
+  "conclusions": [
+    {
+      "files": [
+        "dev-harness/macos-input-events.e2e.js"
+      ],
+      "conclusion": "Preserves actual application identity: both expected existing .app and returned launch path are resolved with fs.realpathSync.native and compared exactly. No basename/prefix/string normalization weakening. ok/success/pid/process_start/LaunchServices and independently observed window/ref predicates remain unchanged. Missing/unresolvable returned path fails. Logs record requested/returned/canonical fixture paths. Production native helper already confirms dev+ino bundle identity and process birth identity. This corrects equivalent /tmp and /private/tmp spellings without granting different bundle paths."
+    },
+    {
+      "files": [
+        "dev-harness/macos-observe.e2e.js",
+        "dev-harness/macos-ocr.e2e.js"
+      ],
+      "conclusion": "Only logs call name start/end and elapsed wall time, and stores elapsed_ms beside existing sanitized result. Native calls, arguments, assertions, total/per-call deadlines and cleanup behavior are unchanged. No timeout success or qualification inferred."
+    },
+    {
+      "files": [
+        "README.md",
+        "README_EN.md"
+      ],
+      "conclusion": "Only changes unit-suite inventory 293 to294 to include new platform-shell-fixture.test.js. E2E selection/live inventory and explicit inventory-not-all-passed wording remain unchanged."
+    }
+  ],
+  "noExecution": {
+    "testsRun": 0,
+    "servicesOrAppsLaunched": 0,
+    "desktopActions": 0,
+    "securityChanges": 0,
+    "sourceEdits": 0,
+    "oldArtifactHashesRecomputed": 0
+  },
+  "runtimeAndRunnerDiff": false,
+  "scopeLimits": [
+    "Original official full runner result remains588 process passes /6 failures over594, with1 retry-pass and14 live excluded as reported by parent. This review does not rewrite that historical result.",
+    "Path-identity correction requires new controlled serial execution under the same dedicated temporary-root arrangement.",
+    "Observe/OCR timeouts remain unexplained until targeted call-duration evidence identifies the cause; diagnostic changes alone do not resolve them.",
+    "Native App capture/input authorization-positive tests remain unpassed.",
+    "Any future delta requires fresh review/binding; old source-freeze.json and code-review-frozen.json retained unchanged."
+  ]
+}

@@ -1,0 +1,46 @@
+PASS NODE_FOREGROUND_1 actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_1 each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_1 repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_1 exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_1 actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_1 exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_1 actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_1 actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_1 next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_1 child history stays separate from actual parent transcript
+PASS NODE_FOREGROUND_2 actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_2 each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_2 repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_2 exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_2 actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_2 actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_2 next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_2 next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_2 child history stays separate from actual parent transcript
+PASS NODE_FOREGROUND_DELAYED actual foreground workflow succeeds through real root/node/provider/SDK
+PASS NODE_FOREGROUND_DELAYED each actual ACC invocation has a durable typed node delivery
+PASS NODE_FOREGROUND_DELAYED repeated textual call IDs remain distinct across actual nodes
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_image/worker0
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_image/worker0
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_observe_node/worker0
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_observe_node/worker0
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_image/worker1
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_image/worker1
+PASS NODE_FOREGROUND_DELAYED exact private node history binds actual invocation fixture_observe_node/worker1
+PASS NODE_FOREGROUND_DELAYED actual required image part and node attempt survive delivery fixture_observe_node/worker1
+PASS NODE_FOREGROUND_DELAYED actual node model continuations see paired tool block followed by its image
+PASS NODE_FOREGROUND_DELAYED next actual ACC body sees its own saved node image, never parent history worker0
+PASS NODE_FOREGROUND_DELAYED next actual ACC body sees its own saved node image, never parent history worker1
+PASS NODE_FOREGROUND_DELAYED child history stays separate from actual parent transcript
+PASS controlled sibling guard waits for real pending node image publication without dispatch failure
+PASS actual service restart strictly reopens and retains valid node snapshot deliveries
+PASS actual restart detects deleted acknowledged node transcript and durably holds its session
+PASS lost node history never reaches a new model request or replays an ACC invocation
+
+MACOS EXECUTION SUBAGENTS E2E: ALL PASS

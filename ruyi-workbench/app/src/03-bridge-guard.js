@@ -187,9 +187,9 @@ function readdirTimed(dir, opts, timeoutMs) {
 // PF3 fix: bounded existence probe for an EXPLICITLY-KNOWN candidate path (a recentWorkspace). Confirms the dir
 // is still there WITHOUT listing it, so a known workspace on a slow drive isn't dropped just because its own
 // readdir timed out. Resolves to a Stats, null (error/absent), or STAT_TIMEOUT. Never throws.
-function statTimed(p, timeoutMs) {
+function statTimed(p, timeoutMs, options) {
   return Promise.race([
-    fsp.stat(p).catch(() => null),
+    fsp.stat(p, options).catch(() => null),
     new Promise(resolve => setTimeout(() => resolve(STAT_TIMEOUT), timeoutMs)),
   ]);
 }
@@ -227,7 +227,27 @@ async function listChildDirs(root) {
 
 // Core resolver (pure-ish: reads the FS, takes config for candidate roots). Exposed for e2e unit testing.
 // Returns { ok:true, matches:[{path, score}], truncated }.
-async function resolveWorkspace({ name, children }, config) {
+async function resolveWorkspace({ name, children, selectedPath }, config) {
+  // Native macOS pickers resolve aliases such as /var -> /private/var. Preserve
+  // an existing favorite's spelling and permissions when it names the same directory.
+  if (process.platform === 'darwin' && typeof selectedPath === 'string') {
+    if (!path.isAbsolute(selectedPath)) throw new Error('selectedPath must be absolute');
+    let timer;
+    const canonical = await Promise.race([fsp.realpath(selectedPath).catch(() => null),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), WORKSPACE_DIR_TIMEOUT_MS); }),
+    ]).finally(() => clearTimeout(timer));
+    if (!canonical) throw new Error('selectedPath could not be resolved');
+    const selected = await statTimed(canonical, WORKSPACE_DIR_TIMEOUT_MS, { bigint: true });
+    if (!selected || selected === STAT_TIMEOUT || !selected.isDirectory()) throw new Error('selectedPath must identify a directory');
+    const known = Array.isArray(config.workspaces) ? config.workspaces : [];
+    const resolved = await Promise.all(known.map(async favorite => ({ favorite,
+      stat: typeof favorite.path === 'string' && path.isAbsolute(favorite.path) ? await statTimed(favorite.path, WORKSPACE_DIR_TIMEOUT_MS, { bigint: true }) : null,
+    })));
+    const matching = resolved.filter(row => row.stat && row.stat !== STAT_TIMEOUT && row.stat.dev === selected.dev && row.stat.ino === selected.ino);
+    const favorite = matching[0]?.favorite;
+    return { ok: true, path: favorite?.path || canonical, ...(favorite ? { favorite } : {}),
+      aliases: Array.from(new Set([canonical, selectedPath, ...matching.map(row => row.favorite.path)])), matches: [] };
+  }
   const wantName = String(name || '').trim().toLowerCase();
   if (!wantName) return { ok: false, error: 'name is required', matches: [] };
   const wantChildren = new Set(
@@ -245,7 +265,7 @@ async function resolveWorkspace({ name, children }, config) {
   const candSeen = new Set();    // de-dupe by lowercased path
   const pushCand = p => {
     if (candidates.length >= WORKSPACE_CANDIDATE_CAP) { truncated = true; return; }
-    const key = String(p).toLowerCase();
+    const key = samePathKey(p);
     if (candSeen.has(key)) return;
     candSeen.add(key);
     candidates.push(p);
@@ -280,9 +300,9 @@ async function resolveWorkspace({ name, children }, config) {
   if (!overBudget()) addChildren(await listChildDirs(dwParent));
   // (d) recentWorkspaces — the exact dirs (their basenames can match directly). PF3 fix: track these as KNOWN
   // paths so a timeout on their own listing falls back to a bounded stat instead of dropping a real workspace.
-  const knownPaths = new Set(); // lowercased resolved paths the user has explicitly used
+  const knownPaths = new Set(); // platform-aware resolved paths explicitly used by the user
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) {
-    if (typeof w === 'string' && w) { const rp = path.resolve(w); pushCand(rp); knownPaths.add(rp.toLowerCase()); }
+    if (typeof w === 'string' && w) { const rp = path.resolve(w); pushCand(rp); knownPaths.add(samePathKey(rp)); }
   }
 
   // ── score candidates whose basename matches the wanted name ─────────────────────────────────────
@@ -298,7 +318,7 @@ async function resolveWorkspace({ name, children }, config) {
       const emptyScore = nameSetJaccard(wantChildren, new Set()); // 1 iff wantChildren is also empty, else 0
       if (emptyScore >= WORKSPACE_MATCH_THRESHOLD) {
         matches.push({ path: path.resolve(dir), score: Math.round(emptyScore * 1000) / 1000 });
-      } else if (knownPaths.has(String(dir).toLowerCase())) {
+      } else if (knownPaths.has(samePathKey(dir))) {
         // A KNOWN path (recentWorkspaces) with a non-empty fingerprint we couldn't read must NOT be dropped just
         // because its listing timed out. Confirm it still exists via a bounded stat and select it on the name
         // match alone (a workspace the user has actually used, basename == wanted name, is a real hit). Score at
@@ -316,7 +336,7 @@ async function resolveWorkspace({ name, children }, config) {
   // De-dupe by resolved path (a dir can appear via two roots), keep the higher score; sort DESC; ≤5.
   const bestByPath = new Map();
   for (const m of matches) {
-    const k = m.path.toLowerCase();
+    const k = samePathKey(m.path);
     if (!bestByPath.has(k) || bestByPath.get(k).score < m.score) bestByPath.set(k, m);
   }
   const sorted = [...bestByPath.values()].sort((a, b) => b.score - a.score).slice(0, 5);
@@ -354,7 +374,7 @@ function fileAllowedRoots(session, config) {
   push(dataRoot()); // generated artifacts, uploads, checkpoints all live here
   // De-dupe (case-insensitive on Windows).
   const seen = new Set();
-  return roots.filter(r => { const k = r.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  return roots.filter(r => { const k = samePathKey(r); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 // v2.7 (workspace permissions): roots where the native file tools may WRITE. session.cwd (current working
 // folder) and dataRoot (app artifacts) are always writable; every configured workspace with write !== false
@@ -374,17 +394,75 @@ function workspaceWriteRoots(session, config) {
   }
   // De-dupe (case-insensitive on Windows).
   const seen = new Set();
-  return roots.filter(r => { const k = r.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  return roots.filter(r => { const k = samePathKey(r); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 // True iff `target` (already path.resolve'd) is inside `root` (or IS `root`). Compares path segments to
 // avoid the classic prefix-substring bug (C:\ws-evil starting with C:\ws). Case-insensitive on win32.
+function macPathAnchor(input) {
+  let current = path.resolve(input);
+  const missing = [];
+  for (;;) {
+    try { return { path: current, stat: fs.statSync(current, { bigint: true }), missing }; }
+    catch (error) {
+      if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') return null;
+      const parent = path.dirname(current);
+      if (parent === current) return null;
+      missing.unshift(path.basename(current)); current = parent;
+    }
+  }
+}
+function sameFileIdentity(left, right) {
+  return left && right && left.ino !== 0n && left.dev === right.dev && left.ino === right.ino && left.birthtimeNs === right.birthtimeNs;
+}
+function macAnchorIgnoresAsciiCase(anchor) {
+  if (!anchor.stat.isDirectory()) return false;
+  let current = anchor.path;
+  let stat = anchor.stat;
+  for (;;) {
+    const parent = path.dirname(current);
+    if (parent === current) return false;
+    let parentStat;
+    try { parentStat = fs.statSync(parent, { bigint: true }); } catch { return false; }
+    // A mountpoint name is looked up on its parent's volume, not the mounted filesystem.
+    if (stat.dev !== parentStat.dev) return false;
+    const name = path.basename(current);
+    const alternate = name.replace(/[a-zA-Z]/, c => c === c.toLowerCase() ? c.toUpperCase() : c.toLowerCase());
+    if (alternate !== name) {
+      try {
+        const original = fs.lstatSync(current, { bigint: true });
+        const alternateStat = fs.lstatSync(path.join(parent, alternate), { bigint: true });
+        return original.isDirectory() && alternateStat.isDirectory() && sameFileIdentity(original, alternateStat);
+      } catch { return false; }
+    }
+    current = parent; stat = parentStat;
+  }
+}
 function pathWithinRoot(target, root) {
   const rel = path.relative(root, target);
-  // relative('' when equal); starts with '..' or is absolute → escapes the root.
-  if (rel === '') return true;
-  if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) return false;
-  return true;
+  if (rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel))) return true;
+  if (process.platform !== 'darwin') return false;
+  // Only a spelling/OS-alias candidate needs identity I/O. This is a prefilter, never authorization.
+  const spelling = p => path.resolve(p).replace(/^\/System\/Volumes\/Data(?=\/)/i, '')
+    .replace(/^\/(var|tmp|etc)(?=\/|$)/i, '/private/$1').replace(/[A-Z]/g, c => c.toLowerCase());
+  const candidate = path.posix.relative(spelling(root), spelling(target));
+  if (candidate === '..' || candidate.startsWith('../') || path.posix.isAbsolute(candidate)) return false;
+  const boundary = macPathAnchor(root);
+  let cursor = macPathAnchor(target);
+  if (!boundary || !cursor) return false;
+  const suffix = [...cursor.missing];
+  for (;;) {
+    if (sameFileIdentity(boundary.stat, cursor.stat)) {
+      const fold = macAnchorIgnoresAsciiCase(boundary);
+      const key = value => fold ? value.replace(/[A-Z]/g, c => c.toLowerCase()) : value;
+      return suffix.length >= boundary.missing.length && boundary.missing.every((part, index) => key(part) === key(suffix[index]));
+    }
+    const parent = path.dirname(cursor.path);
+    if (parent === cursor.path) return false;
+    suffix.unshift(path.basename(cursor.path));
+    try { cursor = { path: parent, stat: fs.statSync(parent, { bigint: true }) }; } catch { return false; }
+  }
 }
+
 function pathWithinAnyRoot(target, roots) {
   return roots.some(r => pathWithinRoot(target, r));
 }
@@ -423,7 +501,7 @@ async function resolveContainmentPath(rawPath) {
         // Windows 上悬空 junction 的 realpath 错误码不保证是 ENOENT,不能让它落进下面「其它错误 → 词法回退」那一支。
         let lst = null;
         try { lst = await fsp.lstat(probe); } catch { lst = null; }
-        if (!(lst && lst.isSymbolicLink()) && (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR'))) return { path: abs, unresolvable: false };
+        if (!(lst && lst.isSymbolicLink()) && (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR'))) return { path: abs, unresolvable: true };
         if (lst && lst.isSymbolicLink()) {
           if (depth >= REALPATH_LINK_DEPTH_MAX) return { path: abs, unresolvable: true };
           let target;
@@ -467,6 +545,9 @@ async function ensureDataRootReal() {
 // 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
+  // Mac ownership is outside the data root so long paths and data migration cannot split its lock.
+  // Reserve the full namespace (including /tmp's canonical alias) before workspace/bypass exceptions.
+  if (/^\/(?:System\/Volumes\/Data\/)?(?:private\/)?tmp\/ruyi-serve-v1-\d+(?:\/|$)/i.test(String(p))) return true;
   // 3.0 收口走查(第四波):先按 Windows 语义把每段的 NTFS 流后缀(`config.json::$DATA` 就是 config.json 的默认数据流,
   // `sessions::$INDEX_ALLOCATION\x` 就是 sessions\x)与尾随点 / 空格(`config.json.` → config.json)去掉再比。修前带后缀的串
   // 词法上判成「不在 config.json 里」、文件名正则也不中 → 敏感闸被绕过(第三波只给 autoexec 闸加了同样的剥离)。盘符段(`C:`)保留;
@@ -564,8 +645,35 @@ function isWriteProtectedDataPath(p) {
 // 不能靠文件名正则):ruyi-toolbox 组件登记目录(04 scanToolboxComponents 按登记文件起服务进程,RUYI_TOOLBOX_HOME
 // 可改位置)、发行包 mcp/ 整棵(随包 drop-in 的清单与它要起的代码,同 scanMcpDropIns)、Kimi Code 的 mcp.json(KIMI_CODE_HOME
 // 可改位置)。缺省位置的文件名形状另由 AUTOEXEC_DENYLIST 的正则兜住,任何工作区里的同名路径也一并拦。
-function isAutoLoadedLaunchConfigPath(p) {
+function isAutoLoadedLaunchConfigPath(p, targetStat) {
   if (!p) return false;
+  try {
+    const packageRoot = fs.realpathSync.native(externalRoot());
+    const nativeRoot = path.join(packageRoot, 'runtime', 'macos');
+    const roots = [{ base: packageRoot, suffix: path.join('runtime', 'macos') }];
+    try { roots.push({ base: fs.realpathSync.native(nativeRoot), suffix: '' }); } catch { /* runtime may not be installed yet */ }
+    for (const root of roots) {
+      if (pathWithinRoot(p, path.join(root.base, root.suffix))) return true;
+      if (process.platform === 'darwin') {
+        const prefix = '/System/Volumes/Data';
+        const alternate = root.base.startsWith(prefix + '/') ? root.base.slice(prefix.length) : prefix + root.base;
+        const source = fs.statSync(root.base, { bigint: true });
+        let alias = null;
+        try { alias = fs.statSync(alternate, { bigint: true }); } catch { /* this volume may have no Data alias */ }
+        if (alias && source.dev === alias.dev && source.ino === alias.ino
+            && pathWithinRoot(p, path.join(alternate, root.suffix))) return true;
+      }
+    }
+    // A helper's hard links and symlink targets can live outside the runtime directory.
+    if (targetStat && targetStat.ino) {
+      for (const name of ['ruyi-process-helper', 'ruyi-keychain-helper']) {
+        try {
+          const executable = fs.statSync(path.join(nativeRoot, name), { bigint: true });
+          if (sameFileIdentity(targetStat, executable)) return true;
+        } catch { /* Either helper can be absent in a source checkout. */ }
+      }
+    }
+  } catch { /* Source-only test contexts may not expose the external package root. */ }
   try {
     if (pathWithinRoot(p, path.resolve(toolboxComponentsDir()))) return true;
   } catch { /* 取不到登记目录:由正则兜底 */ }
@@ -741,7 +849,26 @@ function normalizeAutoexecPath(absPath) {
 // 即便用户选了全自动(bypass)模式放开全盘写,Windows/Program Files/ProgramData 等系统关键目录也不可经文件工具写入
 // (改系统文件=蓝屏/无法启动风险,且非用户工作产物)。读不拦(只读访问系统文件无破坏性)。词法 abs 与 realpath 后
 // real 都查(junction/短名部署下两者不同)。env 缺失时回落到 C:\ 常见系统目录。模块加载时算一次(env 不变)。
+const MAC_MANAGED_ROOTS = Object.freeze(['/Applications', '/Library', '/usr/local', '/opt/homebrew']);
+function macSystemPolicyPath(input) {
+  const absolute = path.resolve(input);
+  const match = /^\/System\/Volumes\/Data(?=\/)/i.exec(absolute);
+  if (!match) return absolute;
+  const anchor = macPathAnchor(absolute);
+  if (!anchor || anchor.path.length <= match[0].length) return absolute;
+  const alternate = anchor.path.slice(match[0].length);
+  try {
+    if (sameFileIdentity(anchor.stat, fs.statSync(alternate, { bigint: true }))) return path.join(alternate, ...anchor.missing);
+  } catch { /* A textual Data prefix alone is not an identity proof. */ }
+  return absolute;
+}
+function isMacManagedPath(input) {
+  if (process.platform !== 'darwin') return false;
+  const target = macSystemPolicyPath(input);
+  return MAC_MANAGED_ROOTS.some(root => pathWithinRoot(target, root));
+}
 const OS_CRITICAL_ROOTS = (() => {
+  if (process.platform === 'darwin') return ['/System', '/bin', '/sbin', '/dev', '/usr', '/etc', '/private/etc'];
   const out = [];
   const push = p => { if (p && typeof p === 'string') { try { out.push(path.resolve(p)); } catch { /* skip */ } } };
   push(process.env.SystemRoot || 'C:\\Windows');
@@ -758,6 +885,16 @@ const OS_CRITICAL_ROOTS = (() => {
 const OS_CRITICAL_ROOT_FILES = new Set(['pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'bootmgr', 'ntldr', 'bootnxt', 'bootsect.bak']);
 function isOsCriticalPath(absPath) {
   if (!absPath) return false;
+  if (process.platform === 'darwin') {
+    const target = macSystemPolicyPath(absPath);
+    if (['/', '/private', '/Users', '/Volumes', '/tmp', '/private/tmp'].some(root => pathWithinRoot(target, root) && pathWithinRoot(root, target))) return true;
+    if (pathWithinRoot(target, '/usr/local')) return false;
+    if (pathWithinRoot(target, '/private/var') || pathWithinRoot(target, '/var')) {
+      const temporary = ['/private/var/folders', '/private/var/tmp', '/var/folders', '/var/tmp'];
+      return !temporary.some(root => pathWithinRoot(target, root) && !pathWithinRoot(root, target));
+    }
+    return OS_CRITICAL_ROOTS.some(root => pathWithinRoot(target, root));
+  }
   const norm = path.resolve(absPath).split(/[\\/]/).join('/').toLowerCase();
   for (const r of OS_CRITICAL_ROOTS) {
     const rl = r.split(/[\\/]/).join('/').toLowerCase();
@@ -953,8 +1090,9 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   }
   // 安全走查 S7:config.json / runtime.json 的【硬链接别名】(同一个 inode 的另一个名字,路径上看不出来)按 dev+ino 比一道。
   // 目标存在才比;不存在(要新建的文件)/ 目录 / nlink=1 的普通文件一次 stat 就过。读写都拒(写进别名就是改写 config.json)。
+  let stTarget = null;
   try {
-    const stTarget = await fsp.stat(real, { bigint: true }).catch(() => null);
+    stTarget = await fsp.stat(real, { bigint: true }).catch(() => null);
     if (stTarget && await isSensitiveHardlinkStat(stTarget)) {
       logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive-hardlink', pathLen: abs.length });
       return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
@@ -971,7 +1109,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     }
     const normAbs = normalizeAutoexecPath(abs);
     const normReal = normalizeAutoexecPath(real);
-    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal)) || isAutoLoadedLaunchConfigPath(abs) || isAutoLoadedLaunchConfigPath(real)) {
+    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal)) || isAutoLoadedLaunchConfigPath(abs, stTarget) || isAutoLoadedLaunchConfigPath(real, stTarget)) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
       return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置/启动文件夹/PowerShell profile/.ssh 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
@@ -980,10 +1118,13 @@ async function guardFileToolPath(rawPath, ctx, opts) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-user-persistence', pathLen: abs.length });
       return { ok: false, code: 'autoexec-denied', error: '该路径是用户级登录 / 全局配置(shell 启动脚本、.gitconfig、Claude / Codex / Kimi 的全局指令与配置等),改动会在之后每次开终端或开 agent CLI 时生效,已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
+    if (isMacManagedPath(abs) || isMacManagedPath(real)) {
+      return { ok: false, code: 'managed-location-denied', error: '该路径属于应用或包管理目录，文件工具不可写入。维护此位置需要明确授权的执行操作。' };
+    }
     // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
     if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-os-critical', pathLen: abs.length });
-      return { ok: false, code: 'os-critical-denied', error: '该路径属于操作系统关键目录(Windows/Program Files/ProgramData 等),已禁止通过文件工具写入;如确需修改系统文件,请直接在终端以管理员权限操作' };
+      return { ok: false, code: 'os-critical-denied', error: process.platform === 'darwin' ? '该路径属于 macOS 系统关键目录，已禁止通过文件工具写入。' : '该路径属于操作系统关键目录(Windows/Program Files/ProgramData 等),已禁止通过文件工具写入;如确需修改系统文件,请直接在终端以管理员权限操作' };
     }
   }
   // v2.7.1 (opt#1): 全自动(bypass/bypassPermissions/auto)模式 = 宽【写】,等同 allowOutsideWorkspace=on(但不改配置)。
@@ -1151,14 +1292,13 @@ const REVEAL_OPEN_SAFE_EXTS = new Set([
   // 网页(浏览器沙箱打开)
   'html', 'htm',
 ]);
-function buildRevealSpawn(mode, absPath) {
+function buildRevealSpawn(mode, absPath, platform = process.platform) {
   const p = String(absPath || '');
   const ext = path.extname(p).slice(1).toLowerCase();
   const wantOpen = mode !== 'select';
   // 白名单默认拒绝:仅安全查看类扩展名可 'open',其余(可执行/脚本/LOLBin/未知/无扩展名)→ 降级 'select'。
   const effMode = (wantOpen && REVEAL_OPEN_SAFE_EXTS.has(ext)) ? 'open' : 'select';
-  const args = (effMode === 'select') ? ['/select,' + p] : [p];
-  return { command: 'explorer.exe', args, mode: effMode, degraded: wantOpen && effMode === 'select' };
+  return { ...platformOpenSpawn(p, effMode, platform), mode: effMode, degraded: wantOpen && effMode === 'select' };
 }
 // v1.4.6-S2: build the argv to open a URL / file with the OS default handler WITHOUT a shell. browser_open /
 // office_open used to do `cp.spawn('cmd.exe', ['/c','start','', target])` — cmd.exe splits a model-controlled
@@ -1166,8 +1306,8 @@ function buildRevealSpawn(mode, absPath) {
 // explorer.exe directly (Node CreateProcess passes argv verbatim — no shell) hands the URL/path to the
 // default browser/handler and never interprets shell metacharacters. Pure (no spawn); exposed for e2e argv
 // assertions. NB: the caller must still spawn with {detached, windowsHide, stdio:'ignore'}.unref().
-function buildOpenSpawn(target) {
-  return { command: 'explorer.exe', args: [String(target || '')] };
+function buildOpenSpawn(target, platform = process.platform) {
+  return platformOpenSpawn(target, 'open', platform);
 }
 
 // User-clicked code handoff is intentionally separate from office_open / file reveal. A source file may be
@@ -1197,7 +1337,7 @@ function executableFromAssociationCommand(command) {
 
 function classifyCodeEditorExecutable(executable) {
   const command = String(executable || '').trim();
-  const base = path.basename(command).toLowerCase();
+  const base = path.win32.basename(command).toLowerCase();
   if (!command || !base) return null;
   for (const [kind, names] of Object.entries(CODE_EDITOR_KINDS)) {
     if (names.has(base)) return { command, kind, label: codeEditorLabel(base) };
@@ -1248,6 +1388,20 @@ function resolvePreferredCodeEditor(filePath) {
   if (process.env.RUYI_TEST_HOOKS === '1' && process.env.RUYI_TEST_CODE_EDITOR) {
     return { command: String(process.env.RUYI_TEST_CODE_EDITOR), kind: 'vscode', label: 'Test Editor', source: 'test' };
   }
+  if (process.platform === 'darwin') {
+    const applications = ['Visual Studio Code', 'Visual Studio Code - Insiders', 'Cursor', 'Windsurf', 'VSCodium'];
+    for (const directory of [path.join(os.homedir(), 'Applications'), '/Applications']) {
+      for (const name of applications) {
+        const application = path.join(directory, name + '.app');
+        if (fs.existsSync(path.join(application, 'Contents', 'Info.plist'))) {
+          return { command: '/usr/bin/open', application, kind: 'mac-vscode', label: name, source: 'installed-fallback' };
+        }
+      }
+    }
+    const application = '/System/Applications/TextEdit.app';
+    if (fs.existsSync(application)) return { command: '/usr/bin/open', application, kind: 'mac-app', label: 'TextEdit', source: 'system-fallback' };
+    return null;
+  }
   const direct = classifyCodeEditorExecutable(windowsFileAssociationExecutable(filePath));
   if (direct && fs.existsSync(direct.command)) return { ...direct, source: 'file-association' };
   const targetExt = path.extname(String(filePath || '')).toLowerCase();
@@ -1266,6 +1420,18 @@ function resolvePreferredCodeEditor(filePath) {
 function buildCodeEditorSpawn(editor, action, beforePath, afterPath) {
   if (!editor || !editor.command) return { ok: false, error: '未检测到可安全打开代码的本机编辑器' };
   const current = String(afterPath || beforePath || '');
+  if (editor.kind === 'mac-vscode') {
+    const args = action === 'diff'
+      ? ['-n', '-a', editor.application, '--args', '--reuse-window', '--diff', String(beforePath || ''), String(afterPath || '')]
+      : ['-a', editor.application, '--', current];
+    if (action === 'diff' && (!beforePath || !afterPath)) return { ok: false, error: 'Diff 两侧文件路径不完整' };
+    return { ok: true, command: editor.command, args, mode: action === 'diff' ? 'diff' : 'open', editor: editor.label, source: editor.source };
+  }
+  if (editor.kind === 'mac-app') {
+    const fileOpenPrefix = ['-a', editor.application, '--'];
+    return { ok: true, command: editor.command, args: [...fileOpenPrefix, current], fileOpenPrefix,
+      mode: 'open', editor: editor.label, source: editor.source, diffUnsupported: action === 'diff' };
+  }
   if (action !== 'diff') return { ok: true, command: editor.command, args: [current], mode: 'open', editor: editor.label, source: editor.source };
   const before = String(beforePath || ''), after = String(afterPath || '');
   if (!before || !after) return { ok: false, error: 'Diff 两侧文件路径不完整' };
@@ -1363,10 +1529,12 @@ function isBrowserDocumentTarget(target) {
   const value = String(target || '').trim();
   return /^(https?:|file:)/i.test(value) || /\.html?$/i.test(value);
 }
-function buildBrowserOpenSpawn(target, browserExecutable = defaultBrowserExecutable()) {
+function buildBrowserOpenSpawn(target, browserExecutable = defaultBrowserExecutable(), platform = process.platform) {
   const value = String(target || '');
   if (!isBrowserDocumentTarget(value) || !browserExecutable) {
-    return { ...buildOpenSpawn(value), mode: 'shell-association', preservesWorkbench: true };
+    const spec = buildOpenSpawn(value, platform);
+    return { ...spec, mode: spec.mode === 'select' ? 'file-selection' : platform === 'darwin' ? 'system-default' : 'shell-association',
+      preservesWorkbench: platform === 'darwin' && isBrowserDocumentTarget(value) ? null : true };
   }
   const tabFlag = /firefox/i.test(path.basename(browserExecutable)) ? '-new-tab' : '--new-tab';
   return { command: browserExecutable, args: [tabFlag, value], mode: 'new-tab', preservesWorkbench: true };
@@ -1421,7 +1589,7 @@ async function readFilePreview(absPath, snapshot = null) {
 function existsExecutable(command) {
   if (!command) return false;
   const s = batchSafeSpawn(command, ['--version']);
-  const result = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 6000, ...s.opts });
+  const result = spawnProbeSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 6000, ...s.opts });
   if (result.error) return false;
   return !(isBatchLauncher(command) && result.status !== 0);   // 61-C6:判据同下方异步版(批处理启动器要求退出码 0)
 }
@@ -1457,9 +1625,9 @@ function probeGitCli() {
   if (_gitCliProbe && (now - _gitCliProbe.at) < GITCLI_CACHE_MS) return _gitCliProbe.value;
   let value = false;
   try {
-    const result = cp.spawnSync('git', ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
+    const result = spawnProbeSync('git', ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
     value = !result.error && result.status === 0;
-  } catch { value = false; }
+  } catch (error) { if (error.cleanupIncomplete) throw error; value = false; }
   _gitCliProbe = { at: now, value };
   return value;
 }

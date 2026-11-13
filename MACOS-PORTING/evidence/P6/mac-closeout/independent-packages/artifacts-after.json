@@ -1,0 +1,26 @@
+[
+  {
+    "variant": "full",
+    "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+    "imageSha256": "479a91fd76d9bf743b85b0be4fdfe7c9d8399490a960b2fdae97bb0b64eb8a51",
+    "imageBytes": 584388233,
+    "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+    "sourceFingerprints": 492,
+    "allCurrentAndCommitFingerprintsMatch": true,
+    "rawManifestSha256": "bb3a8bae08d10bda7753ca0e78489211d6b65920b5c9b3f3e10579a5223b9ac1",
+    "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout",
+    "distributionMetadataSha256": "883333f746a723d3718f08639e647c4176c3c0db957a4a922d14fbea9afe6f5d"
+  },
+  {
+    "variant": "slim",
+    "image": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout/Ruyi-macos-arm64-slim-internal-trial.dmg",
+    "imageSha256": "341207021a6c6114dab886ee189b5aa98484911d966193eea0f850fd03cf5918",
+    "imageBytes": 51629071,
+    "sourceCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+    "sourceFingerprints": 492,
+    "allCurrentAndCommitFingerprintsMatch": true,
+    "rawManifestSha256": "953c9dab8fd99861b0e6b37bb8a682f86bd5f6198a0f1dd34a4031045926c7c3",
+    "distribution": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout",
+    "distributionMetadataSha256": "9f2f80790892204c9aa550c927e6cc06c078625c66789f936e0eeeb733cc3d41"
+  }
+]

@@ -1,0 +1,197 @@
+Window: "P4-editor.py", App: Code.
+0 标准窗口 P4-editor.py, Secondary Actions: Raise, URL: file:///private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DN4wwO/P4%20%E5%8E%9F%E7%94%9F%E4%BA%A4%E4%BA%92%E5%B7%A5%E4%BD%9C%E5%8C%BA/P4-editor.py
+	1 container P4-editor.py
+		2 container
+			3 HTML 内容 P4-editor.py, URL: vscode-file://vscode-app/Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html
+				4 container
+					5 container
+						6 container
+							7 工具栏
+								8 按钮 (disabled) Go Back (⌃-)
+									9 文本 
+								10 按钮 (disabled) Go Forward (⌃⇧-)
+									11 文本 
+								12 工具栏 Agent Status
+									13 按钮 Open Quick Access
+									14 container
+										15 按钮 Toggle Chat
+											16 按钮 Toggle Chat
+												17 文本 
+										18 弹出式按钮 More Actions
+							19 工具栏
+								20 按钮 Open in Agents Window (⇧⌥⌘A)
+								21 按钮 Sign In
+									22 文本 Sign In
+							23 工具栏 Title actions
+								24 按钮 Customize Layout...
+									25 文本 
+								26 切换按钮 Description: Toggle Primary Side Bar (⌘B), Value: 0
+									27 文本 
+								28 切换按钮 Description: Toggle Panel (⌘J), Value: 0
+									29 文本 
+								30 切换按钮 Description: Toggle Secondary Side Bar (⌥⌘B), Value: 0
+									31 文本 
+						32 container Restricted Mode is intended for safe code browsing. Trust this window to enable all features. Use navigation keys to access banner actions.
+							33 container
+								34 按钮 Manage
+								35 按钮 Learn More
+							36 工具栏
+								37 按钮 Close Banner
+									38 文本 
+						39 container
+							40 container
+								41 标签页组 Active View Switcher
+									42 标签 (settable, integer) Explorer (⇧⌘E), Value: 0
+										43 container Explorer (⇧⌘E)
+											44 文本 
+									45 标签 (settable, integer) Search (⇧⌘F), Value: 0
+										46 container Search (⇧⌘F)
+											47 文本 
+									48 标签 (settable, integer) Source Control (⌃⇧G), Value: 0
+										49 container Source Control (⌃⇧G)
+											50 文本 
+									51 标签 (settable, integer) Run and Debug (⇧⌘D), Value: 0
+										52 container Run and Debug (⇧⌘D)
+											53 文本 
+									54 标签 (settable, integer) Extensions (⇧⌘X), Value: 0
+										55 container Extensions (⇧⌘X)
+											56 文本 
+								57 工具栏 Manage
+									58 弹出式按钮 Accounts
+										59 container Accounts
+											60 文本 
+									61 弹出式按钮 Manage
+										62 container Manage
+											63 文本 
+							64 container
+								65 container
+									66 container
+										67 container
+											68 标签页组
+												69 标签 (selected) Description: P4-editor.py, Value: 1
+													70 container /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DN4wwO/data/checkpoints/sess_1583ba90a9b42a6f/external-diff/1-0-1794076628435-2984c9/before/P4-editor.py ↔ /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DN4wwO/P4 原生交互工作区/P4-editor.py
+														71 文本 
+														72 text P4-editor.py ↔ P4-editor.py /var/…/before - /private/…/P4 原生交互工作区
+													73 工具栏 Tab actions
+														74 按钮 Close (⌘W)
+															75 文本 
+											76 工具栏 Editor actions
+												77 按钮 Previous Change (⇧⌥F5)
+													78 文本 
+												79 按钮 Next Change (⌥F5)
+													80 文本 
+												81 按钮 Swap Left and Right Side
+													82 文本 
+												83 切换按钮 Description: Show Leading/Trailing Whitespace Differences, Value: 0
+													84 文本 
+												85 切换按钮 Description: Toggle Collapse Unchanged Regions, Value: 0
+													86 文本 
+												87 按钮 Split Editor Right [⌥] Split Editor Down
+													88 文本 
+												89 弹出式按钮 More Actions...
+													90 文本 
+										91 内容列表
+											92 container
+												93 container /private
+													94 文本 private
+												95 文本 
+											96 container
+												97 container /private/var
+													98 文本 var
+												99 文本 
+											100 container
+												101 container /private/var/folders
+													102 文本 folders
+												103 文本 
+											104 container
+												105 container /private/var/folders/r3
+													106 文本 r3
+												107 文本 
+											108 container
+												109 container /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn
+													110 文本 pmqdt9dn18d2mgcqxzydrl1c0000gn
+												111 文本 
+											112 container
+												113 container /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T
+													114 文本 T
+												115 文本 
+											116 container
+												117 container /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DN4wwO
+													118 文本 ruyi-e2e-home-DN4wwO
+												119 文本 
+											120 container
+												121 container /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DN4wwO/P4 原生交互工作区
+													122 文本 P4 原生交互工作区
+												123 文本 
+											124 container /private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DN4wwO/P4 原生交互工作区/P4-editor.py
+												125 文本 
+												126 文本 P4-editor.py
+										127 container P4-editor.py
+											128 container
+												129 container
+													130 工具栏
+														131 弹出式按钮 More Actions...
+															132 文本 
+												133 container
+													134 editor (settable) The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Option+F1
+												135 container
+													136 editor (settable) The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Option+F1
+												137 图像
+												138 图像
+												139 图像
+						140 container
+							141 container remote
+								142 按钮 remote
+							143 container Restricted Mode: Some features are disabled because this window is not trusted.
+								144 按钮 Restricted Mode: Some features are disabled because this window is not trusted.
+									145 文本 
+									146 文本  Restricted Mode
+							147 container No Problems
+								148 按钮 No Problems
+									149 文本 
+									150 文本  0 
+									151 文本 
+									152 文本  0
+							153 container Notifications
+								154 按钮 Notifications
+							155 container Copilot status
+								156 按钮 Copilot status
+							157 container Python
+								158 按钮 Python
+							159 container LF
+								160 按钮 LF
+							161 container UTF-8
+								162 按钮 UTF-8
+							163 container Spaces: 4
+								164 按钮 Spaces: 4
+							165 container Ln 1, Col 1
+								166 按钮 Ln 1, Col 1
+					167 文本 Info: Do you want to install the recommended 'Python' extension from Microsoft for the Python language?
+					168 container
+						169 内容列表 Info: Do you want to install the recommended 'Python' extension from Microsoft for the Python language?, notification
+							170 container Info: Do you want to install the recommended 'Python' extension from Microsoft for the Python language?, notification, Inspect the response in the accessible view with Option+F2
+								171 container
+									172 按钮 Install
+									173 按钮 Show Recommendations
+									174 text  Do you want to install the recommended 'Python' extension from Microsoft for the Python language?
+									175 工具栏 Notification Actions
+										176 弹出式按钮 More Actions...
+											177 文本 
+										178 按钮 Clear Notification (⌘Backspace)
+											179 文本 
+	180 关闭按钮
+	181 全屏幕按钮 Help: 此按钮也可以执行缩放窗口的操作, Secondary Actions: 缩放窗口
+	182 最小化按钮
+183 menu bar
+	184 Code
+	185 File
+	186 Edit
+	187 Selection
+	188 View
+	189 Go
+	190 Run
+	191 Terminal
+	192 Window
+	193 Help
+
+The focused UI element is 3 HTML 内容 P4-editor.py, URL: vscode-file://vscode-app/Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html

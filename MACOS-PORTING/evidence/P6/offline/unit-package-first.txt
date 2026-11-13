@@ -1,0 +1,14 @@
+✔ payload checks detect byte changes, unexpected files, executable mode changes and missing files (2.385041ms)
+✔ relative internal framework links remain movable; absolute, broken and external links are refused (1.375625ms)
+✔ an App root replaced with a symlink to an external copy is refused (0.760584ms)
+✔ asset lock rejects changed components and missing provenance before building (1.846583ms)
+✔ manifest paths cannot escape their payload root (0.329834ms)
+✔ native audit rejects a real missing loader-relative dylib (189.551083ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 238.793375

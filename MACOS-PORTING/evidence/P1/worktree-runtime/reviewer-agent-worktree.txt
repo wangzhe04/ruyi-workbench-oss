@@ -1,0 +1,10 @@
+PASS isolation refuses an inconsistent dirty source snapshot
+PASS isolated worktree is created outside the repository
+PASS worktree storage does not pollute the source repository
+PASS isolated changes become a pending commit
+PASS main workspace remains untouched before explicit apply
+PASS apply refuses a dirty workspace without touching user changes
+PASS explicit apply cherry-picks the isolated commit
+PASS applied commit contains modified and untracked files
+PASS worktree is cleaned after successful apply
+AGENT WORKTREE E2E: ALL PASS

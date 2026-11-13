@@ -1,0 +1,7 @@
+{
+  "recordedAt": "2026-11-12T16:04:12.196534+00:00",
+  "authoredDiffWhitespacePassed": true,
+  "allStagedCheckExitCode": 2,
+  "rawEvidenceWhitespaceWarningCount": 18,
+  "policy": "Raw stdout/stderr logs are immutable evidence and were not trimmed or reformatted; authored docs/metadata check passes."
+}

@@ -1,0 +1,33 @@
+PASS workbench starts
+PASS runtime token is available
+PASS Claude question is emitted to the UI stream
+PASS Claude answer endpoint confirms actual delivery
+PASS Claude emits the answered semantic state before continuing
+PASS Claude continues with the selected answer
+PASS real Claude runs prefer the reliable workbench MCP question tool
+PASS Claude CLI receives the same independent-batch/dependent-stage tool guidance
+PASS a stale duplicate answer is rejected instead of reported as success
+PASS switches to OpenAI-compatible Provider
+PASS session engineRoute pinned to provider
+PASS Provider request_user_input opens the same UI question channel
+PASS question event carries the assistant background that preceded the options
+PASS question normalization exposes canonical multiple mode and the legacy multiSelect alias
+PASS question event preserves stable option ids, descriptions, and custom-answer capability
+PASS choice modes without options normalize to an answerable text question
+PASS Provider answer is confirmed delivered
+PASS Provider emits the same answered semantic state
+PASS Provider receives the request_user_input tool schema
+PASS Provider tool schema advertises answerMode, allowOther, and stable option ids
+PASS Provider continuation receives structured selections plus the typed custom answer
+PASS Provider continues after the mixed option/custom answer
+PASS active-turn replay skips already answered questions
+PASS duplicate question events reuse the queued/open prompt without auto-cancelling it
+PASS a background-session question is surfaced immediately instead of waiting for chat remount
+PASS UI closes the modal only after delivery acknowledgement
+PASS UI sends stable selected ids and a separate custom-answer field
+PASS UI renders an Other input alongside option descriptions
+PASS classic question UI renders the carried background context
+PASS UI keeps malformed empty-choice questions answerable and requires selected custom answers to contain text
+PASS single-choice questions no longer silently preselect the first option
+
+INTERACTIVE QUESTION E2E: ALL PASS

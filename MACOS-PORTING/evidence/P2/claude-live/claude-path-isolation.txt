@@ -1,0 +1,9 @@
+CLAUDE-BINARY LOCAL (真实CLI、本地确定性模型、无真实凭据)
+PASS local real Claude executable: 2.1.318 (Claude Code)
+PASS real Claude stream-json handshake uses the loopback model
+PASS real Claude Bash crosses the production permission bridge and returns a process PID
+PASS execution-bound stop aborts a resumed real Claude prompt
+PASS post-stop real Claude continuation retains the native session and structured Bash result
+PASS local Anthropic fixture has no hidden handler errors
+LOCAL_MODEL requests=5; no real account or credentials
+CLAUDE-BINARY LOCAL: ALL PASS

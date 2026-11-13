@@ -1,0 +1,639 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T12:26:56.331Z",
+  "scope": "Persistent supplement only; original reports untouched",
+  "originalBase": "/tmp/ruyi-p603-review",
+  "persistentBase": "MACOS-PORTING/evidence/P6/final",
+  "originalReports": [
+    {
+      "file": "alias-ref-fixed.txt",
+      "originalSha256": "9a53de67b0f334ab0aeb774e898d57d4a8502221ff7f7f75fb968a65afef0ca9",
+      "archivedSha256": "9a53de67b0f334ab0aeb774e898d57d4a8502221ff7f7f75fb968a65afef0ca9"
+    },
+    {
+      "file": "alias-ref-probe-after.json",
+      "originalSha256": "9106cd63b84a9c0794068dae9c09a1f0f36811b5cc9457b171c2e4d13d14b56c",
+      "archivedSha256": "9106cd63b84a9c0794068dae9c09a1f0f36811b5cc9457b171c2e4d13d14b56c"
+    },
+    {
+      "file": "alias-ref-probe-before.json",
+      "originalSha256": "939247433b9412b3caa6ace6677744e7f942332e8d7415c6c9eea30b4a994065",
+      "archivedSha256": "939247433b9412b3caa6ace6677744e7f942332e8d7415c6c9eea30b4a994065"
+    },
+    {
+      "file": "alias-ref-probe-refreshed.json",
+      "originalSha256": "cc8dd0d3949ccca5173e21d2d815d2eae3fc2b13d21408c356908a776f1b46c8",
+      "archivedSha256": "cc8dd0d3949ccca5173e21d2d815d2eae3fc2b13d21408c356908a776f1b46c8"
+    },
+    {
+      "file": "alias-ref-probe.json",
+      "originalSha256": "1e5bd39e58a4aace2086a6aff51cc9ac713d8db00a64226c03e4d88c2401656d",
+      "archivedSha256": "1e5bd39e58a4aace2086a6aff51cc9ac713d8db00a64226c03e4d88c2401656d"
+    },
+    {
+      "file": "alias-ref-refreshed.txt",
+      "originalSha256": "81173323404c51c99f31184b22b92624431d41e50ba05b3771864a44d843081c",
+      "archivedSha256": "81173323404c51c99f31184b22b92624431d41e50ba05b3771864a44d843081c"
+    },
+    {
+      "file": "baseline-applicability.json",
+      "originalSha256": "935efbfe7e330aa8a844484a41641c321d25e962940ff1ed19cd715497d78078",
+      "archivedSha256": "935efbfe7e330aa8a844484a41641c321d25e962940ff1ed19cd715497d78078"
+    },
+    {
+      "file": "baseline-failure-blocks.json",
+      "originalSha256": "1c9f59ce88406c295f4ed4cb3926394a7d0c4168628b68e2cae99cdd881d50c2",
+      "archivedSha256": "1c9f59ce88406c295f4ed4cb3926394a7d0c4168628b68e2cae99cdd881d50c2"
+    },
+    {
+      "file": "build-check-refreshed.txt",
+      "originalSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "archivedSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "file": "build-check-uri-final.txt",
+      "originalSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "archivedSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "file": "cancel-notify-contract-probe.json",
+      "originalSha256": "db586286e2705aaa24cc7f53d5a54bb549a8ea2ea01b5d57ad327408a71a2191",
+      "archivedSha256": "db586286e2705aaa24cc7f53d5a54bb549a8ea2ea01b5d57ad327408a71a2191"
+    },
+    {
+      "file": "candidate-provenance-after.json",
+      "originalSha256": "1f2961cd37e4bf1cd01c74a7da9bdb08c34b3b2049368437d2a806e1c3bd2d50",
+      "archivedSha256": "1f2961cd37e4bf1cd01c74a7da9bdb08c34b3b2049368437d2a806e1c3bd2d50"
+    },
+    {
+      "file": "candidate-provenance-after.txt",
+      "originalSha256": "47c29849586d1df71bd074c4ef4c42dfea1bb9cf91f72ff8648751c95c3881d7",
+      "archivedSha256": "47c29849586d1df71bd074c4ef4c42dfea1bb9cf91f72ff8648751c95c3881d7"
+    },
+    {
+      "file": "candidate-provenance-before.json",
+      "originalSha256": "a1081c1f4f7ef67293050f000ccf6e96eb4b4110d055d02db315783fb84c5931",
+      "archivedSha256": "a1081c1f4f7ef67293050f000ccf6e96eb4b4110d055d02db315783fb84c5931"
+    },
+    {
+      "file": "candidate-provenance-before.txt",
+      "originalSha256": "47c29849586d1df71bd074c4ef4c42dfea1bb9cf91f72ff8648751c95c3881d7",
+      "archivedSha256": "47c29849586d1df71bd074c4ef4c42dfea1bb9cf91f72ff8648751c95c3881d7"
+    },
+    {
+      "file": "case-alias-ref-probe-refreshed.json",
+      "originalSha256": "8a1eb73c969b07a2e55f1a95cf1da18a938ae5190801228ef34f806f17961209",
+      "archivedSha256": "8a1eb73c969b07a2e55f1a95cf1da18a938ae5190801228ef34f806f17961209"
+    },
+    {
+      "file": "case-alias-ref-probe.json",
+      "originalSha256": "857fb4f3cb2ca33500ea54ce3585fc39132c9d31738f3ee92d36e7a02df2921c",
+      "archivedSha256": "857fb4f3cb2ca33500ea54ce3585fc39132c9d31738f3ee92d36e7a02df2921c"
+    },
+    {
+      "file": "case-alias-ref-refreshed.txt",
+      "originalSha256": "bf4fab77783c53c734374be31509fba83cd7d58854dc94196a996820f7689610",
+      "archivedSha256": "bf4fab77783c53c734374be31509fba83cd7d58854dc94196a996820f7689610"
+    },
+    {
+      "file": "cleanup-full-install.json",
+      "originalSha256": "e9fe73ddb1153b089490e2a6392abf23f719e2e44ee64bc1e87d4b15f4316572",
+      "archivedSha256": "e9fe73ddb1153b089490e2a6392abf23f719e2e44ee64bc1e87d4b15f4316572"
+    },
+    {
+      "file": "cleanup-full-upgrade.json",
+      "originalSha256": "880cb864dd64515257a229e9deba1a7962b531e6f68f2be2b12b2feff916530a",
+      "archivedSha256": "880cb864dd64515257a229e9deba1a7962b531e6f68f2be2b12b2feff916530a"
+    },
+    {
+      "file": "cleanup-slim-install.json",
+      "originalSha256": "e32f52be10796fc13b9d5f6b2b5a09faa5e5b4d7da4cb4f282b6af02fca61508",
+      "archivedSha256": "e32f52be10796fc13b9d5f6b2b5a09faa5e5b4d7da4cb4f282b6af02fca61508"
+    },
+    {
+      "file": "cleanup-slim-upgrade.json",
+      "originalSha256": "1696cf792bdecc82f09937173cd5fb7668332eae2549f2b3168ade68a4c652fc",
+      "archivedSha256": "1696cf792bdecc82f09937173cd5fb7668332eae2549f2b3168ade68a4c652fc"
+    },
+    {
+      "file": "clone-related-unit.txt",
+      "originalSha256": "1633edacafeb9fa277ad3c1c77dc8c3265215b3edfd1a3e5a815e609bf2304bc",
+      "archivedSha256": "1633edacafeb9fa277ad3c1c77dc8c3265215b3edfd1a3e5a815e609bf2304bc"
+    },
+    {
+      "file": "code-review-before-final-tests.json",
+      "originalSha256": "8d5244bfc25652118db1e0b7c13e55267dd52caa1b5c0bada6ad7f2672f58940",
+      "archivedSha256": "8d5244bfc25652118db1e0b7c13e55267dd52caa1b5c0bada6ad7f2672f58940"
+    },
+    {
+      "file": "code-review-current.json",
+      "originalSha256": "c56632345215e2733dc6231e4a58f940a7ce7fa4fa41b079a04275dd2237786b",
+      "archivedSha256": "c56632345215e2733dc6231e4a58f940a7ce7fa4fa41b079a04275dd2237786b"
+    },
+    {
+      "file": "code-review-frozen.json",
+      "originalSha256": "b3c553817c23fcc30754675ca5054eacc67247d7a8978e5e5890a9117f5d4e7d",
+      "archivedSha256": "b3c553817c23fcc30754675ca5054eacc67247d7a8978e5e5890a9117f5d4e7d"
+    },
+    {
+      "file": "commit-binding-final.json",
+      "originalSha256": "d434d7bd7742af4c810f3e170f452d09d48f8f0b0b06b3cc6d7880eb82e58118",
+      "archivedSha256": "d434d7bd7742af4c810f3e170f452d09d48f8f0b0b06b3cc6d7880eb82e58118"
+    },
+    {
+      "file": "delta-commit-binding.json",
+      "originalSha256": "d61d195d2ca680a7c2b9ad6492737e998f339a5e01c6d8283e4338e4245ddf19",
+      "archivedSha256": "d61d195d2ca680a7c2b9ad6492737e998f339a5e01c6d8283e4338e4245ddf19"
+    },
+    {
+      "file": "dmg-clone-delta-review.json",
+      "originalSha256": "af7da1566ab426aebb2556fbc33a5ecaee5421efebbcf6632b545c6d04849f9a",
+      "archivedSha256": "af7da1566ab426aebb2556fbc33a5ecaee5421efebbcf6632b545c6d04849f9a"
+    },
+    {
+      "file": "docs-runner-review-current.json",
+      "originalSha256": "75dfc916c9035d5bb8e4c33331ec0acbfd313edec146bd6485c35c4c8b50d885",
+      "archivedSha256": "75dfc916c9035d5bb8e4c33331ec0acbfd313edec146bd6485c35c4c8b50d885"
+    },
+    {
+      "file": "exclusive-selection-review.json",
+      "originalSha256": "8e00a6dc7bca56c935911269afcba47351357a0f0ddf1814330b755ee748a4a4",
+      "archivedSha256": "8e00a6dc7bca56c935911269afcba47351357a0f0ddf1814330b755ee748a4a4"
+    },
+    {
+      "file": "final-full-install.txt",
+      "originalSha256": "a9cd84e8b10212e4bba0113a0c22a87ac9d73fe3f7cebe135deb17c6bd0096a5",
+      "archivedSha256": "a9cd84e8b10212e4bba0113a0c22a87ac9d73fe3f7cebe135deb17c6bd0096a5"
+    },
+    {
+      "file": "final-full-upgrade.txt",
+      "originalSha256": "14ab2fc6aa7e66c7422e4d02aa9544f3a53b9367e28feee094297e496bac8d42",
+      "archivedSha256": "14ab2fc6aa7e66c7422e4d02aa9544f3a53b9367e28feee094297e496bac8d42"
+    },
+    {
+      "file": "final-review.json",
+      "originalSha256": "fd168a6310fe61628e5b4e0001b5ace584b031c0b3f7738f48f4da5e328f4910",
+      "archivedSha256": "fd168a6310fe61628e5b4e0001b5ace584b031c0b3f7738f48f4da5e328f4910"
+    },
+    {
+      "file": "final-slim-install.txt",
+      "originalSha256": "655b201644d945ce4c523ad761d7845e6493fe9897b152255d3fc94d807b09f6",
+      "archivedSha256": "655b201644d945ce4c523ad761d7845e6493fe9897b152255d3fc94d807b09f6"
+    },
+    {
+      "file": "final-slim-upgrade.txt",
+      "originalSha256": "6ada2e17a48ef6440992cd93214568800661f7a9422d70e8ae7f61d0eefe5360",
+      "archivedSha256": "6ada2e17a48ef6440992cd93214568800661f7a9422d70e8ae7f61d0eefe5360"
+    },
+    {
+      "file": "guards-probe-refreshed.json",
+      "originalSha256": "3e36763fb417d99b035f73f6ca8f53bad9d3a92f568a9bd0f02a3ea546d4462e",
+      "archivedSha256": "3e36763fb417d99b035f73f6ca8f53bad9d3a92f568a9bd0f02a3ea546d4462e"
+    },
+    {
+      "file": "guards-probe-refreshed.txt",
+      "originalSha256": "dce5efd794cc5ef44bb794469fc73ad0ce83d29001c7d1be3f34496c289cc6a1",
+      "archivedSha256": "dce5efd794cc5ef44bb794469fc73ad0ce83d29001c7d1be3f34496c289cc6a1"
+    },
+    {
+      "file": "guards-probe.json",
+      "originalSha256": "dce5efd794cc5ef44bb794469fc73ad0ce83d29001c7d1be3f34496c289cc6a1",
+      "archivedSha256": "dce5efd794cc5ef44bb794469fc73ad0ce83d29001c7d1be3f34496c289cc6a1"
+    },
+    {
+      "file": "packager-cleanup-delta-review.json",
+      "originalSha256": "59a9336bb630103de4a4e6b3a66c8a9619ba067d5dd2c20bb6bda66c916f7e4f",
+      "archivedSha256": "59a9336bb630103de4a4e6b3a66c8a9619ba067d5dd2c20bb6bda66c916f7e4f"
+    },
+    {
+      "file": "raw-source-provenance.json",
+      "originalSha256": "68c237f19b7d35cac2727b2c1bbe22c7505189cc5151c2385717e864c9b8361e",
+      "archivedSha256": "68c237f19b7d35cac2727b2c1bbe22c7505189cc5151c2385717e864c9b8361e"
+    },
+    {
+      "file": "regression-coverage-review.json",
+      "originalSha256": "192ba2f81ec11019b00f996167bae461c5ce42b67f5aa8126b2a1325422612dc",
+      "archivedSha256": "192ba2f81ec11019b00f996167bae461c5ce42b67f5aa8126b2a1325422612dc"
+    },
+    {
+      "file": "related-unit.txt",
+      "originalSha256": "6a8363c751ff1c9fa2e11cf169bf208e6179aa62e13b97923e70e2a9547058e3",
+      "archivedSha256": "6a8363c751ff1c9fa2e11cf169bf208e6179aa62e13b97923e70e2a9547058e3"
+    },
+    {
+      "file": "run-evidence-index.json",
+      "originalSha256": "1034beca42731a067642bfb67db781bfa53227535d5be466918ed9fc6942093c",
+      "archivedSha256": "1034beca42731a067642bfb67db781bfa53227535d5be466918ed9fc6942093c"
+    },
+    {
+      "file": "runner-evidence-probe.json",
+      "originalSha256": "dcc9b2883a29456ae6208a0348a97e42b46035edda0240f7d5ddd056038a6302",
+      "archivedSha256": "dcc9b2883a29456ae6208a0348a97e42b46035edda0240f7d5ddd056038a6302"
+    },
+    {
+      "file": "source-binding-after.json",
+      "originalSha256": "6389e6980d60aec8d203d4e1c7ddf41ffca10392cbd58c9054c87195d942788a",
+      "archivedSha256": "6389e6980d60aec8d203d4e1c7ddf41ffca10392cbd58c9054c87195d942788a"
+    },
+    {
+      "file": "unit-cancel-final.txt",
+      "originalSha256": "95c69e7a843dbd15c83cde307407bd82c5fa3643e4641621758eba78a1fa722c",
+      "archivedSha256": "95c69e7a843dbd15c83cde307407bd82c5fa3643e4641621758eba78a1fa722c"
+    },
+    {
+      "file": "unit-current.txt",
+      "originalSha256": "9f24644d2974e7b984f3f7fc07f51e45b6bc97660bdf7b90a9ff7780fdb38b98",
+      "archivedSha256": "9f24644d2974e7b984f3f7fc07f51e45b6bc97660bdf7b90a9ff7780fdb38b98"
+    },
+    {
+      "file": "unit-fixed.txt",
+      "originalSha256": "37f325658b42b7c3e7158bd3208b62c00a4cc02184cb9670d52e03f02c23d5ca",
+      "archivedSha256": "37f325658b42b7c3e7158bd3208b62c00a4cc02184cb9670d52e03f02c23d5ca"
+    },
+    {
+      "file": "unit-initial.txt",
+      "originalSha256": "982e801e31cad13d56e84605fde164862e326452bf31617acc9001ed2e8c24bf",
+      "archivedSha256": "982e801e31cad13d56e84605fde164862e326452bf31617acc9001ed2e8c24bf"
+    },
+    {
+      "file": "unit-refreshed.txt",
+      "originalSha256": "a1eabb2295e397dbb3541eb8efd7cacd65e0e6388d5e70dd6df2a548b9441594",
+      "archivedSha256": "a1eabb2295e397dbb3541eb8efd7cacd65e0e6388d5e70dd6df2a548b9441594"
+    },
+    {
+      "file": "uri-contract-review.json",
+      "originalSha256": "a6a033726eb62facc26c3efff8d41cd4385fe56ae08efdbec8c316b8512c6961",
+      "archivedSha256": "a6a033726eb62facc26c3efff8d41cd4385fe56ae08efdbec8c316b8512c6961"
+    }
+  ],
+  "absoluteEvidenceReferenceMap": [
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "evidence",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-before.json",
+      "persistent": "alias-ref-probe-before.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+      "persistent": "alias-ref-probe-after.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+      "persistent": "case-alias-ref-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "evidence",
+      "original": "/tmp/ruyi-p603-review/unit-current.txt",
+      "persistent": "unit-current.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/unit-fixed.txt",
+      "persistent": "unit-fixed.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/related-unit.txt",
+      "persistent": "related-unit.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+      "persistent": "alias-ref-probe-after.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+      "persistent": "case-alias-ref-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/clone-related-unit.txt",
+      "persistent": "clone-related-unit.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "docsAndRunnerReview",
+      "original": "/tmp/ruyi-p603-review/docs-runner-review-current.json",
+      "persistent": "docs-runner-review-current.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/build-check-refreshed.txt",
+      "persistent": "build-check-refreshed.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/unit-refreshed.txt",
+      "persistent": "unit-refreshed.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-refreshed.json",
+      "persistent": "alias-ref-probe-refreshed.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/case-alias-ref-probe-refreshed.json",
+      "persistent": "case-alias-ref-probe-refreshed.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-before-final-tests.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/guards-probe-refreshed.json",
+      "persistent": "guards-probe-refreshed.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "evidence",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-before.json",
+      "persistent": "alias-ref-probe-before.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+      "persistent": "alias-ref-probe-after.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+      "persistent": "case-alias-ref-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "evidence",
+      "original": "/tmp/ruyi-p603-review/unit-current.txt",
+      "persistent": "unit-current.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/unit-fixed.txt",
+      "persistent": "unit-fixed.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/related-unit.txt",
+      "persistent": "related-unit.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+      "persistent": "alias-ref-probe-after.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-current.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+      "persistent": "case-alias-ref-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "priorReview",
+      "original": "/tmp/ruyi-p603-review/code-review-before-final-tests.json",
+      "persistent": "code-review-before-final-tests.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "evidence",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-before.json",
+      "persistent": "alias-ref-probe-before.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/alias-ref-probe-after.json",
+      "persistent": "alias-ref-probe-after.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/case-alias-ref-probe.json",
+      "persistent": "case-alias-ref-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "validation",
+      "original": "/tmp/ruyi-p603-review/guards-probe.json",
+      "persistent": "guards-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "evidence",
+      "original": "/tmp/ruyi-p603-review/unit-current.txt",
+      "persistent": "unit-current.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/unit-cancel-final.txt",
+      "persistent": "unit-cancel-final.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/cancel-notify-contract-probe.json",
+      "persistent": "cancel-notify-contract-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/exclusive-selection-review.json",
+      "persistent": "exclusive-selection-review.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "log",
+      "original": "/tmp/ruyi-p603-review/build-check-uri-final.txt",
+      "persistent": "build-check-uri-final.txt",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "report",
+      "original": "/tmp/ruyi-p603-review/baseline-applicability.json",
+      "persistent": "baseline-applicability.json",
+      "resolves": true
+    },
+    {
+      "originReport": "code-review-frozen.json",
+      "field": "documentationReview",
+      "original": "/tmp/ruyi-p603-review/docs-runner-review-current.json",
+      "persistent": "docs-runner-review-current.json",
+      "resolves": true
+    },
+    {
+      "originReport": "delta-commit-binding.json",
+      "field": "reviewReport",
+      "original": "/tmp/ruyi-p603-review/packager-cleanup-delta-review.json",
+      "persistent": "packager-cleanup-delta-review.json",
+      "resolves": true
+    },
+    {
+      "originReport": "docs-runner-review-current.json",
+      "field": "probe",
+      "original": "/tmp/ruyi-p603-review/runner-evidence-probe.json",
+      "persistent": "runner-evidence-probe.json",
+      "resolves": true
+    },
+    {
+      "originReport": "packager-cleanup-delta-review.json",
+      "field": "earlierReport",
+      "original": "/tmp/ruyi-p603-review/dmg-clone-delta-review.json",
+      "persistent": "dmg-clone-delta-review.json",
+      "resolves": true
+    },
+    {
+      "originReport": "packager-cleanup-delta-review.json",
+      "field": "rawSourceProof",
+      "original": "/tmp/ruyi-p603-review/raw-source-provenance.json",
+      "persistent": "raw-source-provenance.json",
+      "resolves": true
+    },
+    {
+      "originReport": "run-evidence-index.json",
+      "field": "archive",
+      "original": "/tmp/ruyi-p603-review/runs/independent-full-install",
+      "persistent": "runs/independent-full-install",
+      "resolves": true
+    },
+    {
+      "originReport": "run-evidence-index.json",
+      "field": "archive",
+      "original": "/tmp/ruyi-p603-review/runs/independent-full-upgrade",
+      "persistent": "runs/independent-full-upgrade",
+      "resolves": true
+    },
+    {
+      "originReport": "run-evidence-index.json",
+      "field": "archive",
+      "original": "/tmp/ruyi-p603-review/runs/independent-slim-install",
+      "persistent": "runs/independent-slim-install",
+      "resolves": true
+    },
+    {
+      "originReport": "run-evidence-index.json",
+      "field": "archive",
+      "original": "/tmp/ruyi-p603-review/runs/independent-slim-upgrade",
+      "persistent": "runs/independent-slim-upgrade",
+      "resolves": true
+    },
+    {
+      "originReport": "uri-contract-review.json",
+      "field": "independentLogicProbe",
+      "original": "/tmp/ruyi-p603-review/cancel-notify-contract-probe.json",
+      "persistent": "cancel-notify-contract-probe.json",
+      "resolves": true
+    }
+  ],
+  "historicalFixturePaths": "Original /var/... fixture paths and process snapshots are historical observations, not required live directories. Persistent run reports are under runs/independent-*; successful App clones were intentionally removed.",
+  "aliases": [
+    {
+      "original": "final-review.json",
+      "canonical": "review-final.json",
+      "identical": true
+    }
+  ],
+  "missing": [],
+  "pass": true
+}

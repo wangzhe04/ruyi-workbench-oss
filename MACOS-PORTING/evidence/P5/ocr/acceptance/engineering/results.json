@@ -1,0 +1,26 @@
+[
+  {
+    "name": "syntax",
+    "exit": 0,
+    "elapsed_seconds": 26.398,
+    "log": "syntax.txt"
+  },
+  {
+    "name": "build-check",
+    "exit": 0,
+    "elapsed_seconds": 0.145,
+    "log": "build-check.txt"
+  },
+  {
+    "name": "unit",
+    "exit": 0,
+    "elapsed_seconds": 117.431,
+    "log": "unit.txt"
+  },
+  {
+    "name": "static",
+    "exit": 0,
+    "elapsed_seconds": 129.398,
+    "log": "static.txt"
+  }
+]

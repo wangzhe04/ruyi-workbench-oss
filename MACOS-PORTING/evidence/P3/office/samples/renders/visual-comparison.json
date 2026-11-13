@@ -1,0 +1,38 @@
+{
+  "report.png": {
+    "samePixelsAsInspected": true,
+    "width": 1082,
+    "height": 1400,
+    "sha256": "8a48357ef33464c3bb45e2f2f61b4dde7b02db847b71b1cb4f8654187d010aee"
+  },
+  "data.png": {
+    "samePixelsAsInspected": true,
+    "width": 1082,
+    "height": 1400,
+    "sha256": "4bd8229ec6aebdeb0e029db12d68b435b607652ad1006c62cf0ea2c7ab65da14"
+  },
+  "slide-1.png": {
+    "samePixelsAsInspected": true,
+    "width": 1400,
+    "height": 788,
+    "sha256": "b73d0c3d0ca927fe4366ad5f5c2a2ad59da0e673fa3bdbb01bf343d9a4dcfb89"
+  },
+  "slide-2.png": {
+    "samePixelsAsInspected": true,
+    "width": 1400,
+    "height": 788,
+    "sha256": "7b69bc1f74ec5a22ee1bdb4132be942800fa2302c2e859c4c944087b3f0ec69f"
+  },
+  "slide-3.png": {
+    "samePixelsAsInspected": true,
+    "width": 1400,
+    "height": 788,
+    "sha256": "be5439a14dd07a7ccaa5ef59171624c093815f93b23e0eda784e62b07f6da104"
+  },
+  "summary.png": {
+    "samePixelsAsInspected": true,
+    "width": 990,
+    "height": 1400,
+    "sha256": "3faacecb44957d89939b70db1f838c9da4b26129cfa8d1924bea5f25efb0d889"
+  }
+}

@@ -1,0 +1,738 @@
+{
+  "sourceFreezePackageSha256": "f3ce7ff7523cb53c0897f129d6de8670d04950985f5c011096a490c759ffb615",
+  "sourceFreezePackage": "source-freeze-package.json",
+  "commitFingerprintSemantics": "git cat-file --filters at74d57; required CRLF checkout normalization from .gitattributes; working bytes match manifests",
+  "reviewer": "/root/p6_02_review",
+  "startedAt": "2026-11-12T15:50:15.022Z",
+  "node": "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+  "nodeVersion": "v24.15.0",
+  "tempRoot": "/private/tmp/ruyi-p6-independent-packages-gQBL6k",
+  "serial": true,
+  "automaticRetries": 0,
+  "productionCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+  "testBefore": {
+    "dev-harness/macos-trial-install.e2e.js": "abe06c2235818e36a3ff5b6bbd1a507aff7d08498ba3fd17285b5ddee036fb71",
+    "dev-harness/macos-upgrade-rollback.e2e.js": "1bf5198e95fe02bf1ffe31f8e2df46d8b9d301833019dd94e3fbe319e15381f8"
+  },
+  "oldNormalFullEnospc": "../package-main/full-upgrade.txt remains failed, not a normal-copy pass",
+  "cases": [
+    {
+      "variant": "full",
+      "kind": "install",
+      "cloneStaging": false,
+      "stagingMode": "normal-ditto-copy",
+      "file": "dev-harness/macos-trial-install.e2e.js",
+      "ms": 73010,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "full-install.txt",
+      "logSha256": "9ba69c68dd9b14a6f898a89703e0863338cd8da05994e661ad02425d22bd03a9",
+      "passCount": 13,
+      "rawPassLines": [
+        "MACOS TRIAL INSTALL E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "evidenceSource": "/private/tmp/ruyi-p6-independent-packages-gQBL6k/ruyi-trial-install-yq8j3A",
+      "archived": [
+        {
+          "file": "acceptance.json",
+          "bytes": 1899,
+          "sha256": "57d4dab8a908e7e9e7e066502685a8c9563a687b2caa3614d8540a7eb06319bf"
+        },
+        {
+          "file": "gatekeeper-assessment.json",
+          "bytes": 145,
+          "sha256": "1739ca1e952770bb3d5678c6a1689e6657fa34d3a9e65064521f8f33ae26b478"
+        },
+        {
+          "file": "launch-services.json",
+          "bytes": 657,
+          "sha256": "abf511cd66d3eccc10de4d83f7422ac738790edd955c2dc6f3f4672b086e1f1b"
+        },
+        {
+          "file": "native.json",
+          "bytes": 657,
+          "sha256": "2138b48a98a99b0425e5f1601a03295ed64bc6cd290afde7ae06f52b1605210c"
+        },
+        {
+          "file": "offline-journey.txt",
+          "bytes": 1697,
+          "sha256": "4409eb44bbd5dd4d4dd35f4900238294a5a43c50ed4f2a11d237028c25953e3b"
+        },
+        {
+          "file": "packaged-trash.json",
+          "bytes": 833,
+          "sha256": "3d962bc6b54336180c8dde504f5cd3b0408af865bb5c2868b05e942091d558df"
+        },
+        {
+          "file": "packaged-trash.txt",
+          "bytes": 798,
+          "sha256": "722ecadcb188488f78668e68b0ebc27777b6363dde58db3619c6b85d2c21001c"
+        }
+      ],
+      "observedProcesses": [
+        {
+          "pid": 12008,
+          "created": "1794498615024287",
+          "name": ""
+        },
+        {
+          "pid": 12010,
+          "created": "1794498615544754",
+          "name": ""
+        },
+        {
+          "pid": 12020,
+          "created": "1794498618016416",
+          "name": ""
+        },
+        {
+          "pid": 12038,
+          "created": "1794498621898379",
+          "name": ""
+        },
+        {
+          "pid": 12089,
+          "created": "1794498624042218",
+          "name": ""
+        },
+        {
+          "pid": 12225,
+          "created": "1794498625043484",
+          "name": ""
+        },
+        {
+          "pid": 12256,
+          "created": "1794498626494099",
+          "name": ""
+        },
+        {
+          "pid": 12267,
+          "created": "1794498633970872",
+          "name": ""
+        },
+        {
+          "pid": 12277,
+          "created": "1794498637241629",
+          "name": ""
+        },
+        {
+          "pid": 12298,
+          "created": "1794498637992726",
+          "name": ""
+        },
+        {
+          "pid": 12299,
+          "created": "1794498637994356",
+          "name": ""
+        },
+        {
+          "pid": 12300,
+          "created": "1794498637994715",
+          "name": ""
+        },
+        {
+          "pid": 12313,
+          "created": "1794498639832786",
+          "name": ""
+        },
+        {
+          "pid": 12352,
+          "created": "1794498644030425",
+          "name": ""
+        },
+        {
+          "pid": 12357,
+          "created": "1794498645122284",
+          "name": ""
+        },
+        {
+          "pid": 12361,
+          "created": "1794498648757102",
+          "name": ""
+        },
+        {
+          "pid": 12368,
+          "created": "1794498652548110",
+          "name": ""
+        },
+        {
+          "pid": 12382,
+          "created": "1794498653405306",
+          "name": ""
+        },
+        {
+          "pid": 12386,
+          "created": "1794498653560201",
+          "name": ""
+        },
+        {
+          "pid": 12390,
+          "created": "1794498653881270",
+          "name": ""
+        },
+        {
+          "pid": 12387,
+          "created": "1794498653562081",
+          "name": ""
+        },
+        {
+          "pid": 12391,
+          "created": "1794498653882901",
+          "name": ""
+        },
+        {
+          "pid": 12388,
+          "created": "1794498653562539",
+          "name": ""
+        },
+        {
+          "pid": 12392,
+          "created": "1794498653883369",
+          "name": ""
+        },
+        {
+          "pid": 12395,
+          "created": "1794498656084229",
+          "name": ""
+        },
+        {
+          "pid": 12405,
+          "created": "1794498656491995",
+          "name": ""
+        },
+        {
+          "pid": 12406,
+          "created": "1794498656667979",
+          "name": ""
+        },
+        {
+          "pid": 12401,
+          "created": "1794498656122040",
+          "name": ""
+        },
+        {
+          "pid": 12403,
+          "created": "1794498656123303",
+          "name": ""
+        },
+        {
+          "pid": 12404,
+          "created": "1794498656123765",
+          "name": ""
+        },
+        {
+          "pid": 12416,
+          "created": "1794498657727980",
+          "name": ""
+        },
+        {
+          "pid": 12417,
+          "created": "1794498657729633",
+          "name": ""
+        },
+        {
+          "pid": 12436,
+          "created": "1794498658092485",
+          "name": ""
+        },
+        {
+          "pid": 12418,
+          "created": "1794498657730272",
+          "name": ""
+        },
+        {
+          "pid": 12437,
+          "created": "1794498658094265",
+          "name": ""
+        },
+        {
+          "pid": 12432,
+          "created": "1794498658043500",
+          "name": ""
+        },
+        {
+          "pid": 12438,
+          "created": "1794498658094769",
+          "name": ""
+        },
+        {
+          "pid": 12441,
+          "created": "1794498658181119",
+          "name": ""
+        },
+        {
+          "pid": 12442,
+          "created": "1794498658182909",
+          "name": ""
+        },
+        {
+          "pid": 12443,
+          "created": "1794498658183413",
+          "name": ""
+        },
+        {
+          "pid": 12464,
+          "created": "1794498661264849",
+          "name": ""
+        },
+        {
+          "pid": 12465,
+          "created": "1794498661280314",
+          "name": ""
+        },
+        {
+          "pid": 12487,
+          "created": "1794498674363755",
+          "name": ""
+        },
+        {
+          "pid": 12488,
+          "created": "1794498674533278",
+          "name": ""
+        },
+        {
+          "pid": 12512,
+          "created": "1794498677094367",
+          "name": ""
+        },
+        {
+          "pid": 12509,
+          "created": "1794498676816357",
+          "name": ""
+        },
+        {
+          "pid": 12508,
+          "created": "1794498676814688",
+          "name": ""
+        },
+        {
+          "pid": 12507,
+          "created": "1794498676774410",
+          "name": ""
+        },
+        {
+          "pid": 12505,
+          "created": "1794498676630501",
+          "name": ""
+        },
+        {
+          "pid": 12502,
+          "created": "1794498676593398",
+          "name": ""
+        },
+        {
+          "pid": 12500,
+          "created": "1794498676367636",
+          "name": ""
+        },
+        {
+          "pid": 12499,
+          "created": "1794498676324220",
+          "name": ""
+        },
+        {
+          "pid": 12498,
+          "created": "1794498676317865",
+          "name": ""
+        },
+        {
+          "pid": 12522,
+          "created": "1794498678404729",
+          "name": ""
+        },
+        {
+          "pid": 12525,
+          "created": "1794498678646437",
+          "name": ""
+        },
+        {
+          "pid": 12558,
+          "created": "1794498684896408",
+          "name": ""
+        },
+        {
+          "pid": 12575,
+          "created": "1794498686785810",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "variant": "full",
+      "kind": "upgrade",
+      "cloneStaging": true,
+      "stagingMode": "apfs-owned-clone-and-checksummed-sync",
+      "file": "dev-harness/macos-upgrade-rollback.e2e.js",
+      "ms": 50985,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "full-upgrade.txt",
+      "logSha256": "f85f57bed645844bc73487c65a7109e442bd40580a8d9351d9f9c542c46ea5cd",
+      "passCount": 15,
+      "rawPassLines": [
+        "MACOS UPGRADE ROLLBACK E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "evidenceSource": "/private/tmp/ruyi-p6-independent-packages-gQBL6k/ruyi-upgrade-uWChJJ",
+      "archived": [
+        {
+          "file": "acceptance.json",
+          "bytes": 2894,
+          "sha256": "8a0f243d39c02cc953526a1948d60974d6186de469e9088bcdea8cb1b06a820b"
+        },
+        {
+          "file": "new-after.json",
+          "bytes": 657,
+          "sha256": "8bbf21cf2c4ec44692abae2ca41fb24ad9eb5e585b86c14be8c80639fad2beea"
+        },
+        {
+          "file": "old-before.json",
+          "bytes": 657,
+          "sha256": "0b9ac51e1151aa75d486638a061ee7b43d38ba3e599dc5704cab5e379c7f2d4a"
+        },
+        {
+          "file": "old-restored.json",
+          "bytes": 657,
+          "sha256": "9ebb10f316de68ed66c5774db4ff0276400cbca113c04705c0b977098cad79c9"
+        }
+      ],
+      "observedProcesses": [
+        {
+          "pid": 12579,
+          "created": "1794498688035555",
+          "name": ""
+        },
+        {
+          "pid": 12617,
+          "created": "1794498696021108",
+          "name": ""
+        },
+        {
+          "pid": 12623,
+          "created": "1794498700040156",
+          "name": ""
+        },
+        {
+          "pid": 12626,
+          "created": "1794498700171752",
+          "name": ""
+        },
+        {
+          "pid": 12635,
+          "created": "1794498703459075",
+          "name": ""
+        },
+        {
+          "pid": 12652,
+          "created": "1794498704021208",
+          "name": ""
+        },
+        {
+          "pid": 12657,
+          "created": "1794498704235666",
+          "name": ""
+        },
+        {
+          "pid": 12658,
+          "created": "1794498704237689",
+          "name": ""
+        },
+        {
+          "pid": 12659,
+          "created": "1794498704238072",
+          "name": ""
+        },
+        {
+          "pid": 12692,
+          "created": "1794498713067836",
+          "name": ""
+        },
+        {
+          "pid": 12700,
+          "created": "1794498716770997",
+          "name": ""
+        },
+        {
+          "pid": 12701,
+          "created": "1794498716774246",
+          "name": ""
+        },
+        {
+          "pid": 12716,
+          "created": "1794498726586992",
+          "name": ""
+        },
+        {
+          "pid": 12723,
+          "created": "1794498729298826",
+          "name": ""
+        },
+        {
+          "pid": 12747,
+          "created": "1794498730092086",
+          "name": ""
+        },
+        {
+          "pid": 12746,
+          "created": "1794498730054964",
+          "name": ""
+        },
+        {
+          "pid": 12755,
+          "created": "1794498730328404",
+          "name": ""
+        },
+        {
+          "pid": 12758,
+          "created": "1794498730626419",
+          "name": ""
+        },
+        {
+          "pid": 12775,
+          "created": "1794498731112553",
+          "name": ""
+        },
+        {
+          "pid": 12788,
+          "created": "1794498732835317",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "variant": "slim",
+      "kind": "install",
+      "cloneStaging": false,
+      "stagingMode": "normal-ditto-copy",
+      "file": "dev-harness/macos-trial-install.e2e.js",
+      "ms": 11722,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "slim-install.txt",
+      "logSha256": "7622122945ec009543cb57c13a9948ef0e07c03df514e57651d837b67c6bac38",
+      "passCount": 13,
+      "rawPassLines": [
+        "MACOS TRIAL INSTALL E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "evidenceSource": "/private/tmp/ruyi-p6-independent-packages-gQBL6k/ruyi-trial-install-7lbdK3",
+      "archived": [
+        {
+          "file": "acceptance.json",
+          "bytes": 1899,
+          "sha256": "9810f2a82c9708dd15db33331b4cd06f3d6b16929fa1522e836b700fc2e6928e"
+        },
+        {
+          "file": "gatekeeper-assessment.json",
+          "bytes": 145,
+          "sha256": "0fc4157e04522a5adc9628e3ba173cd22a356b3b7c0dc5b456f2965026cab6ef"
+        },
+        {
+          "file": "launch-services.json",
+          "bytes": 657,
+          "sha256": "58693d5fd694144f2f71414d711360c9ca6a6378eadd9e2a7d4cdc0addb87a23"
+        },
+        {
+          "file": "native.json",
+          "bytes": 657,
+          "sha256": "34f106a5dfede9e43598062c8c0ce032c6c843d4b5c504581532c1362c4649b2"
+        },
+        {
+          "file": "offline-journey.txt",
+          "bytes": 869,
+          "sha256": "139a9a22cf3dd619e8c0ed40faf090f5d4760a06dd52a7efb1390929b4c33087"
+        },
+        {
+          "file": "packaged-trash.json",
+          "bytes": 833,
+          "sha256": "1363f562af2e2c9b403be38bf3b90e559026ff01c2af84e09da09197e0d384b4"
+        },
+        {
+          "file": "packaged-trash.txt",
+          "bytes": 798,
+          "sha256": "722ecadcb188488f78668e68b0ebc27777b6363dde58db3619c6b85d2c21001c"
+        }
+      ],
+      "observedProcesses": [
+        {
+          "pid": 12801,
+          "created": "1794498739021304",
+          "name": ""
+        },
+        {
+          "pid": 12804,
+          "created": "1794498739183291",
+          "name": ""
+        },
+        {
+          "pid": 12817,
+          "created": "1794498741009469",
+          "name": ""
+        },
+        {
+          "pid": 12847,
+          "created": "1794498742194401",
+          "name": ""
+        },
+        {
+          "pid": 12851,
+          "created": "1794498743477532",
+          "name": ""
+        },
+        {
+          "pid": 12869,
+          "created": "1794498744012880",
+          "name": ""
+        },
+        {
+          "pid": 12881,
+          "created": "1794498744450497",
+          "name": ""
+        },
+        {
+          "pid": 12918,
+          "created": "1794498746065593",
+          "name": ""
+        },
+        {
+          "pid": 12920,
+          "created": "1794498746318905",
+          "name": ""
+        },
+        {
+          "pid": 12922,
+          "created": "1794498747351202",
+          "name": ""
+        },
+        {
+          "pid": 12939,
+          "created": "1794498748477853",
+          "name": ""
+        },
+        {
+          "pid": 12942,
+          "created": "1794498748730237",
+          "name": ""
+        },
+        {
+          "pid": 12971,
+          "created": "1794498749949886",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    },
+    {
+      "variant": "slim",
+      "kind": "upgrade",
+      "cloneStaging": false,
+      "stagingMode": "normal-ditto-copy",
+      "file": "dev-harness/macos-upgrade-rollback.e2e.js",
+      "ms": 8765,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "log": "slim-upgrade.txt",
+      "logSha256": "a0c24d9a4e6475ebc95140f74b8841adf40a637861bbffc81620edf74935216b",
+      "passCount": 14,
+      "rawPassLines": [
+        "MACOS UPGRADE ROLLBACK E2E: ALL PASS"
+      ],
+      "skipLines": [],
+      "evidenceSource": "/private/tmp/ruyi-p6-independent-packages-gQBL6k/ruyi-upgrade-zXHdnN",
+      "archived": [
+        {
+          "file": "acceptance.json",
+          "bytes": 2874,
+          "sha256": "ecc53bbd164c62d7e53a8666138ab24cc2dfb2a08130e913be8a755fe74e5ce1"
+        },
+        {
+          "file": "new-after.json",
+          "bytes": 657,
+          "sha256": "094c0d898710abeaff4a0819d29460402f19867e047d4477252320f188ea42c3"
+        },
+        {
+          "file": "old-before.json",
+          "bytes": 657,
+          "sha256": "6f424d343a579813846f9450db99df34147751ac70565178dc19f3ebfd934acb"
+        },
+        {
+          "file": "old-restored.json",
+          "bytes": 657,
+          "sha256": "06891b8ab833836212b6af4c1ae03bb5ead80e201f5fdf85e11089272b6c256c"
+        }
+      ],
+      "observedProcesses": [
+        {
+          "pid": 12990,
+          "created": "1794498750744484",
+          "name": ""
+        },
+        {
+          "pid": 13010,
+          "created": "1794498751604652",
+          "name": ""
+        },
+        {
+          "pid": 13017,
+          "created": "1794498753006164",
+          "name": ""
+        },
+        {
+          "pid": 13034,
+          "created": "1794498753697992",
+          "name": ""
+        },
+        {
+          "pid": 13064,
+          "created": "1794498755508864",
+          "name": ""
+        },
+        {
+          "pid": 13068,
+          "created": "1794498756663028",
+          "name": ""
+        },
+        {
+          "pid": 13104,
+          "created": "1794498757664000",
+          "name": ""
+        },
+        {
+          "pid": 13108,
+          "created": "1794498757994518",
+          "name": ""
+        },
+        {
+          "pid": 13129,
+          "created": "1794498758703249",
+          "name": ""
+        }
+      ],
+      "snapshotFailure": false,
+      "observedSurvivors": []
+    }
+  ],
+  "source54Unchanged": true,
+  "source492Unchanged": true,
+  "finishedAt": "2026-11-12T15:52:39.902Z",
+  "artifactsUnchanged": true,
+  "testAfter": {
+    "dev-harness/macos-trial-install.e2e.js": "abe06c2235818e36a3ff5b6bbd1a507aff7d08498ba3fd17285b5ddee036fb71",
+    "dev-harness/macos-upgrade-rollback.e2e.js": "1bf5198e95fe02bf1ffe31f8e2df46d8b9d301833019dd94e3fbe319e15381f8"
+  },
+  "testBytesUnchanged": true,
+  "executed": 4,
+  "failed": 0,
+  "harnessCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+  "source54CommitBindingPass": true
+}

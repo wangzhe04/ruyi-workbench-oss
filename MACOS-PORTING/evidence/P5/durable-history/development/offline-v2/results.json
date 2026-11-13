@@ -1,0 +1,1234 @@
+{
+  "targetServer": "/private/tmp/ruyi-p5-durable-history-worktree/ruyi-workbench/app/server.js",
+  "serverSha256": "817ae75eb847e7af3f68d171f39735eb89ef5f61bb62e85107b93586ad97bd35",
+  "turns": [
+    {
+      "label": "HISTORY_CRASH_AFTER_PREFIX",
+      "id": "sess_327d51cf703785ee",
+      "calls": [
+        {
+          "name": "tool_invoke_edit",
+          "args": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt",
+              "content": "completed prefix"
+            }
+          },
+          "id": "call_1"
+        },
+        {
+          "name": "request_user_input",
+          "args": {
+            "questions": [
+              {
+                "question": "Offline pending barrier",
+                "options": [
+                  "a",
+                  "b"
+                ]
+              }
+            ]
+          },
+          "id": "call_2"
+        }
+      ],
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_327d51cf703785ee",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "HISTORY_CRASH_AFTER_PREFIX",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+            "createdAt": "2026-11-11T11:14:32.288Z",
+            "updatedAt": "2026-11-11T11:14:32.289Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_327d51cf703785ee",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "1e1caecfb946",
+            "driverRunId": "drun_47365dba1ec4bedb",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T11:14:32.391Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:63825/v1",
+          "args": [],
+          "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+          "model": "fake-model",
+          "permissionMode": "bypass",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 47,
+          "availableTools": 73,
+          "bridgedTools": 0,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core",
+            "files_read",
+            "files_write",
+            "code"
+          ],
+          "toolSchemaTokens": 12900,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.674Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.676Z"
+        },
+        {
+          "traceId": "trace_cbcf6d7576ff8727",
+          "type": "context_estimate",
+          "contextTokens": 15640,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T11:14:32.678Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_edit\",\"arguments\":\"{\\\"name\\\":\\\"file_write\\\",\\\"arguments\\\":{\\\"path\\\":\\\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\\\",\\\"content\\\":\\\"completed prefix\\\"}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.683Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"call_2\",\"type\":\"function\",\"function\":{\"name\":\"request_user_input\",\"arguments\":\"{\\\"questions\\\":[{\\\"question\\\":\\\"Offline pending barrier\\\",\\\"options\\\":[\\\"a\\\",\\\"b\\\"]}]}\"}}]},\"finish_reason\":null}]}",
+          "seq": 1,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.683Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 2,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.683Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_1",
+          "name": "tool_invoke_edit",
+          "input": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt",
+              "content": "completed prefix"
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.686Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_1",
+          "content": {
+            "ok": true,
+            "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt",
+            "op": "create",
+            "bytes": 16,
+            "sourceLineEnding": "none",
+            "writtenLineEnding": "none",
+            "encoding": "utf8",
+            "proxyNote": "file_write 已在你的工具表里:下次直接调用 file_write,不要再经 tool_invoke_*"
+          },
+          "isError": false,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.700Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_2",
+          "name": "request_user_input",
+          "input": {
+            "questions": [
+              {
+                "question": "Offline pending barrier",
+                "options": [
+                  "a",
+                  "b"
+                ]
+              }
+            ]
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.702Z"
+        },
+        {
+          "type": "ask_user",
+          "id": "question_b3c41b95a4ccb90b",
+          "questionId": "question_b3c41b95a4ccb90b",
+          "toolUseId": "call_2",
+          "questions": [
+            {
+              "id": "question_1",
+              "header": "",
+              "question": "Offline pending barrier",
+              "answerMode": "single",
+              "multiSelect": false,
+              "allowOther": true,
+              "otherLabel": "",
+              "otherPlaceholder": "",
+              "options": [
+                {
+                  "id": "option_1",
+                  "label": "a",
+                  "description": ""
+                },
+                {
+                  "id": "option_2",
+                  "label": "b",
+                  "description": ""
+                }
+              ]
+            }
+          ],
+          "deadlineAt": 1796542672701,
+          "timeoutMs": 2147000000,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "ts": "2026-11-11T11:14:32.702Z"
+        }
+      ],
+      "sent": true,
+      "streamEnd": {
+        "error": "terminated"
+      }
+    },
+    {
+      "label": "HISTORY_DENIED_INTENT",
+      "id": "sess_1b53b36d6b2c4f6c",
+      "calls": [
+        {
+          "name": "tool_invoke_edit",
+          "args": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt",
+              "content": "must not write"
+            }
+          },
+          "id": "call_1"
+        }
+      ],
+      "events": [
+        {
+          "type": "session",
+          "session": {
+            "id": "sess_1b53b36d6b2c4f6c",
+            "schemaVersion": 1,
+            "turnSeq": 0,
+            "title": "HISTORY_DENIED_INTENT",
+            "summary": "",
+            "pinned": false,
+            "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+            "createdAt": "2026-11-11T11:14:33.033Z",
+            "updatedAt": "2026-11-11T11:14:33.034Z",
+            "claudeSessionId": null,
+            "providerHistoryCursor": 0,
+            "privacyHistoryV1": false,
+            "attachments": [],
+            "engineRoute": {
+              "engine": "openai",
+              "providerId": "fake",
+              "model": "fake-model"
+            },
+            "mission": null,
+            "missionId": "sess_1b53b36d6b2c4f6c",
+            "kind": "quick_ask",
+            "origin": "user",
+            "titleSource": "user",
+            "todos": [],
+            "skills": [],
+            "memories": [],
+            "memoriesExplicit": false,
+            "memoryExclusions": [],
+            "messages": [],
+            "providerHistory": []
+          },
+          "execution": {
+            "serverInstanceId": "e573578d633d",
+            "driverRunId": "drun_a23a467d7c00687e",
+            "phase": "starting"
+          },
+          "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+          "ts": "2026-11-11T11:14:33.134Z"
+        },
+        {
+          "type": "meta",
+          "command": "fake · http://127.0.0.1:63825/v1",
+          "args": [],
+          "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+          "model": "fake-model",
+          "permissionMode": "default",
+          "engine": "openai",
+          "providerLabel": "fake",
+          "tools": 19,
+          "availableTools": 73,
+          "bridgedTools": 0,
+          "toolLoadingMode": "auto",
+          "toolPacks": [
+            "core"
+          ],
+          "toolSchemaTokens": 4827,
+          "memoryCheck": {
+            "mode": "default",
+            "enabled": true,
+            "checked": true,
+            "candidateCount": 0,
+            "matchCount": 0,
+            "ruleFillCount": 0,
+            "projectMatches": 0,
+            "globalMatches": 0,
+            "excludedCount": 0,
+            "coreActiveCount": 0
+          },
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.334Z"
+        },
+        {
+          "type": "process",
+          "state": "running",
+          "pid": null,
+          "interactive": false,
+          "engine": "openai",
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.336Z"
+        },
+        {
+          "traceId": "trace_16cdbb1315a468c4",
+          "type": "context_estimate",
+          "contextTokens": 7553,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T11:14:33.337Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"tool_invoke_edit\",\"arguments\":\"{\\\"name\\\":\\\"file_write\\\",\\\"arguments\\\":{\\\"path\\\":\\\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt\\\",\\\"content\\\":\\\"must not write\\\"}}\"}}]},\"finish_reason\":null}]}",
+          "seq": 0,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.340Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+          "seq": 1,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.341Z"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_1",
+          "name": "tool_invoke_edit",
+          "input": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt",
+              "content": "must not write"
+            }
+          },
+          "batchId": "openai-batch-1",
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.346Z"
+        },
+        {
+          "type": "permission_request",
+          "requestId": "perm_3d158bc30562860f",
+          "toolName": "tool_invoke_edit",
+          "input": {
+            "name": "file_write",
+            "arguments": {
+              "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt",
+              "content": "must not write"
+            }
+          },
+          "tier": "edit",
+          "revertible": false,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.346Z"
+        },
+        {
+          "type": "permission_decision",
+          "requestId": "perm_3d158bc30562860f",
+          "behavior": "deny",
+          "message": "denied by user",
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.369Z"
+        },
+        {
+          "type": "tool_result",
+          "id": "call_1",
+          "content": {
+            "ok": false,
+            "error": "denied by user"
+          },
+          "isError": true,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.370Z"
+        },
+        {
+          "type": "failure_classified",
+          "source": "runtime-shadow",
+          "traceId": "trace_16cdbb1315a468c4",
+          "toolCallId": "call_1",
+          "toolName": "tool_invoke_edit",
+          "iteration": 0,
+          "classifierVersion": "deterministic-v3",
+          "failureClass": "permission_denied",
+          "recoverableHint": false,
+          "allowedRepair": "request_authority",
+          "deterministic": true,
+          "tier": "edit",
+          "disposition": "executed",
+          "evidenceHash": "65573400545d5e22",
+          "ts": "2026-11-11T11:14:33.370Z"
+        },
+        {
+          "traceId": "trace_16cdbb1315a468c4",
+          "type": "context_estimate",
+          "contextTokens": 7707,
+          "contextWindow": 1000000,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "ts": "2026-11-11T11:14:33.373Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"fixture complete\"},\"finish_reason\":null}]}",
+          "seq": 2,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.374Z"
+        },
+        {
+          "type": "assistant_delta",
+          "text": "fixture complete",
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.375Z"
+        },
+        {
+          "type": "raw_line",
+          "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+          "seq": 3,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.375Z"
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "input_tokens": 2880,
+            "output_tokens": 4
+          },
+          "contextTokens": 2884,
+          "contextWindow": 1000000,
+          "calls": 0,
+          "estimated": true,
+          "contextEngine": "openai",
+          "contextProviderId": "fake",
+          "contextModel": "fake-model",
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.375Z"
+        },
+        {
+          "type": "turn_summary",
+          "turnSeq": 1,
+          "filesChanged": [],
+          "commands": 0,
+          "artifacts": [],
+          "irreversible": [],
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.377Z"
+        },
+        {
+          "type": "process",
+          "state": "idle",
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.377Z"
+        },
+        {
+          "type": "result",
+          "ok": true,
+          "aborted": false,
+          "traceId": "trace_16cdbb1315a468c4",
+          "ts": "2026-11-11T11:14:33.377Z"
+        }
+      ],
+      "sent": true
+    }
+  ],
+  "snapshots": [
+    {
+      "label": "before-kill",
+      "id": "sess_327d51cf703785ee",
+      "head": {
+        "id": "sess_327d51cf703785ee",
+        "schemaVersion": 1,
+        "turnSeq": 1,
+        "title": "HISTORY_CRASH_AFTER_PREFIX",
+        "summary": "",
+        "pinned": false,
+        "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+        "createdAt": "2026-11-11T11:14:32.288Z",
+        "updatedAt": "2026-11-11T11:14:32.700Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 1,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_327d51cf703785ee",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "toolSchemaNames": [
+          "media_probe",
+          "audio_inspect",
+          "code_check",
+          "acceptance_report",
+          "workbench_memory_list",
+          "workbench_memory_read",
+          "workbench_memory_propose",
+          "observation_recall",
+          "shell_run",
+          "file_read",
+          "file_write",
+          "audio_transcribe",
+          "file_edit",
+          "file_delete",
+          "checkpoint_list",
+          "file_move",
+          "file_copy",
+          "file_list",
+          "file_search",
+          "glob",
+          "project_snapshot",
+          "git_status",
+          "git_diff",
+          "git_log",
+          "git_commit",
+          "dependency_inventory",
+          "code_review_scan",
+          "frontend_audit",
+          "claude_md_audit",
+          "docs_search",
+          "codebase_symbol_search",
+          "debug_hypothesis",
+          "data_profile",
+          "web_search",
+          "web_fetch",
+          "request_user_input",
+          "todo_write",
+          "mission_update",
+          "workbench_self_status",
+          "thread_title_update",
+          "scratchpad_write",
+          "list_tools",
+          "tool_search",
+          "tool_load",
+          "tool_invoke_read",
+          "tool_invoke_edit",
+          "tool_invoke_exec"
+        ],
+        "backgroundJobSeen": [],
+        "recentUserRequest": {
+          "text": "HISTORY_CRASH_AFTER_PREFIX",
+          "turnSeq": 1,
+          "at": "2026-11-11T11:14:32.391Z"
+        },
+        "storageVersion": 2,
+        "messageCount": 1,
+        "providerHistoryCount": 3
+      },
+      "provider": [
+        {
+          "role": "user",
+          "content": "HISTORY_CRASH_AFTER_PREFIX\n\n[本条消息发送于 2026-11-11 19:14 周三(本地时间 UTC+08:00)]"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "tool_invoke_edit",
+                "arguments": "{\"name\":\"file_write\",\"arguments\":{\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\",\"content\":\"completed prefix\"}}"
+              }
+            },
+            {
+              "id": "call_2",
+              "type": "function",
+              "function": {
+                "name": "request_user_input",
+                "arguments": "{\"questions\":[{\"question\":\"Offline pending barrier\",\"options\":[\"a\",\"b\"]}]}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_1",
+          "content": "{\"ok\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\",\"op\":\"create\",\"bytes\":16,\"sourceLineEnding\":\"none\",\"writtenLineEnding\":\"none\",\"encoding\":\"utf8\",\"proxyNote\":\"file_write 已在你的工具表里:下次直接调用 file_write,不要再经 tool_invoke_*\"}"
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "HISTORY_CRASH_AFTER_PREFIX",
+          "attachments": [],
+          "turnSeq": 1,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "createdAt": "2026-11-11T11:14:32.391Z"
+        }
+      ]
+    },
+    {
+      "label": "after-kill",
+      "id": "sess_327d51cf703785ee",
+      "head": {
+        "id": "sess_327d51cf703785ee",
+        "schemaVersion": 1,
+        "turnSeq": 1,
+        "title": "HISTORY_CRASH_AFTER_PREFIX",
+        "summary": "",
+        "pinned": false,
+        "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+        "createdAt": "2026-11-11T11:14:32.288Z",
+        "updatedAt": "2026-11-11T11:14:32.700Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 1,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_327d51cf703785ee",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "toolSchemaNames": [
+          "media_probe",
+          "audio_inspect",
+          "code_check",
+          "acceptance_report",
+          "workbench_memory_list",
+          "workbench_memory_read",
+          "workbench_memory_propose",
+          "observation_recall",
+          "shell_run",
+          "file_read",
+          "file_write",
+          "audio_transcribe",
+          "file_edit",
+          "file_delete",
+          "checkpoint_list",
+          "file_move",
+          "file_copy",
+          "file_list",
+          "file_search",
+          "glob",
+          "project_snapshot",
+          "git_status",
+          "git_diff",
+          "git_log",
+          "git_commit",
+          "dependency_inventory",
+          "code_review_scan",
+          "frontend_audit",
+          "claude_md_audit",
+          "docs_search",
+          "codebase_symbol_search",
+          "debug_hypothesis",
+          "data_profile",
+          "web_search",
+          "web_fetch",
+          "request_user_input",
+          "todo_write",
+          "mission_update",
+          "workbench_self_status",
+          "thread_title_update",
+          "scratchpad_write",
+          "list_tools",
+          "tool_search",
+          "tool_load",
+          "tool_invoke_read",
+          "tool_invoke_edit",
+          "tool_invoke_exec"
+        ],
+        "backgroundJobSeen": [],
+        "recentUserRequest": {
+          "text": "HISTORY_CRASH_AFTER_PREFIX",
+          "turnSeq": 1,
+          "at": "2026-11-11T11:14:32.391Z"
+        },
+        "storageVersion": 2,
+        "messageCount": 1,
+        "providerHistoryCount": 3
+      },
+      "provider": [
+        {
+          "role": "user",
+          "content": "HISTORY_CRASH_AFTER_PREFIX\n\n[本条消息发送于 2026-11-11 19:14 周三(本地时间 UTC+08:00)]"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "tool_invoke_edit",
+                "arguments": "{\"name\":\"file_write\",\"arguments\":{\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\",\"content\":\"completed prefix\"}}"
+              }
+            },
+            {
+              "id": "call_2",
+              "type": "function",
+              "function": {
+                "name": "request_user_input",
+                "arguments": "{\"questions\":[{\"question\":\"Offline pending barrier\",\"options\":[\"a\",\"b\"]}]}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_1",
+          "content": "{\"ok\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\",\"op\":\"create\",\"bytes\":16,\"sourceLineEnding\":\"none\",\"writtenLineEnding\":\"none\",\"encoding\":\"utf8\",\"proxyNote\":\"file_write 已在你的工具表里:下次直接调用 file_write,不要再经 tool_invoke_*\"}"
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "HISTORY_CRASH_AFTER_PREFIX",
+          "attachments": [],
+          "turnSeq": 1,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "createdAt": "2026-11-11T11:14:32.391Z"
+        }
+      ]
+    },
+    {
+      "label": "after-restart",
+      "id": "sess_327d51cf703785ee",
+      "head": {
+        "id": "sess_327d51cf703785ee",
+        "schemaVersion": 1,
+        "turnSeq": 1,
+        "title": "HISTORY_CRASH_AFTER_PREFIX",
+        "summary": "",
+        "pinned": false,
+        "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+        "createdAt": "2026-11-11T11:14:32.288Z",
+        "updatedAt": "2026-11-11T11:14:32.700Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 1,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_327d51cf703785ee",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "toolSchemaNames": [
+          "media_probe",
+          "audio_inspect",
+          "code_check",
+          "acceptance_report",
+          "workbench_memory_list",
+          "workbench_memory_read",
+          "workbench_memory_propose",
+          "observation_recall",
+          "shell_run",
+          "file_read",
+          "file_write",
+          "audio_transcribe",
+          "file_edit",
+          "file_delete",
+          "checkpoint_list",
+          "file_move",
+          "file_copy",
+          "file_list",
+          "file_search",
+          "glob",
+          "project_snapshot",
+          "git_status",
+          "git_diff",
+          "git_log",
+          "git_commit",
+          "dependency_inventory",
+          "code_review_scan",
+          "frontend_audit",
+          "claude_md_audit",
+          "docs_search",
+          "codebase_symbol_search",
+          "debug_hypothesis",
+          "data_profile",
+          "web_search",
+          "web_fetch",
+          "request_user_input",
+          "todo_write",
+          "mission_update",
+          "workbench_self_status",
+          "thread_title_update",
+          "scratchpad_write",
+          "list_tools",
+          "tool_search",
+          "tool_load",
+          "tool_invoke_read",
+          "tool_invoke_edit",
+          "tool_invoke_exec"
+        ],
+        "backgroundJobSeen": [],
+        "recentUserRequest": {
+          "text": "HISTORY_CRASH_AFTER_PREFIX",
+          "turnSeq": 1,
+          "at": "2026-11-11T11:14:32.391Z"
+        },
+        "storageVersion": 2,
+        "messageCount": 1,
+        "providerHistoryCount": 3
+      },
+      "provider": [
+        {
+          "role": "user",
+          "content": "HISTORY_CRASH_AFTER_PREFIX\n\n[本条消息发送于 2026-11-11 19:14 周三(本地时间 UTC+08:00)]"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "tool_invoke_edit",
+                "arguments": "{\"name\":\"file_write\",\"arguments\":{\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\",\"content\":\"completed prefix\"}}"
+              }
+            },
+            {
+              "id": "call_2",
+              "type": "function",
+              "function": {
+                "name": "request_user_input",
+                "arguments": "{\"questions\":[{\"question\":\"Offline pending barrier\",\"options\":[\"a\",\"b\"]}]}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_1",
+          "content": "{\"ok\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/owned.txt\",\"op\":\"create\",\"bytes\":16,\"sourceLineEnding\":\"none\",\"writtenLineEnding\":\"none\",\"encoding\":\"utf8\",\"proxyNote\":\"file_write 已在你的工具表里:下次直接调用 file_write,不要再经 tool_invoke_*\"}"
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "HISTORY_CRASH_AFTER_PREFIX",
+          "attachments": [],
+          "turnSeq": 1,
+          "traceId": "trace_cbcf6d7576ff8727",
+          "createdAt": "2026-11-11T11:14:32.391Z"
+        }
+      ]
+    },
+    {
+      "label": "pending-permission",
+      "id": "sess_1b53b36d6b2c4f6c",
+      "head": {
+        "id": "sess_1b53b36d6b2c4f6c",
+        "schemaVersion": 1,
+        "turnSeq": 1,
+        "title": "HISTORY_DENIED_INTENT",
+        "summary": "",
+        "pinned": false,
+        "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+        "createdAt": "2026-11-11T11:14:33.033Z",
+        "updatedAt": "2026-11-11T11:14:33.344Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 1,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_1b53b36d6b2c4f6c",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "toolSchemaNames": [
+          "workbench_memory_list",
+          "workbench_memory_read",
+          "workbench_memory_propose",
+          "observation_recall",
+          "shell_run",
+          "web_search",
+          "web_fetch",
+          "request_user_input",
+          "todo_write",
+          "mission_update",
+          "workbench_self_status",
+          "thread_title_update",
+          "scratchpad_write",
+          "list_tools",
+          "tool_search",
+          "tool_load",
+          "tool_invoke_read",
+          "tool_invoke_edit",
+          "tool_invoke_exec"
+        ],
+        "backgroundJobSeen": [],
+        "recentUserRequest": {
+          "text": "HISTORY_DENIED_INTENT",
+          "turnSeq": 1,
+          "at": "2026-11-11T11:14:33.134Z"
+        },
+        "storageVersion": 2,
+        "messageCount": 1,
+        "providerHistoryCount": 2
+      },
+      "provider": [
+        {
+          "role": "user",
+          "content": "HISTORY_DENIED_INTENT\n\n[本条消息发送于 2026-11-11 19:14 周三(本地时间 UTC+08:00)]"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "tool_invoke_edit",
+                "arguments": "{\"name\":\"file_write\",\"arguments\":{\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt\",\"content\":\"must not write\"}}"
+              }
+            }
+          ]
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "HISTORY_DENIED_INTENT",
+          "attachments": [],
+          "turnSeq": 1,
+          "traceId": "trace_16cdbb1315a468c4",
+          "createdAt": "2026-11-11T11:14:33.134Z"
+        }
+      ]
+    },
+    {
+      "label": "denied-complete",
+      "id": "sess_1b53b36d6b2c4f6c",
+      "head": {
+        "id": "sess_1b53b36d6b2c4f6c",
+        "schemaVersion": 1,
+        "turnSeq": 1,
+        "title": "HISTORY_DENIED_INTENT",
+        "summary": "fixture complete",
+        "pinned": false,
+        "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work",
+        "createdAt": "2026-11-11T11:14:33.033Z",
+        "updatedAt": "2026-11-11T11:14:33.376Z",
+        "claudeSessionId": null,
+        "providerHistoryCursor": 2,
+        "privacyHistoryV1": false,
+        "attachments": [],
+        "engineRoute": {
+          "engine": "openai",
+          "providerId": "fake",
+          "model": "fake-model"
+        },
+        "mission": null,
+        "missionId": "sess_1b53b36d6b2c4f6c",
+        "kind": "quick_ask",
+        "origin": "user",
+        "titleSource": "user",
+        "todos": [],
+        "skills": [],
+        "memories": [],
+        "memoriesExplicit": false,
+        "memoryExclusions": [],
+        "toolSchemaNames": [
+          "workbench_memory_list",
+          "workbench_memory_read",
+          "workbench_memory_propose",
+          "observation_recall",
+          "shell_run",
+          "web_search",
+          "web_fetch",
+          "request_user_input",
+          "todo_write",
+          "mission_update",
+          "workbench_self_status",
+          "thread_title_update",
+          "scratchpad_write",
+          "list_tools",
+          "tool_search",
+          "tool_load",
+          "tool_invoke_read",
+          "tool_invoke_edit",
+          "tool_invoke_exec"
+        ],
+        "backgroundJobSeen": [],
+        "recentUserRequest": {
+          "text": "HISTORY_DENIED_INTENT",
+          "turnSeq": 1,
+          "at": "2026-11-11T11:14:33.134Z"
+        },
+        "storageVersion": 2,
+        "messageCount": 2,
+        "providerHistoryCount": 4
+      },
+      "provider": [
+        {
+          "role": "user",
+          "content": "HISTORY_DENIED_INTENT\n\n[本条消息发送于 2026-11-11 19:14 周三(本地时间 UTC+08:00)]"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "tool_invoke_edit",
+                "arguments": "{\"name\":\"file_write\",\"arguments\":{\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt\",\"content\":\"must not write\"}}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_1",
+          "content": "{\"ok\":false,\"error\":\"denied by user\"}"
+        },
+        {
+          "role": "assistant",
+          "content": "fixture complete"
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "HISTORY_DENIED_INTENT",
+          "attachments": [],
+          "turnSeq": 1,
+          "traceId": "trace_16cdbb1315a468c4",
+          "createdAt": "2026-11-11T11:14:33.134Z"
+        },
+        {
+          "role": "assistant",
+          "content": "fixture complete",
+          "turnSeq": 1,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "tool_invoke_edit",
+              "input": {
+                "name": "file_write",
+                "arguments": {
+                  "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-history-9M9EkB/work/denied.txt",
+                  "content": "must not write"
+                }
+              },
+              "result": {
+                "ok": false,
+                "error": "denied by user"
+              }
+            }
+          ],
+          "segments": [
+            {
+              "id": "segment-1",
+              "type": "tool",
+              "toolCallId": "call_1",
+              "name": "tool_invoke_edit",
+              "batchId": "openai-batch-1",
+              "status": "error"
+            },
+            {
+              "id": "segment-2",
+              "type": "permission",
+              "requestId": "perm_3d158bc30562860f",
+              "toolName": "tool_invoke_edit",
+              "tier": "edit",
+              "revertible": false,
+              "status": "denied",
+              "note": "denied by user"
+            },
+            {
+              "id": "segment-3",
+              "type": "text",
+              "text": "fixture complete"
+            }
+          ],
+          "turnSummary": {
+            "turnSeq": 1,
+            "filesChanged": [],
+            "commands": 0,
+            "artifacts": [],
+            "irreversible": []
+          },
+          "usage": {
+            "usage": {
+              "input_tokens": 2880,
+              "output_tokens": 4
+            },
+            "contextTokens": 2884,
+            "contextWindow": 1000000,
+            "calls": 0,
+            "estimated": true,
+            "contextEngine": "openai",
+            "contextProviderId": "fake",
+            "contextModel": "fake-model"
+          },
+          "createdAt": "2026-11-11T11:14:33.376Z",
+          "source": "provider:fake",
+          "engine": "openai",
+          "providerId": "fake",
+          "providerLabel": "fake",
+          "model": "fake-model",
+          "traceId": "trace_16cdbb1315a468c4"
+        }
+      ]
+    }
+  ],
+  "cleanups": [
+    {
+      "killed": [
+        71471
+      ],
+      "terminated": 1,
+      "alreadyExited": 0,
+      "unconfirmed": 0,
+      "scope": "observed-tree",
+      "incomplete": false
+    },
+    {
+      "killed": [
+        71486
+      ],
+      "terminated": 1,
+      "alreadyExited": 0,
+      "unconfirmed": 0,
+      "scope": "observed-tree",
+      "incomplete": false
+    }
+  ],
+  "observed": [
+    {
+      "pid": 71446,
+      "ppid": 71442,
+      "created": "1794395672132221",
+      "name": ""
+    },
+    {
+      "pid": 71471,
+      "ppid": 71442,
+      "created": "1794395672739076",
+      "name": ""
+    },
+    {
+      "pid": 71486,
+      "ppid": 71442,
+      "created": "1794395672908595",
+      "name": ""
+    }
+  ],
+  "retainedRoot": null,
+  "scope": "Offline real file effect/pending control call, actual root-only process death and GET-only restart. No desktop input or ACC dispatch/wait-entry/terminal receipt acceptance."
+}

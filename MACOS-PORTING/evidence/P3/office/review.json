@@ -1,0 +1,168 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "work_package": "P3-02",
+  "date": "2026-11-07",
+  "scope": [
+    "mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py",
+    "dev-harness/macos-office-artifacts.e2e.js",
+    "mcp/ai-computer-control/tests/fixtures/macos-office-sample.json",
+    "mcp/ai-computer-control/tests/verify_macos_office_sample.py",
+    "mcp/ai-computer-control/tests/smoke_office_v2.py",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt",
+    "MACOS-PORTING/probes/render-office-samples.cjs",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py",
+    "mcp/ai-computer-control/tests/smoke_office_read_v2.py"
+  ],
+  "source_hashes": {
+    "mcp/ai-computer-control/src/ai_computer_control/tools/document.py": "6ca80952eac12ad9c3d11a50c06d6c7a9f51fa59fc255fe1f953a2847c09f456",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/office_style.py": "5d40e1d164ebb65ec244a9cc989f91143f66c9f0e8ffe277607a379c70327bf7",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/office_chart.py": "e5cce5766a751dc4f14d64bc705dfb1ff19392ca0c54b5f6b80fd717f811b7cb",
+    "dev-harness/macos-office-artifacts.e2e.js": "bc56cad751a3d7401ff92ad7c9cddc3c961b148b832d32ff6e3f4eb464d42a08",
+    "mcp/ai-computer-control/tests/fixtures/macos-office-sample.json": "de77e5250903d83481af936888d7652fc9cfb7d210dd075ced5c1233689b051c",
+    "mcp/ai-computer-control/tests/verify_macos_office_sample.py": "81493d280cf7e42d5bc9010bd61645d8c5e2f17d7123186ce1f5c0d278033f38",
+    "mcp/ai-computer-control/tests/smoke_office_v2.py": "8cc30bf0ca7dff6ac0d8871a61bbc9c47402db2476aecd1b83112a64dccc9486",
+    "MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt": "618d8e16a1b4ceca7ced065eb60280579911cfa43249667956468b55cdebb189",
+    "MACOS-PORTING/probes/render-office-samples.cjs": "60cd3b0a10818060ffa27c8e423bf03c2375c35efc2db6f9e4a6fe8fd7f4d6e0",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/office_read.py": "433d93acf6ee8756a9d121c925d4c7942ec4461fffdc4ee7329e73274cac28e4",
+    "mcp/ai-computer-control/tests/smoke_office_read_v2.py": "76279d9b9dce7baf8fe4f6e7d3fb77c4c0e1b8c890dc3ce2e1d066104e02b377"
+  },
+  "validation": [
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-02-review-probe.py (framework DYLD env; isolated HOME,USERPROFILE,WCW_DATA_DIR,MPLCONFIGDIR)",
+      "result": "PASS: actual chart family Heiti TC; no missing glyphs in sampled simplified Chinese. Actual PDF resolver MacCJK0 embedded=true. Missing and corrupt PDF fonts fall back to CID with embedded=false and warning. Corrupt chart font gives warning and clears path/family; repeated cached call preserves warning. Missing chart font keeps warning. Simulated Windows style tokens match original STYLES byte-for-byte."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-02-embed-check.py (framework DYLD env; isolated HOME,USERPROFILE,WCW_DATA_DIR,MPLCONFIGDIR)",
+      "result": "Normal Chinese body PDF independently parsed with pdfplumber/pdfminer contains embedded font descriptors and reports true. Empty-body PDF has one page with no FontFile/FontFile2/FontFile3 resource, but reports font_embedded=true."
+    },
+    {
+      "command": "Read and inspect new real MCP/checkpoint E2E",
+      "result": "Real workbench service and real workbench CLI MCP proxy invoke six ACC write tools. Five artifact destinations checked for checkpoints, existing Word bytes recorded, HTTP rollback must restore original Word bytes and remove new files. Audit must cover all six writers."
+    },
+    {
+      "command": "Read independent sample verifier, fixture JSON and retained sample-4rQCxg/verification.json",
+      "result": "23 independent checks in current retained output (not 26): format readers, exact spreadsheet values, CJK font glyph coverage, actual PDF font streams/text, native DOCX/XLSX/PPTX image extraction and exact hashes, PDF page raster, fallback/blank-PDF facts, corrupt-font cached warnings and Windows font token."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-02-review-run.py (isolated environment; runs expanded smoke_office_v2)",
+      "result": "exit 1, exactly one new failure: missing reportlab install-hint envelope. Existing cached reportlab.* submodules bypassed setting only top-level reportlab=None; this is a fault-injection issue."
+    },
+    {
+      "command": ".venv/bin/python /tmp/ruyi-p3-02-review-nodep.py (fresh process; first-import reportlab blocker)",
+      "result": "exit 0; production write_pdf correctly returns ok:false and pip install reportlab hint when dependency truly absent."
+    },
+    {
+      "command": "git diff --check",
+      "result": "exit 0"
+    },
+    {
+      "command": "Read /tmp/ruyi-p3-02-office-v2-corrected.txt and inspect dependency-injection fix",
+      "result": "ALL PASS; complete package module-tree snapshot/removal/restoration addresses independently reproduced cache-bypass failure."
+    },
+    {
+      "command": "Inspect render-office-samples.cjs and inject a no-op renderer with prior outputs in an isolated sample directory",
+      "result": "Current inputs were invalid, RUYI_OFFICE_RENDERER=/usr/bin/true produced nothing, but old %PDF- header outputs caused exit 0. Fixed output directory permits stale rendering evidence."
+    },
+    {
+      "command": "Read /tmp/ruyi-p3-02-offline.txt",
+      "result": "ALL PASS for P3 OFFICE LOCKED OFFLINE REPLAY, real Office E2E and rollback. Further final logs/artifacts are reviewed separately by parent."
+    },
+    {
+      "command": "Independent final no-op renderer/stale-output control",
+      "result": "exit 1, error identifies missing fresh report.pdf; old PDF preserved and a unique renders-* directory created. Source update and verifier negative control reviewed."
+    },
+    {
+      "command": "Independent pdfplumber read of final fresh renderer output /tmp/ruyi-p3-02-offline-artifacts/sample-XXrG2d/renders-ibP4rZ",
+      "result": "report.pdf 1 page, data.pdf 1 page, slides.pdf 3 pages; each contains 上海、北京、深圳."
+    },
+    {
+      "command": "Inspect /tmp/ruyi-p3-02-independent-fresh.txt",
+      "result": "ALL PASS; 24 checks, including new stale-render negative control."
+    },
+    {
+      "command": "Compare noneditable wheel members against current reviewed source files",
+      "result": "document.py, office_style.py and office_chart.py in /tmp/ruyi-p3-02-wheelhouse/ai_computer_control-1.9.1-py3-none-any.whl match current source byte-for-byte. Wheel SHA256=113ca8d70bc06c7a9a1c92bb3bf9df75af804f86d83886eda9b9057a77d1bb3f."
+    },
+    {
+      "command": "node --check MACOS-PORTING/probes/render-office-samples.cjs; git diff --check",
+      "result": "both exit 0"
+    },
+    {
+      "command": "Final document.py documentation-only incremental review and rebuilt wheel/source comparison",
+      "result": "Docstrings now describe Mac font candidates, reader-resolved CID fallback warning, and warnings beyond Helvetica. No functional change in the reviewed delta. Final rebuilt wheel document.py matches current source byte-for-byte; no functional suites repeated."
+    },
+    {
+      "command": "Independent focused PDF default-page regression: .venv/bin/python /tmp/ruyi-p3-02-default-pages-review.py (isolated environment)",
+      "result": "PASS, exit 0. Actual 1/3/7 page PDFs return [1], [1,2,3], [1..5] when pages omitted. MCP schema marks pages optional with default null. Explicit 1-5 on one page remains out-of-bounds; explicit empty, zero, and 1-100 are still rejected. Real MCP E2E now omits pages to cover the user path."
+    },
+    {
+      "command": "Compare rebuilt default-page-fix wheel to current source",
+      "result": "document.py, office_style.py, office_chart.py and office_read.py match byte-for-byte; final wheel SHA256=fb6ba826fc27f815d7a4a3937e28c4577a6330e5e8c31e54ca02b2edcebb8707"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P302-R1",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "mcp/ai-computer-control/src/ai_computer_control/tools/document.py",
+      "lines": [
+        1823,
+        1827
+      ],
+      "title": "Report actual PDF font embedding instead of only resolver capability",
+      "detail": "write_pdf(path, content=\"\") reports font_embedded=true from the cached TTFont resolver, although independent PDF resource inspection finds no embedded font on the emitted blank page. The new field states an artifact fact and is also intended to support P3 independent output verification, so it must not assert an embedding absent from the file. Normal Chinese body output does contain the embedded font.",
+      "evidence": "/tmp/ruyi-p3-02-embed-check.py",
+      "requested_fix": "Derive the field from fonts actually emitted/used in the PDF, or change/document its name/contract to unambiguously mean selected-font embeddability. Add a focused empty/no-text PDF assertion without broader unrelated retesting.",
+      "resolution": "Removed the unnecessary new font_embedded public return field. Existing font and optional warning contract retained. Independent verifier inspects actual PDF font streams for normal text, CID fallback and blank pages."
+    },
+    {
+      "id": "P302-R2",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "mcp/ai-computer-control/tests/smoke_office_v2.py",
+      "lines": [
+        290,
+        307
+      ],
+      "title": "Block cached ReportLab submodules in the missing-dependency fixture",
+      "detail": "The added missing-reportlab test sets only sys.modules[\"reportlab\"]=None after earlier PDF generation has cached reportlab.lib.pagesizes and other submodules. Those from-imports still succeed, so the supposed missing-dependency call generates a valid PDF and the smoke fails. Independently reproduced as its only failed assertion. The real missing-dependency path was separately verified in a clean process and is correct.",
+      "evidence": "/tmp/ruyi-p3-02-review-v2.txt:133",
+      "requested_fix": "Run the missing-dependency scenario in a fresh process before first import or temporarily remove/block every reportlab.* cache entry with complete finally restoration. Do not change production behavior to accommodate faulty injection.",
+      "resolution": "Fault injection now snapshots/removes every cached module under the package prefix, blocks its root, and finally removes newly created entries and restores the original entire module tree. Implementer corrected smoke log is ALL PASS."
+    },
+    {
+      "id": "P302-R3",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "MACOS-PORTING/probes/render-office-samples.cjs",
+      "lines": [
+        13,
+        37
+      ],
+      "title": "Require fresh PDF output from this renderer invocation",
+      "detail": "The helper reuses sample/renders and checks only the existing PDF headers after a zero renderer exit. In an isolated repro, invalid current inputs plus stale %PDF- outputs and a no-op zero-exit renderer pass without converting anything. LibreOffice also has zero-exit conversion-error modes, so repeated verification can accidentally accept old output after font/content changes.",
+      "requested_fix": "Remove the three expected old PDF files before invocation, or render to a fresh per-run directory, then validate newly generated outputs. A no-op renderer with old outputs must fail.",
+      "resolution": "Every renderer invocation now creates a unique renders-* output directory; successful invocation prints RENDER_DIR. Old outputs remain intact and cannot satisfy new output checks. Independent no-op/stale-output control now exits 1 for missing fresh report.pdf."
+    }
+  ],
+  "limitations": [
+    "No real Windows or macOS 14 execution. Pure Windows token selection is not real Windows acceptance.",
+    "Parent performed the final visual checks and full no-index install/replay; this reviewer inspected the replay log, matched its wheel sources, and independently read fresh rendered PDFs but did not duplicate every install/render action.",
+    "Font glyph coverage is sample-specific, not universal Unicode."
+  ],
+  "conclusion": "approved_with_environment_limitations",
+  "source_modifications": false,
+  "current_revision_notes": [
+    "The initial private PDF resolver embedded flag and public font_embedded field have both been removed. Historical probe results describe the initial reviewed revision only; final verification relies on emitted PDF streams.",
+    "The final independent verifier has 24 checks (the initial retained revision had 23).",
+    "Generated process-safety count and route-coverage metadata updates reflect one new existing-contract E2E; no production Node route behavior changed. Parent is finishing engineering gates separately.",
+    "Final document.py docstrings updated to match the reviewed behavior; source hash and final rebuilt wheel SHA256 refreshed. Earlier wheel SHA256 remains a historical validation record.",
+    "Final necessary office_read.py increment fixes short PDFs with omitted pages without relaxing explicit page validation. Independent focused real-PDF tests pass; source fingerprint now includes office_read.py and its smoke regression."
+  ],
+  "remaining_code_findings": [],
+  "final_wheel_sha256": "fb6ba826fc27f815d7a4a3937e28c4577a6330e5e8c31e54ca02b2edcebb8707",
+  "pending_final_package_note": "Rebuilt final wheel source match is verified. Parent is replaying its actual no-index-installed MCP path; no claim is made here that that pending execution already completed."
+}

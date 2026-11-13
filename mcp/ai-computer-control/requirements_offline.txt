@@ -1,8 +1,8 @@
 # Core dependencies for ai-computer-control
 mcp[cli]>=1.0.0,<2.0.0
-pyautogui>=0.9.54
+pyautogui>=0.9.54; sys_platform == 'win32'
 Pillow>=10.0.0
-pywin32>=306
+pywin32>=306; sys_platform == 'win32'
 psutil>=5.9.0
 playwright>=1.40.0
 python-docx>=1.0.0
@@ -19,17 +19,17 @@ pyperclip>=1.8.0
 reportlab>=4.0.0
 # UI Automation accessibility-tree tools (pure-Python; comtypes is its runtime dep).
 # Optional: if absent, the ui_* tools degrade gracefully with an install hint.
-uiautomation>=2.0.18
-comtypes>=1.2.0
+uiautomation>=2.0.18; sys_platform == 'win32'
+comtypes>=1.2.0; sys_platform == 'win32'
 # Full-offline OCR contract (built-in Windows.Media.Ocr). This exact cp312 wheel is mandatory
 # for a release labeled Full; the packager rejects a missing wheel or failed WinRT OCR import.
-winsdk==1.0.0b10
+winsdk==1.0.0b10; sys_platform == 'win32'
 # Multi-scale template matching (~50MB of wheels). Optional; vision tools degrade gracefully.
 opencv-python-headless>=4.8.0
 numpy>=1.26.0
 # Macro recording of live mouse/keyboard (record_start / record_stop). OPTIONAL: if absent, the
 # record_* tools degrade gracefully; macro replay via macro_run/macro_list needs no extra deps.
-pynput>=1.7.6
+pynput>=1.7.6; sys_platform == 'win32'
 # v1.6 Office 模板驱动. python-pptx: write_pptx generation. matplotlib: chart_image (.png charts).
 # Both OPTIONAL: if absent, those tools degrade with an install hint; the rest keep working.
 # matplotlib pulls contourpy/cycler/fonttools/kiwisolver/packaging/pyparsing/python-dateutil

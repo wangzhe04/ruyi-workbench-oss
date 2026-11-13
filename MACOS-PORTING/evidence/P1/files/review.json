@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "ruyi-workbench/app/src/01-config.js",
+    "ruyi-workbench/app/src/03-bridge-guard.js",
+    "ruyi-workbench/app/src/12-tool-dispatch.js",
+    "dev-harness/macos-file-policy.e2e.js",
+    "dev-harness/checkpoint.e2e.js",
+    "dev-harness/file-guard.e2e.js",
+    "dev-harness/unit/config-migrations.test.js",
+    "dev-harness/unit/external-bot-vault-guards.test.js",
+    "dev-harness/unit/workspace-trailing-sep.test.js",
+    "dev-harness/unit/steward-config-tier.test.js"
+  ],
+  "findings": [
+    {
+      "finding": "Alternate-case symlink can falsely prove case-insensitive filesystem",
+      "resolution": "Require lstat real-directory identity and add real case-sensitive APFS regression",
+      "status": "fixed"
+    },
+    {
+      "finding": "Workspace and managed-directory config cleanup unconditionally folds case",
+      "resolution": "Platform-aware deduplication in three config locations with real-volume configuration regression",
+      "status": "fixed"
+    },
+    {
+      "finding": "Concurrent case aliases can lose read-modify-write updates",
+      "resolution": "Mac shared write chain, reproduced failure before fix and two passing real-edit runs",
+      "status": "fixed"
+    },
+    {
+      "finding": "file_move mkdir failure leaves recorded checkpoint entries",
+      "resolution": "Move mkdir into existing rollback try/catch; rename and readonly-parent fault cases pass",
+      "status": "fixed"
+    }
+  ],
+  "independentTests": {
+    "macos-file-policy": 32,
+    "file-guard": 56,
+    "checkpoint": 45
+  },
+  "fixtureRereview": "Four fixture changes reviewed; original Windows golden assertions retained with module-local win32 facade; sensitive-path VM dependencies restored. No additional production change.",
+  "limitations": [
+    "Shared Mac chain serializes unrelated writes within its five covered write-family handlers",
+    "Windows and macOS 14 not exercised"
+  ]
+}

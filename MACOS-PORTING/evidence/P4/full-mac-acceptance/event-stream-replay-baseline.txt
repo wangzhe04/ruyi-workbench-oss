@@ -1,0 +1,26 @@
+PASS A0 workbench started
+PASS A0b runtime token 可读
+PASS A0c 三条线程已建（{"seated":"sess_112a8060ffdd6ab6","other":"sess_fb73b37c52a69db9","third":"sess_b98f15e2f5e600a6"}）
+PASS A0d Edge/Chrome found
+PASS A0e browser target available
+PASS A0f 首屏就绪（config 到达、安静卡挂点已在 DOM 里）
+PASS A0g 工作台视角（安静卡只在这个视角出）
+PASS A0h 已坐在「seated」那条线程上
+PASS B0 「other」真的停在待决了（服务端事实）
+FAIL B1 安静卡出现了（这一张就是后面要被重放「再造一次」的那一帧）
+PASS B2 用户把它关掉了，此刻零张卡
+PASS C0 带 Last-Event-ID:1 连一次，服务端重放了 25 帧（["2:thread.state","3:thread.adopted","4:thread.state","5:thread.state","6:thread.created","7:thread.state","8:thread.adopted","9:thread.state","10:thread.state","11:thread.created","12:thread.state","13:thread.adopted"]）—— 「重放真的会发生」的证据
+PASS C0b 重放里确实含「other」那条 inbox.appended（2 条，id ["22","24"]）—— 没有它，下面两组就是假绿
+FAIL D0 换到第三条会话（在场变 → 300 ms 去抖后重连）
+PASS D1 那一次重连请求真的被拦到并改写了（拦到 1 发；原 Last-Event-ID「25」→ 改成「1」）
+PASS D2 重放之后 3000 ms 内安静卡数量仍为 0（实得 0：[]）—— 已经派发过的帧不许再造一张卡
+FAIL D2b 现场也没被重放搅动（会话 sess_112a8060ffdd6ab6、视角 steward）
+PASS E0a 找到「other」那条待决（准备回答它）
+PASS E0 那条 needs_you 已经被回答掉了（服务端事实：pending 里不再有它）
+PASS E1 重放之前先清零（实得 0 张：[]）
+PASS E1b 再换一次会话（第二次逼重连；同样会被拦下改写成早 id）
+FAIL E2a 第二次重连也被拦到并改写了（累计 1 发）
+PASS E2 已回复的 needs_you 被重放回来也不复活：安静卡仍为 0（实得 0：[]）
+PASS E2b 服务端那一侧也仍然是「已回复」（重放不改服务端事实，这一条排除「其实是又问了一遍」）
+
+EVENT STREAM REPLAY BROWSER E2E: FAIL (4)

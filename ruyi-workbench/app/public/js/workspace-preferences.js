@@ -6,6 +6,7 @@ import { api } from './net.js';
 import { $, el, toast, visibleFavoriteWorkspaces, stripWrappingQuotes, looksAbsolutePath } from './util.js';   // 两个纯判定住 util.js：顶栏粘贴路径与设置页「添加/默认工作文件夹」共用同一口径
 import { t } from './i18n.js';
 import { icon } from './icons.js';
+import { isMacHost } from './host-bridge.js';
 
 export function createWorkspacePreferencesDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -115,7 +116,7 @@ function renderWorkspacePicker() {
   const full = currentWorkspace();
   const nameEl = btn.querySelector('.wp-name');
   // basename that tolerates both \ and / and a trailing separator.
-  const short = full ? (full.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || full) : t('navigation.workbench');
+  const short = full ? workspaceShortName(full) : t('navigation.workbench');
   if (nameEl) nameEl.textContent = short;         // textContent → XSS-safe (paths are attacker-influenced)
   btn.title = full || t('workspace.select');
   // v2.7.2: 文件面板常用工作区 chips 与顶栏选择器同步刷新(boot/会话切换/工作区变更均经此)。
@@ -123,10 +124,10 @@ function renderWorkspacePicker() {
 }
 // 代码走查 C14:同一个文件夹带不带结尾的「\」、用「\」还是「/」都是同一个(Windows 不分大小写)。修前只比小写,
 // 粘贴一个带结尾斜杠的路径就多出一条重复的常用文件夹。存的时候去掉结尾分隔符(盘符根 C:\ 与 / 保留)。
-const folderKey = p => String(p || '').trim().replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+const folderKey = p => isMacHost() ? trimFolderPath(p) : String(p || '').trim().replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
 function trimFolderPath(p) {
-  const s = String(p || '').trim();
-  const stripped = s.replace(/[\\/]+$/, '');
+  const s = isMacHost() ? String(p || '') : String(p || '').trim();
+  const stripped = s.replace(isMacHost() ? /\/+$/ : /[\\/]+$/, '');
   if (!stripped || /^[A-Za-z]:$/.test(stripped)) return s.slice(0, stripped.length + 1);
   return stripped;
 }
@@ -144,39 +145,72 @@ function pushRecentWorkspace(p) {
 // Switch the current session's working folder to `dir`. Persists session.cwd (patchSession) + LRU + toast +
 // refreshes the picker and the file tree (if its tab is showing). When alsoDefault is true, also writes
 // config.defaultWorkspace (the 「设为默认工作区」 secondary option).
+let workspaceSelection = 0;
+let workspaceWrites = Promise.resolve();
 async function setWorkspace(dir, { alsoDefault = false } = {}) {
   dir = trimFolderPath(dir);
   if (!dir) return;
-  // 走查 U1：还没有线程时（首跑引导「用一个专用文件夹」就是这样）选文件夹 = 以后新线程的默认文件夹。
-  // 修前这里先建一条空线程再改它的文件夹 —— 新用户一进来就有一条「排队」的空线程，管家还说「你回来了」。
-  if (!state.currentSession) alsoDefault = true;
-  else {
+  const selection = ++workspaceSelection;
+  const targetSession = state.currentSession;
+  let aliases = new Set();
+  let preferredFavorite = null;
+  if (isMacHost()) {
     try {
-      await patchSession(state.currentSession.id, { cwd: dir });
-    } catch (e) { toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err'); return; }
+      const resolved = await api('/api/workspace/resolve', { method: 'POST', body: JSON.stringify({ selectedPath: dir }) });
+      if (selection !== workspaceSelection || state.currentSession !== targetSession) return;
+      if (!resolved?.ok || !resolved.path) throw new Error(resolved?.error || t('common.unknown'));
+      dir = resolved.path;
+      aliases = new Set(resolved.aliases || [dir]);
+      preferredFavorite = resolved.favorite || null;
+    } catch (error) {
+      if (selection === workspaceSelection && state.currentSession === targetSession) toast(t('workspace.switch.failed', { reason: apiErrText(error) }), 'err');
+      return;
+    }
   }
-  const recent = pushRecentWorkspace(dir);
-  // Browsing/pasting a folder is also the natural "add favorite" action in this picker. Keep the existing
-  // primary first and append a new folder; only the explicit alsoDefault path promotes it to index 0.
-  const ws = (Array.isArray(state.config.workspaces) ? state.config.workspaces : [])
-    .map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false }));
-  let idx = ws.findIndex(w => folderKey(w.path) === folderKey(dir));
-  if (idx < 0) { ws.push({ path: dir, read: true, write: true, execute: true }); idx = ws.length - 1; }
-  if (alsoDefault && idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
-  const defaultWorkspace = alsoDefault ? dir : (ws[0]?.path || state.config.defaultWorkspace || dir);
-  state.config.workspaces = ws;
-  state.config.defaultWorkspace = defaultWorkspace;
-  await saveConfigPartial({ recentWorkspaces: recent, workspaces: ws, defaultWorkspace });
-  if (alsoDefault) {
-    // 同步设置面板的默认工作区输入框：fillSettings 仅在 boot 与 doctor tab 时被调，
-    // 不在此刷新则用户打开设置看到旧值，点保存还会把后端 defaultWorkspace 回写成旧值（数据丢失）。
-    const wi = document.getElementById('workspaceInput');
-    if (wi && document.activeElement !== wi) wi.value = dir;
-  }
-  renderWorkspacePicker();
-  const treeTabActive = document.querySelector('.tool-pane .tool-tabs button[data-tab="files"]')?.classList.contains('active');
-  if (treeTabActive) loadFileTree();
-  toast(t('workspace.switch.success', { directory: dir }), 'ok');
+  const commit = async () => {
+    if (selection !== workspaceSelection || state.currentSession !== targetSession) return;
+    // 走查 U1：还没有线程时（首跑引导「用一个专用文件夹」就是这样）选文件夹 = 以后新线程的默认文件夹。
+    // 修前这里先建一条空线程再改它的文件夹 —— 新用户一进来就有一条「排队」的空线程，管家还说「你回来了」。
+    if (!state.currentSession) alsoDefault = true;
+    else {
+      try {
+        await patchSession(state.currentSession.id, { cwd: dir });
+      } catch (e) {
+        if (selection === workspaceSelection && state.currentSession === targetSession) toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err');
+        return;
+      }
+      if (selection !== workspaceSelection || state.currentSession !== targetSession) return;
+    }
+    const recent = pushRecentWorkspace(dir).filter(p => p === dir || !aliases.has(p));
+    state.config.recentWorkspaces = recent;
+    // Browsing/pasting a folder is also the natural "add favorite" action in this picker. Keep the existing
+    // primary first and append a new folder; only the explicit alsoDefault path promotes it to index 0.
+    const ws = (Array.isArray(state.config.workspaces) ? state.config.workspaces : [])
+      .filter(w => w.path === dir || !aliases.has(w.path))
+      .map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false }));
+    let idx = ws.findIndex(w => folderKey(w.path) === folderKey(dir));
+    if (idx < 0) { ws.push({ path: dir, read: true, write: true, execute: true }); idx = ws.length - 1; }
+    if (preferredFavorite) ws[idx] = preferredFavorite;
+    if (alsoDefault && idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
+    const defaultWorkspace = alsoDefault ? dir : (ws[0]?.path || state.config.defaultWorkspace || dir);
+    state.config.workspaces = ws;
+    state.config.defaultWorkspace = defaultWorkspace;
+    await saveConfigPartial({ recentWorkspaces: recent, workspaces: ws, defaultWorkspace });
+    if (selection !== workspaceSelection || state.currentSession !== targetSession) return;
+    if (alsoDefault) {
+      // 同步设置面板的默认工作区输入框：fillSettings 仅在 boot 与 doctor tab 时被调，
+      // 不在此刷新则用户打开设置看到旧值，点保存还会把后端 defaultWorkspace 回写成旧值（数据丢失）。
+      const wi = document.getElementById('workspaceInput');
+      if (wi && document.activeElement !== wi) wi.value = dir;
+    }
+    renderWorkspacePicker();
+    const treeTabActive = document.querySelector('.tool-pane .tool-tabs button[data-tab="files"]')?.classList.contains('active');
+    if (treeTabActive) loadFileTree();
+    toast(t('workspace.switch.success', { directory: dir }), 'ok');
+  };
+  const pending = workspaceWrites.then(commit);
+  workspaceWrites = pending.catch(() => {});
+  return pending;
 }
 // Native folder dialog → on success, switch the workspace. Shared by the picker popover's 浏览 button.
 // 返回 { ok, path?, cancelled?, error?, hint? } —— 向导据此就地说清「为什么没弹出来、该怎么办」并露出手填框
@@ -233,6 +267,7 @@ function favoriteList() {
 }
 function workspaceShortName(p) {
   const s = String(p || '');
+  if (isMacHost()) return trimFolderPath(s).split('/').pop() || s;
   return s ? (s.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || s) : '';
 }
 function persistWorkspaces(ws, defaultPath) {

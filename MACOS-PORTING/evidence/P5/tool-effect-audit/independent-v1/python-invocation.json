@@ -1,0 +1,17 @@
+{
+  "label": "python",
+  "argv": [
+    "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "mcp/ai-computer-control/tests/smoke_batch_invocation.py"
+  ],
+  "cwd": "/tmp/ruyi-p5-effect-worktree",
+  "envOverrides": {},
+  "startedAt": "2026-11-11T12:52:34.433438+00:00",
+  "freezeSha256": "6ce1cea8dc28266ea0874b453d7dbe147ebfbe4a15d81c8a56fd0aa9e1e1175e",
+  "nodeVersion": "v24.15.0",
+  "retry": false,
+  "finishedAt": "2026-11-11T12:52:34.460884+00:00",
+  "exitCode": -6,
+  "elapsedSeconds": 0.010544834003667347,
+  "logSha256": "f5fc692cabf094e5bd58c6ff21a2cb4feb88358f92b64946d690443c3316d165"
+}

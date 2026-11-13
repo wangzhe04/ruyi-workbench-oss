@@ -1,0 +1,52 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS S0 线程已建(sess_a6de30b0fad23480)
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS S1 配置里没写 uiMode,出厂默认落成简易(属性 simple、服务端给的 simple)
+PASS S1b 简易档根字号 15px(实 15px)
+PASS S2a 切到管家视角
+PASS S2 steward 视角 1440px:无横向滚动(差 0px)、输入框 #stewardComposerInput 整个看得见(true)
+PASS S2 steward 视角 640px:无横向滚动(差 0px)、输入框 #stewardComposerInput 整个看得见(true)
+PASS S2a 切到工作台视角
+PASS S2 classic 视角 1440px:无横向滚动(差 0px)、输入框 #promptInput 整个看得见(true)
+PASS S2 classic 视角 640px:无横向滚动(差 0px)、输入框 #promptInput 整个看得见(true)
+PASS S3 简易档右栏藏起的页签恰好是「用量」「记录」(实藏 ["audit","usage"])
+PASS S3b 其余五枚看得见(实见 ["agent-runs","artifacts","changes","files","memory"])
+PASS S3c 原始输出槽 #toolOutput 不显示(实 display:none)
+PASS S4a 设置弹窗打开了
+PASS S4 简易档看得见全部设置页签(实见 ["advanced","agents","basic","claude","doctor","integrations","limits","migration","models","network","providers","security","skills","steward","storage","toolbox","update","voice"])
+PASS S4b 没有一枚页签被藏(实藏 [])
+PASS S4c 没有空组头:每一组在简易档至少有一枚看得见的页签(实见空组 [])
+PASS S4d 点「basic」面板真的切过去且不是空的(629 字)
+PASS S4d 点「security」面板真的切过去且不是空的(1205 字)
+PASS S4d 点「limits」面板真的切过去且不是空的(1500 字)
+PASS S4d 点「steward」面板真的切过去且不是空的(1847 字)
+PASS S4d 点「models」面板真的切过去且不是空的(877 字)
+PASS S4d 点「providers」面板真的切过去且不是空的(703 字)
+PASS S4d 点「voice」面板真的切过去且不是空的(406 字)
+PASS S4d 点「claude」面板真的切过去且不是空的(1048 字)
+PASS S4d 点「agents」面板真的切过去且不是空的(119 字)
+PASS S4d 点「network」面板真的切过去且不是空的(282 字)
+PASS S4d 点「integrations」面板真的切过去且不是空的(825 字)
+PASS S4d 点「toolbox」面板真的切过去且不是空的(285 字)
+PASS S4d 点「skills」面板真的切过去且不是空的(292 字)
+PASS S4d 点「migration」面板真的切过去且不是空的(557 字)
+PASS S4d 点「doctor」面板真的切过去且不是空的(545 字)
+PASS S4d 点「storage」面板真的切过去且不是空的(354 字)
+PASS S4d 点「advanced」面板真的切过去且不是空的(445 字)
+PASS S4d 点「update」面板真的切过去且不是空的(136 字)
+PASS S4e 简易档点「高级」就落在「高级」(实 stab-advanced)
+PASS S4f Esc 关掉设置弹窗
+PASS S5a 从左栏点开那条线程
+PASS S5b 回合跑完:工具卡与答复都上屏了
+PASS S5 简易档工具卡显示人话动词({"display":"block","text":"读取文件"})
+PASS S5c 简易档藏起原始工具名({"display":"none","text":"file_read"})
+PASS S5d 简易档「详情」折叠头看得见({"display":"block","text":"详情"})
+PASS S6 齿轮菜单切到专家档:属性 pro、服务端配置 pro
+PASS S5e 对照:专家档同一张卡反过来 —— 动词藏、原始名显({"verb":"none","name":"block"})
+PASS S6b 再切回简易档:属性 simple、服务端配置 simple
+PASS S7 全程页面上没有未捕获异常(实 0)
+PASS S7b 全程没有 console.error(实 0)
+SIMPLE MODE BROWSER E2E: ALL PASS

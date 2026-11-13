@@ -1,0 +1,2116 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T11:01:39.590439+00:00",
+  "status": "passed_independent_neutral_dual_commit_binding",
+  "worktreeCommit": "97e389b312947475566ecdba90e91f29b9eb9589",
+  "mainCherryPickCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+  "parents": {
+    "97e389b312947475566ecdba90e91f29b9eb9589": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+    "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": "64d1ec25c19b25b35602f1aa70bf7a4b10b4a15c"
+  },
+  "repositoryHeads": {
+    "/tmp/ruyi-p5-hard-abort-worktree": "97e389b312947475566ecdba90e91f29b9eb9589",
+    "/Users/jiming/Documents/ruyi-workbench-mac": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c"
+  },
+  "actualChangedFiles": {
+    "97e389b312947475566ecdba90e91f29b9eb9589": [
+      "M\tREADME.md",
+      "M\tREADME_EN.md",
+      "M\tdev-harness/fixture-home.static.e2e.js",
+      "A\tdev-harness/fixtures/macos-abort-window.m",
+      "A\tdev-harness/macos-neutral-abort.e2e.js",
+      "M\tdev-harness/process-safety.static.e2e.js",
+      "M\tdocs/architecture/route-inventory.json",
+      "M\tdocs/architecture/route-inventory.md",
+      "M\tfacts.json"
+    ],
+    "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": [
+      "M\tREADME.md",
+      "M\tREADME_EN.md",
+      "M\tdev-harness/fixture-home.static.e2e.js",
+      "A\tdev-harness/fixtures/macos-abort-window.m",
+      "A\tdev-harness/macos-neutral-abort.e2e.js",
+      "M\tdev-harness/process-safety.static.e2e.js",
+      "M\tdocs/architecture/route-inventory.json",
+      "M\tdocs/architecture/route-inventory.md",
+      "M\tfacts.json"
+    ]
+  },
+  "changedFilesPerCommit": 9,
+  "patchesByteIdentical": true,
+  "patchSha256": "dcb8cd1cd9d81c270b62b18b681381766de855d78b3377ab77a809d9a842e922",
+  "parentAdvance": {
+    "from": "1b03da0433cfff6a715af822f36a1c89b33b219a",
+    "to": "64d1ec25c19b25b35602f1aa70bf7a4b10b4a15c",
+    "changedFileCount": 48,
+    "allChangesWithinMACOS_PORTING": true,
+    "all39FrozenBlobsAcrossResultCommitsIdentical": true
+  },
+  "sourceCount": 39,
+  "sourceFiles": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json",
+      "freeze": {
+        "bytes": 51090,
+        "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "c9fa7384d6497d53e9f3415e512f060ff69f1002",
+          "bytes": 51090,
+          "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "c9fa7384d6497d53e9f3415e512f060ff69f1002",
+          "bytes": 51090,
+          "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 51090,
+        "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+      },
+      "mainWorking": {
+        "bytes": 51090,
+        "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-process-helper.c",
+      "freeze": {
+        "bytes": 24177,
+        "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+          "bytes": 24177,
+          "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "fadb24e56c52e6493cdf611fd2d2459c84e83d9f",
+          "bytes": 24177,
+          "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 24177,
+        "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+      },
+      "mainWorking": {
+        "bytes": 24177,
+        "sha256": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+      "freeze": {
+        "bytes": 24619,
+        "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "aec7bd5e7e1a86fc11d7e9fe3ca6af860ca2660d",
+          "bytes": 24619,
+          "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "aec7bd5e7e1a86fc11d7e9fe3ca6af860ca2660d",
+          "bytes": 24619,
+          "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 24619,
+        "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+      },
+      "mainWorking": {
+        "bytes": 24619,
+        "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "freeze": {
+        "bytes": 195200,
+        "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "e05a783d6f2673e17a665742f6ef0f2dd04ff0ad",
+          "bytes": 195200,
+          "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "e05a783d6f2673e17a665742f6ef0f2dd04ff0ad",
+          "bytes": 195200,
+          "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 195200,
+        "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+      },
+      "mainWorking": {
+        "bytes": 195200,
+        "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "freeze": {
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "0af7a4f592209710d0f6831ead2291c8cd45465f",
+          "bytes": 7883,
+          "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "0af7a4f592209710d0f6831ead2291c8cd45465f",
+          "bytes": 7883,
+          "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+      },
+      "mainWorking": {
+        "bytes": 7883,
+        "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-session.m",
+      "freeze": {
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f",
+          "bytes": 8641,
+          "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "42065ca7c85a3e3bdd8096eafb29ab4da16bee6f",
+          "bytes": 8641,
+          "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+      },
+      "mainWorking": {
+        "bytes": 8641,
+        "sha256": "a645716d2d85b11107d8a8ba468f156b21db5177061f4f37596b49fb14656b41"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-events.m",
+      "freeze": {
+        "bytes": 45551,
+        "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "82ab216b0568f56d92662356d6f0990b33f897d0",
+          "bytes": 45551,
+          "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "82ab216b0568f56d92662356d6f0990b33f897d0",
+          "bytes": 45551,
+          "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 45551,
+        "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+      },
+      "mainWorking": {
+        "bytes": 45551,
+        "sha256": "cc834414fa20fc5fbf5d4d55ab33efb7179ab7ea70f82055011d174d35c2351f"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-automation-input.m",
+      "freeze": {
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27",
+          "bytes": 49128,
+          "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "aa1d819b2e26dcec74d898444e5a5d9f6f44dc27",
+          "bytes": 49128,
+          "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+      },
+      "mainWorking": {
+        "bytes": 49128,
+        "sha256": "ba91cc71d1c307f0179b8ddd91420927fa28dcbb0d41e2bf14de4590a4ff47af"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/macos_events.py",
+      "freeze": {
+        "bytes": 11174,
+        "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "1c8fbadf0d417f501fe4299e520999f0e3537dd4",
+          "bytes": 11174,
+          "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "1c8fbadf0d417f501fe4299e520999f0e3537dd4",
+          "bytes": 11174,
+          "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 11174,
+        "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+      },
+      "mainWorking": {
+        "bytes": 11174,
+        "sha256": "ec68849e5cbde041c3c658fdd6792b8958a779f395b67d48f2c44681afa47880"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "freeze": {
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "d37c4b1b395f562cb75425249ac6d2c0238fd44f",
+          "bytes": 23110,
+          "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "d37c4b1b395f562cb75425249ac6d2c0238fd44f",
+          "bytes": 23110,
+          "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+      },
+      "mainWorking": {
+        "bytes": 23110,
+        "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "freeze": {
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "bc33caa38e1dea2dc215f8384e9e25b9f883fb12",
+          "bytes": 10462,
+          "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "bc33caa38e1dea2dc215f8384e9e25b9f883fb12",
+          "bytes": 10462,
+          "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+      },
+      "mainWorking": {
+        "bytes": 10462,
+        "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+      },
+      "matched": true
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "freeze": {
+        "bytes": 9948,
+        "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "870c38d5670223c39e769bb8403c190e78a98f0e",
+          "bytes": 9948,
+          "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "870c38d5670223c39e769bb8403c190e78a98f0e",
+          "bytes": 9948,
+          "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 9948,
+        "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+      },
+      "mainWorking": {
+        "bytes": 9948,
+        "sha256": "934a8cd8ee63d2ee96e876f8f8c9ec7631d114e7640ec7759fe49eb67222b917"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "freeze": {
+        "bytes": 356760,
+        "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "a462978cd2cf1af1c30db8c2457127c614e16433",
+          "bytes": 356760,
+          "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "a462978cd2cf1af1c30db8c2457127c614e16433",
+          "bytes": 356760,
+          "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 356760,
+        "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+      },
+      "mainWorking": {
+        "bytes": 356760,
+        "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "freeze": {
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "e5f4e6474c8a2e57fa925fcacd785114e575b078",
+          "bytes": 411515,
+          "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "e5f4e6474c8a2e57fa925fcacd785114e575b078",
+          "bytes": 411515,
+          "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      "mainWorking": {
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/02c-turn-segments.js",
+      "freeze": {
+        "bytes": 18918,
+        "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "c7d254be9bd87c31ac0ca13c8ecf847945314380",
+          "bytes": 18918,
+          "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "c7d254be9bd87c31ac0ca13c8ecf847945314380",
+          "bytes": 18918,
+          "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 18918,
+        "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+      },
+      "mainWorking": {
+        "bytes": 18918,
+        "sha256": "46e1805cd0955209a59f1c2aec05b49c05d23b4f4d9a7f07d28ed7c594f5681d"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/06c-agent-loop-hooks.js",
+      "freeze": {
+        "bytes": 7061,
+        "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "fde8efc43a6f8be55e703449b649b575060dc20e",
+          "bytes": 7061,
+          "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "fde8efc43a6f8be55e703449b649b575060dc20e",
+          "bytes": 7061,
+          "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 7061,
+        "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+      },
+      "mainWorking": {
+        "bytes": 7061,
+        "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "freeze": {
+        "bytes": 221621,
+        "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "93f1d835362ef3e3f963106dc63f1097786f9220",
+          "bytes": 221621,
+          "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "93f1d835362ef3e3f963106dc63f1097786f9220",
+          "bytes": 221621,
+          "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 221621,
+        "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+      },
+      "mainWorking": {
+        "bytes": 221621,
+        "sha256": "7ea128a23d0bac39f123e4fb69d1d07c48590eb0ab4b49c29916f3aaf08ebdca"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/macos-audit-cancellation.e2e.js",
+      "freeze": {
+        "bytes": 10208,
+        "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "86b74c62521ee88846399af481ca7a43539e05d2",
+          "bytes": 10208,
+          "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "86b74c62521ee88846399af481ca7a43539e05d2",
+          "bytes": 10208,
+          "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 10208,
+        "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+      },
+      "mainWorking": {
+        "bytes": 10208,
+        "sha256": "901beb545e8d1dfd9e19cf958a18c2143687b8ff337768c4456c39e437158d07"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-audit-cancel-server.py",
+      "freeze": {
+        "bytes": 1265,
+        "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "05e6c032edcceeeab78e6421e8c6d79c7a0ebcc9",
+          "bytes": 1265,
+          "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "05e6c032edcceeeab78e6421e8c6d79c7a0ebcc9",
+          "bytes": 1265,
+          "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 1265,
+        "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+      },
+      "mainWorking": {
+        "bytes": 1265,
+        "sha256": "018f8f3ab76f768bd8a7640cb02c8a3cc052710a6ba8a32d3a34ab7fd54aa655"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/macos-input-events.e2e.js",
+      "freeze": {
+        "bytes": 23780,
+        "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "f5b8aadf0d91d6c1edb1023a2855bdb839ae9714",
+          "bytes": 23780,
+          "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "f5b8aadf0d91d6c1edb1023a2855bdb839ae9714",
+          "bytes": 23780,
+          "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 23780,
+        "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+      },
+      "mainWorking": {
+        "bytes": 23780,
+        "sha256": "8a0329821955441c82b718ea4e3bd8d24978fdde5e67c6162ac5715b59019adc"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "freeze": {
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+          "bytes": 18974,
+          "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "fbf9031954580f6eddf3eef3546fc6c97fc83290",
+          "bytes": 18974,
+          "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      "mainWorking": {
+        "bytes": 18974,
+        "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/kill-own-tree.js",
+      "freeze": {
+        "bytes": 10301,
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11",
+          "bytes": 10301,
+          "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "468c909bfa921a3ef6115c5409443cc651820d11",
+          "bytes": 10301,
+          "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 10301,
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+      },
+      "mainWorking": {
+        "bytes": 10301,
+        "sha256": "e40014694f89771d44656341a90d2d02e626f18adf58fb342c771cc8a609ae74"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/macos-neutral-abort.e2e.js",
+      "freeze": {
+        "bytes": 25436,
+        "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "46811d72b727374fda75de13f7c24744ffe2e8d6",
+          "bytes": 25436,
+          "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "46811d72b727374fda75de13f7c24744ffe2e8d6",
+          "bytes": 25436,
+          "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 25436,
+        "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+      },
+      "mainWorking": {
+        "bytes": 25436,
+        "sha256": "22d52baee667fc77d27f8f53135b3a5b47245cad237f8038c5eb036348645dfc"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixtures/macos-abort-window.m",
+      "freeze": {
+        "bytes": 6395,
+        "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "7615e5669a32ae9dce5146fdff7f87bf7f8d3ab2",
+          "bytes": 6395,
+          "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "7615e5669a32ae9dce5146fdff7f87bf7f8d3ab2",
+          "bytes": 6395,
+          "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 6395,
+        "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+      },
+      "mainWorking": {
+        "bytes": 6395,
+        "sha256": "27484bf17acdd28b8ccc61cee58ab50e66717c86f16ada98eeec990eef44e814"
+      },
+      "matched": true
+    },
+    {
+      "path": "README.md",
+      "freeze": {
+        "bytes": 65808,
+        "sha256": "fa28bd08dc5cf8930668b4d65da29f76d0836f0771c47c516351ffdf41b55ff1"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "bb57fb55a037c4b207da9d73da36deb3279b92c2",
+          "bytes": 65808,
+          "sha256": "fa28bd08dc5cf8930668b4d65da29f76d0836f0771c47c516351ffdf41b55ff1"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "bb57fb55a037c4b207da9d73da36deb3279b92c2",
+          "bytes": 65808,
+          "sha256": "fa28bd08dc5cf8930668b4d65da29f76d0836f0771c47c516351ffdf41b55ff1"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 65808,
+        "sha256": "fa28bd08dc5cf8930668b4d65da29f76d0836f0771c47c516351ffdf41b55ff1"
+      },
+      "mainWorking": {
+        "bytes": 65808,
+        "sha256": "fa28bd08dc5cf8930668b4d65da29f76d0836f0771c47c516351ffdf41b55ff1"
+      },
+      "matched": true
+    },
+    {
+      "path": "README_EN.md",
+      "freeze": {
+        "bytes": 72914,
+        "sha256": "d9e31dbba64633aaa637997e3230e71d7c5838ef8cc10183c9a8e9dc931d3526"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "7806c1da8f0ec9ea9d80872a8a09e01492327bfc",
+          "bytes": 72914,
+          "sha256": "d9e31dbba64633aaa637997e3230e71d7c5838ef8cc10183c9a8e9dc931d3526"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "7806c1da8f0ec9ea9d80872a8a09e01492327bfc",
+          "bytes": 72914,
+          "sha256": "d9e31dbba64633aaa637997e3230e71d7c5838ef8cc10183c9a8e9dc931d3526"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 72914,
+        "sha256": "d9e31dbba64633aaa637997e3230e71d7c5838ef8cc10183c9a8e9dc931d3526"
+      },
+      "mainWorking": {
+        "bytes": 72914,
+        "sha256": "d9e31dbba64633aaa637997e3230e71d7c5838ef8cc10183c9a8e9dc931d3526"
+      },
+      "matched": true
+    },
+    {
+      "path": "facts.json",
+      "freeze": {
+        "bytes": 1335,
+        "sha256": "9cd2579320d559a159b0be0f845864e2e764786584aa99047988a8b822e1c72d"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "431508beae644aeed593597af32497a46324860f",
+          "bytes": 1335,
+          "sha256": "9cd2579320d559a159b0be0f845864e2e764786584aa99047988a8b822e1c72d"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "431508beae644aeed593597af32497a46324860f",
+          "bytes": 1335,
+          "sha256": "9cd2579320d559a159b0be0f845864e2e764786584aa99047988a8b822e1c72d"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 1335,
+        "sha256": "9cd2579320d559a159b0be0f845864e2e764786584aa99047988a8b822e1c72d"
+      },
+      "mainWorking": {
+        "bytes": 1335,
+        "sha256": "9cd2579320d559a159b0be0f845864e2e764786584aa99047988a8b822e1c72d"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "freeze": {
+        "bytes": 41877,
+        "sha256": "0ce400b933ba0236e8c80795aa0c6b69c31f8cf931a6646817a6e93bc0aadca0"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "27f2cf7579026ba191aadd1c1f9c343533529216",
+          "bytes": 41877,
+          "sha256": "0ce400b933ba0236e8c80795aa0c6b69c31f8cf931a6646817a6e93bc0aadca0"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "27f2cf7579026ba191aadd1c1f9c343533529216",
+          "bytes": 41877,
+          "sha256": "0ce400b933ba0236e8c80795aa0c6b69c31f8cf931a6646817a6e93bc0aadca0"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 41877,
+        "sha256": "0ce400b933ba0236e8c80795aa0c6b69c31f8cf931a6646817a6e93bc0aadca0"
+      },
+      "mainWorking": {
+        "bytes": 41877,
+        "sha256": "0ce400b933ba0236e8c80795aa0c6b69c31f8cf931a6646817a6e93bc0aadca0"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "freeze": {
+        "bytes": 14296,
+        "sha256": "317f6322004c40199a06eed05ddf69d88f22ce14fb2f2050cbe3e1de40223f4b"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "9704ec4a3421a076814bcafe45f73102568bd71c",
+          "bytes": 14296,
+          "sha256": "317f6322004c40199a06eed05ddf69d88f22ce14fb2f2050cbe3e1de40223f4b"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "9704ec4a3421a076814bcafe45f73102568bd71c",
+          "bytes": 14296,
+          "sha256": "317f6322004c40199a06eed05ddf69d88f22ce14fb2f2050cbe3e1de40223f4b"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 14296,
+        "sha256": "317f6322004c40199a06eed05ddf69d88f22ce14fb2f2050cbe3e1de40223f4b"
+      },
+      "mainWorking": {
+        "bytes": 14296,
+        "sha256": "317f6322004c40199a06eed05ddf69d88f22ce14fb2f2050cbe3e1de40223f4b"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "freeze": {
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+          "bytes": 6777831,
+          "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "e1612fb7ddb813f5783e5fe5c6f2adfaa9f673c7",
+          "bytes": 6777831,
+          "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+      },
+      "mainWorking": {
+        "bytes": 6777831,
+        "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "freeze": {
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+          "bytes": 301569,
+          "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "6db073d14b937603173ae2b4dd65ae6366bdf57d",
+          "bytes": 301569,
+          "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      "mainWorking": {
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/harness.js",
+      "freeze": {
+        "bytes": 2520,
+        "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "4494cb248ff81a6274d885191c772d1f2480f685",
+          "bytes": 2520,
+          "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "4494cb248ff81a6274d885191c772d1f2480f685",
+          "bytes": 2520,
+          "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 2520,
+        "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+      },
+      "mainWorking": {
+        "bytes": 2520,
+        "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fixture-home.js",
+      "freeze": {
+        "bytes": 7828,
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+          "bytes": 7828,
+          "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "874a60ed1fb52690573a90fed8bb7b32375ba419",
+          "bytes": 7828,
+          "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 7828,
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+      },
+      "mainWorking": {
+        "bytes": 7828,
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/self-isolate-home.js",
+      "freeze": {
+        "bytes": 2772,
+        "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "2121418a003fd170a93fce278da1c2a6140733e5",
+          "bytes": 2772,
+          "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "2121418a003fd170a93fce278da1c2a6140733e5",
+          "bytes": 2772,
+          "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 2772,
+        "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+      },
+      "mainWorking": {
+        "bytes": 2772,
+        "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/lib/fake-openai-provider.js",
+      "freeze": {
+        "bytes": 11750,
+        "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "9a776a818d4061391a5450f59698e9e9f90853ff",
+          "bytes": 11750,
+          "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "9a776a818d4061391a5450f59698e9e9f90853ff",
+          "bytes": 11750,
+          "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 11750,
+        "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+      },
+      "mainWorking": {
+        "bytes": 11750,
+        "sha256": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+      },
+      "matched": true
+    },
+    {
+      "path": "dev-harness/free-port.js",
+      "freeze": {
+        "bytes": 2370,
+        "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "bf8a9e66240fc34de0a3e34450b92613a65c8039",
+          "bytes": 2370,
+          "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "bf8a9e66240fc34de0a3e34450b92613a65c8039",
+          "bytes": 2370,
+          "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 2370,
+        "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+      },
+      "mainWorking": {
+        "bytes": 2370,
+        "sha256": "96767f9ef1ade9975e12df10e0a4c2f2b6a51837ec8420d16063881b320f9258"
+      },
+      "matched": true
+    },
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "freeze": {
+        "bytes": 96866,
+        "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "68fe3f24e1864cdafdadae2cf654953c64284831",
+          "bytes": 96866,
+          "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "68fe3f24e1864cdafdadae2cf654953c64284831",
+          "bytes": 96866,
+          "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 96866,
+        "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0"
+      },
+      "mainWorking": {
+        "bytes": 96866,
+        "sha256": "d42c5db71240c8eb93f02ddfdbc1b68300caf1fbba8e6e1e86269f69f42011c0"
+      },
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "freeze": {
+        "bytes": 208344,
+        "sha256": "5f853e0ed2a29d63e74820f0c028d64ecb51a6af01b26aad06e5a389a37a9f45"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "8a2a1e9ea1392b7fb5c2f82a489b2bc6343d06dd",
+          "bytes": 208344,
+          "sha256": "5f853e0ed2a29d63e74820f0c028d64ecb51a6af01b26aad06e5a389a37a9f45"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "8a2a1e9ea1392b7fb5c2f82a489b2bc6343d06dd",
+          "bytes": 208344,
+          "sha256": "5f853e0ed2a29d63e74820f0c028d64ecb51a6af01b26aad06e5a389a37a9f45"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 208344,
+        "sha256": "5f853e0ed2a29d63e74820f0c028d64ecb51a6af01b26aad06e5a389a37a9f45"
+      },
+      "mainWorking": {
+        "bytes": 208344,
+        "sha256": "5f853e0ed2a29d63e74820f0c028d64ecb51a6af01b26aad06e5a389a37a9f45"
+      },
+      "matched": true
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "freeze": {
+        "bytes": 34115,
+        "sha256": "d4f0c2547799e1664101748eaf20ecb2518c15d47188093957d437762cd116bd"
+      },
+      "commits": {
+        "97e389b312947475566ecdba90e91f29b9eb9589": {
+          "gitBlob": "4d25655353c352201e46213a6f8dadd1328c77d8",
+          "bytes": 34115,
+          "sha256": "d4f0c2547799e1664101748eaf20ecb2518c15d47188093957d437762cd116bd"
+        },
+        "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c": {
+          "gitBlob": "4d25655353c352201e46213a6f8dadd1328c77d8",
+          "bytes": 34115,
+          "sha256": "d4f0c2547799e1664101748eaf20ecb2518c15d47188093957d437762cd116bd"
+        }
+      },
+      "worktreeWorking": {
+        "bytes": 34115,
+        "sha256": "d4f0c2547799e1664101748eaf20ecb2518c15d47188093957d437762cd116bd"
+      },
+      "mainWorking": {
+        "bytes": 34115,
+        "sha256": "d4f0c2547799e1664101748eaf20ecb2518c15d47188093957d437762cd116bd"
+      },
+      "matched": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matched": true
+    },
+    {
+      "path": "/tmp/ruyi-p5-hard-abort-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+      "bytes": 35520,
+      "sha256": "ddf340ad53800b7604efe34a71ffa9bd463aee66f9f1180c98264b6a292f88cc",
+      "matched": true
+    }
+  ],
+  "artifactCount": 2,
+  "productRuntimeSourceChanged": false,
+  "mainEvidence": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+      "bytes": 7579,
+      "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v1.json",
+      "bytes": 7363,
+      "sha256": "dd4b35e3c014dbc3771f2bfdf98a37343eec900fab1b704633008a761e88e686"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v2.json",
+      "bytes": 17356,
+      "sha256": "4ba629fc86a76042672fd867ba4da302e2e9d076b7a096a18a4980668c59e239"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-metadata-review-v1.json",
+      "bytes": 12665,
+      "sha256": "c7549b7086655f6e86298d1e6a39c3a60ca369052ac0783da98839dcd5ebcf97"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/report-v1.json",
+      "bytes": 4484,
+      "sha256": "8cdb2536824f9dfb2da14f515c142b0c0521ae6ab62507bd09e0f2bbc264a839"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/report.json",
+      "bytes": 13894,
+      "sha256": "1c0dc38970e886526c6f48dda990fee0101b44796f0dc56c126fc85057f6e6d4"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/durable-analysis.json",
+      "bytes": 11211,
+      "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4"
+    }
+  ],
+  "referencedFiles": [
+    {
+      "label": "primary evidence:freeze-v4.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+      "bytes": 7579,
+      "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:neutral-code-review-v1.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v1.json",
+      "bytes": 7363,
+      "sha256": "dd4b35e3c014dbc3771f2bfdf98a37343eec900fab1b704633008a761e88e686",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:neutral-code-review-v2.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-code-review-v2.json",
+      "bytes": 17356,
+      "sha256": "4ba629fc86a76042672fd867ba4da302e2e9d076b7a096a18a4980668c59e239",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:neutral-metadata-review-v1.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/neutral-metadata-review-v1.json",
+      "bytes": 12665,
+      "sha256": "c7549b7086655f6e86298d1e6a39c3a60ca369052ac0783da98839dcd5ebcf97",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/live-v1/results.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/results.json",
+      "bytes": 30787,
+      "sha256": "10d62032f50166172fb5d9e4ace5d4891ab632e07ef0e6bbdac915e9e1adc485",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/live-v1/live.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/live.txt",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/live-v1/source-artifact-checks.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/source-artifact-checks.json",
+      "bytes": 15784,
+      "sha256": "af417e3f5bd5f305f8c3102b55b9968a6b2e5ccfed7b4508505d2abde1239b65",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/engineering-v1/execution.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/execution.json",
+      "bytes": 660,
+      "sha256": "1f24b3f32acb17d598a52b9f3fe61ec795d7a5b869b61d574b39e2eefdff2c74",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/engineering-v1/fast.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/fast.txt",
+      "bytes": 7663,
+      "sha256": "7d042459666d05a458fe89e1d3e2f729f3de78c98ee80c4df963189e83e09c38",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/engineering-v2/execution.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/execution.json",
+      "bytes": 167,
+      "sha256": "b5f11aff5b43efbdbadcfc2dea7301d8813e6c3fd49c5d3a0e99fe26d1572417",
+      "matched": true
+    },
+    {
+      "label": "primary evidence:development/engineering-v2/fast.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/fast.txt",
+      "bytes": 5737,
+      "sha256": "f05897b74e198c9d8758422cf8671d9fe715fdd0f2447e9ce2e6fa52715550a7",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:counts.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/counts.json",
+      "bytes": 43,
+      "sha256": "a369fd877beb1fea9071527d6c98e3e950a1864283c23bf49e603c8da64ce986",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:durable-analysis.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/durable-analysis.json",
+      "bytes": 11211,
+      "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:engineering-reuse.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/engineering-reuse.json",
+      "bytes": 4853,
+      "sha256": "70472af25317e6fd5a1eedc907461edd76e2158128f469e76417c7ed820fb5ab",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:execution-report.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/execution-report.json",
+      "bytes": 1140,
+      "sha256": "e9fb42d213e502ce63033ce31be97cc13cb2ee4142bdd3cf4eeb46683b33773f",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:invocation.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/invocation.json",
+      "bytes": 1497,
+      "sha256": "62c2c4f831a417e2266f80425fe75927cfc328e9af8b4cfc1e4a5099aff18d00",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/initial-service-stderr.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/initial-service-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/initial-service-stdout.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/initial-service-stdout.txt",
+      "bytes": 266,
+      "sha256": "a7648095eb934aa94bdde2a99c8168417bb0af7f4a24da6407afbfb7b8e40107",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-kill/sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-restart/sessions/.pretender/projection-index.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-restart/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-restart/sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-restart/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/post-restart/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/pre-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/pre-kill/sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/pre-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/pre-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/read-only-restart-stderr.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/read-only-restart-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/read-only-restart-stdout.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/read-only-restart-stdout.txt",
+      "bytes": 200,
+      "sha256": "35aceb74586aa7fde244addff37ab17df2d85cadd0508fb4c190f23b230b4d4a",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/results.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/results.json",
+      "bytes": 30784,
+      "sha256": "7f9b75026564a67e68b96b4bb8afa5fa24e180462ed4e454092c0762d1b2be71",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/terminal/sessions/.pretender/projection-index.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/terminal/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/terminal/sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/terminal/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:native/terminal/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:observed-identities.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/observed-identities.json",
+      "bytes": 1329,
+      "sha256": "3b9a5038119d7c8f4254f7802959cc23458a3d5bdc8444bc74198876a9a68504",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:output.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/output.txt",
+      "bytes": 1002,
+      "sha256": "0f84707ab50fb385de045ed551fc0c016421bd10e3c5dca29a62cf0d1bb09307",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:preflight.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/preflight.json",
+      "bytes": 1206,
+      "sha256": "e1d1a294f19e91770cc9cb0c210e3e94a477a05e8d740999a44ff9b6c20f1f14",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:runner.py",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/runner.py",
+      "bytes": 9457,
+      "sha256": "22bd91ee01c90270227674ea5732151a90e0962e2cd3643b9ee11000d3270add",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:signatures.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/signatures.json",
+      "bytes": 1100,
+      "sha256": "412992b308630848dca80c4c3351dbffa11b5766d5de1f7fbf20727982f17fdf",
+      "matched": true
+    },
+    {
+      "label": "independent evidence:source-artifact-checks.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/source-artifact-checks.json",
+      "bytes": 51172,
+      "sha256": "e2d15d537d0a682759643404b5508dc50373f32631347abb5747d0e7760d55f4",
+      "matched": true
+    },
+    {
+      "label": "independent freeze",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+      "bytes": 7579,
+      "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7",
+      "matched": true
+    },
+    {
+      "label": "independent originalExecutionReport",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/execution-report.json",
+      "bytes": 1140,
+      "sha256": "e9fb42d213e502ce63033ce31be97cc13cb2ee4142bdd3cf4eeb46683b33773f",
+      "matched": true
+    },
+    {
+      "label": "durable classification",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/durable-analysis.json",
+      "bytes": 11211,
+      "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/build.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/build.txt",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/execution.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/execution.json",
+      "bytes": 660,
+      "sha256": "1f24b3f32acb17d598a52b9f3fe61ec795d7a5b869b61d574b39e2eefdff2c74",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/fast.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/fast.txt",
+      "bytes": 7663,
+      "sha256": "7d042459666d05a458fe89e1d3e2f729f3de78c98ee80c4df963189e83e09c38",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/invocation.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/invocation.json",
+      "bytes": 777,
+      "sha256": "c43123237bd26711b0585de4185fa5d11abccf7b5e0a170aece84e7db062e2a0",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/source-artifact-checks.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/source-artifact-checks.json",
+      "bytes": 60197,
+      "sha256": "b8b000e17aa9cf84af67c728d4c88e622665f560aa5ed8bb6ce38a17c272ecf2",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/syntax.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/syntax.txt",
+      "bytes": 60,
+      "sha256": "5645fb975dd27c02615fd8d4ae513097d695646431abd75591481494ed108e8a",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v1:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v1/unit.txt",
+      "bytes": 393373,
+      "sha256": "85bbfa2b43aae706e420b61c40083523a36ac6c18beccc23e2c28eaf8ca88a62",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v2:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/execution.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/execution.json",
+      "bytes": 167,
+      "sha256": "b5f11aff5b43efbdbadcfc2dea7301d8813e6c3fd49c5d3a0e99fe26d1572417",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v2:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/fast.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/fast.txt",
+      "bytes": 5737,
+      "sha256": "f05897b74e198c9d8758422cf8671d9fe715fdd0f2447e9ce2e6fa52715550a7",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v2:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/invocation.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/invocation.json",
+      "bytes": 784,
+      "sha256": "2fa196efd731404185f66dcf341db96fa3997409bcae43cde0d19c52138e721d",
+      "matched": true
+    },
+    {
+      "label": "engineering engineering-v2:/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/source-artifact-checks.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/engineering-v2/source-artifact-checks.json",
+      "bytes": 15784,
+      "sha256": "5e224cd9f033e089e7542de41851b4fc0c7158afebba21251fc7936c8f1a0477",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot pre-kill:sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot pre-kill:sessions/sess_5e4b97f69d05590e.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.json",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot pre-kill:sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot pre-kill:sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot pre-kill:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "24e719972f28e3903f8c19489c679c948babb8b96e79d26f918dc9c9de31773d",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-kill:sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-kill:sessions/sess_5e4b97f69d05590e.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.json",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-kill:sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-kill:sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-kill:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "24e719972f28e3903f8c19489c679c948babb8b96e79d26f918dc9c9de31773d",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-restart:sessions/.pretender/projection-index.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "b98b826acb1d2491827997f70bccbeb413cf33734147fa60f7d84328391c2987",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-restart:sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-restart:sessions/sess_5e4b97f69d05590e.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.json",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-restart:sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-restart:sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot post-restart:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "62f37bbaf91270b983a3bdf454ee046b625a94d531db5a6fbc18a543602319c8",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot terminal:sessions/.pretender/projection-index.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "b98b826acb1d2491827997f70bccbeb413cf33734147fa60f7d84328391c2987",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot terminal:sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "d28414e8cfb62a9eec5aad458f418b71f03c97cd5bd325b747a3ae900be83a7d",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot terminal:sessions/sess_5e4b97f69d05590e.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.json",
+      "bytes": 925,
+      "sha256": "f8a93f059dc75d4c7076f3643a68bba85e2cddd28223764099315e95bb8cc706",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot terminal:sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.messages.ndjson",
+      "bytes": 165,
+      "sha256": "3078d63ab23fbc6dc225526060437808ae29911f71444b067c08c32f9e13ec78",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot terminal:sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/sessions/sess_5e4b97f69d05590e.provider.ndjson",
+      "bytes": 137,
+      "sha256": "cdd78a350defc5c6af975340be428517cdd26ee811dbcdb2533429ccf43aaf52",
+      "matched": true
+    },
+    {
+      "label": "primary snapshot terminal:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "62f37bbaf91270b983a3bdf454ee046b625a94d531db5a6fbc18a543602319c8",
+      "matched": true
+    },
+    {
+      "label": "primary raw service output initial-service-stdout.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/initial-service-stdout.txt",
+      "bytes": 266,
+      "sha256": "a857368fb5b53dbd3532a01aa5db8d0081d9df83c7ca7526c2ecbd279c453fe9",
+      "matched": true
+    },
+    {
+      "label": "primary raw service output initial-service-stderr.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/initial-service-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true
+    },
+    {
+      "label": "primary raw service output read-only-restart-stdout.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/read-only-restart-stdout.txt",
+      "bytes": 200,
+      "sha256": "e82576843bbe6212f8c114d0067c498d2d095d3698325038160c65a7c7f6e59d",
+      "matched": true
+    },
+    {
+      "label": "primary raw service output read-only-restart-stderr.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/development/live-v1/read-only-restart-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot pre-kill:sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot pre-kill:sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot pre-kill:sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot pre-kill:sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot pre-kill:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/pre-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-kill:sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-kill:sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-kill:sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-kill:sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-kill:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-kill/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 2985,
+      "sha256": "0d3cc8a7e6995c443e3513c373546fd9f76dd56e8f03174f8a0eee8b0ebb23c1",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-restart:sessions/.pretender/projection-index.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-restart:sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-restart:sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-restart:sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-restart:sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot post-restart:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/post-restart/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot terminal:sessions/.pretender/projection-index.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/.pretender/projection-index.json",
+      "bytes": 2606,
+      "sha256": "e0e4c8610ad30d4a8bfdf67bc876244f1431ae3a8d6503a5d487b7793dd29833",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot terminal:sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.interventions.ndjson",
+      "bytes": 1454,
+      "sha256": "4896834baa632f4414c0713b6891ced4778e17369fd50cd9b68345fbb9432e36",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot terminal:sessions/sess_55064f9201c6c0aa.json",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.json",
+      "bytes": 925,
+      "sha256": "fd97fb858a515c4855d39d84ca6e07ff4dabd52aea511f1a906241c217dde2f4",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot terminal:sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.messages.ndjson",
+      "bytes": 165,
+      "sha256": "afb604c4cb2d9cf3debfe54ca5c66da310805b9256e15d9835af6f8d32d9b4f6",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot terminal:sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/sessions/sess_55064f9201c6c0aa.provider.ndjson",
+      "bytes": 137,
+      "sha256": "e0511d76b2ab8b5ffabd71a83a5f89b08f173891b998d6f0033230229a46c3af",
+      "matched": true
+    },
+    {
+      "label": "independent snapshot terminal:node-logs/workbench-2026-11-11.ndjson",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/terminal/node-logs/workbench-2026-11-11.ndjson",
+      "bytes": 3092,
+      "sha256": "ec1eb068f827725098a6dfc5c040d8d9ba7e0cf124a73cfe8c489b474d7de7f4",
+      "matched": true
+    },
+    {
+      "label": "independent raw service output initial-service-stdout.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/initial-service-stdout.txt",
+      "bytes": 266,
+      "sha256": "a7648095eb934aa94bdde2a99c8168417bb0af7f4a24da6407afbfb7b8e40107",
+      "matched": true
+    },
+    {
+      "label": "independent raw service output initial-service-stderr.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/initial-service-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true
+    },
+    {
+      "label": "independent raw service output read-only-restart-stdout.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/read-only-restart-stdout.txt",
+      "bytes": 200,
+      "sha256": "35aceb74586aa7fde244addff37ab17df2d85cadd0508fb4c190f23b230b4d4a",
+      "matched": true
+    },
+    {
+      "label": "independent raw service output read-only-restart-stderr.txt",
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/hard-abort/independent-v1/native/read-only-restart-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true
+    }
+  ],
+  "referencedFileCount": 115,
+  "engineeringCheckpoints": [
+    {
+      "run": "engineering-v1",
+      "count": 8,
+      "sourceCount": 37,
+      "artifactCount": 2,
+      "allRowsMatchTheirFrozenScope": true,
+      "outcomes": [
+        {
+          "name": "syntax",
+          "argv": [
+            "node",
+            "dev-harness/syntax-gate.js"
+          ],
+          "exitCode": 0,
+          "seconds": 25.898817374996725
+        },
+        {
+          "name": "build",
+          "argv": [
+            "node",
+            "ruyi-workbench/app/build.js",
+            "--check"
+          ],
+          "exitCode": 0,
+          "seconds": 0.1844257920020027
+        },
+        {
+          "name": "unit",
+          "argv": [
+            "node",
+            "--test",
+            "dev-harness/unit/*.test.js"
+          ],
+          "exitCode": 0,
+          "seconds": 109.77740670900675
+        },
+        {
+          "name": "fast",
+          "argv": [
+            "node",
+            "dev-harness/run-all.js",
+            "--fast"
+          ],
+          "exitCode": 1,
+          "seconds": 122.20127783399948
+        }
+      ]
+    },
+    {
+      "run": "engineering-v2",
+      "count": 2,
+      "sourceCount": 39,
+      "artifactCount": 2,
+      "allRowsMatchTheirFrozenScope": true,
+      "outcomes": [
+        {
+          "name": "fast",
+          "argv": [
+            "node",
+            "dev-harness/run-all.js",
+            "--fast"
+          ],
+          "exitCode": 0,
+          "seconds": 121.83635079099622
+        }
+      ]
+    }
+  ],
+  "independentCheckpoints": {
+    "count": 4,
+    "sources": 39,
+    "artifacts": 2,
+    "allMatched": true
+  },
+  "executionScopes": [
+    {
+      "label": "primary",
+      "originalObservedTopologyIdentities": 5,
+      "faultElapsedMonotonicMs": 325.41037499999993,
+      "observedOriginalExitWallMs": 57,
+      "inputScheduled": false,
+      "hardAbortGatePassClaimed": false
+    },
+    {
+      "label": "independent",
+      "originalObservedTopologyIdentities": 5,
+      "faultElapsedMonotonicMs": 1377.043041,
+      "observedOriginalExitWallMs": 30,
+      "inputScheduled": false,
+      "hardAbortGatePassClaimed": false
+    }
+  ],
+  "scope": "Read-only dual-commit/raw-blob/working-byte/evidence binding. Each primary and independent execution passed12 zero-input approved/pending ordinary wait-only root-termination calibration assertions. Permission request intent and allow persist; ACC wait-entry/dispatch ACK and macro terminal durable attribution remain absent/unconfirmed. These results do not close held/release/durable hard-abort gates or wholeP5.",
+  "engineeringHistory": "Primary syntax1156/build/unit2499+18 existing skips reused on unchanged37 sources. Primary fast v1 failed79/80 after built-in retry; generated route metadata was updated, and full fast v2 passed80/80 with its repeated unit preflight. Independent executor did not repeat engineering gates. Original logs/history remain intact.",
+  "unresolvedFindings": [],
+  "actionsThisReview": {
+    "testsStarted": 0,
+    "GUIActions": 0,
+    "signatureInvocations": 0,
+    "processSnapshotsOrSignals": 0,
+    "sourceEdits": 0,
+    "originalEvidenceEdits": 0,
+    "indexChanges": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/hard-abort/independent-commit-binding.json"
+    ]
+  },
+  "phaseStatus": "in_progress",
+  "hardAbortGateStatus": "open_not_accepted"
+}

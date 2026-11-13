@@ -133,7 +133,7 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
 // 审计 N4:allowCommandTools / allowDesktopTools 不只是「不 offer」—— 分发点也按同一判据拒绝(bypass/auto 下 gate 恒 allow,
 // 光藏 schema 拦不住模型直接吐出的 script_run)。offer 面(buildOpenAiTools)与分发面(09 主循环 / 08 子代理 / 12 toolCall)共用本函数。
 // 返回空串 = 放行;否则是给模型看的中文原因。desktopOverride 语义同 buildOpenAiTools(null = 跟随全局)。
-const NATIVE_COMMAND_TOOL_NAMES = new Set(['powershell_run', 'script_run', 'shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
+const NATIVE_COMMAND_TOOL_NAMES = new Set(['shell_run', 'powershell_run', 'script_run', 'shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
 const NATIVE_DESKTOP_TOOL_NAMES = new Set(['desktop_screenshot', 'keyboard_send_keys']);
 // 桌面闸的唯一判法(原生与桥接共用):会话级覆盖 desktopOverride 非 null 时以它为准,否则跟随全局 allowDesktopTools。
 function desktopToolsDisabledReason(cfg, desktopOverride) {
@@ -141,8 +141,24 @@ function desktopToolsDisabledReason(cfg, desktopOverride) {
   if (allowDesk) return '';
   return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
 }
+// 能力总闸(allowDesktopTools 的会话级覆盖)要的会话头:回合内的调用 ctx 带 session;MCP 子进程(Claude / Kimi CLI 经如意 MCP)
+// 里 ctx 为空,按注入的 WCW_SESSION_ID 装(与下面桥接分支的 sidSession、journalSessionCtx 同一个来源)。装不到 = null = 跟随全局。
+async function policySessionFor(ctx) {
+  if (ctx && ctx.session) return ctx.session;
+  const sid = process.env.WCW_SESSION_ID || '';
+  if (!sid) return null;
+  try { return (await loadSession(sid)) || null; } catch { return null; }
+}
+async function policyDesktopOverrideFor(ctx) {
+  const session = await policySessionFor(ctx);
+  return session ? sessionDesktopToolsOf(session) : null;
+}
+
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
+  if (process.platform === 'darwin' && (name === 'powershell_run' || name === 'keyboard_send_keys')) {
+    return 'platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现';
+  }
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
   if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) return desktopToolsDisabledReason(cfg, desktopOverride);
   return '';
@@ -150,7 +166,7 @@ function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
 // 2026-10 能力总闸补上桥接面。设置页承诺「关掉之后,对应的工具在所有线程里既不提供给模型、也不会执行」,修前只兑现了上面
 // 两张原生名单 —— 内置桌面 MCP(ACC:serverId 'ai-computer-control',桥接名前缀 ai_computer_control__)的 run_command /
 // screenshot / mouse_click 等在两个开关都关掉之后照常提供、照常执行。下面按 ACC 的【裸工具名】补两族(逐个对过
-// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:108 件里收 55 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
+// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:平台源码注册名并集 109 件里收 56 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
 // 哪怕有同名工具也不受影响(它们的语义由用户接入时自己负责,工作台不替它猜)。判据收在 toolDisabledByPolicy 一个函数里,
 // offer 面(09 目录 / 08 子代理 / 11 MCP 子进程目录 / 07 createToolLoadingState)与分发面(09 / 08 / 12 代理 / 13d CLI 权限桥)
 // 都调它;CLI 直挂 ACC 的那一路(01 addExternalMcpServersToMap / syncMcpServersToClaude)按同一张表算出 ACC_HIDE_TOOLS 交给
@@ -175,7 +191,7 @@ const ACC_POLICY_TOOL_FAMILIES = Object.freeze({
     'screenshot', 'screenshot_region', 'get_screen_info', 'find_on_screen',                                    // screen
     'window_screenshot',                                                                                       // capture
     'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'get_mouse_position',              // mouse
-    'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',                                                  // keyboard
+    'type_text', 'press_key', 'hotkey', 'input_sequence', 'key_down', 'key_up',                                                  // keyboard
     'list_windows', 'get_active_window', 'focus_window', 'resize_window', 'move_window',                       // window
     'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
     'ui_inspect', 'ui_find', 'ui_invoke',                                                                      // uia
@@ -222,7 +238,9 @@ function dropPolicyDisabledBridgedTools(tools, bridgedRoute, config, desktopOver
   });
 }
 function toolDisabledResult(name, reason) {
-  return { ok: false, code: 'tool-disabled', error: `tool '${name}' is disabled by settings (${reason})`, hint: '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
+  const unsupported = reason.startsWith('platform.unsupported:');
+  return { ok: false, code: 'tool-disabled', error: unsupported ? `tool '${name}' is unavailable (${reason})` : `tool '${name}' is disabled by settings (${reason})`,
+    hint: unsupported ? '请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。' : '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
 }
 // 审计 N5:按名字取原生工具自己的 JSON schema(13f MCP_TOOLS),供分发前的入参校验(12 validateNativeToolArgs)。
 // 放在 07 而不是 12:07 本就读 MCP_TOOLS,12 再读就是新增一条前向边(module-dependency-graph 的债务上限会红)。
@@ -293,7 +311,8 @@ function buildOpenAiTools(config, caps, opts) {
     // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. orchestrate_agents (exec)
     // is already suppressed for sub-turns via noAgentTools, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
-    if (caps && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
+    const needsRuntime = process.platform === 'darwin' && TOOL_REQUIRES[t.name]?.requires.some(cap => ['processSupervisor', 'desktopCapture'].includes(cap));
+    if ((caps || needsRuntime) && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }
   // C2(61 号文)会话草稿本:只在调用方显式传 opts.scratchpadEnabled 时 offer —— 09 主回合对非管家会话传;08 子代理、
@@ -447,7 +466,7 @@ const NATIVE_TOOL_TIER = {
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
   // v1.1-W2 (T1): 移动/复制/压缩/解压/下载 —— 均落盘且经检查点(可撤销) → edit tier。
   file_move: 'edit', file_copy: 'edit', archive_zip: 'edit', archive_unzip: 'edit', http_download: 'edit',
-  powershell_run: 'exec', script_run: 'exec', keyboard_send_keys: 'exec', browser_open: 'exec', office_open: 'exec',
+  shell_run: 'exec', powershell_run: 'exec', script_run: 'exec', keyboard_send_keys: 'exec', browser_open: 'exec', office_open: 'exec',
   desktop_screenshot: 'exec', http_request: 'exec',
   // 127-114c③(26 号文 §3):读本地音频后出网转写 —— 用户文件内容离开本进程,与「文件出网」同档 exec。
   audio_transcribe: 'exec',
@@ -492,7 +511,7 @@ const BRIDGED_READ_TOOLS = new Set([
   // 不弹窗)。它落回默认 'exec':read/edit 子代理拿不到,非 bypass 模式点击前弹窗。纯只读文本定位仍可用 ocr_screen/
   // ocr_image(返回全部词+坐标)或 find_on_screen/find_template(模板匹配,无 click、均无 audit → 仍是 read)。
   'find_template', 'find_all_templates', 'find_on_screen',
-  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail',
+  'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail', 'execution_receipt',
   'read_file', 'file_info', 'clipboard_get', 'clipboard_read', 'get_clipboard',
   // 审计 A10:ACC 里其余【纯读、不点不敲不写】的工具(逐个对过 tools/*.py 的签名)。修前它们落到默认 exec,default 模式下
   // 每次调用都弹窗 —— 而 screenshot 不弹,推荐的「一步感知」observe(截图+UIA+OCR)反而每次弹。
@@ -574,7 +593,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 // 命令行 3 个会话都用到(powershell_run 27 次、script_run 9 次)。开局没装、中途补装时,提供方的前缀缓存会整段失效
 // (实测命中率 97%→3%、94%→8%,下一发几乎整段上下文按未缓存计);三个合计约 630 token,每发基本都命中缓存,比中途断一次便宜。
 // file_read 不进:分包对文件类说法的召回本就高(文件/目录/路径/代码/项目/查看/搜索…),tool-loading e2e 也用它钉「按需注入」。
-const PROVIDER_STARTER_TOOLS = Object.freeze(['web_search', 'web_fetch', 'powershell_run']);
+const PROVIDER_STARTER_TOOLS = Object.freeze(['web_search', 'web_fetch', process.platform === 'darwin' ? 'shell_run' : 'powershell_run']);
 const NATIVE_TOOL_PACKS = Object.freeze({
   threads_search: 'memory', thread_read: 'memory',
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
@@ -599,7 +618,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   checkpoint_list: 'files_write',
   dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code', debug_hypothesis: 'code', data_profile: 'code',
   git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
-  powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
+  shell_run: 'shell', powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', send_to_agent: 'agents', skill_read: 'skills',
@@ -634,7 +653,7 @@ function toolPackForName(name, bridgedRoute) {
   const bridge = resolveBridge(bridgedRoute || {}, name);
   const raw = String(bridge ? bridge.toolName : name || '').toLowerCase();
   if (/(excel|spreadsheet|workbook|worksheet|word|docx|document|ppt|powerpoint|slide|pdf|chart_image)/.test(raw)) return 'office';
-  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|type_text|scroll|drag)/.test(raw)) return 'desktop';
+  if (/(screen|window|mouse|keyboard|click|clipboard|ocr|ui_|desktop|hotkey|input_sequence|type_text|scroll|drag)/.test(raw)) return 'desktop';
   if (/(archive|zip|unzip|compress|extract)/.test(raw)) return 'archive';
   if (/(search|fetch|http|url|browser|download|web)/.test(raw)) return 'web';
   if (/^memory_(save|read|list|delete)$/.test(raw)) return 'memory';
@@ -669,6 +688,7 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   docs_search: { capabilities: ['documentation.search'], aliases: ['搜索项目文档', '查文档', 'search documentation'] },
   git_status: { capabilities: ['git.status'], aliases: ['查看代码变更', '仓库状态', 'working tree status'] },
   git_diff: { capabilities: ['git.diff'], aliases: ['查看差异', '代码改动', 'show changes diff'] },
+  shell_run: { capabilities: ['shell.exec'], aliases: ['运行命令', '执行 bash', 'run command'] },
   powershell_run: { capabilities: ['shell.powershell.execute'], aliases: ['运行命令', '执行 powershell', 'run command'] },
   script_run: { capabilities: ['shell.script.execute'], aliases: ['运行脚本', '执行脚本', 'run script'] },
   web_search: { capabilities: ['web.search'], aliases: ['搜索互联网', '联网搜索', 'search the web'] },
@@ -1046,7 +1066,7 @@ function withToolArgSkeletons(result, catalog, opts) {
 const BRIDGED_SHADOWED_BY_NATIVE = Object.freeze({
   read_file: 'file_read', write_file: 'file_write', edit_file: 'file_edit',
   delete_file: 'file_delete', move_file: 'file_move', copy_file: 'file_copy',
-  list_directory: 'file_list', fetch: 'web_fetch', run_command: 'powershell_run',
+  list_directory: 'file_list', fetch: 'web_fetch', run_command: process.platform === 'darwin' ? 'shell_run' : 'powershell_run',
 });
 function bridgedShadowNative(item, nativeNames) {
   if (!item || !item.bridged) return '';
@@ -1821,7 +1841,7 @@ Object.assign(ProviderWireHooks, { makeId, redact, repairProviderHistoryPairing,
 // (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
 // 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
 // 只加/换 arguments 字段,tool_call id/type/function.name 原样保留(pairing 铁律不破坏)。
-const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
+const ACTION_VIEW_TOOLS = new Set(['file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download', 'script_run', 'shell_run', 'powershell_run', 'tool_invoke_edit', 'tool_invoke_exec']);
 const ACTION_VIEW_MIN_CHARS = 512;
 
 function actionTargetMeta(toolName, args) {
@@ -1831,9 +1851,9 @@ function actionTargetMeta(toolName, args) {
   if (/^(script_run|file_)/.test(name) && pathKey) {
     return { kind: 'path', basename: path.win32.basename(String(pathKey)) }; // win32:模型给的是 Windows 路径,\ 与 / 都认,非 Windows 主机上也只取尾段
   }
-  if (name === 'powershell_run') {
+  if (name === 'powershell_run' || name === 'shell_run') {
     const cmd = String(input.command || '');
-    return { kind: 'cmd', basename: cmd.slice(0, 40) || 'powershell' };
+    return { kind: 'cmd', basename: cmd.slice(0, 40) || (name === 'shell_run' ? 'shell' : 'powershell') };
   }
   if (/^tool_invoke_/.test(name)) {
     return { kind: 'proxy', basename: String(input.name || '') };
@@ -1897,6 +1917,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = async b => {
     const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
+    await DesktopExecutionHooks.beforeModelRequest();
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
   };
@@ -2162,7 +2183,17 @@ function neutralizeInjectedPrefixes(s) {
   } catch { return String(s == null ? '' : s); }
 }
 
-function gitExec(cwd, args, timeout = 30000) {
+const AgentWorktreeHooks = {};
+
+async function gitExec(cwd, args, timeout = 30000) {
+  if (process.platform === 'darwin') {
+    const result = await AgentWorktreeHooks.runGit(args, cwd, timeout, { maxBuffer: 16 * 1024 * 1024, owner: { kind: 'agent-worktree' } });
+    if (result.ok) return String(result.stdout || '').trim();
+    const error = result.error || new Error(String(result.stderr || 'Git command failed').trim());
+    error.gitStderr = String(result.stderr || '').trim();
+    error.cleanupIncomplete = result.cleanupIncomplete === true || error.code === 'ERR_PROCESS_OUTPUT_INCOMPLETE';
+    throw error;
+  }
   return new Promise((resolve, reject) => {
     cp.execFile('git', ['-C', cwd, ...args], { windowsHide: true, timeout, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) { err.gitStderr = String(stderr || '').trim(); reject(err); }
@@ -2179,15 +2210,20 @@ async function createAgentWorktree(cwd, runId, nodeId, attempt) {
   const worktreePath = path.resolve(paths.agentWorktrees, folder);
   if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) throw new Error('invalid agent worktree path');
   await fsp.mkdir(path.dirname(worktreePath), { recursive: true });
-  await gitExec(repoRoot, ['worktree', 'add', '--detach', worktreePath, baseCommit], 60000);
-  return { mode: 'worktree', status: 'running', path: worktreePath, repoRoot: path.resolve(repoRoot), baseCommit, createdAt: nowIso() };
+  const isolation = { mode: 'worktree', status: 'running', path: worktreePath, repoRoot: path.resolve(repoRoot), baseCommit, createdAt: nowIso() };
+  try { await gitExec(repoRoot, ['worktree', 'add', '--detach', worktreePath, baseCommit], 60000); }
+  catch (error) {
+    if (error.cleanupIncomplete) error.worktreeIsolation = { ...isolation, status: 'error', cleanupIncomplete: true };
+    throw error;
+  }
+  return isolation;
 }
 async function finalizeAgentWorktree(isolation, runId, nodeId) {
   if (!isolation || isolation.mode !== 'worktree') return isolation;
   const changes = await gitExec(isolation.path, ['status', '--porcelain=v1', '--untracked-files=all']);
   if (!changes) {
     isolation.status = 'clean'; isolation.completedAt = nowIso();
-    try { await gitExec(isolation.repoRoot, ['worktree', 'remove', '--force', isolation.path], 60000); } catch {}
+    try { await gitExec(isolation.repoRoot, ['worktree', 'remove', '--force', isolation.path], 60000); } catch (error) { if (error.cleanupIncomplete) throw error; }
     isolation.path = ''; return isolation;
   }
   await gitExec(isolation.path, ['add', '-A']);
@@ -2206,25 +2242,73 @@ async function finalizeAgentWorktree(isolation, runId, nodeId) {
   isolation.status = 'ready'; isolation.completedAt = nowIso(); isolation.changeSummary = changes.split(/\r?\n/).slice(0, 100);
   return isolation;
 }
+const agentWorktreeApplyChains = new Map();
 async function applyAgentWorktree(run, nodeId) {
+  const isolation = (run.nodes || []).find(node => node.id === nodeId)?.isolation;
+  if (!isolation) return { ok: false, error: '该节点没有可应用的隔离提交' };
+  const repoRoot = path.resolve(isolation.repoRoot || '');
+  const stat = await fsp.stat(repoRoot, { bigint: true }).catch(() => null);
+  const key = stat && stat.ino !== 0n ? `${stat.dev}:${stat.ino}:${stat.birthtimeNs}` : 'unknown-repository';
+  return runKeyedChain(agentWorktreeApplyChains, key, async () => {
+    try {
+      const stored = JSON.parse(await fsp.readFile(agentRunFile(run.sessionId, run.id), 'utf8'));
+      if (!stored || stored.id !== run.id || stored.sessionId !== run.sessionId) throw new Error('隔离运行记录身份不匹配');
+      const storedIsolation = stored.nodes?.find(node => node.id === nodeId)?.isolation;
+      if (storedIsolation && path.resolve(storedIsolation.repoRoot || '') !== repoRoot) return { ok: false, recordChanged: true, error: '隔离工作树目标已变化，请重新读取后重试' };
+      Object.assign(run, stored);
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    return applyAgentWorktreeLocked(run, nodeId);
+  });
+}
+async function applyAgentWorktreeLocked(run, nodeId) {
   const node = (run.nodes || []).find(n => n.id === nodeId);
   if (!node || !node.isolation || node.isolation.mode !== 'worktree' || !node.isolation.commit) return { ok: false, error: '该节点没有可应用的隔离提交' };
-  if (node.isolation.status === 'applied') return { ok: true, alreadyApplied: true, commit: node.isolation.commit };
+  if (node.isolation.status === 'applied') return { ok: true, alreadyApplied: true, commit: node.isolation.commit, cleanupPending: Boolean(node.isolation.path) };
   const iso = node.isolation;
+  if (iso.status === 'applying') return { ok: false, applicationUnconfirmed: true, error: '上次隔离提交应用结果尚未确认，请先核对仓库状态' };
   const repoRoot = path.resolve(iso.repoRoot || '');
-  const currentRoot = await gitExec(normalizeCwd(repoRoot), ['rev-parse', '--show-toplevel']).catch(() => '');
+  let currentRoot = '';
+  try { currentRoot = await gitExec(normalizeCwd(repoRoot), ['rev-parse', '--show-toplevel']); }
+  catch (error) {
+    if (error.cleanupIncomplete) return { ok: false, cleanupIncomplete: true, error: 'Git 子进程清理尚未确认，请核对仓库状态后重试' };
+  }
   if (!currentRoot || path.resolve(currentRoot) !== repoRoot) return { ok: false, error: '原工作区已不可用' };
   const dirty = await gitExec(repoRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
   if (dirty) return { ok: false, error: '当前工作区有未提交改动；为避免覆盖，请先提交或移走这些改动' };
+  const previousStatus = iso.status;
+  iso.status = 'applying'; iso.applyStartedAt = nowIso();
+  try {
+    await saveAgentRun(run);
+    const recorded = JSON.parse(await fsp.readFile(agentRunFile(run.sessionId, run.id), 'utf8'));
+    const recordedIsolation = recorded.nodes?.find(item => item.id === nodeId)?.isolation;
+    if (recordedIsolation?.status !== 'applying' || recordedIsolation.commit !== iso.commit) throw new Error('隔离提交应用意图未持久化');
+  }
+  catch (error) { iso.status = previousStatus; delete iso.applyStartedAt; throw error; }
   try {
     await gitExec(repoRoot, ['cherry-pick', iso.commit], 120000);
   } catch (e) {
-    try { await gitExec(repoRoot, ['cherry-pick', '--abort'], 30000); } catch {}
+    if (e.cleanupIncomplete) return { ok: false, applicationUnconfirmed: true, cleanupIncomplete: true, error: '隔离提交的 Git 子进程清理尚未确认，请核对仓库状态后重试' };
+    try { await gitExec(repoRoot, ['cherry-pick', '--abort'], 30000); }
+    catch (error) { return { ok: false, applicationUnconfirmed: true, cleanupIncomplete: error.cleanupIncomplete === true, error: '隔离提交回退尚未确认，请先核对仓库状态' }; }
+    iso.status = previousStatus; delete iso.applyStartedAt;
+    await saveAgentRun(run);
     return { ok: false, error: `隔离提交无法安全应用：${e.gitStderr || e.message || e}` };
   }
   iso.status = 'applied'; iso.appliedAt = nowIso();
+  try { await saveAgentRun(run); }
+  catch (error) {
+    iso.status = 'applying';
+    throw Object.assign(error, { applied: true, commit: iso.commit, applicationUnconfirmed: true });
+  }
   if (iso.path && await agentWorktreePathOwned(iso.path)) {
-    try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; } catch {}
+    try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; }
+    catch (error) {
+      if (error.cleanupIncomplete) {
+        iso.cleanupIncomplete = true;
+        await saveAgentRun(run);
+        return { ok: false, applied: true, commit: iso.commit, cleanupIncomplete: true, error: '隔离提交已应用，工作树清理尚未确认' };
+      }
+    }
   }
   await saveAgentRun(run);
   return { ok: true, commit: iso.commit };
@@ -2243,11 +2327,31 @@ async function cleanupAgentWorktree(isolation) {
   const worktreePath = path.resolve(isolation.path);
   if (!(await agentWorktreePathOwned(worktreePath))) return;
   try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'remove', '--force', worktreePath], 60000); }
-  catch {
+  catch (error) {
+    if (error.cleanupIncomplete) throw error;
     try { await fsp.rm(worktreePath, { recursive: true, force: true }); } catch {}
-    try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'prune'], 30000); } catch {}
+    try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'prune'], 30000); } catch (pruneError) { if (pruneError.cleanupIncomplete) throw pruneError; }
   }
   isolation.path = '';
+  delete isolation.cleanupIncomplete;
+}
+
+async function cleanupAgentWorktreeForRetry(node) {
+  if (node.errorClass === 'process_cleanup_incomplete' || node.isolation?.cleanupIncomplete) {
+    node.status = 'failed'; node.degraded = false;
+    node.errorClass = 'process_cleanup_incomplete';
+    return false;
+  }
+  if (!node.isolation || !node.isolation.path) return true;
+  try { await cleanupAgentWorktree(node.isolation); return true; }
+  catch (error) {
+    if (!error.cleanupIncomplete) return true;
+    node.isolation.cleanupIncomplete = true;
+    node.status = 'failed'; node.degraded = false;
+    node.error = '隔离工作树清理尚未确认，已停止自动重试';
+    node.errorClass = 'process_cleanup_incomplete';
+    return false;
+  }
 }
 
 function projectAgentRoleFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'agents.json'); }
@@ -2451,6 +2555,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 子代理，需要经过根服务转发的执行身份。'), { code: 'execution_cli_unavailable' });
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
@@ -2550,7 +2655,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // kills whichever child is current; the watchdog is per-attempt.
   let killed = false;
   let currentChild = null;
-  const onAbort = () => { killed = true; if (currentChild) { try { currentChild.stdin.end(); } catch { /* ignore */ } killChildTree(currentChild.pid); } };
+  const onAbort = () => { killed = true; if (currentChild) { killChildTree(currentChild); try { currentChild.stdin.end(); } catch { /* ignore */ } } };
   if (ctrl && ctrl.signal) { if (ctrl.signal.aborted) killed = true; else ctrl.signal.addEventListener('abort', onAbort, { once: true }); }
 
   // 45c:over_window 重试时的可变任务(缩载);初值 = 原任务。
@@ -2559,7 +2664,8 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const runOnce = async () => {
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
     return new Promise(resolve => {
-    const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
+    const child = ProcessRuntime.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts },
+      { kind: 'cli-subagent', sessionId: parentSession.id, subagentId, agentKey });
     currentChild = child;
     let lastEventAt = Date.now();
     // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).

@@ -1,0 +1,25 @@
+{
+  "name": "entry",
+  "executor": "/root/p5_acceptance",
+  "exitCode": 0,
+  "counts": {
+    "pass": 31,
+    "fail": 0,
+    "skip": 0
+  },
+  "seconds": 4.517074167000828,
+  "rootBirth": 1794397733244999,
+  "observedOuterIdentities": 17,
+  "remainingOuterIdentities": [],
+  "remainingRecordedIdentities": [],
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/durable-history/independent-v1/entry/output.txt",
+  "logDigest": {
+    "bytes": 2208,
+    "sha256": "bfeb044bcbccb7daae5bd2f02d7103dd3b67e6343044f1f3e5aa86c9296fb880"
+  },
+  "runtimeEvidenceDigest": {
+    "bytes": 210588,
+    "sha256": "a01699eac1b50ea546ce664e5dd7ec96a49fa98964ff65fb86d0d25bbdaf7691"
+  },
+  "passed": true
+}

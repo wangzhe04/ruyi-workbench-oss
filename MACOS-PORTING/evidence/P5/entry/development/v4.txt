@@ -1,0 +1,31 @@
+PASS allow crosses actual default-mode permission entry exactly once
+PASS allowed session macro performs one actual balanced native click
+PASS normal allowed session preserves actual enclosing and native ACC audit rows
+PASS allow leaves the receiver input state neutral
+PASS deny crosses actual default-mode permission entry exactly once
+PASS deny has no receiver side effect or dispatched ACC mutation
+PASS deny leaves no live permission request after the actual session settles
+PASS deny leaves the receiver input state neutral
+PASS cancel crosses actual default-mode permission entry exactly once
+PASS cancel has no receiver side effect or dispatched ACC mutation
+PASS cancel leaves no live permission request after the actual session settles
+PASS cancel leaves the receiver input state neutral
+PASS window_screenshot saves an actual PNG through an ordinary session turn
+PASS window_screenshot has the real per-session/per-turn create checkpoint
+PASS window_screenshot rollback removes its newly created file
+PASS window_screenshot saves an actual PNG through an ordinary session turn
+PASS window_screenshot genuinely overwrites different prior image bytes
+PASS window_screenshot has the real per-session/per-turn before-image checkpoint
+PASS window_screenshot rollback restores exact prior bytes
+PASS get_clipboard_image saves an actual PNG through an ordinary session turn
+PASS get_clipboard_image has the real per-session/per-turn create checkpoint
+PASS get_clipboard_image rollback removes its newly created file
+PASS get_clipboard_image saves an actual PNG through an ordinary session turn
+PASS get_clipboard_image genuinely overwrites different prior image bytes
+PASS get_clipboard_image has the real per-session/per-turn before-image checkpoint
+PASS get_clipboard_image rollback restores exact prior bytes
+PASS both actual image writers retain success audit rows for create and overwrite turns
+PASS native entry fixture restores the original input source
+PASS native entry fixture restores the original clipboard
+
+MACOS NATIVE ENTRY E2E: ALL PASS

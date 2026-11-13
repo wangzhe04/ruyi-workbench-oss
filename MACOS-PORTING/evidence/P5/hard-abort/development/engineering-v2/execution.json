@@ -1,0 +1,12 @@
+[
+  {
+    "name": "fast",
+    "argv": [
+      "node",
+      "dev-harness/run-all.js",
+      "--fast"
+    ],
+    "exitCode": 0,
+    "seconds": 121.83635079099622
+  }
+]

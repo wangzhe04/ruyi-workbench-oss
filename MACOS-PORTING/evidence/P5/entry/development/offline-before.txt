@@ -1,0 +1,10 @@
+PASS window_screenshot-false proxy actually writes the fixture file
+FAIL window_screenshot-false journals the actual session and turn before dispatch
+PASS window_screenshot-true proxy actually writes the fixture file
+FAIL window_screenshot-true journals the actual session and turn before dispatch
+PASS get_clipboard_image-false proxy actually writes the fixture file
+FAIL get_clipboard_image-false journals the actual session and turn before dispatch
+PASS get_clipboard_image-true proxy actually writes the fixture file
+FAIL get_clipboard_image-true journals the actual session and turn before dispatch
+
+CHECKPOINT PROXY SESSION E2E: FAIL (4)

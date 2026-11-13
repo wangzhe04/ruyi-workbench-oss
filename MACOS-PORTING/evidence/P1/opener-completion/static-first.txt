@@ -1,0 +1,49 @@
+# 夹具残留清理: 扫 2266 个,清掉 2 个陈年的,留下 1764 个新的与 0 个非夹具,删不掉 0 个
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试失败(node --test dev-harness/unit),拒跑 e2e:
+▶ 走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒
+  ✔ AUTOEXEC_DENYLIST 命中这些路径(正反斜杠都认) (0.271416ms)
+  ✔ guardFileToolPath / file_write:写拒(autoexec-denied),读照旧 (25.790916ms)
+  ✔ 相邻的日常写照旧放行(不误伤) (19.290875ms)
+✔ 走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒 (45.484959ms)
+ℹ tests 2509
+ℹ suites 192
+ℹ pass 2490
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 18
+ℹ todo 0
+ℹ duration_ms 117049.297125
+
+✖ failing tests:
+
+test at dev-harness/unit/http-input-hardening.test.js:203:1
+✖ [H8] office_open 起不来打开程序 → 工具失败,服务不崩(Linux:explorer.exe 不存在) (101.119083ms)
+  AssertionError [ERR_ASSERTION]: 修前回 opened:{
+    "ok": true,
+    "result": {
+      "ok": true,
+      "opened": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-pDEFQW"
+    }
+  }
+
+  true !== false
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/http-input-hardening.test.js:206:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

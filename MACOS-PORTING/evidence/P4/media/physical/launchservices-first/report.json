@@ -1,0 +1,80 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 0,
+  "microphoneCaptureEvents" : [
+    {
+      "state" : 0
+    },
+    {
+      "state" : 1
+    },
+    {
+      "action" : "tracks_released_stop_requested",
+      "elapsedMs" : 650.9209165815264
+    },
+    {
+      "action" : "tracks_released_stop_completed",
+      "elapsedMs" : 656.59462497569621
+    },
+    {
+      "action" : "deadline_stop_requested",
+      "elapsedMs" : 2100.0667081680149
+    },
+    {
+      "action" : "deadline_stop_completed",
+      "elapsedMs" : 2109.9012498743832
+    },
+    {
+      "observedDurationMs" : 3000.6717499345541,
+      "state" : 0
+    }
+  ],
+  "microphoneCaptureLimitFired" : true,
+  "microphoneCaptureState" : 0,
+  "microphoneCaptureStopping" : false,
+  "nativePID" : 1337,
+  "page" : {
+    "additional" : {
+      "buttonState" : "idle",
+      "input" : "P4 本机短录音验收完成",
+      "passed" : true,
+      "requests" : [
+        {
+          "constraints" : {
+            "audio" : true
+          },
+          "nativeRequested" : true,
+          "state" : "released",
+          "stops" : [
+            591
+          ]
+        }
+      ],
+      "sends" : 0,
+      "uploads" : [
+        {
+          "ok" : true,
+          "status" : 200
+        }
+      ]
+    },
+    "composer" : true,
+    "configLoaded" : true,
+    "frame" : true,
+    "health" : true,
+    "readyState" : "complete",
+    "title" : "如意工作台"
+  },
+  "previewNavigations" : 0,
+  "profileIdentifier" : "64D39CCF-A46E-297C-925B-6C09E357AE25",
+  "servicePID" : 1342,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "ready",
+  "url" : "http:\/\/127.0.0.1:8766\/",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

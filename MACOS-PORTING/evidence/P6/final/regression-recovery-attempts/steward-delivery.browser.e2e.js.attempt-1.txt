@@ -1,0 +1,73 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 真实交付卡读到本轮文件和检查投影
+PASS 来源回合缺失的迟到通知不显示其它回合正文
+PASS 交付内容接口无 token 被拒绝
+PASS 短正文也常驻展开全文主入口和继续修改,产物/版本/检查默认收起
+PASS 1920px 简洁交付卡全文入口可见且不溢出
+PASS 1920px 管家正文与输入共用900读宽,长文获得更多空间
+PASS 1440px 简洁交付卡全文入口可见且不溢出
+PASS 768px 简洁交付卡全文入口可见且不溢出
+PASS 390px 简洁交付卡全文入口可见且不溢出
+PASS 展开全文原地显示原轮正文和交付细节,工作台入口仍在更多
+PASS 收起全文同时收起版本、文件与检查,不留下第二排小按钮
+PASS 摘要态修订预检失败也能看到原因,不需要先展开
+PASS 交付接口刷新失败时仍保留工作台全文入口
+PASS 重试成功后全文入口回到更多且仅一处
+PASS 确定旧修订预检请求仍挂起
+PASS 新刷新已完成并替换旧修订操作
+PASS 旧预检迟到失败不复活过期错误或覆盖刷新成功状态
+PASS 展开全文后直接列出文件入口,无需再展开一层产物
+PASS 两份同名文件显示路径区别,身份未折叠
+PASS 第二步直接打开正确文件的安全预览
+PASS PDF 打开沿既有本机接口并绑定来源任务,仅替身拦截系统唤起
+PASS 连续打开同名文件时迟到预览不覆盖后来选中的文件
+PASS 检查入口就在交付卡旁边
+PASS 机器检查、模型自报和未完成各有清楚标记
+PASS 摘要态修订被草稿阻止时原因可见,不覆盖内容或目标
+PASS 已有草稿逐字保留
+PASS 文件外部改动后提示已变化
+PASS 缺文件不可打开,旧通过章明确失效
+PASS 点击前文件再次变化时拒绝陈旧预览
+PASS 继续修改选中原任务和具体来源回合
+PASS 修订有独立取消按钮,不能通过普通目标选择器丢失来源
+PASS 修订期间 Tab 保留正常焦点移动,不隐式换目标
+PASS 修订草稿可以添加附件
+PASS 另起一件不会静默覆盖修订目标或草稿
+PASS 1440px 修订目标和独立取消可见且不溢出
+PASS 768px 修订目标和独立取消可见且不溢出
+PASS 390px 修订目标和独立取消可见且不溢出
+PASS 键盘取消修订仅移除目标,文字附件保留,提示和占位文案复位 {"cancelled":true,"text":"保留这份修订草稿","placeholder":"跟如意说点什么","attachments":1,"note":"已取消当前目标，输入内容已保留。","focus":"stewardComposerInput"}
+PASS 自动 new 不冒充显式新建模式
+PASS 自动 new 后改写文字仍能预判接续任务
+PASS 确定预判响应尚在途中
+PASS 迟到预判不覆盖另起一件
+PASS 清空再输入仍保留显式另起选择
+PASS 明选另起期间 Tab 只移动焦点,不循环成旧任务
+PASS 空草稿也不能让继续修改覆盖已选的另起一件,受阻原因可见
+PASS 真实发送保留另起路由提示
+PASS 上一句迟到回执已完成
+PASS 上一句回执不能清除下一份另起选择
+PASS 取消另起保留输入且恢复普通目标
+PASS 取消后可以重新选择原交付修订
+PASS 真实发送落回原任务,保留原话和持久化修订来源
+PASS 1440px 交付卡文件名、检查与操作没有横向溢出
+SCREENSHOT /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-FXAJJE/ruyi-delivery-ui-8i67Cw/delivery-1440.png
+PASS 768px 交付卡文件名、检查与操作没有横向溢出
+SCREENSHOT /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-FXAJJE/ruyi-delivery-ui-8i67Cw/delivery-768.png
+PASS 390px 交付卡文件名、检查与操作没有横向溢出
+SCREENSHOT /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-tmp-FXAJJE/ruyi-delivery-ui-8i67Cw/delivery-390.png
+PASS 刷新后等待组合根绑定完再切换视角
+PASS 刷新回放后旧交付仍绑定第一轮,不冒充新结果
+PASS 回放保留原轮正文,没有拿后续助手话替换
+PASS 切换英文后两个常驻入口重标注,保持收起状态
+PASS 英文浅色窄屏操作无横向溢出
+PASS 展开态切语言只重标注,不会收起全文
+PASS 展开后收起使用次级透明按钮,不继续占用金色主操作
+PASS 没有产物的交付不显示打开产物零或空文件占位
+PASS 界面无未捕获异常
+
+STEWARD DELIVERY BROWSER E2E: ALL PASS

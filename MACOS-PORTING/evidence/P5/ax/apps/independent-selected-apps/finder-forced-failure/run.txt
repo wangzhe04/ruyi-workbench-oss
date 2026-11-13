@@ -1,0 +1,13 @@
+PASS public AXWindows and all-space WindowServer baseline exclude existing Finder content windows
+PASS new Finder window exposes the exact controlled content file URIs and no additional tab surface
+PASS ownership verifier rejects a duplicate URL in place of the exact controlled content set
+PASS ownership verifier rejects an additional Finder content window
+PASS ownership verifier rejects a tab group even when its AXTabs count is unavailable
+PASS ownership verifier rejects multiple publicly reported tabs
+FAIL Error: Injected Finder fixture failure after ownership observation
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-ax-finder.e2e.js:126:70
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+PASS only the proved Finder window closes and the shared Finder process survives
+PASS Finder scenario MCP and native helper exit completely
+
+MACOS AX FINDER E2E: FAIL (1)

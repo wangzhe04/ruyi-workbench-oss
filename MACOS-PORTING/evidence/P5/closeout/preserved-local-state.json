@@ -1,0 +1,17 @@
+{
+  "untrackedFixtureStatePreservedOutsideGit": [
+    {
+      "original": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/isolation",
+      "preservedAt": "/private/tmp/ruyi-p5-closeout-preserved-20261112/isolation",
+      "files": 211,
+      "bytes": 6952542
+    },
+    {
+      "original": "MACOS-PORTING/evidence/P5/manual/independent-offline-v2/owned-helpers-rizwb5fo",
+      "preservedAt": "/private/tmp/ruyi-p5-closeout-preserved-20261112/owned-helpers-rizwb5fo",
+      "files": 2,
+      "bytes": 582464
+    }
+  ],
+  "notUploaded": true
+}

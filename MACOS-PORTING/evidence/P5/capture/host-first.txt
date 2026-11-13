@@ -1,0 +1,6 @@
+PASS LaunchServices App owns the actual workbench Node service
+FAIL App-launched helper has its own verified capture authorization
+FAIL normal App HTTP tool entry captures a real PNG
+PASS LaunchServices waiter exits normally after App self-termination
+
+MACOS CAPTURE HOST E2E: FAIL (2)

@@ -1,0 +1,87 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 出发点：管家开关是关着的
+PASS A4 Edge/Chrome found
+PASS A5 browser target available
+PASS A6 页面就绪（管家页签骨架 + 头部两个常驻控件都在）
+── ① 总开关 ──
+PASS B1 设置弹窗打开并切到「管家」页签
+PASS B2 页签打开时总开关是关的（跟着 config 回填）
+PASS B2b 运行态一行如实说「管家没打开」（实测「管家没打开。」）
+PASS B3 勾开总开关后 GET /api/steward/state 可用且 running
+PASS B4 开关落盘（POST /api/config 与 start 是两步，顺序 save→start）
+PASS B5 运行态一行变成「管家在盯着」（实测「管家在盯着。」）
+── ② 新线程默认权限 ──
+PASS C0 出发点是「每步都问」（实测 default）
+PASS C0b 盾牌显示同一档（实测「每步都问」）
+PASS C0c F5a：档位名【看得见】地写在盾牌上（盾＋名＋角标 = 2 枚 SVG ＋ 1 段文字），而按钮的 textContent 仍逐字只有那句人话 —— 角标是图标不是字符（实测「每步都问」，svg=2）
+PASS C0d F5a：盾内另有一枚只属于这一档的字形（问号），盾牌轮廓这个家族标不变；可及名一个字没动（实测 aria-label「新线程默认权限：每步都问」）
+PASS C0e F5a：胶囊点开的仍是那【同一个】档位菜单（2026-10 起五档，末尾加回全自动），顺序与人话都来自 chips 那一份表（实测 ["每步都问","改文件不问","只做计划","智能自动","全自动"]）
+PASS C0f F5a：再点一次收回菜单（aria-expanded 回 false），收完盾牌胶囊本身一枚字形都没丢、档位名还在
+PASS C1 改到「改文件不问」后全局 permissionMode 落盘
+PASS C1b 盾牌跟着换色档（data-permission=acceptEdits）
+PASS C1c 档位下面那句人话来自 chips 的同一份表
+PASS C1e F5a：换档之后【字形与文字一起换】——盾里换成铅笔，盾牌轮廓仍是同一条（实测「改文件不问」，字形变了=true）
+── ③ 切「全自动」的二次确认 ──
+PASS D1 切「全自动」先出二次确认，不直接落盘
+PASS D2 确认弹窗逐条写明 §8.6 的五件事（与线程 chip 同一份文案；实测 5 条）
+PASS D3 取消：配置不变（仍是「改文件不问」）
+PASS D3b 取消后确认区收起、选择器回填成落盘值
+PASS D4 确认后落盘 auto
+PASS D4b 盾牌切到金底档（data-permission=auto）
+PASS D4c F5a：走过的三档各是一枚【不同】的盾内字形（问号／铅笔／闪电），共享同一条盾牌轮廓（实测「智能自动」，三档互不相同=true）
+PASS D5 切「全自动」出它自己的四条确认（实测 ["它会直接改文件、跑命令、对外发送，一步都不问你；它的提问由如意替你答复。","和智能自动不同：付款、关机格式化、改系统设置、发邮件这些底线动作也不再停下来等你按。","动作事前没人把关，只在事后记账；文件改动有检查点可撤销，其余动作撤销不了。","停机键一直在，随时能按；定时任务永远不会用这一档。"]）
+PASS D5b 确认后落盘 bypass（设置页选择器里是正经一档，不再是「保存的值」占位）
+PASS D5c 盾牌写「全自动」、盾内字形与智能自动不同（实测「全自动」）
+── ④ 管家可以自己做的事 ──
+PASS E1 勾「事项内自动交接」→ stewardAutoActions.relay === true
+PASS E2 其余三项不被顺手改掉（retry/newThread 仍 true、resume 仍三态 null；实测 {"retry":true,"resume":null,"relay":true,"newThread":true,"answer":false,"continueUnfinished":true}）
+PASS E2b 「管家可以按规则替我批」默认勾着（实测 true）
+PASS E2c 取消勾选 → stewardExemptDelegationV1 === false 落盘，stewardAutoActions 一个字没动（实测 {"retry":true,"resume":null,"relay":true,"newThread":true,"answer":false,"continueUnfinished":true}）
+PASS E2d 再勾上 → stewardExemptDelegationV1 === true
+── ⑤ 并发上限即时生效 ──
+PASS E3 并发上限改 3 后 GET /api/steward/arbiter 立即生效（实测 3）
+── ⑥ 管家记得的关于你 ──
+PASS F1 记忆面板加载出两条
+PASS F2 按 kind 分组，顺序照 STEWARD_MEMORY_KINDS（实测 ["preference","habit"]）
+PASS F3 24 小时内写入的两条都带「新」标（实测 2）
+PASS F4 否决 → 该条变 vetoed
+PASS F5 恢复 → 该条回到 active
+PASS F6 就地编辑 → blur 保存（带 version 乐观锁）
+PASS F6b 面板改过的条目置信度拉满、来源标 user_panel（116-2e 既有语义）
+PASS F7 导出的 JSON 里含刚改过的那条（`<a download>` 只此一处）
+PASS F8 清空必须逐字输入 clear：输错了什么也不会发生
+PASS F9 逐字输入 clear 后清空
+── ⑦ 行动流水 ──
+PASS G1 行动流水表格出现（夹具两条）
+PASS G2 表头七列（时间／做了什么／目标线程／线程权限／依据／费用／撤销；实测 7）
+PASS G3 「做了什么」列是人话（前端自己的 i18n 映射）
+PASS G4 「线程权限」列复用四档人话
+PASS G5 有原执行身份和撤回锚点的给「撤销」，没有的给「详情」
+PASS G7 代批行「依据」= 类别人话＋理由，经 textContent 上屏（格内 0 个子元素；实测 {"text":"iv_1 · 代批「删数据、推送远端」：只清 <b>临时</b> 目录","elements":0}）
+PASS G6 按线程过滤只剩那一条（客户端过滤；实测 ["sess_settings_thread_b"]）
+── ⑧ 一键停机／唤醒 ──
+PASS H0 停机之前头像不是 sleeping（实测 idle）
+PASS H0b F5a：没停机时停机键画的是【电源符】（一段开口圆弧＋一竖，零 <rect> —— 线程「停止」那枚实心方块不在这里），可及名仍是「一键停机」
+PASS H1 按下停机键 → GET /api/steward/state 的 stopped === true
+PASS H2 头像立刻切到 sleeping（§8.3 停机覆盖一切，不用等下一次轮询）
+PASS H3 同一个按钮变成「唤醒管家」（实测「唤醒管家」）
+PASS H3b F5a：已停机 = 同一枚电源符【多一道斜杠】（路径数 2 → 3），仍然不是那枚实心方块；可及名跟着变成「唤醒管家」
+PASS H4 停机不改配置（总开关仍是开的）
+PASS H5 再按一次唤醒 → stopped === false
+PASS H6 头像离开 sleeping（实测 idle）
+PASS H7 按钮回到「一键停机」
+PASS H7b F5a：唤醒之后那道斜杠也跟着走（字形逐字回到停机之前的那一份；实测 2 条路径）
+── ⑨ 新开线程用什么模型（强/快两档） ──
+PASS I1 重新打开设置弹窗并回到「管家」页签（⑧切去了管家壳）
+PASS I2 强/快两个服务商 select 都是「跟随 + 两个夹具 provider」（实测 强=["","fake","fake2"] 快=["","fake","fake2"]）
+PASS I3 出发点：夹具没设 stewardThreadModels，四格都回填成空（跟随主端点）
+PASS I4 强模型服务商改 fake2 → config.stewardThreadModels.strong.providerId 落盘为 fake2
+PASS I5 强模型名改 fake2-model → config.stewardThreadModels.strong.model 落盘同值
+PASS I5b 改模型名没有把上一步刚存的 providerId 顺手冲掉（同一档内两次写口各自合并，不是互相覆盖）
+PASS I6 快速模型服务商改 fake → config.stewardThreadModels.fast.providerId 落盘为 fake
+PASS I7 快速模型名改 fake-model → config.stewardThreadModels.fast.model 落盘同值
+PASS I8 改完快档之后，强档（provider=fake2/model=fake2-model）没被冲掉（实测 {"providerId":"fake2","model":"fake2-model"}）
+PASS I9 四格界面回显与落盘一致（实测 强=fake2/fake2-model 快=fake/fake-model）
+
+STEWARD SETTINGS E2E: ALL PASS

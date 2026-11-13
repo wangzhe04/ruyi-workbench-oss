@@ -1,0 +1,7 @@
+{
+  "originalReceiptSha256": "8853bf18ae35595e256e7b1ba84954d5084d41b861842efb0cd85e39fc416d99",
+  "exitedIdentities": {
+    "runner": true,
+    "service": true
+  }
+}

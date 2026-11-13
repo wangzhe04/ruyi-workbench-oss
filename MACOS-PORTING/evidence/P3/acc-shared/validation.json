@@ -1,0 +1,136 @@
+{
+  "date": "2026-11-06",
+  "package": "P3-01",
+  "implementationCommit": "f135bda1c4bb9703ccbb926f36d99f855ad0f63c",
+  "environment": {
+    "os": "27.0.1",
+    "arch": "arm64",
+    "python": "3.12.10",
+    "node": "24.15.0"
+  },
+  "localAcceptance": "passed",
+  "phaseAcceptance": "P3 remains in_progress; Windows同候选回归 is pending, not waived",
+  "requirements": [
+    {
+      "id": "platform-dependencies",
+      "result": "passed",
+      "evidence": [
+        "install.txt",
+        "offline-install.txt",
+        "wheel-build.txt",
+        "markers.txt"
+      ],
+      "detail": "Clean arm64 Python3.12 editable install and actual noneditable wheel install under --no-index; pywin32/PyAutoGUI/UIA/WinSDK/pynput absent. Windows markers retain original dependencies."
+    },
+    {
+      "id": "registry-and-failure-isolation",
+      "result": "passed",
+      "evidence": [
+        "python-final.txt",
+        "mcp-e2e.txt",
+        "offline-install.txt"
+      ],
+      "detail": "43 actual registered shared tools; unsupported Mac backends absent. Explicit toolsets cannot enable them. Injected optional-module import failure is isolated and diagnosed. diagnostics never adds tools."
+    },
+    {
+      "id": "mac-file-protection",
+      "result": "passed",
+      "evidence": [
+        "python-final.txt",
+        "python-red.txt",
+        "mcp-e2e.txt",
+        "review.json"
+      ],
+      "detail": "System roots, home, Keychains, temporary paths, symlinks, existing/missing protected paths, real default-volume case aliases, real case-sensitive APFSX roots and NFC/NFD aliases; unknown volume case semantics conservatively protected. System paths are never written."
+    },
+    {
+      "id": "checkpoint-and-audit",
+      "result": "passed_local",
+      "evidence": [
+        "mcp-e2e.txt",
+        "checkpoint.txt",
+        "capability-gates.txt"
+      ],
+      "detail": "Live shared registry write tools have zero uncovered checkpoint entries; successful/refused writes audited; existing static and fake-MCP checkpoint rollback e2e pass. Old optional real-ACC sub-branch skipped due its interpreter environment; live registry audit is covered by the new mandatory MCP e2e."
+    },
+    {
+      "id": "windows-regression",
+      "result": "pending_actual_windows",
+      "evidence": [
+        "markers.txt",
+        "installer-final.txt",
+        "review.json"
+      ],
+      "detail": "Platform-marker evaluation and Windows Full exact-version/marker static contract pass. Actual same-candidate Windows CI/runtime is unavailable and remains a P3 gate."
+    }
+  ],
+  "checks": [
+    {
+      "command": "node dev-harness/run-all.js --fast",
+      "result": "first run failed: 78/80 static; full unit 2490 pass, 18 skip, 0 fail",
+      "evidence": [
+        "fast-first.txt",
+        "unit.txt"
+      ]
+    },
+    {
+      "command": "node dev-harness/acc-offline-installer.static.e2e.js; node dev-harness/facts.static.e2e.js",
+      "result": "both failed static groups corrected and rechecked PASS; other 78 unchanged groups reuse first-run evidence. No claim of a new single-run 80/80.",
+      "evidence": [
+        "installer-final.txt",
+        "facts-final.txt"
+      ]
+    },
+    {
+      "command": "python tests/smoke_macos_shared.py",
+      "result": "8 pass / 0 fail / 0 skip",
+      "evidence": [
+        "python-final.txt"
+      ]
+    },
+    {
+      "command": "RUYI_ACC_REQUIRED=1 node dev-harness/macos-acc-shared.e2e.js",
+      "result": "14 pass / 0 fail / 0 skip",
+      "evidence": [
+        "mcp-e2e.txt"
+      ]
+    },
+    {
+      "command": "node dev-harness/syntax-gate.js; node ruyi-workbench/app/build.js --check",
+      "result": "1125 files, 0 syntax errors; generated server fresh",
+      "evidence": [
+        "syntax.txt",
+        "build.txt"
+      ]
+    }
+  ],
+  "review": {
+    "status": "approved_with_environment_limitations",
+    "file": "review.json",
+    "resolved": [
+      "R1 nonexistent-root case aliases",
+      "R2 Windows Full marker compatibility",
+      "R3 pathconf errors",
+      "R4 APFSX Unicode-normalization aliases"
+    ],
+    "remainingCodeFindings": 0
+  },
+  "failureHistory": [
+    "Initial wheel preparation omitted the migrated Python certificate path and failed TLS verification; restored the proper CA path, without disabling verification. Final wheel build and clean install both use --no-index.",
+    "Initial new smoke file had an indentation error; corrected before behavior checks.",
+    "First static gate found stale fact counters and the genuine Windows Full exact-pin mismatch; both corrected.",
+    "Reviewer requested explicit red tests for pathconf failure and APFSX NFC/NFD equivalence. Both reproduced failures, fixed, and rechecked."
+  ],
+  "notVerified": [
+    "Actual same-candidate Windows CI/runtime",
+    "macOS 14 arm64 and minimum wheel deployment targets",
+    "Signed App identity, permissions, and clean-machine offline release (later phases)"
+  ],
+  "nextPackage": "P3-02 文档与图表生成/读取",
+  "sourceAudit": {
+    "result": "passed",
+    "workingTreeSha256": "source-fingerprint.json files",
+    "committedContent": "gitBlobOids verified against implementation commit after Git line-ending filters",
+    "note": "The initial raw Git-show comparison of the CRLF PowerShell file differed from its normalized Git blob; Git-filtered blob comparison confirmed the exact committed candidate, without source changes."
+  }
+}

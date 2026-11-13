@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1106,
+    "fail": 0
+  },
+  "modelsE2E": {
+    "runs": 2,
+    "passPerRun": 13,
+    "fail": 0
+  },
+  "independentTests": {
+    "cliModels": 13,
+    "processRuntime": 62
+  },
+  "hashes": {
+    "ruyi-workbench/app/server.js": "b8450f78cd38dc318ff1820840b95d23eb9a82b8cd25f0964b4816d37fb5e542",
+    "ruyi-workbench/app/src/13-http-router.js": "c09c3db20a29ae29c0931f3db613c202b951f47131f10378554be139f7a26be3",
+    "dev-harness/macos-cli-models.e2e.js": "efe94d6a1230b3dee1e8845c2f2c45935da939e91a37af59f42790a07807ff0f"
+  },
+  "remaining": [
+    "CLI locator/version/Python probes",
+    "Media/rg lifecycle",
+    "Raw PID compatibility",
+    "Remaining paths/lifecycle and clean installation",
+    "Windows/macOS14 same-SHA and Finder"
+  ]
+}

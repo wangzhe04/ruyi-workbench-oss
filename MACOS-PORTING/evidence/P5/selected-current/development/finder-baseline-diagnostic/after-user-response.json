@@ -1,0 +1,37 @@
+{
+  "scope": "Read-only shallow Finder baseline after user response; no actions, no closure",
+  "exitCode": 0,
+  "ok": true,
+  "pid": 692,
+  "roles": [
+    "AXScrollArea"
+  ],
+  "cgWindows": [
+    {
+      "handle": 32,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 30,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 27,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 29,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 28,
+      "titlePresent": false,
+      "onScreen": false
+    }
+  ],
+  "windowless": true
+}

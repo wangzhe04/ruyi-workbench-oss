@@ -217,6 +217,9 @@ async function runClaudeTurn({
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
   assertSessionExecutionOwner(session.id, executionOwner);
+  if (DesktopExecutionHooks.enabled()) throw Object.assign(new Error('当前执行回执测试模式暂不支持 CLI 会话，请使用工作台原生引擎。'), { code: 'execution_cli_unavailable' });
+  await DesktopExecutionHooks.guard(session.id);
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
@@ -310,6 +313,7 @@ async function runClaudeTurn({
   // v0.8-S0: bump the session-level monotonic turn counter at turn start (see runOpenAiTurn).
   if (!_resumeRecoveryAttempt) {
     session.turnSeq = (Number(session.turnSeq) || 0) + 1;
+    DesktopExecutionHooks.admit(session, executionOwner);
     session.messages.push({
       role: 'user',
       content: message,
@@ -720,7 +724,8 @@ async function runClaudeTurn({
   if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
   assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
-  const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
+  const child = ProcessRuntime.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts },
+    { kind: 'cli', agentCliType, sessionId: session.id, traceId: activeTraceId, turnSeq: session.turnSeq });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
   const reg = { buildSteerAttachmentPrompt: buildAttachmentPrompt, child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
@@ -746,8 +751,8 @@ async function runClaudeTurn({
     if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
+      killChildTree(reg.child || reg.pid);
       try { reg.child.stdin.end(); } catch { /* ignore */ }
-      killChildTree(reg.pid);
     }
   }, 5000);
 

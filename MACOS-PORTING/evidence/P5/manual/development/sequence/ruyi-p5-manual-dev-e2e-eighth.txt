@@ -1,0 +1,11 @@
+PASS ordinary stdio discovery exposes source-bound event sequences and manual recording
+PASS manual fixture snapshots the original clipboard before seeding owned formats
+FAIL raw Pinyin composition captured a complete portable event stream
+FAIL Error: {"ok":false,"error":"DesktopError: No recording to collect","code":"recording_absent"}
+    at /private/tmp/ruyi-p5-manual-worktree/dev-harness/macos-manual-record.e2e.js:144:36
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned manual MCP and native worker cleanup is confirmed
+PASS owned fixture conditionally restores its original keyboard source
+PASS owned manual fixture restores the original clipboard on exit
+
+MACOS MANUAL RECORD E2E: FAIL (2)

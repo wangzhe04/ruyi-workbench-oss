@@ -1,0 +1,351 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_acceptance",
+  "at": "2026-11-11T13:42:18.705383+00:00",
+  "verdict": "passed_frozen_protocol_prerequisite_qualification_only",
+  "implementationState": "Uncommitted full execution-receipts feature WIP; not submitted to formal engineering four gates.",
+  "worktree": "/tmp/ruyi-p5-execution-receipts-worktree",
+  "freeze": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/protocol-freeze-v1.json",
+    "bytes": 12566,
+    "sha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c"
+  },
+  "sourceReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/protocol-source-review-v1.json",
+    "bytes": 17838,
+    "sha256": "8ffe9ff527943a55612b9a553e41b298463edebee340ca2edb5dce5ae288e994",
+    "outcome": "Previously identified source findings are closed in the reviewed frozen protocol slice; no remaining actionable source findings within that slice."
+  },
+  "invocations": [
+    {
+      "label": "python",
+      "argv": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "mcp/ai-computer-control/tests/smoke_native_receipts.py"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "startedAt": "2026-11-11T13:41:11.363448+00:00",
+      "freezeSha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c",
+      "attempt": 1,
+      "finishedAt": "2026-11-11T13:41:11.416221+00:00",
+      "elapsedSeconds": 0.052709499999764375,
+      "exitCode": 0,
+      "logSha256": "ac6e9da8bd627c0143d4f0935a2191f667799eff6766b01790f29565bc679b61"
+    },
+    {
+      "label": "native",
+      "argv": [
+        "node",
+        "dev-harness/macos-native-receipts.e2e.js"
+      ],
+      "cwd": "/tmp/ruyi-p5-execution-receipts-worktree",
+      "environmentOverrides": {
+        "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+        "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "RUYI_NATIVE_RECEIPT_REQUIRED": "1",
+        "RUYI_NATIVE_RECEIPT_HELPER": "/tmp/ruyi-p5-receipts-helper",
+        "RUYI_NATIVE_RECEIPT_EVIDENCE": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native"
+      },
+      "startedAt": "2026-11-11T13:41:16.899316+00:00",
+      "freezeSha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c",
+      "attempt": 1,
+      "finishedAt": "2026-11-11T13:41:19.696044+00:00",
+      "elapsedSeconds": 2.7966471249965252,
+      "exitCode": 0,
+      "logSha256": "9e27dc895ace57fed0318dd4fab4470328fdeedf6cd009461201d0bc8c5fe4b5"
+    }
+  ],
+  "results": {
+    "pythonParser": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": "Synthetic protocol bytes for strict framing, bindings, challenge ordering, refusals, feature worker identity, exact frame digest, duplicate/trailing/nonfinite/invalid data."
+    },
+    "nativeTransport": {
+      "checksPassed": 23,
+      "checksFailed": 0,
+      "skipped": 0,
+      "executions": 1,
+      "scope": "Actual candidate helper input-session features and read-only mouse.position only. Legacy compatibility, per-worker identity, entered/continue/terminal, wrong/withheld/EOF/prefetched-business refusal, wrong worker and framing exit."
+    },
+    "retries": 0,
+    "nativeWorkers": 9,
+    "workers": [
+      {
+        "label": "legacy",
+        "pid": 30638,
+        "birth": {
+          "pid": 30638,
+          "ppid": 30635,
+          "created": "1794404476933053",
+          "name": ""
+        },
+        "exitCode": 0,
+        "signalCode": null,
+        "rowCount": 2
+      },
+      {
+        "label": "committed",
+        "pid": 30641,
+        "birth": {
+          "pid": 30641,
+          "ppid": 30635,
+          "created": "1794404477022133",
+          "name": ""
+        },
+        "exitCode": 0,
+        "signalCode": null,
+        "rowCount": 3
+      },
+      {
+        "label": "wrong-challenge",
+        "pid": 30648,
+        "birth": {
+          "pid": 30648,
+          "ppid": 30635,
+          "created": "1794404477119285",
+          "name": ""
+        },
+        "exitCode": 70,
+        "signalCode": null,
+        "rowCount": 3
+      },
+      {
+        "label": "withheld",
+        "pid": 30651,
+        "birth": {
+          "pid": 30651,
+          "ppid": 30635,
+          "created": "1794404477217417",
+          "name": ""
+        },
+        "exitCode": 70,
+        "signalCode": null,
+        "rowCount": 3
+      },
+      {
+        "label": "eof",
+        "pid": 30658,
+        "birth": {
+          "pid": 30658,
+          "ppid": 30635,
+          "created": "1794404479315436",
+          "name": ""
+        },
+        "exitCode": 70,
+        "signalCode": null,
+        "rowCount": 3
+      },
+      {
+        "label": "prefetched-business",
+        "pid": 30661,
+        "birth": {
+          "pid": 30661,
+          "ppid": 30635,
+          "created": "1794404479423115",
+          "name": ""
+        },
+        "exitCode": 70,
+        "signalCode": null,
+        "rowCount": 3
+      },
+      {
+        "label": "wrong-worker",
+        "pid": 30665,
+        "birth": {
+          "pid": 30665,
+          "ppid": 30635,
+          "created": "1794404479500586",
+          "name": ""
+        },
+        "exitCode": 70,
+        "signalCode": null,
+        "rowCount": 2
+      },
+      {
+        "label": "oversized",
+        "pid": 30668,
+        "birth": {
+          "pid": 30668,
+          "ppid": 30635,
+          "created": "1794404479577428",
+          "name": ""
+        },
+        "exitCode": 65,
+        "signalCode": null,
+        "rowCount": 0
+      },
+      {
+        "label": "truncated",
+        "pid": 30671,
+        "birth": {
+          "pid": 30671,
+          "ppid": 30635,
+          "created": "1794404479629432",
+          "name": ""
+        },
+        "exitCode": 70,
+        "signalCode": null,
+        "rowCount": 0
+      }
+    ],
+    "expectedNegativeWorkerExits": "Wrong/withheld/EOF/prefetched continuation and wrong worker exit70; oversized65; truncated70. These are expected protocol refusals, not failing checks.",
+    "allOwnedExitIdentitiesCheckedByFixture": true,
+    "retained": false,
+    "retainedRoot": null
+  },
+  "bindings": {
+    "sourceCount": 49,
+    "actualArtifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-helper",
+        "bytes": 309344,
+        "sha256": "95522f2b8e502d842925c6d0ddba09ba8abc0c29ee48f4fe173cf8a8bcae4b18"
+      },
+      {
+        "path": "/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper",
+        "bytes": 35520,
+        "sha256": "714fd72325f7f08a7a1be2a5d3085b640f0cff7d80d0f1769be642ca627be58e"
+      }
+    ],
+    "checkpointCount": 4,
+    "allMatched": true,
+    "checkpoints": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native-after-binding.json",
+        "bytes": 14731,
+        "sha256": "ba10d889173bb7ae3a50631bfd5334ab7444104615f2baa85d5e8d48431322d3",
+        "sourceCount": 49,
+        "artifactCount": 2,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native-before-binding.json",
+        "bytes": 14731,
+        "sha256": "2bbf06048ec2a71672684df93ffe96459df7f273f958ab9e5a327f73f1822b71",
+        "sourceCount": 49,
+        "artifactCount": 2,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/python-after-binding.json",
+        "bytes": 14731,
+        "sha256": "d034c4717f86309d3049d679744f84101b6ae756420b6a17cea28f13a3e08bee",
+        "sourceCount": 49,
+        "artifactCount": 2,
+        "allMatched": true
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/python-before-binding.json",
+        "bytes": 14731,
+        "sha256": "1b226cee8ae827c8b2addbf1a3e6dac7ced1f7ac09d0ec29bb9782d55a51e92c",
+        "sourceCount": 49,
+        "artifactCount": 2,
+        "allMatched": true
+      }
+    ],
+    "originalAuthorizedMainHelper": {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+      "bytes": 291712,
+      "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5",
+      "matchesUnchanged1ccBaseline": true
+    }
+  },
+  "integrationBoundary": {
+    "macosSessionObservation": {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py",
+      "bytes": 7883,
+      "sha256": "50ae548a911c9193cf07c7a6e6503138a849ac33d03ec89e300bb944028ba7e8",
+      "referencesReceiptCodec": false,
+      "note": "Supporting read-only observation outside49 freeze; current macos_session has not imported or exercised this codec."
+    },
+    "testFsyncMeaning": "Only the test client writes and file-fsyncs its own entry before continue. This does not prove strict product ACC journal/directory fsync, durable Node preparation or restart reconciliation.",
+    "notQualified": [
+      "Live macos_session receipt transport integration",
+      "Strict ACC execution journal integration",
+      "Node durable preparation and restart reconciliation",
+      "Native mutation/event posting, held-state faults/release or application outcomes",
+      "OS lock/TCC/clipboard/window mutation/App LaunchServices/signing",
+      "Formal four engineering gates or complete feature acceptance"
+    ]
+  },
+  "noActions": {
+    "keyboardOrMouseEventsPosted": 0,
+    "clipboardWrites": 0,
+    "windowActions": 0,
+    "heldFaults": 0,
+    "lockOrTCCChanges": 0,
+    "AppBuildOrSigningActions": 0,
+    "productOrTestSourceEditsByReviewer": 0,
+    "automaticLockSettingsChanged": false
+  },
+  "fullOriginalHardAbortGate": "open_not_qualified",
+  "fullP5Acceptance": false,
+  "phaseStatus": "in_progress",
+  "automaticLockRestoration": "Deferred to full P5 acceptance per parent instruction; this prerequisite does not restore it.",
+  "evidence": [
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native/results.json",
+      "bytes": 11454,
+      "sha256": "8aa2aff6d67047f2a544b75db7d42246f8d9f7a296a5a7ca7b3a13816727b552"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native-after-binding.json",
+      "bytes": 14731,
+      "sha256": "ba10d889173bb7ae3a50631bfd5334ab7444104615f2baa85d5e8d48431322d3"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native-before-binding.json",
+      "bytes": 14731,
+      "sha256": "2bbf06048ec2a71672684df93ffe96459df7f273f958ab9e5a327f73f1822b71"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native-invocation.json",
+      "bytes": 935,
+      "sha256": "e179eb0253435925757318b0b67b5852fd59b0a97ec5faf14f925bda0f1def30"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/native.log",
+      "bytes": 1493,
+      "sha256": "9e27dc895ace57fed0318dd4fab4470328fdeedf6cd009461201d0bc8c5fe4b5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/protocol-freeze-v1.json",
+      "bytes": 12566,
+      "sha256": "e93b2e475f1179c3460cb3d393165f3cef7aba9d899d3103bcf71594ba36409c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/python-after-binding.json",
+      "bytes": 14731,
+      "sha256": "d034c4717f86309d3049d679744f84101b6ae756420b6a17cea28f13a3e08bee"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/python-before-binding.json",
+      "bytes": 14731,
+      "sha256": "1b226cee8ae827c8b2addbf1a3e6dac7ced1f7ac09d0ec29bb9782d55a51e92c"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/python-invocation.json",
+      "bytes": 822,
+      "sha256": "3f7da0501ec12c197737f2a671ee91f7d863e28fbf20ef264cb6a7dcfed38375"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/python.log",
+      "bytes": 113,
+      "sha256": "ac6e9da8bd627c0143d4f0935a2191f667799eff6766b01790f29565bc679b61"
+    },
+    {
+      "path": "/tmp/ruyi-p5-receipts-evidence/independent-protocol-v1/run_once.py",
+      "bytes": 3081,
+      "sha256": "36198170bae60b8b735f2ecd5a0a0d403622aaff085da414ea06254e1591ff8c"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[wb!] Error: 这个数据目录已有如意服务持有独占权，未启动第二个实例：/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-scheduler-api-e2e。请使用已打开的如意，或先退出它。 / Data directory already in use. 如确认没有实例运行，请核实并清理残留 socket：/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-serve-39a3ceccd2cdc5ffa49f00889bcc8494.sock。
+    at ownershipError (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2268:26)
+    at bind (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2282:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Object.acquire (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2317:50)
+    at async startServer (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:68845:21)
+    at async main (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:89582:20)
+FAIL workbench up
+FAIL runtime token available
+Error: connect ECONNREFUSED 127.0.0.1:51136
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)

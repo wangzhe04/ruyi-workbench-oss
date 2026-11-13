@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "scope": [
+    "P2-01 CLI discovery, native launch, permission/resume integration",
+    "Provider/MCP/adaptive/status tool catalogs and stale dispatch",
+    "Mac CLI/Provider prompts and language schemas",
+    "Windows contracts, fixture adaptations and module dependency graph"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "自适应代理目录查找前只检查桥接策略，原生平台不可用可能误报unknown-tool",
+      "resolution": "原生/桥接共用toolDisabledByPolicy，查目录前明确拒绝；各目录复用同一策略",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R2",
+      "finding": "复用12中的会话策略函数引入13->12依赖并扩大SCC",
+      "resolution": "原样将policySessionFor与policyDesktopOverrideFor移至07；函数体保持一致，SCC恢复31模块、67前向边",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R3",
+      "finding": "三个Shell/脚本schema在Mac仍广告没有实现的PowerShell语言",
+      "resolution": "仅Darwin移除powershell枚举；复用现有schema拒绝旧参数；保留Windows/Linux原枚举",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "implementationAudit": [
+    "Mac常见用户CLI安装位置漏发现，已补齐平台候选",
+    "三个Windows PowerShell专用原生工具在Mac被广告，已统一过滤",
+    "Mac桌面开关与实际实现/授权混淆，提示词已明确实际工具发现"
+  ],
+  "independentValidation": {
+    "registryUnit": "6/6 pass on the initial reviewed implementation",
+    "platformViews": "Darwin rejects three Windows-only native tools, Windows retains them",
+    "helperMove": "functionBlock comparison confirmed both moved function bodies unchanged",
+    "dependencyGraph": "31-module SCC and 67 forward edges",
+    "gitDiffCheck": "pass",
+    "finalIncrementalReview": "schema and existing fixture assertions preserved; no unresolved code findings"
+  },
+  "testDiscipline": "新增1件真实本地进程CLI发现e2e；其余增量复用原用例，Windows专用契约用平台视图，Mac后台轮询/中断/分块UTF8仍用真实bash路径。未引入通用fallback或额外生产抽象。",
+  "result": "reviewed_no_unresolved_code_findings",
+  "finalVerification": "主代理最终执行结果见validation.json及对应日志；独立复核未并发运行长测试。",
+  "unverified": [
+    "正式Claude/Kimi启动器与真实账户的工具回合、停止和恢复",
+    "Windows同SHA实机回归",
+    "macOS最低版本",
+    "正式发行签名身份与桌面权限"
+  ],
+  "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+}

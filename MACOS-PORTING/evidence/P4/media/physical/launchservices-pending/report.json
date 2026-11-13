@@ -1,0 +1,24 @@
+{
+  "activationCount" : 1,
+  "backgroundOnClose" : true,
+  "loginStartupStatus" : 0,
+  "microphoneCaptureEvents" : [
+    {
+      "state" : 0
+    }
+  ],
+  "microphoneCaptureLimitFired" : false,
+  "microphoneCaptureState" : 0,
+  "microphoneCaptureStopping" : false,
+  "nativePID" : 1337,
+  "previewNavigations" : 0,
+  "profileIdentifier" : "64D39CCF-A46E-297C-925B-6C09E357AE25",
+  "servicePID" : 1342,
+  "simulatedSystemEvents" : false,
+  "sleepEvents" : 0,
+  "state" : "starting",
+  "wakeEvents" : 0,
+  "wakeValidated" : false,
+  "windowFrame" : "{{215, 175}, {1280, 868}}",
+  "windowVisible" : true
+}

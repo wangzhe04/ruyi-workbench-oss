@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "P5-03",
+  "slice": "Current-host native AX core and normal App-origin AXValue entry",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T09:01:43.103641+00:00",
+  "baselineCommit": "c1b90ad2806133516455454b29b090eedc9600bb",
+  "status": "code_review_passed_final_lifecycle_current_host_independent_acceptance_recorded",
+  "productSourceEditedByReviewer": false,
+  "guiOrTestsExecutedByReviewer": false,
+  "sourceState": "Working source remains under development. These hashes bind this read-only review snapshot. Existing main-agent logs are not certified as a frozen independent run.",
+  "sourceHashesAtCodeReview": {
+    "ruyi-workbench/resources/macos-automation-ax.m": "ea3ce7b3c609675cbee7cc618614775cf516ac16c1b2df8e049d3fa00552d4ba",
+    "ruyi-workbench/resources/macos-automation-input.m": "aeb2f08bbf3fd0d5811cd422a46ea9b50b78b475328f82d4924a3e20043355fc",
+    "ruyi-workbench/resources/macos-automation-helper.m": "64db7f3c04d0c2ff4503e274d7108f2d8ebbad8259b38a5d34e0a43885080ff5",
+    "ruyi-workbench/resources/macos-automation.h": "ee1401f0974e16b032a8b10b807ee67902f70ddfb43f65c8b3374d704a7bed13",
+    "ruyi-workbench/tools/build-macos-automation-helper.js": "2569aa223d1c918697f73c976bbb0e0142c7895afc7de7efc0bce54fa50e02c7",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/macos_ax.py": "5497104850ed3849be36d6e5cf6876550cf456aac689dc9bf70a6c0d2652598d",
+    "mcp/ai-computer-control/src/ai_computer_control/server.py": "dc79833136b5c3743d8509191cc3b6968d0fa0b73286a7591f6803dbecb2481c",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/diagnostics.py": "3f436ca5b4b44143bdb4a4f5674ac12577bc6cf8244a9eea411be1c869def6b3",
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos.py": "5c6e8fa1b5c6aa38882d3166e962310522502d2936e97e1f9da2cbba9fc6f880",
+    "mcp/ai-computer-control/src/ai_computer_control/utils/macos_session.py": "b9680c537ee8d8d7c2b70a271ccc3c4c5eb00f29c5cc5f36e897dc0c3815ac9e",
+    "dev-harness/fixtures/macos-ax-window.m": "0c6b492a3475f4aa338f753d0f7f5e00a84e0a1752c760502e125dcdc0c77f6f",
+    "dev-harness/macos-ax.e2e.js": "8f06c6557eaeb16c2a4213a8419640b63330b23e221b40fe99b8e39c97dd97b2",
+    "dev-harness/macos-input-host.e2e.js": "b4d2750491d4076c4c0bba2aeda28cec40ede19e10e3a48238337475540181ad",
+    "mcp/ai-computer-control/tests/smoke_macos_ax.py": "3c1454465ff2515a2cb0a5c586987f7990a21eb7cb1c1ce58e5d69d3f44a02dc"
+  },
+  "findings": [
+    {
+      "id": "AX1",
+      "severity": "P1",
+      "status": "closed_by_source_review_and_final_independent_runtime",
+      "file": "ruyi-workbench/resources/macos-automation-ax.m",
+      "section": "Membership",
+      "finding": "Walking only AXParent permitted a retained detached element to preserve an old parent chain and still receive AXPress.",
+      "resolution": "Each current parent edge now boundedly enumerates up to 1000 current AXChildren and requires CFEqual child membership. It retains the exact observed root, checks owners, detects cycles and enforces the deadline.",
+      "mainAgentEvidence": "focus-observation/run.txt retained ghost refusal and zero ghostPressed assertion",
+      "independentRuntimeVerification": "independent-final/ax-ttl/run.txt"
+    },
+    {
+      "id": "AX2",
+      "severity": "P2",
+      "status": "closed_by_source_review_and_final_independent_runtime",
+      "file": "ruyi-workbench/resources/macos-automation-ax.m",
+      "section": "ApplyClip / VisibleHit / Walk / Action",
+      "finding": "Display intersection alone allowed viewport-clipped controls to satisfy visibility or remain actionable.",
+      "resolution": "Window bounds, scroll-area bounds and hidden ancestors constrain visible geometry. visible_only candidates and actions require current system AX hit identity or descendant membership. Window scope additionally applies the WindowServer and exact AX-window point guard.",
+      "mainAgentEvidence": "focus-observation/run.txt outside_clip observation, visible_only exclusion and no-action refusal",
+      "independentRuntimeVerification": "independent-final/ax-ttl/run.txt"
+    },
+    {
+      "id": "AX3",
+      "severity": "P2",
+      "status": "closed_by_source_review_and_final_independent_runtime",
+      "file": "ruyi-workbench/resources/macos-automation-ax.m",
+      "section": "ReadinessFailure / Guard / AXFailure; common input attribute and target-window helpers",
+      "finding": "An AX Guard result reporting locked or denied returned before clearing retained references. The wrapper cleared caches only when converting a successful result into a readiness failure. Recovery before the one-second refresh timer could leave previously observed window and AX references alive.",
+      "resolution": "Shared readiness failure handling synchronously resets both input-window and AX binding caches. Explicit kAXErrorAPIDisabled exits use the same invalidation, including direct AX metadata, action availability, hit, membership and common attribute/window enumeration paths. Action preserves native error results instead of overwriting a permission failure with target_stale after cache invalidation.",
+      "regressionCoverage": "Testing-only state contract exercises production invalidation helpers with a real controlled window reference and memory-only AX references, including immediate target_stale, fresh recovery, 2048 eviction and aged TTL cleanup. Production rejects the test protocol. Actual 62-second idle TTL remains in the independent GUI case.",
+      "independentRuntimeVerification": "independent-final/ax-ttl/run.txt",
+      "scopeLimit": "Controlled denied/locked state injection does not change real TCC or lock the desktop. Actual revocation/lock environment validation remains pending."
+    }
+  ],
+  "additionalReviewedDecisions": [
+    "ReadNode retains unknown AXEnabled and AXIsEditable as unknown. Explicit enabled=false still rejects every action before mutation.",
+    "Unknown enabled permits only focus with a supported writable AXFocused setter or set_value for AXTextArea/AXTextField with confirmed writable AXValue. Explicit editable=false rejects set_value.",
+    "editable and value_settable join the retained signature so changed writable state invalidates the observation.",
+    "Attribute operations require setter support and exact readback. Toggle requires binary checkbox/switch state. AXPress acceptance retains confirmed=null and outcome=unconfirmed.",
+    "Reads remain at 100ms messaging timeout. An action uses at most 750ms of its remaining global 4-second deadline. Native application AXWindows CannotComplete is preserved as accessibility_timeout.",
+    "Actions use session-private references capped at 2048 with a 60-second idle TTL, exact target/root identity, current reciprocal membership, metadata signature, actual foreground and relevant authorization checks.",
+    "App RUYI_P5_APP_AX mode selects the AX-only path. Default Unicode, paste restoration, pointer and receiver assertions remain present under their original non-AX mode.",
+    "Fixture waits only on read-only active-window or moved-geometry observation. It does not retry a sent mutation to make its assertion pass.",
+    "P5-03 native routing, tool readiness and diagnostics are separate from Windows UIA availability. Windows uia implementation remains selected on Windows."
+  ],
+  "mainAgentEvidenceRead": [
+    {
+      "log": "focus-observation/run.txt",
+      "sha256": "9c2940a8643cffc2f9b5438e2d99b735815855547a463e3ba2409fb6ffcc58e5",
+      "executor": "main agent; existing log read by independent reviewer",
+      "passLines": 34,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "app-writable-capability/run.txt",
+      "sha256": "2fac9d1f048a48858da2091fd7f8cb335eed9681980988cffbeed6057763b898",
+      "executor": "main agent; existing log read by independent reviewer",
+      "passLines": 12,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "python-ax-first.txt",
+      "sha256": "5f95ecc3f3cae05822b8e4d73d235bfc0dc4fc448dd99eaf7e01087545c5f919",
+      "executor": "main agent; existing log read by independent reviewer",
+      "tests": 8,
+      "passed": true
+    },
+    {
+      "log": "python-input-first.txt",
+      "sha256": "271c729cc6ad4fe4cf46e3b70fc417623ed9f1550c6a0951403f7cf1e45a2a1e",
+      "executor": "main agent; existing log read by independent reviewer",
+      "tests": 17,
+      "passed": true
+    },
+    {
+      "log": "python-shared-first.txt",
+      "sha256": "ca729eeef72204b619e8aee85cf4b2458ba4713b364c970dcc747b4266413900",
+      "executor": "main agent; existing log read by independent reviewer",
+      "tests": 8,
+      "passed": true
+    },
+    {
+      "log": "python-events-first.txt",
+      "sha256": "d9d819913639b6f1bb10a8acacc9caa7672d3e4a9bb8c4c0edc44bc0bd024f74",
+      "executor": "main agent; existing log read by independent reviewer",
+      "tests": 15,
+      "passed": true
+    },
+    {
+      "log": "python-capture-first.txt",
+      "sha256": "1c16405d7cc78f266dcba4f55a3223b48ce15e6703e8de283b2589896ff9761b",
+      "executor": "main agent; existing log read by independent reviewer",
+      "tests": 13,
+      "passed": true
+    }
+  ],
+  "openActionableFindings": [],
+  "historicalEvidence": [
+    "Earlier action-timeout and layout/focus observation failures remain in their original logs. Later successful runs do not erase them.",
+    "Single pre-action focus_changed failure remains unreproduced with cause undetermined. No root-cause fix is claimed."
+  ],
+  "pendingAcceptance": [
+    "Freeze sources and independently rerun authorized serial core AX and normal App entry tests, including default Unicode and Cmd+V host regressions.",
+    "Exercise the actual AX reference idle TTL and remaining negative contracts on the frozen candidate.",
+    "TextEdit, Finder and Chromium real AX scenarios belong to the next slice and remain pending.",
+    "Actual permission revocation or lock during AX action, physical multi-display/non-Retina, Windows runtime, minimum macOS 14 runtime and formal signing remain pending."
+  ],
+  "phaseCompletion": "P5-03 remains in_progress. This record closes source-review findings for the current core slice and does not complete P5-03 or P5.",
+  "frozenCandidateBinding": "source-fingerprint-final.json",
+  "independentAcceptanceEvidence": "independent-final/review.json",
+  "independentRuns": "independent-final/runs.json",
+  "originalReviewSnapshotNote": "Original read-only source snapshot retained. Subsequent frozen independent execution is recorded separately.",
+  "previousCandidateBinding": "source-fingerprint.json",
+  "lifecycleFinalReadOnlyReview": {
+    "reviewedAt": "2026-11-10T09:34:37.016770+00:00",
+    "sourceFiles": 56,
+    "exactFiveFileDelta": {
+      "dev-harness/macos-ax.e2e.js": "1be7aa7f881f9ffe042ca8ae169e67d88becc203ae51c6a992d348d1a6d7f391",
+      "ruyi-workbench/resources/macos-automation-ax.m": "c77242757e994199ede14dccb48ff42c2451bcfec254b95e23d2571a37fc649d",
+      "ruyi-workbench/resources/macos-automation-helper.m": "b214fc6ce075b2d7a14a35e127fa847a301221d858cb9ca7f1fd1f9ade4f4625",
+      "ruyi-workbench/resources/macos-automation-input.m": "8c9e818ab385add6fb0445fa078db7811e4f0a4ca7d525995530318ca4d88444",
+      "ruyi-workbench/resources/macos-automation.h": "2bf7e369f34616b4cc0f010b72dc40fb42fb1bae377af63aec38d846c7cc5b8c"
+    },
+    "allOther51SourceHashesUnchanged": true,
+    "productSourceEditedByReviewer": false,
+    "guiOrTestsExecutedInReadOnlyReview": false,
+    "finalSourceFingerprintSha256": "3c716762c0f0aa1e4acae21d64e833a9375879ba8228905876ce8d126e4666dc"
+  },
+  "previousIndependentAcceptanceEvidence": "independent/review.json",
+  "finalLifecycleReadiness": "Final frozen functional acceptance and final engineering gates passed. Current-host core slice may be committed. P5 and P5-03 remain in_progress.",
+  "finalEngineeringReview": "independent-final/engineering-review.json",
+  "finalEngineeringBound": true,
+  "finalDefaultRuntimeSha256": "04fe4308080fd8b3acd59118301be48c0ace3e51faf1f56349d0821c60a638bf",
+  "implementationCommit": "66edbf8bcf51d4c7c1a0433dce7ecc2f4eda77ee",
+  "commitBindingReview": "independent-final/commit-binding-review.json",
+  "committedSourceVerified": true
+}

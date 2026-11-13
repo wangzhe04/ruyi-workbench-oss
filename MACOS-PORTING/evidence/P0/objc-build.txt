@@ -1,0 +1,31 @@
+MACOS-PORTING/probes/native-probe.m:21:22: warning: 'SecKeychainGetUserInteractionAllowed' is deprecated: first deprecated in macOS 10.10 - SecKeychain is deprecated [-Wdeprecated-declarations]
+   21 |     OSStatus getUI = SecKeychainGetUserInteractionAllowed(&original);
+      |                      ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Security.framework/Headers/SecKeychain.h:649:10: note: 'SecKeychainGetUserInteractionAllowed' has been explicitly marked deprecated here
+  649 | OSStatus SecKeychainGetUserInteractionAllowed(Boolean *state)
+      |          ^
+MACOS-PORTING/probes/native-probe.m:22:47: warning: 'SecKeychainSetUserInteractionAllowed' is deprecated: first deprecated in macOS 10.10 - SecKeychain is deprecated [-Wdeprecated-declarations]
+   22 |     OSStatus setUI = getUI == errSecSuccess ? SecKeychainSetUserInteractionAllowed(false) : getUI;
+      |                                               ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Security.framework/Headers/SecKeychain.h:639:10: note: 'SecKeychainSetUserInteractionAllowed' has been explicitly marked deprecated here
+  639 | OSStatus SecKeychainSetUserInteractionAllowed(Boolean state)
+      |          ^
+MACOS-PORTING/probes/native-probe.m:26:23: warning: 'SecKeychainCreate' is deprecated: first deprecated in macOS 10.10 - SecKeychain is deprecated [-Wdeprecated-declarations]
+   26 |     OSStatus create = SecKeychainCreate([[dir stringByAppendingPathComponent:@"probe.keychain"] fileSystemRepresentation],
+      |                       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Security.framework/Headers/SecKeychain.h:309:10: note: 'SecKeychainCreate' has been explicitly marked deprecated here
+  309 | OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void * __nullable password, Boolean promptUser, SecAccessRef __nullable initialAccess, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychain)
+      |          ^
+MACOS-PORTING/probes/native-probe.m:55:28: warning: 'SecKeychainDelete' is deprecated: first deprecated in macOS 10.10 - SecKeychain is deprecated [-Wdeprecated-declarations]
+   55 |         OSStatus cleanup = SecKeychainDelete(kc);
+      |                            ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Security.framework/Headers/SecKeychain.h:319:10: note: 'SecKeychainDelete' has been explicitly marked deprecated here
+  319 | OSStatus SecKeychainDelete(SecKeychainRef __nullable keychainOrArray)
+      |          ^
+MACOS-PORTING/probes/native-probe.m:62:5: warning: 'SecKeychainSetUserInteractionAllowed' is deprecated: first deprecated in macOS 10.10 - SecKeychain is deprecated [-Wdeprecated-declarations]
+   62 |     SecKeychainSetUserInteractionAllowed(original);
+      |     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Security.framework/Headers/SecKeychain.h:639:10: note: 'SecKeychainSetUserInteractionAllowed' has been explicitly marked deprecated here
+  639 | OSStatus SecKeychainSetUserInteractionAllowed(Boolean state)
+      |          ^
+5 warnings generated.

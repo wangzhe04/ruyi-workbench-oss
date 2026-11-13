@@ -1,0 +1,214 @@
+{
+  "date": "2026-11-08",
+  "reviewer": "/root/p4_host_review",
+  "status": "passed_current_Mac_functional_acceptance",
+  "remainingNecessaryCodeOrDocumentationCorrections": 0,
+  "scope": {
+    "userInstruction": "停止防休眠，完整验收P4 Mac端",
+    "accepted": "P4-01 through P4-04 on current macOS27.0.1 arm64 development App, with existing user-approved carryovers retained.",
+    "Windows": "deferred_by_user_unverified",
+    "formalIdentity": "deferred_by_user_P6_unverified",
+    "macOS14": "O2_P6_unverified",
+    "originalAllEnvironmentGatesComplete": false
+  },
+  "method": "Independent code/diff and documentation review, direct serial execution of eight final-candidate suites, independent SHA-256/log/counter/build-input checks and strict signature verification. The final documentation audit initiated no additional test suites or UI. This round included no physical microphone recording, real Finder drag, system permission change, login registration or system sleep.",
+  "candidate": {
+    "baseCommit": "1dca02ae71ffbc6136a0d84b6e0794eadd4fcd93",
+    "originalImplementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+    "deliveryState": "reviewed_staged_changes_pending_final_local_commit",
+    "sourceFingerprint": "source-fingerprint.json",
+    "sourceFiles": 53,
+    "sourceFingerprintMismatchesAtFinalReview": 0,
+    "productionSourceUnchanged": false,
+    "productionDelta": {
+      "runtimeFile": "ruyi-workbench/app/public/app.js",
+      "change": "SSE lensProvider reads shellModeController.intendedShellMode() and normalizes the result to steward/classic.",
+      "appLines": 1279,
+      "commentOnlyFile": "ruyi-workbench/app/public/js/event-stream.js",
+      "testDeltaFiles": [
+        "dev-harness/macos-desktop-bridge.e2e.js",
+        "dev-harness/event-stream-client.browser.e2e.js",
+        "dev-harness/event-stream-replay.browser.e2e.js",
+        "dev-harness/event-stream-pageshow.browser.e2e.js"
+      ]
+    },
+    "nativeApp": {
+      "rebuiltThisRound": false,
+      "buildInputsVerified": 6,
+      "buildInputMismatches": 0,
+      "strictSignature": {
+        "command": "codesign --verify --deep --strict ruyi-workbench/dist/Ruyi.app",
+        "independentlyExecuted": true,
+        "exitCode": 0
+      },
+      "binding": "The frozen native App reads the current workbench frontend from its recorded source directory. Native input continuity is distinct from the frontend source delta."
+    }
+  },
+  "codeReview": {
+    "SSEPresence": {
+      "finding": "The first independent client run observed an initial classic presence request followed by the final steward view. The boot contract requires the first request to use the resolved view.",
+      "resolution": "Reuse the existing controller's latest pending intent or committed value. The DOM writer, intent ordering and transition implementation remain in the controller.",
+      "TDZAnalysis": "createEventStream stores the provider closure without evaluating it. presenceOf is reached through connect or sync after start. Early consumers subscribe or set providers, and sync returns before reading presence when not started. The module has no top-level await. The sole production eventStream.start is at the end of boot, after shellModeController initialization.",
+      "riskCoverage": "The first request now carries steward while the real transition callback is pending and DOM is still classic. On transition commit the observer sees the same presence key and avoids a redundant connection. Default motion and the original A8/A8b and subsequent functional/performance assertions remain enabled."
+    },
+    "cancellation": {
+      "scope": "Synthetic isTrusted=false directory entry dispatched through the full WK page's bound document.body drop listener, with the real HTTP resolver and actual confirmation Cancel.",
+      "verified": "Explicit current-session and different target preconditions, two readEntries calls including completion, real matching resolution and modal target/default state, equal complete server session/effective config/frontend snapshots, zero selectedPath or session/config writes and zero sends.",
+      "diskCheck": "After App exit the same session ID/cwd and raw persisted config match the before snapshot projected through existing normalizeConfig(...,{inferExplicit:false}).persisted using deep structural comparison.",
+      "independentArtifact": "The reviewer directly inspected the independent native.json cancellation record. Before/after snapshots are equal, synthetic is true, isTrusted is false, defaultPrevented is true, one resolution and zero writes/sends are recorded.",
+      "historicalBoundary": "This supplements the previously reviewed trusted Finder entry and preserves the missing immediate pre-cancel current-session snapshot in that original real interaction."
+    },
+    "fixtureCorrections": "Darwin Keychain launch-isolation flags match existing browser fixture policy. Replay explicitly clicks the actual view selector and checks session plus classic mode after transitions. Original B/D/E assertion bodies remain unchanged."
+  },
+  "negativeControl": {
+    "metadata": "pending-transition-negative.json",
+    "actualTestSource": "client-negative-source.txt",
+    "oldAppCommitBlobHashVerified": true,
+    "oldAppSHA256": "7c5d475d7f9025d2c827e5c5e0c4e9a31cf555aa9bbd2d67548d83e441190d81",
+    "actualNegativeTestSHA256Verified": true,
+    "actualNegativeTestSHA256": "6821f14f65a62244a4f7122e62cd4d0d936d80874e998c0b192e9d7cc15135be",
+    "finalTestDifferenceIndependentlyCompared": "Only the A8c assertion label wording differs. Its condition and pending native-transition instrumentation are unchanged.",
+    "recordedNaturalExitCode": 1,
+    "retainedResult": "37 passed and 2 failed, including first-presence A8 and the C1 three-poll observation. Both failures remain recorded.",
+    "baselineReplay": "The archived d97db57b unchanged-production/original-replay run with only external Mac browser flags reproduces the same four failed replay assertions. Its separate source and environment attribution is retained."
+  },
+  "mainExecution": {
+    "actor": "Implementation agent",
+    "checks": 19,
+    "specialtySuites": 16,
+    "specialtyPassed": 630,
+    "specialtyFailed": 0,
+    "allRecordedNaturalExitCodes": 0,
+    "record": "fixed-runs.json",
+    "all19LogHashesAndReportedCountersIndependentlyVerified": true,
+    "recordedTestSourceHashesIndependentlyVerified": true,
+    "engineering": {
+      "unit": {
+        "tests": 2509,
+        "passed": 2491,
+        "skipped": 18,
+        "failed": 0,
+        "cancelled": 0,
+        "log": "unit-fixed.txt"
+      },
+      "static": {
+        "passed": 80,
+        "failed": 0,
+        "liveExcluded": 7,
+        "log": "fixed-engineering-fixed.txt"
+      },
+      "syntax": {
+        "files": 1134,
+        "failed": 0,
+        "log": "fixed-syntax-fixed.txt"
+      },
+      "buildFreshness": {
+        "result": "fresh",
+        "log": "fixed-freshness-fixed.txt"
+      }
+    },
+    "boundary": "The reviewer checked the archived main-run logs, hashes and exit records. The main engineering and remaining specialty suites were not independently rerun during this final audit."
+  },
+  "independentExecution": {
+    "actor": "/root/p4_host_review",
+    "serial": true,
+    "suites": 8,
+    "passed": 255,
+    "failed": 0,
+    "allNaturalExitCodes": 0,
+    "record": "independent-fixed-runs.json",
+    "results": {
+      "client": 39,
+      "host": 31,
+      "bridge": 53,
+      "media": 36,
+      "lifecycle": 23,
+      "replay": 24,
+      "pageshow": 11,
+      "workspaceResolve": 38
+    },
+    "allLogHashesCountersAndSourceBindingsReverified": true,
+    "sourceFingerprintMismatchesAfterEveryRun": 0,
+    "mediaInput": "Synthetic oscillator only.",
+    "processCleanup": "Observed descendant and unique-fixture-argv process creation identities were absent after each natural exit. No additional cleanup signals were sent by the reviewer.",
+    "firstPresence": "The independent A8/A8b/A8c results record first lens=steward, one startup connection, native transition supported and pendingTransition=true while DOM mode remains classic.",
+    "oldFailuresPreserved": "The earlier independent client37/1, original independent-runs.json, failed fixture rounds and negative-control records were retained."
+  },
+  "reusedRealEvidence": {
+    "basis": "Native bridge/media/lifecycle build inputs and the production recording, workspace/drop handlers and sleep/login handlers are unchanged. The narrow frontend SSE provider delta was freshly covered by final native/browser runs. The full production source tree is not described as unchanged.",
+    "records": [
+      "../bridge/native-drop/review.json",
+      "../media/physical/reporting-delay/review.json",
+      "../bridge/unlocked-recovery/README.md",
+      "../bridge/editor-diff/README.md",
+      "../lifecycle/physical-system/validation.json"
+    ],
+    "acceptedPriorObservations": "Trusted real file/directory entry, notification refusal/recovery and delivery, chooser/Finder/shortcuts, menu Settings, Code Diff, Safari handoff, valid physical 647.5ms PCM, temporary login registration followed by cancellation and one short real sleep/SSE cycle retain their original evidence attribution."
+  },
+  "power": {
+    "record": "power-state.json",
+    "taskOwnedPID": 6773,
+    "stopAction": "Implementation agent recorded SIGTERM after exact command identity verification.",
+    "archivedAssertions": "Both initial and final snapshots record absence of this caffeinate process and its power assertions. Other application/system assertions remain separately visible in the raw receipt.",
+    "independentFinalProcessCheck": {
+      "command": "ps -p 6773 -o pid=,args=",
+      "exitCode": 1,
+      "stdout": "",
+      "processAbsent": true
+    },
+    "otherApplicationAssertionsModifiedByReviewer": false
+  },
+  "documentationAudit": {
+    "phaseAndCloseoutFilesReviewed": 6,
+    "READMEValidationEnvironmentPowerAndBindingMetadataReviewed": true,
+    "scopeAndCountersConsistent": true,
+    "resolvedDocumentationDetail": "The local-closeout notification limit referred to the earlier bridge47 count as current. The implementation agent updated that reference to bridge53, and the reviewer verified the correction and refreshed this file's fingerprint.",
+    "currentProductionDeltaExplicit": true,
+    "historicalCandidateAttributionRetained": true,
+    "approvedCurrentMacScopeComplete": true,
+    "deferredItemsNotMarkedPassed": true,
+    "knownLimitsPreserved": [
+      "Original real Finder cancellation lacks an immediate selected-session cwd pre-snapshot. The new invariant test is synthetic.",
+      "Real microphone refusal/retry is WebKit-origin scoped. Prior system grant and physical capture are verified, while OS TCC refusal/recovery remains unverified.",
+      "Physical sleep covers a short Software Sleep/DarkWake cycle with scheduler disabled in that physical fixture. Long/deep sleep and same-cycle physical scheduler compensation remain unverified.",
+      "Browser media success is CFT148 scoped. Ordinary Chrome156 native fake-media hang remains unconfirmed.",
+      "Three notification denied/ungranted conditionals did not execute under the current granted permission. Earlier real refusal/recovery evidence retains its own attribution."
+    ]
+  },
+  "whitespace": {
+    "record": "whitespace.json",
+    "baseline": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+    "scope": "Complete baseline-to-index staged range before this new review was added.",
+    "fullRangeIndependentlyChecked": {
+      "exitCode": 2,
+      "diagnostics": 43,
+      "trailingWhitespace": 41,
+      "newBlankLineAtEOF": 2,
+      "allDiagnosticsInRawP4Text": true
+    },
+    "excludingOnlyRawP4Text": {
+      "exitCode": 0,
+      "diagnostics": 0
+    },
+    "preservation": "Original raw terminal/system/AX and negative-control source text remains byte-preserved. A full-range whitespace pass is not claimed."
+  },
+  "documentSHA256": {
+    "MACOS-PORTING/05-P4-DESKTOP-APP.md": "800bca4e5ef444eb3460ad6089840ec37ee0cced521028e6440a56da2435930a",
+    "MACOS-PORTING/08-VALIDATION.md": "dfd4b19babf23c337cc3c8e80685324fcf1e99dd5763e35e2f54c61cf777ff9f",
+    "MACOS-PORTING/10-TRACKING.md": "fb746b8c3577242e766d87922a065557d483b9737d69b9668b299f483583b4af",
+    "MACOS-PORTING/README.md": "6e195d1c1699ce004839ddf253738cdf722c6ac13ad7b774ebbfe5eb23b0af03",
+    "MACOS-PORTING/TASKS.json": "ad3b5506e96577182189e842defe8e7451c9ba18d5f2979864139152931fdba9",
+    "MACOS-PORTING/evidence/P4/local-closeout.json": "8fd0750758f88fa396aa8f80569c0d3adab8a6ce5141ab830787bbcf707a53a6",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/README.md": "d6cf19d9cb50ef4a2300cfaaa7f9261173182696ccdda5555fdd2b0112fc178d",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/validation.json": "f5a2909c201af27c92885af0212fa8fa1af40e7960d8d7394e60fe7703ffae2f",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/environment.json": "50d7b07848728f14dc0bd5ce92c30601a355ed35bfc0c1c79336269d681846b3",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/power-state.json": "507b558edfe1c66ed30383f3b1a941bb0a5e31cfe8477f4b1d0385a227659c38",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/source-fingerprint.json": "cebf2fdc1204e8f92df0eb1abc2f5297e7c819f704758bda23d2619530d08dca",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/fixed-runs.json": "d1b524d40a1499ef785c86baec11fe2c4065cb17118b76bad58136e92bcafa6f",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/independent-fixed-runs.json": "ea4132f84bafc5a8cb6e3c8fe08c9da14d66a0ab5bc841504417ebc45d9e16a4",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/whitespace.json": "4bdfcbef45226260c535b563702b4ecbff72deae035fa1ea3713746bc67daa7c",
+    "MACOS-PORTING/evidence/P4/full-mac-acceptance/pending-transition-negative.json": "7f76391ebd25f0acf8314c9f80d7f89196bb1115f9486db92a72a15cbccc5b83"
+  },
+  "documentFingerprintScope": "The six phase/closeout documents and the new final evidence documentation/metadata were hashed directly. This review is excluded from its own fingerprint record.",
+  "conclusion": "Current-host P4 Mac functional acceptance passes the stated user-approved scope after the independently identified first-presence correction. The final frozen candidate has 630 main specialty passes and 255 independent passes with passing engineering records. Task-owned sleep prevention is stopped. No necessary code or documentation correction remains before the final local commit, with all stated deferred environments and evidence limitations preserved."
+}

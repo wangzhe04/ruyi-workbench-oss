@@ -1,0 +1,160 @@
+{
+  "timeoutMs": 1000,
+  "delayMs": 150,
+  "results": [
+    {
+      "mode": "fresh-node",
+      "attempt": 1,
+      "inodeBefore": null,
+      "inodeAfter": 70191514,
+      "initial": null,
+      "ms": 204.23320900000002,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "fresh-node",
+      "attempt": 2,
+      "inodeBefore": null,
+      "inodeAfter": 70191517,
+      "initial": null,
+      "ms": 201.605167,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "native-inplace-node",
+      "attempt": 1,
+      "inodeBefore": 70191519,
+      "inodeAfter": 70191519,
+      "initial": {
+        "ms": 21.148042000000032,
+        "error": null,
+        "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"deadline\":true,\"escapeCoverage\":\"observed-only\"}\n",
+        "stderr": "",
+        "observed": null
+      },
+      "ms": 190.13291700000002,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "native-inplace-node",
+      "attempt": 2,
+      "inodeBefore": 70191535,
+      "inodeAfter": 70191535,
+      "initial": {
+        "ms": 15.388208000000077,
+        "error": null,
+        "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"deadline\":true,\"escapeCoverage\":\"observed-only\"}\n",
+        "stderr": "",
+        "observed": null
+      },
+      "ms": 184.82729100000006,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "native-rename-node",
+      "attempt": 1,
+      "inodeBefore": 70191541,
+      "inodeAfter": 70191542,
+      "initial": {
+        "ms": 16.692792000000054,
+        "error": null,
+        "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"deadline\":true,\"escapeCoverage\":\"observed-only\"}\n",
+        "stderr": "",
+        "observed": null
+      },
+      "ms": 203.569208,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "native-rename-node",
+      "attempt": 2,
+      "inodeBefore": 70191544,
+      "inodeAfter": 70191545,
+      "initial": {
+        "ms": 17.925917000000027,
+        "error": null,
+        "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"deadline\":true,\"escapeCoverage\":\"observed-only\"}\n",
+        "stderr": "",
+        "observed": null
+      },
+      "ms": 201.099334,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "explicit-node",
+      "attempt": 1,
+      "inodeBefore": null,
+      "inodeAfter": 70191548,
+      "initial": null,
+      "ms": 253.93650000000002,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": "86139 (node)",
+      "markerCreated": true
+    },
+    {
+      "mode": "explicit-node",
+      "attempt": 2,
+      "inodeBefore": null,
+      "inodeAfter": 70191550,
+      "initial": null,
+      "ms": 193.61745800000017,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "fresh-shell",
+      "attempt": 1,
+      "inodeBefore": null,
+      "inodeAfter": 70191570,
+      "initial": null,
+      "ms": 169.45266700000002,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    },
+    {
+      "mode": "fresh-shell",
+      "attempt": 2,
+      "inodeBefore": null,
+      "inodeAfter": 70191572,
+      "initial": null,
+      "ms": 164.44395800000007,
+      "error": null,
+      "stdout": "{\"protocolVersion\":2,\"guardian\":true,\"supervise\":true,\"privateFd\":true,\"identityCleanup\":true,\"escapeCoverage\":\"observed-only\"}\n",
+      "stderr": "",
+      "observed": null,
+      "markerCreated": true
+    }
+  ]
+}

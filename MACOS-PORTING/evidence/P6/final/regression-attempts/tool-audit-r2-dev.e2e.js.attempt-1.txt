@@ -1,0 +1,91 @@
+PASS P1 xlsx(PK 魔数)→ binary_file + 导出 CSV 的提示(got {"ok":false,"error":"这是二进制文件(ZIP 容器(.xlsx/.docx/.pptx/.zip 等)),data_profile 只能画像文本数据(CSV/TSV/JSON/JSONL/日志)","code":"binary_file","path":"/v)
+PASS P1b 含 NUL 的 .dat → binary_file(got false binary_file)
+PASS P2 空行不计入数据行(rowCount=2 nullCount=0)
+PASS P3 分号分隔自动探测,且小数逗号不抢分隔符(delimiter=; cols=3)
+PASS P3b delimiter:'tab' 按名字解析(cols=2)
+PASS P3c 多字符分隔符被明确拒绝(got false bad_delimiter)
+PASS P4 缺字段/对象值不出现 undefined / [object Object](got ["{\"x\":1}"])
+PASS P4b uniqueCount 不数缺失/空串(unique=1 null=2)
+PASS P5 标量数组画成单个 value 列(cols=1)
+PASS P6 列数封顶 200(colCount=300 shown=200 truncated=true)
+PASS P7 encodingNote 与真实原因一致(gb18030 可用: 文件既不是合法的 UTF-8 也不是合法的 GB18030(可能含二进制内容或别的编码),已按 UTF-8 宽松解码,可能有乱码)
+PASS S1 Go 方法 识别为定义 s.go:2(got ["s.go:2"])
+PASS S1 C int main(void) 识别为定义 m.c:3(got ["m.c:3","s.go:4"])
+PASS S1 JS class 方法 识别为定义 c.js:2(got ["c.js:2"])
+PASS S1 JS static 方法 识别为定义 c.js:4(got ["c.js:4"])
+PASS S1 async function* 识别为定义 c.js:7(got ["c.js:7"])
+PASS S1 C# 属性 识别为定义 c.cs:4(got ["c.cs:4"])
+PASS S1 C# 方法(大括号换行) 识别为定义 c.cs:5(got ["c.cs:5"])
+PASS S1 C# record 识别为定义 c.cs:2(got ["c.cs:2"])
+PASS S1 C# 私有静态方法 识别为定义 c.cs:9(got ["c.cs:9"])
+PASS S1b 调用(foo.handleReq(x); / 回调里的 handleReq(1);)不算定义(got ["c.js:2"])
+PASS S1 Kotlin 扩展函数(.kt 后缀) 识别为定义 k.kt:1(got ["k.kt:1"])
+PASS S1 Lua(.lua 后缀) 识别为定义 l.lua:1(got ["l.lua:1"])
+PASS S1 批处理标签(.bat 后缀) 识别为定义 a.bat:3(got ["a.bat:3"])
+PASS S1 PowerShell 模块(.psm1 后缀) 识别为定义 p.psm1:1(got ["p.psm1:1"])
+PASS S1 VB Sub(.vb 后缀) 识别为定义 v.vb:1(got ["v.vb:1"])
+PASS S1 Swift protocol(.swift 后缀) 识别为定义 sw.swift:2(got ["sw.swift:2"])
+PASS S3 typedef struct Foo Foo_t 里的 Foo 不是定义,struct Foo {…} 才是(got ["m.c:2"])
+PASS S3b } Bar_t; 是别名定义(got ["m.c:8"])
+PASS S4 命中与 files[] 只带 relativePath
+PASS S4b absolute:true 补回绝对 path
+PASS S5 撞 maxResults 给 hint(got 已达 maxResults(1),后面还有命中没列出;调大 maxResults,或缩小 root / 用 kind:'definition' 只看定义)
+PASS S5b 零命中给 hint(got 没有找到该符号的任何定义或引用:确认拼写与大小写(默认区分大小写,caseSensitive:false 放开)、root 是否正确,或该语言的文件后缀不在扫描范围内)
+PASS S5c 有定义时不误报零定义 hint
+PASS R1/R2/R3 只剩真密钥与非空 innerHTML,测试/夹具与误报全跳过(got ["hardcoded-secret:src/cfg.js:2","xss-html:src/cfg.js:4"])
+PASS R1b 报 skippedTestFiles 并说怎么放开(got 3)
+PASS R1c includeTests:true 才扫测试/夹具
+PASS R4 每条带 confidence、路径只给相对
+PASS R5 撞 maxFindings → truncated + hint(got true)
+PASS R5b maxFiles:0 不再被当成默认 1200(scannedFiles=1 truncated=true)
+PASS R5c maxDepth:0 只看根层、不下钻(total=0)
+PASS F1 ajax.googleapis.com / //cdn.x / code.jquery.com 都算(got {"id":"external-asset","relativePath":"web/index.html","path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/fe/web/index.html","line":2,"text":"<script src=\"https://ajax.googleapis.com/ajax/libs/jquery.js\"></script>","host":"ajax.googleapis.com","count":3,"hint":"External asset (CDN/font/script/image/stylesheet) will fail offline; bundle it locally"})
+PASS F1b 任意外部图片 https://example.com/x.png 也报
+PASS F1c CSS 的 @import / url() 外部主机
+PASS F1d <a href> 导航与 localhost 不报
+PASS F2 .js 里的 <html> 字符串不报 missing-viewport
+PASS F2b 真页面报 missing-viewport 且带行号
+PASS F3 maxFiles 撞顶 → truncated + scannedFiles + hint(got true/0)
+PASS D1 UTF-16LE(BOM)文档可搜(got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/docs/u16.md","relativePath":"u16.md","li)
+PASS D1b GBK 文档里中文查询命中
+PASS D1c GBK 文档英文命中的文本不是乱码
+PASS D1d UTF-8 BOM 剥掉后 ^# 配得上第 1 行(got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/docs/bom.md","relativePath":"bom.md","li)
+PASS D2 5MB 的 .md 也能搜(got [{"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/docs/big.md","relati)
+PASS D2b 超限的文件列进 skippedLargeFiles(got ["big.md"])
+PASS D3 合法但本意是字面的 C:\Users → 按字面重试并说明(got 1 regex matched nothing; matches below are for the query as literal text)
+PASS D3b TODO (urgent) 按字面重试命中(got 1)
+PASS D4 空查询拒绝(got {"ok":false,"error":"query 不能为空","hint":"docs_search 需要要找的词或正则(例如 \"安装\" 或 \"TODO|FIXME\")。","root":)
+PASS C1 没缺章节不再叫人「Update missing sections」(got No missing sections detected (keyword-level check only; it does not judge whether the content is accurate or complete).)
+PASS C1b 有缺时点名缺哪些(got Update missing sections (purpose, commands, style, safety, offline) before relying on long-running agent work.)
+PASS M1 认出 .NET / Ruby / uv / conda / deno / 版本钉文件(got ["packages.config","Directory.Packages.props","Gemfile","setup.py","uv.lock","environment.yml",".nvmrc",".python-version","deno.json","App.csproj","App.sln","requirements-dev.txt"])
+PASS M2 根及一层子目录都没有清单 → note 说明只看顶层(got 根目录及一层子目录都没有认得出的依赖清单;本工具只看顶层。更深的子项目请把 root 指过去。)
+PASS M2b 根下没有清单 → 列出一层子目录里的(got ["a/package.json","b/go.mod"])
+PASS H1 init 重复 id 改名并提示(got ["H2","H3","H4"] 重复的假设 id 已改名: H2 -> H4)
+PASS H2 超过 50 个假设有警告(got 50 hypotheses 超过 50 个,只登记了前 50 个,丢掉了 10 个;请合并同类假设)
+PASS H3 testCount 精确、说明修剪(testCount=55 kept=50 trimmed=5)
+PASS H3b 最新一条实验没被丢(修前切掉的是最新的)
+PASS H4 conclude 成功
+PASS H5 根因锁定后不能再为别的假设记支持证据(got 根因已锁定为 H1,不能再为 H2 记录支持证据;如要改判请先 action=reopen 解除锁定)
+PASS H5b 锁定后排除其余假设(refutes)仍允许(earlyStopWarning 要求的收尾动作)
+PASS H4b reopen 解锁并回到 supported(got {"ok":true,"ledger":{"hypotheses":[{"id":"H1","description":"a","mechanism":"","expectedEvidence":"","verification":"",")
+PASS H4c reopen 之后可以继续实验
+PASS G2 仓库外 git_diff 不塞用法文本(detail 89 字符)
+PASS G4 空仓库 git_log → 还没有任何提交(got {"ok":true,"cwd":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/repo","count":0,"maxCount":10,"c)
+PASS G7 git_log 行带完整 hash(fullHash)
+PASS G7b git_log ref+author+since(got {"ok":true,"cwd":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/repo","count":1,"maxCount":10,"ref":"HEAD~1","author)
+PASS G7c author 过滤无匹配 → 0 条
+PASS G7d 非法 ref "--output=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/smuggle.txt" 被拒(log=invalid_ref diff=invalid_ref)
+PASS G7d 非法 ref "-p" 被拒(log=invalid_ref diff=invalid_ref)
+PASS G7d 非法 ref "HEAD; rm -rf" 被拒(log=invalid_ref diff=invalid_ref)
+PASS G7d 非法 ref "a b" 被拒(log=invalid_ref diff=invalid_ref)
+PASS G7e ref 走私探针:--output 文件未被创建
+PASS G7f git_diff ref:HEAD~1 = 工作区对 HEAD~1(got "diff --git a/a.txt b/a.txt\nindex 5626abf..2bdf67a 100644\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-one\n+t")
+PASS G7g git_diff ref:HEAD~1..HEAD = 两个提交之间
+PASS G7h 不存在的 ref → 明确报错(got 指定的 ref(提交/分支/范围)不存在或写法不对)
+PASS G5 不存在的 path 给 hint(diff=路径 "nonexistent.txt" 在 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/repo 里不存在(相对 cwd 解析),所以结果为空;检查拼写与大小写,可用 glob / file_list 确认路径。 log=路径 "nonexistent.txt" 在 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-r2dev-ws-J6DvnR/repo 里不存在(相对 cwd 解析),所以结果为空;检查拼写与大小写,可用 glob / file_list 确认路径。)
+PASS G1 git_status 封顶 300 行、计数仍精确(lines=301 changes=352)
+PASS G1b 未跟踪目录折叠成一条,提示里说明(untrackedDirs=1)
+PASS G3 钩子拒绝 → 明说并带钩子输出(got 提交被 pre-commit 钩子拒绝 / lint failed: bad style)
+PASS G6 提交失败后列出仍在暂存区的文件(got ["f1.txt"])
+
+TOOL AUDIT R2 DEV E2E: ALL PASS

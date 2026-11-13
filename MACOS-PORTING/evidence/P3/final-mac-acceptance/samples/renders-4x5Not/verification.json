@@ -1,0 +1,52 @@
+[
+  {
+    "name": "report",
+    "pages": 1,
+    "sampleRowValuesPresent": {
+      "上海": true,
+      "北京": true,
+      "深圳": true
+    },
+    "images": [
+      "report-1.png"
+    ]
+  },
+  {
+    "name": "data",
+    "pages": 1,
+    "sampleRowValuesPresent": {
+      "上海": true,
+      "北京": true,
+      "深圳": true
+    },
+    "images": [
+      "data-1.png"
+    ]
+  },
+  {
+    "name": "slides",
+    "pages": 3,
+    "sampleRowValuesPresent": {
+      "上海": true,
+      "北京": true,
+      "深圳": true
+    },
+    "images": [
+      "slides-1.png",
+      "slides-2.png",
+      "slides-3.png"
+    ]
+  },
+  {
+    "name": "summary",
+    "pages": 1,
+    "sampleRowValuesPresent": {
+      "上海": true,
+      "北京": true,
+      "深圳": true
+    },
+    "images": [
+      "summary-1.png"
+    ]
+  }
+]

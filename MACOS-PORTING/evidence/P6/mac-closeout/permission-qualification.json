@@ -1,0 +1,25 @@
+{
+  "observedAt": "2026-11-12T13:18:34.073382+00:00",
+  "fixture": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p5-host-TzHoEg",
+  "freshAppLaunch": "ready",
+  "captureAuthorization": "denied",
+  "captureReasonCode": "permission_denied",
+  "systemSettingsExistingRuyiToggle": "on",
+  "refreshAttempt": "System Settings requires Touch ID or login password before applying any change",
+  "authentication": "Cancelled; no credential entered, existing Ruyi toggle observed on afterwards",
+  "systemPermissionChanged": false,
+  "userHandoffQuestionPending": true,
+  "scope": "Fresh source-isolated current-code App. This does not establish the root cause of old dist App timeouts or formal-identity stability.",
+  "secondInputQualification": {
+    "diagnosticsOk": true,
+    "loadErrors": {},
+    "captureAuthorization": "denied",
+    "windowAuthorization": "denied",
+    "eventAuthorization": "denied",
+    "actualInputsObserved": false,
+    "appAndServiceReady": true,
+    "ownedProcessCleanupPassed": true,
+    "log": "input-staged-second.txt",
+    "firstInputFailureCauseEstablished": false
+  }
+}

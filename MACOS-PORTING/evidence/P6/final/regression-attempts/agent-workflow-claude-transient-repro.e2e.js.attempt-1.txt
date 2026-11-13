@@ -1,0 +1,6 @@
+PASS workbench starts
+  node status: succeeded | fake spawns: 2 | error: 
+PASS transient 503 from the Claude CLI on a sub-agent node is retried and the node succeeds (OpenAI-path parity)
+PASS the Claude CLI was actually re-spawned after the transient exit (not just died on first 503)
+
+AGENT WORKFLOW CLAUDE TRANSIENT REPRO: ALL PASS

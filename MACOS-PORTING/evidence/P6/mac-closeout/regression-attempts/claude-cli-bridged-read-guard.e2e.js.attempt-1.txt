@@ -1,0 +1,14 @@
+PASS workbench up on :64336
+PASS session created
+PASS 回合流正常返回
+PASS CLI 按 default 起、带权限桥(got default / mcp__ruyi__permission_prompt)
+PASS full 模式把桥接服务器直挂给 CLI(servers: ruyi,fake)
+PASS 桥接条目 env 块把回环凭据与模型密钥置空(置空了 WCW_TOKEN,WCW_PORT,WCW_HOST,WCW_SESSION_ID,ANTHROPIC_AUTH_TOKEN,ANTHROPIC_API_KEY)
+PASS 桥接条目自己声明的 env 保留
+PASS 如意自己的 MCP 条目仍带回环令牌(权限桥靠它)
+PASS (1) mcp__fake__read_file 读 config.json → 权限桥直接拒(got {"behavior":"deny","message":"该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问","requestId":"perm_3f7ef04377fcdfb9"})
+PASS (2) find_template 相对 template_path → 直接拒(got {"behavior":"deny","message":"桌面控制读文件必须用【绝对路径】。参数「template_path」是相对路径,工作台无法判断它指向哪里。请用完整绝对路径重试。","requestId":"perm_21889b58ca887ae2"})
+PASS (3) 工作区内的 template_path → 照常弹窗、由人决定(got {"behavior":"deny","message":"user said no"})
+PASS 被闸拦下的两条不弹窗,只有工作区内那条弹了(got mcp__fake__find_template)
+
+CLAUDE CLI BRIDGED READ GUARD E2E: ALL PASS

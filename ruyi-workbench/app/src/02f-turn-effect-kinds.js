@@ -1,6 +1,6 @@
 // 02f-turn-effect-kinds.js - 架构还债批 3·B: 从 02-session-store.js 搬出的回合摘要工具分类表与不可逆操作账分类(纯数据+纯函数;buildTurnSummary 仍在 02;纯搬家,零行为变更)。
 const TURN_SUMMARY_FILE_TOOLS = new Set(['file_write', 'file_edit', 'file_delete']);
-const TURN_SUMMARY_COMMAND_TOOLS = new Set(['powershell_run', 'script_run', 'shell_send']);
+const TURN_SUMMARY_COMMAND_TOOLS = new Set(['shell_run', 'powershell_run', 'script_run', 'shell_send']);
 
 // v0.9-S4: keys a bridged/creation tool result may use to report a file it produced (ACC document creation,
 // screenshot tools, office bridges all echo one of these). Harvested into turn_summary.artifacts alongside
@@ -52,7 +52,7 @@ const TURN_SUMMARY_KNOWN_TOOLS = new Set([
 //    其余未知名保持原样只进 commands 计数。
 // 注意:exec 命令【结果失败也记账】(ok:false)——命令已跑,副作用可能已发生;与文件工具「失败=未改动」不同。
 const IRREVERSIBLE_NATIVE_KIND = {
-  powershell_run: 'exec', script_run: 'exec', shell_start: 'exec', shell_send: 'exec', shell_kill: 'exec',
+  shell_run: 'exec', powershell_run: 'exec', script_run: 'exec', shell_start: 'exec', shell_send: 'exec', shell_kill: 'exec',
   git_commit: 'exec', mcp_configure: 'exec',
   keyboard_send_keys: 'desktop', browser_open: 'desktop', office_open: 'desktop', desktop_screenshot: 'desktop',
   http_request: 'network',
@@ -61,6 +61,8 @@ const IRREVERSIBLE_NATIVE_KIND = {
 const IRREVERSIBLE_BRIDGED_KIND = {
   run_command: 'exec', kill_process: 'exec', launch_application: 'exec',
   mouse_click: 'desktop', mouse_move: 'desktop', mouse_drag: 'desktop', mouse_scroll: 'desktop', scroll_at: 'desktop',
+  input_sequence: 'desktop', focus_window: 'desktop', ui_invoke: 'desktop', act_and_verify: 'desktop',
+  ocr_find_text: 'desktop', ocr_click: 'desktop', vision_click: 'desktop',
   type_text: 'desktop', press_key: 'desktop', hotkey: 'desktop', key_down: 'desktop', key_up: 'desktop',
   set_clipboard: 'desktop', set_clipboard_image: 'desktop', close_window: 'desktop', move_window: 'desktop',
   resize_window: 'desktop', minimize_window: 'desktop', maximize_window: 'desktop', set_window_topmost: 'desktop',

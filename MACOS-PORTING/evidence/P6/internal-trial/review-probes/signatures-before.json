@@ -1,0 +1,1889 @@
+{
+  "nativeCount": 209,
+  "signatureTargetCount": 209,
+  "targets": [
+    {
+      "target": ".",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/app/vendor-bin/rg",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/app_mode_loader",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/chrome_crashpad_handler",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/web_app_shortcut_copier",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/WidevineCdm/_platform_specific/mac_arm64/libwidevinecdm.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libaperitif.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvk_swiftshader.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvulkan.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app: code has no resources but signature indicates they must be present"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/bin/python3.12",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/itcl4.3.8/libitcl4.3.8.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/itcl4.3.8/libtcl9itcl4.3.8.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libpython3.12.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libtcl9.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libtcl9tk9.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_crypt.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_dbm.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_tkinter.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libXau.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libavif.16.4.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libbrotlicommon.1.2.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libbrotlidec.1.2.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libfreetype.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libharfbuzz.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libjpeg.62.4.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/liblcms2.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/liblzma.5.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libopenjp2.2.5.4.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libpng16.16.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libsharpyuv.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libtiff.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebp.7.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebpdemux.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebpmux.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libxcb.1.1.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libz.1.3.1.zlib-ng.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_avif.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imaging.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingcms.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingft.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingmath.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingmorph.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingtk.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_webp.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/_cffi_backend.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/cd.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/cd.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/md.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/md.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/contourpy/_contourpy.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cryptography/hazmat/bindings/_rust.abi3.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libSDL2-2.0.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libSvtAv1Enc.3.0.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libX11.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libXau.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libXdmcp.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libaom.3.12.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libarchive.13.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libaribb24.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libass.9.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavcodec.61.19.101.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavdevice.61.3.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavfilter.10.4.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavformat.61.7.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavif.16.3.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavutil.59.39.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libb2.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbluray.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlicommon.1.1.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlidec.1.1.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlienc.1.1.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libcjson.1.7.18.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libcrypto.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libdav1d.7.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfontconfig.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfreetype.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfribidi.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgif.7.2.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libglib-2.0.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgmp.10.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgnutls.30.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgraphite2.3.2.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libharfbuzz.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libhogweed.6.10.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libhwy.1.2.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libidn2.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libintl.8.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjpeg.8.3.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl.0.11.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl_cms.0.11.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl_threads.0.11.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblcms2.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libleptonica.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblz4.1.10.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblzma.5.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libmbedcrypto.3.6.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libmp3lame.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libnettle.8.10.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libogg.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopencore-amrnb.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopencore-amrwb.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopenjp2.2.5.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopus.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libp11-kit.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpcre2-8.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpng16.16.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpostproc.58.3.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librav1e.0.8.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librist.4.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librubberband.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsamplerate.0.2.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsharpyuv.0.1.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsnappy.1.2.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsodium.26.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsoxr.0.1.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libspeex.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsrt.1.5.4.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libssh.4.10.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libssl.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libswresample.5.3.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libswscale.8.3.100.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtasn1.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtesseract.5.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtheoradec.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtheoraenc.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtiff.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libunibreak.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libunistring.5.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvidstab.1.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvmaf.3.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvorbis.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvorbisenc.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvpx.11.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libwebp.7.1.10.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libwebpmux.3.1.1.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libx264.164.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libx265.215.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-shape.0.0.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-shm.0.0.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-xfixes.0.0.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb.1.1.0.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzimg.2.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzmq.5.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzstd.1.5.7.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/cv2.abi3.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/cu2qu/cu2qu.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/cu2qu/cu2qu.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/feaLib/lexer.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/feaLib/lexer.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/misc/bezierTools.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/misc/bezierTools.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/pens/momentsPen.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/pens/momentsPen.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/qu2cu/qu2cu.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/qu2cu/qu2cu.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/varLib/iup.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/varLib/iup.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/_greenlet.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/_greenlet.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension_cpp.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension_cpp.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/kiwisolver/_cext.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/_elementpath.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/_elementpath.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/builder.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/builder.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/etree.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/etree.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/_difflib.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/_difflib.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/diff.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/diff.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/objectify.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/objectify.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/sax.cpython-312-darwin.so",
+      "status": 1,
+      "stderr": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-01/Ruyi.app/Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/sax.cpython-312-darwin.so: code object is not signed at all"
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_c_internal_utils.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_image.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_path.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_qhull.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_tri.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_backend_agg.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_macosx.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_tkagg.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/ft2font.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_multiarray_tests.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_operand_flag_tests.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_rational_tests.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_simd.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_struct_ufunc_tests.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_umath_tests.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/fft/_pocketfft_umath.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/linalg/lapack_lite.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_bounded_integers.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_common.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_generator.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_mt19937.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_pcg64.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_philox.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_sfc64.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/bit_generator.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/mtrand.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/playwright/driver/node",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/psutil/_psutil_osx.abi3.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/pydantic_core/_pydantic_core.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/pypdfium2_raw/libpdfium.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/rpds/rpds.cpython-312-darwin.so",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6/libtcl9thread3.0.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6/libthread3.0.6.dylib",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/runtime/macos/ruyi-automation-helper",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/runtime/macos/ruyi-keychain-helper",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/runtime/macos/ruyi-process-helper",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "target": "Contents/Resources/workbench/runtime/node/bin/node",
+      "status": 0,
+      "stderr": ""
+    }
+  ],
+  "mapped": [
+    {
+      "file": "Contents/MacOS/RuyiDesktop",
+      "target": "."
+    },
+    {
+      "file": "Contents/Resources/workbench/app/vendor-bin/rg",
+      "target": "Contents/Resources/workbench/app/vendor-bin/rg"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Google Chrome for Testing Framework",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif Alerts)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif GPU)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif Renderer)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app/Contents/MacOS/Google Chrome for Testing Helper (GPU)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/app_mode_loader",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/app_mode_loader"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/chrome_crashpad_handler",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/chrome_crashpad_handler"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/web_app_shortcut_copier",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/web_app_shortcut_copier"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/WidevineCdm/_platform_specific/mac_arm64/libwidevinecdm.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/WidevineCdm/_platform_specific/mac_arm64/libwidevinecdm.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libaperitif.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libaperitif.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvk_swiftshader.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvk_swiftshader.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvulkan.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvulkan.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/playwright_browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/bin/python3.12",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/bin/python3.12"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/itcl4.3.8/libitcl4.3.8.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/itcl4.3.8/libitcl4.3.8.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/itcl4.3.8/libtcl9itcl4.3.8.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/itcl4.3.8/libtcl9itcl4.3.8.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libpython3.12.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libpython3.12.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libtcl9.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libtcl9.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libtcl9tk9.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/libtcl9tk9.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_crypt.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_crypt.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_dbm.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_dbm.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_tkinter.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/lib-dynload/_tkinter.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libXau.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libXau.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libavif.16.4.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libavif.16.4.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libbrotlicommon.1.2.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libbrotlicommon.1.2.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libbrotlidec.1.2.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libbrotlidec.1.2.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libfreetype.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libfreetype.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libharfbuzz.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libharfbuzz.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libjpeg.62.4.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libjpeg.62.4.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/liblcms2.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/liblcms2.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/liblzma.5.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/liblzma.5.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libopenjp2.2.5.4.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libopenjp2.2.5.4.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libpng16.16.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libpng16.16.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libsharpyuv.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libsharpyuv.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libtiff.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libtiff.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebp.7.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebp.7.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebpdemux.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebpdemux.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebpmux.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libwebpmux.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libxcb.1.1.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libxcb.1.1.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libz.1.3.1.zlib-ng.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/.dylibs/libz.1.3.1.zlib-ng.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_avif.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_avif.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imaging.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imaging.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingcms.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingcms.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingft.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingft.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingmath.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingmath.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingmorph.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingmorph.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingtk.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_imagingtk.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_webp.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/PIL/_webp.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/_cffi_backend.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/_cffi_backend.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/cd.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/cd.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/md.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/charset_normalizer/md.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/contourpy/_contourpy.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/contourpy/_contourpy.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cryptography/hazmat/bindings/_rust.abi3.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cryptography/hazmat/bindings/_rust.abi3.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libSDL2-2.0.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libSDL2-2.0.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libSvtAv1Enc.3.0.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libSvtAv1Enc.3.0.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libX11.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libX11.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libXau.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libXau.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libXdmcp.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libXdmcp.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libaom.3.12.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libaom.3.12.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libarchive.13.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libarchive.13.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libaribb24.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libaribb24.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libass.9.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libass.9.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavcodec.61.19.101.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavcodec.61.19.101.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavdevice.61.3.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavdevice.61.3.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavfilter.10.4.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavfilter.10.4.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavformat.61.7.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavformat.61.7.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavif.16.3.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavif.16.3.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavutil.59.39.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libavutil.59.39.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libb2.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libb2.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbluray.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbluray.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlicommon.1.1.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlicommon.1.1.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlidec.1.1.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlidec.1.1.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlienc.1.1.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libbrotlienc.1.1.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libcjson.1.7.18.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libcjson.1.7.18.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libcrypto.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libcrypto.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libdav1d.7.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libdav1d.7.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfontconfig.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfontconfig.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfreetype.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfreetype.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfribidi.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libfribidi.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgif.7.2.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgif.7.2.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libglib-2.0.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libglib-2.0.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgmp.10.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgmp.10.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgnutls.30.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgnutls.30.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgraphite2.3.2.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libgraphite2.3.2.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libharfbuzz.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libharfbuzz.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libhogweed.6.10.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libhogweed.6.10.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libhwy.1.2.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libhwy.1.2.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libidn2.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libidn2.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libintl.8.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libintl.8.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjpeg.8.3.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjpeg.8.3.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl.0.11.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl.0.11.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl_cms.0.11.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl_cms.0.11.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl_threads.0.11.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libjxl_threads.0.11.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblcms2.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblcms2.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libleptonica.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libleptonica.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblz4.1.10.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblz4.1.10.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblzma.5.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/liblzma.5.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libmbedcrypto.3.6.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libmbedcrypto.3.6.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libmp3lame.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libmp3lame.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libnettle.8.10.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libnettle.8.10.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libogg.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libogg.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopencore-amrnb.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopencore-amrnb.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopencore-amrwb.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopencore-amrwb.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopenjp2.2.5.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopenjp2.2.5.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopus.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libopus.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libp11-kit.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libp11-kit.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpcre2-8.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpcre2-8.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpng16.16.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpng16.16.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpostproc.58.3.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libpostproc.58.3.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librav1e.0.8.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librav1e.0.8.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librist.4.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librist.4.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librubberband.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/librubberband.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsamplerate.0.2.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsamplerate.0.2.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsharpyuv.0.1.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsharpyuv.0.1.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsnappy.1.2.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsnappy.1.2.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsodium.26.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsodium.26.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsoxr.0.1.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsoxr.0.1.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libspeex.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libspeex.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsrt.1.5.4.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libsrt.1.5.4.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libssh.4.10.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libssh.4.10.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libssl.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libssl.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libswresample.5.3.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libswresample.5.3.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libswscale.8.3.100.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libswscale.8.3.100.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtasn1.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtasn1.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtesseract.5.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtesseract.5.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtheoradec.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtheoradec.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtheoraenc.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtheoraenc.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtiff.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libtiff.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libunibreak.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libunibreak.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libunistring.5.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libunistring.5.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvidstab.1.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvidstab.1.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvmaf.3.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvmaf.3.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvorbis.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvorbis.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvorbisenc.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvorbisenc.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvpx.11.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libvpx.11.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libwebp.7.1.10.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libwebp.7.1.10.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libwebpmux.3.1.1.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libwebpmux.3.1.1.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libx264.164.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libx264.164.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libx265.215.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libx265.215.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-shape.0.0.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-shape.0.0.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-shm.0.0.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-shm.0.0.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-xfixes.0.0.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb-xfixes.0.0.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb.1.1.0.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libxcb.1.1.0.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzimg.2.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzimg.2.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzmq.5.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzmq.5.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzstd.1.5.7.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/.dylibs/libzstd.1.5.7.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/cv2.abi3.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/cv2/cv2.abi3.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/cu2qu/cu2qu.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/cu2qu/cu2qu.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/feaLib/lexer.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/feaLib/lexer.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/misc/bezierTools.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/misc/bezierTools.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/pens/momentsPen.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/pens/momentsPen.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/qu2cu/qu2cu.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/qu2cu/qu2cu.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/varLib/iup.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/fontTools/varLib/iup.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/_greenlet.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/_greenlet.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension_cpp.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/greenlet/tests/_test_extension_cpp.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/kiwisolver/_cext.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/kiwisolver/_cext.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/_elementpath.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/_elementpath.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/builder.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/builder.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/etree.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/etree.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/_difflib.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/_difflib.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/diff.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/html/diff.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/objectify.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/objectify.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/sax.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/lxml/sax.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_c_internal_utils.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_c_internal_utils.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_image.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_image.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_path.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_path.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_qhull.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_qhull.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_tri.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/_tri.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_backend_agg.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_backend_agg.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_macosx.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_macosx.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_tkagg.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/backends/_tkagg.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/ft2font.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/matplotlib/ft2font.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_multiarray_tests.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_multiarray_tests.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_operand_flag_tests.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_operand_flag_tests.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_rational_tests.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_rational_tests.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_simd.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_simd.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_struct_ufunc_tests.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_struct_ufunc_tests.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_umath_tests.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/_core/_umath_tests.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/fft/_pocketfft_umath.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/fft/_pocketfft_umath.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/linalg/lapack_lite.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/linalg/lapack_lite.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_bounded_integers.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_bounded_integers.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_common.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_common.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_generator.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_generator.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_mt19937.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_mt19937.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_pcg64.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_pcg64.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_philox.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_philox.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_sfc64.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/_sfc64.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/bit_generator.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/bit_generator.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/mtrand.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/numpy/random/mtrand.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/playwright/driver/node",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/playwright/driver/node"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/psutil/_psutil_osx.abi3.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/psutil/_psutil_osx.abi3.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/pydantic_core/_pydantic_core.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/pydantic_core/_pydantic_core.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/pypdfium2_raw/libpdfium.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/pypdfium2_raw/libpdfium.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/rpds/rpds.cpython-312-darwin.so",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/python3.12/site-packages/rpds/rpds.cpython-312-darwin.so"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6/libtcl9thread3.0.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6/libtcl9thread3.0.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6/libthread3.0.6.dylib",
+      "target": "Contents/Resources/workbench/mcp/ai-computer-control/runtime/python/lib/thread3.0.6/libthread3.0.6.dylib"
+    },
+    {
+      "file": "Contents/Resources/workbench/runtime/macos/ruyi-automation-helper",
+      "target": "Contents/Resources/workbench/runtime/macos/ruyi-automation-helper"
+    },
+    {
+      "file": "Contents/Resources/workbench/runtime/macos/ruyi-keychain-helper",
+      "target": "Contents/Resources/workbench/runtime/macos/ruyi-keychain-helper"
+    },
+    {
+      "file": "Contents/Resources/workbench/runtime/macos/ruyi-process-helper",
+      "target": "Contents/Resources/workbench/runtime/macos/ruyi-process-helper"
+    },
+    {
+      "file": "Contents/Resources/workbench/runtime/node/bin/node",
+      "target": "Contents/Resources/workbench/runtime/node/bin/node"
+    }
+  ]
+}

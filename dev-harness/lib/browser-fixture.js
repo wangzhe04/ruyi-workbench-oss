@@ -24,11 +24,11 @@ const WB = path.join(ROOT, 'ruyi-workbench');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const CDP_COMMAND_TIMEOUT_MS = 90000;
 
-function request(port, method, pathname, body, token, timeoutMs = 30000) {
+function request(port, method, pathname, body, token, timeoutMs = 30000, signal) {
   return new Promise(resolve => {
     const raw = body == null ? '' : JSON.stringify(body);
     const req = http.request({
-      host: '127.0.0.1', port, path: pathname, method, timeout: timeoutMs,
+      host: '127.0.0.1', port, path: pathname, method, timeout: timeoutMs, signal,
       headers: {
         ...(raw ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw) } : {}),
         ...(token ? { 'x-wcw-token': token } : {}),
@@ -36,6 +36,7 @@ function request(port, method, pathname, body, token, timeoutMs = 30000) {
     }, response => {
       let text = '';
       response.on('data', chunk => { text += chunk; });
+      response.on('error', () => resolve(null));
       response.on('end', () => {
         let json = null;
         try { json = JSON.parse(text); } catch { /* non-json */ }
@@ -160,38 +161,48 @@ async function waitForHttp(port, method, pathname, predicate, token, attempts = 
 // **永远查不下去**:浏览器是死了?端口没起来?起来了但页面没开出来?三种修法完全不同,而日志一个字都没有。
 // 与 129 波给 run-all 补的「它是怎么死的」同一条治法:把现场留下来,不靠猜。
 // 返回 { target } 或 { target: null, why } —— why 是一行可读诊断,调用方原样打出去。
-async function waitForTarget(debugPort, appUrl, child) {
+async function waitForTarget(debugPort, appUrl, child, timeoutMs = 15000) {
   let lastHttp = 'never-responded';   // /json/list 到底回没回过
   let seen = [];                      // 最后一次看到的目标清单(类型 + url 前 60 字)
-  let exitedAt = -1;                  // 第一次看见启动器进程退出的轮次(-1 = 还没退)
+  let exitedAt = null;
+  const started = performance.now();
+  const deadline = started + timeoutMs;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   // Windows 上 msedge.exe/chrome.exe 的【启动器】进程会立刻退出(exitCode=0),真正的浏览器是它另起的
   // 一个脱离子进程,稍后才把远程调试端口绑上。所以「启动器退了」不等于「没起来」—— 退后再宽限一段,
   // 让 /json/list 有机会回话;只有宽限期内始终 never-responded 才算真死。(清理走 stopRuyiTestBrowsers
   // 按 user-data-dir 杀,不依赖这个已退的启动器句柄。)
-  const EXIT_GRACE = 40;              // 退出后再等 40 × 50 ms = 2 s
-  for (let i = 0; i < 300; i++) {
-    const result = await request(debugPort, 'GET', '/json/list');
-    if (result) {
-      lastHttp = `status=${result.status === undefined ? '?' : result.status}`;
-      const targets = Array.isArray(result.json) ? result.json : [];
-      seen = targets.slice(0, 6).map(t => `${t && t.type}:${String((t && t.url) || '').slice(0, 60)}`);
-      const target = targets.find(item => item.type === 'page' && String(item.url || '').startsWith(appUrl));
-      if (target && target.webSocketDebuggerUrl) return { target };
-    }
-    if (child && child.exitCode !== null) {
-      if (exitedAt < 0) exitedAt = i;
-      // 启动器退了但 /json/list 一度回过话 —— 说明真浏览器在起,继续等目标出现,别误判成死。
-      const gaveEnoughGrace = i - exitedAt >= EXIT_GRACE;
-      if (gaveEnoughGrace && lastHttp === 'never-responded') {
-        return { target: null, why: `浏览器进程已退出(exitCode=${child.exitCode}, signal=${child.signalCode || '无'}) —— 不是慢,是没起来;等了 ${i * 50} ms,/json/list ${lastHttp}` };
+  const EXIT_GRACE_MS = 2000;
+  try {
+    while (performance.now() < deadline && !controller.signal.aborted) {
+      const remaining = Math.max(1, deadline - performance.now());
+      const result = await request(debugPort, 'GET', '/json/list', null, null, Math.min(500, remaining), controller.signal);
+      if (controller.signal.aborted || performance.now() >= deadline) break;
+      if (result) {
+        lastHttp = `status=${result.status === undefined ? '?' : result.status}`;
+        const targets = Array.isArray(result.json) ? result.json : [];
+        seen = targets.slice(0, 6).map(t => `${t && t.type}:${String((t && t.url) || '').slice(0, 60)}`);
+        const target = targets.find(item => item.type === 'page' && String(item.url || '').startsWith(appUrl));
+        if (target && target.webSocketDebuggerUrl) return { target };
       }
+      if (child && (child.exitCode !== null || child.signalCode)) {
+        if (exitedAt === null) exitedAt = performance.now();
+        // 启动器退出后仍允许实际浏览器发布目标，宽限也按真实经过时间计算。
+        if (performance.now() - exitedAt >= EXIT_GRACE_MS && lastHttp === 'never-responded') {
+          return { target: null, why: `浏览器进程已退出(exitCode=${child.exitCode}, signal=${child.signalCode || '无'}) —— 不是慢,是没起来;等了 ${Math.round(performance.now() - started)} ms,/json/list ${lastHttp}` };
+        }
+      }
+      await sleep(Math.max(0, Math.min(50, deadline - performance.now())));
     }
-    await sleep(50);
+  } finally {
+    clearTimeout(timer);
   }
-  const alive = child ? (child.exitCode === null ? '进程还活着(= 慢,不是死)' : `进程已退(exitCode=${child.exitCode})`) : '没拿到进程句柄';
+  const alive = child ? (child.exitCode === null && !child.signalCode ? '进程还活着(= 慢,不是死)' :
+    `进程已退(exitCode=${child.exitCode}, signal=${child.signalCode || '无'})`) : '没拿到进程句柄';
   return {
     target: null,
-    why: `等满 15000 ms 仍没有指向 ${appUrl} 的 page 目标;${alive};/json/list ${lastHttp};`
+    why: `等满 ${Math.round(performance.now() - started)} ms 仍没有指向 ${appUrl} 的 page 目标;${alive};/json/list ${lastHttp};`
       + `最后看到的目标: ${seen.length ? seen.join(' | ') : '(一个都没有)'}`,
   };
 }
@@ -275,6 +286,7 @@ async function startBrowserFixture(opts = {}) {
     if (!keepRoot) { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* windows 句柄 */ } }
   };
 
+  try {
   fx.provider = await startProvider(providerPort, opts.provider);
   fx.server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
     cwd: WB,
@@ -298,6 +310,8 @@ async function startBrowserFixture(opts = {}) {
   fx.browser = cp.spawn(executable, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    // Isolated macOS test profiles must not wait on the user's login keychain.
+    ...(process.platform === 'darwin' ? ['--use-mock-keychain', '--password-store=basic'] : []),
     '--force-device-scale-factor=1', `--window-size=${width},${height}`,
     // 130:件自己要的额外开关(麦克风件要 --use-fake-device-for-media-stream ＋ --use-fake-ui-for-media-stream);
     // 放这里而不是各自复制一份 CdpClient —— 那正是本夹具存在的理由。
@@ -363,6 +377,10 @@ async function startBrowserFixture(opts = {}) {
   };
   ok(Boolean(await fx.waitForEval(READY)), 'F0e 首屏就绪');
   return fx;
+  } catch (error) {
+    await fx.close({ keepRoot: true });
+    throw error;
+  }
 }
 
 module.exports = { startBrowserFixture, startProvider, CdpClient, request, waitForHttp, waitForTarget, READY, sleep, WB, ROOT };

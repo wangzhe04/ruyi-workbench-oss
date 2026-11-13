@@ -1,0 +1,63 @@
+import json,os,subprocess,tempfile,pathlib,selectors,threading,time,sys
+root=pathlib.Path('/tmp/ruyi-p5-manual-worktree'); directory=tempfile.TemporaryDirectory(prefix='ruyi-manual-kernel-'); home=pathlib.Path(directory.name)
+for key in ('HOME','USERPROFILE','LOCALAPPDATA','APPDATA','WCW_DATA_DIR'):os.environ[key]=str(home/key)
+os.environ['RUYI_MACOS_AUTOMATION_HELPER']='/tmp/ruyi-p5-manual-native-helper'
+sys.path.insert(0,str(root/'mcp/ai-computer-control/src'))
+from ai_computer_control.utils.macos_session import request,close_input_session
+receiver=home/'receiver'
+subprocess.run(['/usr/bin/xcrun','clang','-fobjc-arc','-fblocks','-Wall','-Wextra','-Werror','-mmacosx-version-min=14.0','-framework','AppKit','-framework','ApplicationServices',str(root/'dev-harness/fixtures/macos-input-window.m'),'-o',str(receiver)],check=True,capture_output=True)
+fixture=None;peer=None;rows=[];results=[];identifier=0
+
+def until(read):
+ deadline=time.monotonic()+8
+ while time.monotonic()<deadline:
+  value=read()
+  if value:return value
+  time.sleep(.02)
+ raise TimeoutError('Owned native probe timed out')
+
+def peer_request(payload):
+ global identifier
+ identifier+=1;peer.stdin.write(json.dumps({**payload,'id':identifier,'version':1})+'\n');peer.stdin.flush()
+ with selectors.DefaultSelector() as sel:
+  sel.register(peer.stdout,selectors.EVENT_READ)
+  if not sel.select(10):raise TimeoutError('Owned peer native request timed out')
+  result=json.loads(peer.stdout.readline())
+ if not result['ok']:raise RuntimeError(result)
+ return result
+
+try:
+ fixture=subprocess.Popen([str(receiver)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env=os.environ.copy(),bufsize=1)
+ def receive():
+  for line in fixture.stdout:rows.append(json.loads(line))
+ thread=threading.Thread(target=receive,daemon=True);thread.start()
+ ready=until(lambda:next((r for r in rows if r['event']=='ready'),None))
+ target=next(r['target'] for r in request({'op':'window.list'})['windows'] if r['pid']==fixture.pid and r['handle']==ready['id'])
+ request({'op':'window.focus','target':target})
+ peer=subprocess.Popen(['/tmp/ruyi-p5-manual-native-helper','--input-session'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1,env={'PATH':'/usr/bin:/bin:/usr/sbin:/sbin'})
+ peer_target=next(r['target'] for r in peer_request({'op':'window.list'})['windows'] if r['pid']==fixture.pid and r['handle']==ready['id'])
+ pad=ready['pad'];point={'x':round(pad['x']+pad['width']/2),'y':round(pad['y']+pad['height']/2)}
+ start=request({'op':'record.start','target':target,'source':'native_window_events','max_seconds':30});results.append({'start':start})
+ peer_request({'op':'mouse.click','target':peer_target,**point,'button':'left','clicks':1,'interval':.1})
+ time.sleep(.15)
+ recorded=request({'op':'record.stop'})['recording'];results.append({'peer_pointer_recording':recorded})
+ assert recorded['complete'] is True and recorded['source']=='native_window_events' and len(recorded['actions'])==1,recorded
+ assert recorded['actions'][0]['op']=='mouse.click',recorded
+ request({'op':'record.start','target':target,'source':'native_window_events','max_seconds':30})
+ request({'op':'mouse.click','target':target,**point,'button':'left','clicks':1,'interval':.1})
+ mixed=request({'op':'record.stop'})['recording'];results.append({'mixed_automation':mixed})
+ assert mixed['complete'] is False and mixed['end_reason']=='mixed_automation',mixed
+ print(json.dumps({'source_tree':str(root),'results':results,'target_pid':fixture.pid},ensure_ascii=False,indent=2))
+finally:
+ close_input_session()
+ if peer:
+  peer.stdin.close()
+  try:peer.wait(timeout=1)
+  except subprocess.TimeoutExpired:peer.terminate();peer.wait(timeout=2)
+  peer.stdout.close()
+ if fixture:
+  if fixture.poll() is None:fixture.stdin.write('quit\n');fixture.stdin.flush()
+  try:fixture.wait(timeout=2)
+  except subprocess.TimeoutExpired:fixture.terminate();fixture.wait(timeout=2)
+  fixture.stdin.close();fixture.stdout.close()
+ directory.cleanup()

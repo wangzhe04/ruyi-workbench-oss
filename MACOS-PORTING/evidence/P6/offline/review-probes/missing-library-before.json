@@ -1,0 +1,15 @@
+[
+  {
+    "path": "main",
+    "architectures": [
+      "arm64"
+    ],
+    "minimumVersions": [
+      "14.0"
+    ],
+    "dependencies": [
+      "@loader_path/libmissing.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ]
+  }
+]

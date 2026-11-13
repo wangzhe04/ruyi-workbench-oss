@@ -1,0 +1,25 @@
+{
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "result": {
+    "authenticatedFetch": true,
+    "bootstrap": true,
+    "markdown": true,
+    "media": {
+      "audioContext": true,
+      "getUserMedia": true,
+      "microphoneRequested": false,
+      "mp4": true,
+      "secureContext": true,
+      "webmOpus": true
+    },
+    "mermaid": true,
+    "ok": true,
+    "scope": "WKWebView synthetic loopback fixture; no real microphone or workbench data",
+    "sse": true,
+    "unauthenticatedDenied": true,
+    "upload": true
+  },
+  "diagnostics": "sandbox_extension_issue_file_to_process failed for /tmp/RuyiP0Probe.app: 1 (Operation not permitted)\n"
+}

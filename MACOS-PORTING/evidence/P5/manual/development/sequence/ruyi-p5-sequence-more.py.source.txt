@@ -1,0 +1,92 @@
+import asyncio,copy,json,os,subprocess,tempfile,pathlib,selectors,threading,time,sys
+root=pathlib.Path('/tmp/ruyi-p5-manual-worktree'); directory=tempfile.TemporaryDirectory(prefix='ruyi-manual-roundtrip-'); home=pathlib.Path(directory.name)
+for key in ('HOME','USERPROFILE','LOCALAPPDATA','APPDATA','WCW_DATA_DIR'):os.environ[key]=str(home/key)
+os.environ['RUYI_MACOS_AUTOMATION_HELPER']='/tmp/ruyi-p5-manual-native-helper'
+os.environ['ACC_TOOLSETS']='desktop,macro';os.environ['ACC_HIDE_TOOLS']=''
+sys.path.insert(0,str(root/'mcp/ai-computer-control/src'))
+from ai_computer_control.utils.macos_session import request,close_input_session
+from ai_computer_control.tools import macos_events,batch
+receiver=home/'receiver'
+subprocess.run(['/usr/bin/xcrun','clang','-fobjc-arc','-fblocks','-Wall','-Wextra','-Werror','-DRUYI_MANUAL_FIXTURE=1','-mmacosx-version-min=14.0','-framework','AppKit','-framework','ApplicationServices','-framework','Carbon',str(root/'dev-harness/fixtures/macos-input-window.m'),'-o',str(receiver)],check=True,capture_output=True)
+fixture=None;peer=None;rows=[];results=[];identifier=0
+
+def until(read):
+ deadline=time.monotonic()+8
+ while time.monotonic()<deadline:
+  value=read()
+  if value:return value
+  time.sleep(.02)
+ raise TimeoutError('Owned roundtrip timed out')
+
+def command(value):
+ offset=len(rows);fixture.stdin.write(value+'\n');fixture.stdin.flush()
+ return until(lambda:next((r for r in rows[offset:] if r['event']==value),None))
+
+def peer_request(payload):
+ global identifier
+ identifier+=1;peer.stdin.write(json.dumps({**payload,'id':identifier,'version':1})+'\n');peer.stdin.flush()
+ with selectors.DefaultSelector() as sel:
+  sel.register(peer.stdout,selectors.EVENT_READ)
+  if not sel.select(12):raise TimeoutError('Owned peer request timed out')
+ result=json.loads(peer.stdout.readline())
+ if not result['ok']:raise RuntimeError(result)
+ return result
+
+def keys(codes,overrides=None,flags=0):
+ events=[]
+ for index,code in enumerate(codes):
+  for down in (True,False):
+   row={'type':'key_down' if down else 'key_up','keycode':code,'keyboard_type':0,'repeat':0,'flags':flags,'at_us':index*80000+(0 if down else 40000)}
+   if overrides is not None:row['unicode']=overrides[index]
+   events.append(row)
+ return events
+
+try:
+ fixture=subprocess.Popen([str(receiver)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env=os.environ.copy(),bufsize=1)
+ def receive():
+  for line in fixture.stdout:rows.append(json.loads(line))
+ thread=threading.Thread(target=receive,daemon=True);thread.start()
+ ready=until(lambda:next((r for r in rows if r['event']=='ready'),None))
+ target=next(r['target'] for r in request({'op':'window.list'})['windows'] if r['pid']==fixture.pid and r['handle']==ready['id'])
+ request({'op':'window.focus','target':target})
+ peer=subprocess.Popen(['/tmp/ruyi-p5-manual-native-helper','--input-session'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1,env={'PATH':'/usr/bin:/bin:/usr/sbin:/sbin'})
+ peer_target=next(r['target'] for r in peer_request({'op':'window.list'})['windows'] if r['pid']==fixture.pid and r['handle']==ready['id'])
+ for name,source,codes,override,expected in [('shift-override','source-abc',[0],['z'],'z'),('deadkey','source-abc',[14,14],None,'é'),('overlap-repeat','source-abc',[0,1],None,'asa')]:
+  selected=command(source);time.sleep(.2);command('clear-neutral');command('focus-text')
+  source_value=request({'op':'status'}) if False else {'id':selected['inputSource'],'type':'TISTypeKeyboardLayout' if source=='source-abc' else 'TISTypeKeyboardInputMode'}
+  start=request({'op':'record.start','target':target,'source':'native_window_events','max_seconds':30})
+  events=keys(codes,override)
+  if name=='shift-override':
+   for e in events:e['at_us']+=80000;e['flags']=1<<17
+   events=[{'type':'flags','at_us':0,'flags':1<<17,'keycode':56,'keyboard_type':0}]+events+[{'type':'flags','at_us':200000,'flags':0,'keycode':56,'keyboard_type':0}]
+  if name=='deadkey':
+   events=keys([14,14])
+   for e in events[:2]:e['at_us']+=80000;e['flags']=1<<19
+   for e in events[2:]:e['at_us']+=200000
+   events=[{'type':'flags','at_us':0,'flags':1<<19,'keycode':58,'keyboard_type':0}]+events[:2]+[{'type':'flags','at_us':200000,'flags':0,'keycode':58,'keyboard_type':0}]+events[2:]
+  if name=='overlap-repeat':
+   events=[keys([0])[0],{**keys([1])[0],'at_us':80000},{**keys([0])[0],'at_us':160000,'repeat':1},{**keys([0])[1],'at_us':240000},{**keys([1])[1],'at_us':320000}]
+  peer_request({'op':'input.sequence','target':peer_target,'input_source':source_value,'events':events})
+  time.sleep(.2)
+  recorded=request({'op':'record.stop'})['recording'];before=command('state');results.append({'name':name,'recording':recorded,'before':before})
+  print('RECORDED',name,recorded,flush=True)
+  assert recorded['complete'] is True,recorded
+  assert before['text']==expected and not before['marked'],before
+  command('clear-neutral');replay=asyncio.run(batch.macro_run(recording=recorded,target=target));time.sleep(.2);after=command('state')
+  results[-1].update(replay=replay,after=after)
+  assert replay['ok'],replay
+  assert after['text']==expected and not after['marked'],after
+ print(json.dumps({'source_tree':str(root),'results':results,'target_pid':fixture.pid},ensure_ascii=False,indent=2))
+finally:
+ close_input_session()
+ if peer:
+  peer.stdin.close()
+  try:peer.wait(timeout=1)
+  except subprocess.TimeoutExpired:peer.terminate();peer.wait(timeout=2)
+  peer.stdout.close()
+ if fixture:
+  if fixture.poll() is None:fixture.stdin.write('quit\n');fixture.stdin.flush()
+  try:fixture.wait(timeout=2)
+  except subprocess.TimeoutExpired:fixture.terminate();fixture.wait(timeout=2)
+  fixture.stdin.close();fixture.stdout.close()
+ directory.cleanup()

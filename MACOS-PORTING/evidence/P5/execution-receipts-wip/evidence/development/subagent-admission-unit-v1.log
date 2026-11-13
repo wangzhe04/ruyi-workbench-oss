@@ -1,0 +1,12 @@
+✔ opaque node scope requires exact registered runtime, node, controller and origin identities (72.363459ms)
+✔ actual node intent is private, strict and bound before any call context is issued (33.299958ms)
+✔ cancel, pause, replacement, attempt, rewind and deletion revoke real node authority (330.472042ms)
+✔ background or stale-origin workflows cannot borrow the foreground parent admission (22.186917ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 501.8515

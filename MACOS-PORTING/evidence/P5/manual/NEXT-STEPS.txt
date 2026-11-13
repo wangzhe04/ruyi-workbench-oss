@@ -1,0 +1,36 @@
+P5 remains active/in_progress. Latest manual implementation commits:
+0d054b04b7cd7d97fe163ca7177c165a38020693 (bounded exact manual recording/input_sequence)
+1500b82b9d8ee54f285d1b316d87067a7b430c52 (explicit standard_mouse schema3 projection).
+Both are integrated into codex/p5-macos-automation. Historical strict physical failures remain archived.
+
+The user selected standard click/drag support; pressure gestures are explicitly unsupported.
+Standard projection acceptance is complete within that declared scope. Do not request another physical demonstration.
+Independent standard GUI88/App exact17/App standard19 passed; Python170 and engineering gates are source-bound
+as described in standard-mouse/README.md and independent-final-v2/report.json. Physical-v1 is a user demonstration;
+physical-evidence-review-v1.json independently reviews its provenance, rather than claiming a second execution.
+The earlier exact-only physicalInputAcceptance=false describes its historical strict scope, not standard projection.
+
+Main default native helper was rebuilt from 1500b82b; raw SHA256
+1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5.
+Normalized Mach-O equivalence and its exact exclusions are documented in standard-mouse/commit-binding.json
+and independent-commit-binding.json. This is not raw binary/TCC identity or new GUI acceptance of this artifact.
+Ruyi.app has not been rebuilt/re-signed. Keep App historical evidence and current source binding distinct.
+
+Subsequent entry slice is committed at 5e24634307e2b5a3301409e5c8a1f2efa670cbe0: ordinary default-mode
+session allow/deny/pending-cancel and actual image create/overwrite checkpoint/rollback passed independent
+offline13/native31/fast80. See ../entry/README.md and independent-v1/report.json; Node launch only, not new App
+acceptance. Selected current-source scenes subsequently passed independent default31/renderer33/Finder10; see
+../selected-current/README.md. Missing-helper/actual registry-hidden and Node master-switch paths subsequently passed40 independent
+assertions at229a9021; CLI only generated config, see ../readiness/README.md. Owned horizontal capture/window transition later passed18 independent assertions at1b03da04; see
+../transition/README.md. It proves witnessed refusal and stable controls, not resize/physical topology.
+Next local work: root-hard-kill audit/cleanup calibration and a qualified held-state rescue plan. Historical entry/development failures remain archived.
+Remaining P5 gates include actual TCC revoke/regrant, approved action-time lock/unlock and cleanup,
+actual denied/revoked permission readiness, plus multi-display/nonRetina, macOS14,
+Windows current-candidate, and formal app identity. P3/P4 Windows waivers do not automatically apply to P5.
+Do not lock the desktop without a specific new user choice; the standing instruction is to keep it awake.
+
+User TCC authorizations are already granted. Screen saver idleTime=0; previous caffeinate PID49085 was absent after continuation; the authorized12-hour awake assertion
+was restored asPID31171 (session78412), see ../transition/wake-state.json. Real GUI E2E must run serially. Isolate HOME/USERPROFILE/APPDATA/LOCALAPPDATA/data;
+use short TMPDIR outside Git. Do not access/close UserNotificationCenter to bypass prior CUA denial.
+Owned Shift/left recovery was already performed; never rerun archived recovery scripts.
+Historical clipboard loss is not retroactively restored by later successful tests.

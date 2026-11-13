@@ -3,6 +3,8 @@ name: 验证当前改动
 description: 根据本地改动选择并运行风险相称的检查
 ---
 
+平台分支：macOS 用 shell_run 或 script_run（bash/Python/Node）跑检查，Windows 用下面 PowerShell 路径；保留同平台结果，不把未跑的 Windows 专属检查写成通过。
+
 # 验证当前改动
 
 请检查当前未提交改动并做风险相称的验证：

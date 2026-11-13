@@ -102,12 +102,12 @@ const PNG_1x1 = Buffer.from(
     && srv.kindForPath('doc.docx') === 'docx' && srv.kindForPath('note.txt') === 'txt' && srv.kindForPath('data.bin') === 'other',
     '(unit) kindForPath classifies by suffix');
   // Containment: inside is ok, escape / prefix-sibling is not.
-  const root = path.resolve('C:\\ws');
-  ok(srv.pathWithinRoot(path.resolve('C:\\ws\\sub\\f.txt'), root) === true, '(unit) pathWithinRoot: nested → true');
+  const root = path.resolve(path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws'));
+  ok(srv.pathWithinRoot(path.resolve(path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'sub', 'f.txt')), root) === true, '(unit) pathWithinRoot: nested → true');
   ok(srv.pathWithinRoot(root, root) === true, '(unit) pathWithinRoot: root itself → true');
-  ok(srv.pathWithinRoot(path.resolve('C:\\ws-evil\\f.txt'), root) === false, '(unit) pathWithinRoot: prefix-sibling (C:\\ws-evil) → false (no substring bug)');
-  ok(srv.pathWithinRoot(path.resolve('C:\\other\\f.txt'), root) === false, '(unit) pathWithinRoot: elsewhere → false');
-  ok(srv.pathWithinAnyRoot(path.resolve('C:\\ws\\a'), [path.resolve('C:\\z'), root]) === true, '(unit) pathWithinAnyRoot: any root matches');
+  ok(srv.pathWithinRoot(path.resolve(path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws-evil', 'f.txt')), root) === false, '(unit) pathWithinRoot: prefix-sibling (C:\\ws-evil) → false (no substring bug)');
+  ok(srv.pathWithinRoot(path.resolve(path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'other', 'f.txt')), root) === false, '(unit) pathWithinRoot: elsewhere → false');
+  ok(srv.pathWithinAnyRoot(path.resolve(path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'a')), [path.resolve(path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'z')), root]) === true, '(unit) pathWithinAnyRoot: any root matches');
 
   // ── v1.0.2-S4 产物判定放宽:op:'modify' 且 kindForPath 命中已知类型也算产物(改一个 xlsx 也是产物)。──
   // 直接单元 buildTurnSummary(turnSeq, toolCalls, engine, journalEntries):合成 journal 条目, 断言:
@@ -118,12 +118,12 @@ const PNG_1x1 = Buffer.from(
   {
     const je = (op, p) => ({ turnSeq: 1, entrySeq: 1, tool: 'file_write', path: p, op });
     const sum = srv.buildTurnSummary(1, [], 'openai', [
-      je('modify', 'C:\\ws\\book.xlsx'),
-      je('modify', 'C:\\ws\\report.md'),
-      je('modify', 'C:\\ws\\pic.png'),
-      je('modify', 'C:\\ws\\notes.txt'),
-      je('modify', 'C:\\ws\\run.log'),
-      je('create', 'C:\\ws\\fresh.csv'),
+      je('modify', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'book.xlsx')),
+      je('modify', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'report.md')),
+      je('modify', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'pic.png')),
+      je('modify', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'notes.txt')),
+      je('modify', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'run.log')),
+      je('create', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'fresh.csv')),
     ]);
     const arts = (sum && sum.artifacts) || [];
     const hasArt = name => arts.some(a => a.path && a.path.replace(/\\/g, '/').endsWith(name));
@@ -132,7 +132,7 @@ const PNG_1x1 = Buffer.from(
     ok(!hasArt('notes.txt') && !hasArt('run.log'), '(S4 unit) modify txt/log(非已知产物类型)→ 不入');
     ok(hasArt('fresh.csv'), '(S4 unit) create csv → 入产物(原行为保留)');
     // create + modify 同 path 去重(同一 xlsx 既 create 又 modify 只一条)。
-    const sum2 = srv.buildTurnSummary(1, [], 'openai', [je('create', 'C:\\ws\\dup.xlsx'), je('modify', 'C:\\ws\\dup.xlsx')]);
+    const sum2 = srv.buildTurnSummary(1, [], 'openai', [je('create', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'dup.xlsx')), je('modify', path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'dup.xlsx'))]);
     const dupCount = ((sum2 && sum2.artifacts) || []).filter(a => a.path.replace(/\\/g, '/').endsWith('dup.xlsx')).length;
     ok(dupCount === 1, '(S4 unit) create+modify 同 path → 去重(1 条, got ' + dupCount + ')');
   }
@@ -146,22 +146,22 @@ const PNG_1x1 = Buffer.from(
   {
     const tc = (name, result) => ({ id: 'c', name, input: {}, result });
     const arts = sum => ((sum && sum.artifacts) || []).map(a => a.path.replace(/\\/g, '/'));
-    const s1 = srv.buildTurnSummary(1, [tc('fake__write_docx', { success: true, path: 'C:\\ws\\made.docx' })], 'openai', []);
+    const s1 = srv.buildTurnSummary(1, [tc('fake__write_docx', { success: true, path: path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'made.docx') })], 'openai', []);
     ok(arts(s1).some(p => p.endsWith('made.docx')), '(T1 unit) bridged write_docx {success,path} → 入产物');
-    const s2 = srv.buildTurnSummary(1, [tc('srv__read_document', { success: true, path: 'C:\\ws\\readonly.docx', content: 'x' })], 'openai', []);
+    const s2 = srv.buildTurnSummary(1, [tc('srv__read_document', { success: true, path: path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'readonly.docx'), content: 'x' })], 'openai', []);
     ok(!arts(s2).some(p => p.endsWith('readonly.docx')), '(T1 unit) bridged read_document 回 path → NOT 入产物(名字非写族)');
-    const s3 = srv.buildTurnSummary(1, [tc('srv__write_excel', { success: true, path: 'C:\\ws\\book.xlsx', output_path: 'C:\\ws\\book.xlsx' })], 'openai', []);
+    const s3 = srv.buildTurnSummary(1, [tc('srv__write_excel', { success: true, path: path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'book.xlsx'), output_path: path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'book.xlsx') })], 'openai', []);
     ok(arts(s3).filter(p => p.endsWith('book.xlsx')).length === 1, '(T1 unit) 新版 ACC(path+output_path)→ 去重只一条');
-    const s4 = srv.buildTurnSummary(1, [tc('fake__write_docx', { path: 'C:\\ws\\nosuccess.docx' })], 'openai', []);
+    const s4 = srv.buildTurnSummary(1, [tc('fake__write_docx', { path: path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'nosuccess.docx') })], 'openai', []);
     ok(!arts(s4).some(p => p.endsWith('nosuccess.docx')), '(T1 unit) 无 success 字段 → 不收(写失败无产物)');
     // 前缀写族:export_*/create_*/save_* 也算写族。
-    const s5 = srv.buildTurnSummary(1, [tc('srv__export_report', { success: true, path: 'C:\\ws\\out.pdf' })], 'openai', []);
+    const s5 = srv.buildTurnSummary(1, [tc('srv__export_report', { success: true, path: path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'out.pdf') })], 'openai', []);
     ok(arts(s5).some(p => p.endsWith('out.pdf')), '(T1 unit) 前缀写族 export_report → 入产物');
   }
 
   // ── v1.5-W1.5 (T3) 直接单元:collectBridgedWriteTarget(args→目标路径+op)──────────────────────────────
   {
-    const abs = 'C:\\ws\\a.docx';
+    const abs = path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'a.docx');
     const t1 = srv.collectBridgedWriteTarget('fake__write_docx', { path: abs });
     ok(t1 && t1.mode === 'write' && t1.path === abs, '(T3 unit) write_docx {path} → {write, abs}');
     ok(srv.collectBridgedWriteTarget('srv__write_document', { path: abs }) !== null, '(T3 unit) write_document 识别');
@@ -179,7 +179,7 @@ const PNG_1x1 = Buffer.from(
     // v1.2-B:move/copy 补齐(W1.5 欠账)。ACC 参数名 source/destination(非 src/dest)。move = 两条
     //   (source delete + destination write);copy = 一条(destination write)。深覆盖在 checkpoint-coverage.e2e。
     {
-      const src = 'C:\\ws\\a.txt', dst = 'C:\\ws\\b.txt';
+      const src = path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'a.txt'), dst = path.join(os.tmpdir(), 'ruyi-artifacts-unit', 'ws', 'b.txt');
       const mv = srv.collectBridgedWriteTargets('acc__move_file', { source: src, destination: dst });
       ok(mv.length === 2 && mv[0].mode === 'delete' && mv[0].path === src && mv[1].mode === 'write' && mv[1].path === dst,
          '(v1.2-B 防回潮) move_file → source delete + destination write 两条');
@@ -196,7 +196,18 @@ const PNG_1x1 = Buffer.from(
   ]);
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_TOOL_SEQUENCE: seq }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  const revealRecord = path.join(HOME, 'reveal-launch.jsonl');
+  const revealPreload = path.join(HOME, 'record-reveal.cjs');
+  // This API fixture verifies the handoff arguments without opening a Finder
+  // window. Physical Finder handoff has its separate P4 qualification.
+  if (process.platform === 'darwin') fs.writeFileSync(revealPreload, [
+    "const cp=require('child_process'), fs=require('fs');const original=cp.spawn;",
+    "cp.spawn=function(command,args,options){",
+    "if(command==='/usr/bin/open'&&String(args?.at(-1)||'').startsWith(fs.realpathSync(" + JSON.stringify(WS) + ")+require('path').sep)){",
+    "fs.appendFileSync(" + JSON.stringify(revealRecord) + ",JSON.stringify({command,args})+'\\n');return original(process.execPath,['-e',''],options);}",
+    "return original.apply(this,arguments);};",
+  ].join('\n'));
+  const wb = cp.spawn(process.execPath, [...(process.platform === 'darwin' ? ['--require', revealPreload] : []), 'app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   procs.push(fake, wb);
 
@@ -283,13 +294,13 @@ const PNG_1x1 = Buffer.from(
 
     // ── (f) v1.0.2-S3: POST /api/file/reveal — token gate + path-safety 护栏 ────────────────────────────
     // 单元:buildRevealSpawn 绝不走 shell, mode='select' 传 '/select,'+path 为同一参数, mode='open' 传 [path]。
-    const spSelect = srv.buildRevealSpawn('select', 'C:\\ws\\a.txt');
+    const spSelect = srv.buildRevealSpawn('select', 'C:\\ws\\a.txt', 'win32');
     ok(spSelect.command === 'explorer.exe' && spSelect.args.length === 1 && spSelect.args[0] === '/select,C:\\ws\\a.txt', '(f unit) buildRevealSpawn select: 单参数 /select,+path');
-    const spOpen = srv.buildRevealSpawn('open', 'C:\\ws\\a.txt');
+    const spOpen = srv.buildRevealSpawn('open', 'C:\\ws\\a.txt', 'win32');
     ok(spOpen.command === 'explorer.exe' && spOpen.args.length === 1 && spOpen.args[0] === 'C:\\ws\\a.txt', '(f unit) buildRevealSpawn open: [path]');
     // 收官加固防回潮:可执行/脚本类扩展名的 'open' 必须降级为 'select'(否则提示注入可诱导用户一键执行任意程序)。
     for (const bad of ['evil.bat', 'evil.exe', 'evil.js', 'evil.ps1', 'evil.lnk', 'EVIL.CMD']) {
-      const sp = srv.buildRevealSpawn('open', 'C:\\ws\\' + bad);
+      const sp = srv.buildRevealSpawn('open', 'C:\\ws\\' + bad, 'win32');
       ok(sp.mode === 'select' && sp.degraded === true && sp.args[0] === '/select,C:\\ws\\' + bad, `(f unit) buildRevealSpawn open ${bad} → 降级 select`);
     }
     ok(srv.buildRevealSpawn('open', 'C:\\ws\\report.xlsx').mode === 'open', '(f unit) buildRevealSpawn open xlsx: 非可执行不降级');
@@ -312,6 +323,12 @@ const PNG_1x1 = Buffer.from(
     // 收尸：按【本件独有的工作区目录】精确匹配窗口并 Quit（绝不碰用户自己开的窗口）；目录经环境变量传进脚本，不拼进
     // 脚本文本。窗口是 fire-and-forget 的（~1 s 后才出现），所以有界轮询等它出现。判据是「收尾之后一个都不剩」——
     // 无头／非交互环境里窗口压根不出现时 closed=0 left=0，同样成立。
+    if (process.platform === 'darwin') {
+      const recorded = fs.readFileSync(revealRecord, 'utf8').trim().split('\n').map(JSON.parse);
+      ok(recorded.length === 1 && recorded[0].command === '/usr/bin/open'
+        && JSON.stringify(recorded[0].args) === JSON.stringify(['-R', '--', fs.realpathSync(mdPath)]),
+        '(f Mac) exact shell-free Finder selection handoff observed; fixture opens no Finder window');
+    } else {
     const revealSweep = cp.spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', [
       "$dir = $env:RUYI_TEST_REVEAL_DIR.TrimEnd('\\')",
       "$sh = New-Object -ComObject Shell.Application",
@@ -326,6 +343,7 @@ const PNG_1x1 = Buffer.from(
     ].join('; ')], { env: { ...process.env, RUYI_TEST_REVEAL_DIR: WS }, encoding: 'utf8', timeout: 30000, windowsHide: true });
     const revealSweepOut = String(revealSweep.stdout || '').trim();
     ok(/\bleft=0\b/.test(revealSweepOut), `(f) reveal 打开的资源管理器窗口已收尸,不留在桌面上拖慢后续回归(实得 ${JSON.stringify(revealSweepOut || String(revealSweep.stderr || '').slice(0, 200))})`);
+    }
 
     // ── (g) v1.5-W1.5 (T3/T4):ACC 写族 bridged 工具 → 产物收割 + 检查点 + 回撤 ─────────────────────────────
     // 单独起一套 workbench(带 fake-mcp 桥)+ fake-openai, 用 FAKE_TOOL_SEQUENCE 让 provider 调

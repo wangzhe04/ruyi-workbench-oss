@@ -4,6 +4,10 @@ const CredentialVault = ((cryptoApi) => {
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const id = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
   const fail = suffix => { throw Object.assign(new Error('credential_vault.' + suffix), { code: 'credential_vault.' + suffix, apiCode: 'credential_vault.' + suffix, statusCode: 503 }); };
+  const unlockFailure = error => {
+    const suffix = String(error?.code || '').replace(/^local_crypto\./, '');
+    fail(['dependency_missing', 'permission_required', 'permission_denied', 'keychain_locked', 'keychain_unavailable', 'keychain_corrupt', 'key_missing', 'key_changed', 'provider_mismatch'].includes(suffix) ? suffix : 'unlock_failed');
+  };
   const empty = () => ({ schema: 1, instanceId: '', protectedKey: '', records: [] });
   function validate(state) {
     if (!object(state) || Object.keys(state).sort().join(',') !== 'instanceId,protectedKey,records,schema' || state.schema !== 1 || !Array.isArray(state.records) || state.records.length > MAX.records) return false;
@@ -93,7 +97,7 @@ const CredentialVault = ((cryptoApi) => {
           state.instanceId = instanceId; state.protectedKey = wrapped.toString('base64'); wrapped.fill(0);
           keyCache = { binding: state.instanceId + ':' + state.protectedKey, key };
           return key;
-        } catch { key.fill(0); fail('unlock_failed'); }
+        } catch (error) { key.fill(0); unlockFailure(error); }
       }
       const binding = state.instanceId + ':' + state.protectedKey;
       if (keyCache?.binding === binding) return keyCache.key;
@@ -102,7 +106,7 @@ const CredentialVault = ((cryptoApi) => {
         if (key.length !== 32) { key.fill(0); fail('unlock_failed'); }
         if (keyCache) keyCache.key.fill(0);
         keyCache = { binding, key }; return key;
-      } catch { fail('unlock_failed'); }
+      } catch (error) { unlockFailure(error); }
     }
     const aad = (state, recordId, purpose = 'credential') => ({ instanceId: state.instanceId, recordId, purpose });
     function hydrate(raw, state, key) {
@@ -216,7 +220,7 @@ const CredentialVault = ((cryptoApi) => {
       });
     }
     async function prepareImport(serialized, password, options = {}) {
-      // Preparation is side-effect free. The recovery service merges verified runtime values under the destination key and retains rollback.
+      // Preparation writes no app config/vault or imported credentials; first use may initialize the system wrapping key. Recovery retains rollback.
       if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > 2 * core.LIMITS.bytes) fail('backup_invalid');
       let data; try { data = JSON.parse(serialized); } catch { fail('backup_invalid'); }
       if (!object(data) || Object.keys(data).sort().join(',') !== 'envelope,exportId,kdf,schema' || data.schema !== 1 || !id(data.exportId)
@@ -232,7 +236,7 @@ const CredentialVault = ((cryptoApi) => {
         if (!object(payload) || payload.schema !== 1 || !id(payload.instanceId) || typeof payload.master !== 'string' || !object(payload.config)) fail('backup_invalid');
         key = Buffer.from(payload.master, 'base64'); if (key.length !== 32 || key.toString('base64') !== payload.master) fail('backup_invalid');
         if (!protector.supported()) fail('unsupported');
-        let wrapped; try { wrapped = await protector.run('protect', key, entropy(payload.instanceId)); } catch { fail('unlock_failed'); }
+        let wrapped; try { wrapped = await protector.run('protect', key, entropy(payload.instanceId)); } catch (error) { unlockFailure(error); }
         const state = { schema: 1, instanceId: payload.instanceId, protectedKey: wrapped.toString('base64'), records: payload.records }; wrapped.fill(0);
         if (!validate(state) || Buffer.byteLength(JSON.stringify(state)) > MAX.bytes) fail('backup_invalid');
         const runtime = hydrate(structuredClone(payload.config), state, key);

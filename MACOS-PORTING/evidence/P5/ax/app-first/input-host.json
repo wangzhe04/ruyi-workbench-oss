@@ -1,0 +1,293 @@
+{
+  "nativePID": 84518,
+  "servicePID": 84527,
+  "launch": "LaunchServices",
+  "ax": {
+    "element": {
+      "actions": [
+        "AXShowMenu"
+      ],
+      "bounds": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      },
+      "center": [
+        560,
+        497
+      ],
+      "element_ref": "5B1B13A8-AE7C-4083-9757-C420A90BA12F",
+      "focused": true,
+      "offscreen": 0,
+      "type": "AXTextArea",
+      "visibility": "geometric",
+      "visible_bounds": {
+        "height": 260,
+        "width": 720,
+        "x": 200,
+        "y": 367
+      }
+    },
+    "foundCount": 1,
+    "restored": null,
+    "written": {
+      "code": "element_not_actionable",
+      "error": "DesktopError: Element must be enabled and confirmed visible within its current ancestor clip",
+      "ok": false
+    }
+  },
+  "capabilities": {
+    "applicationReady": true,
+    "authorization": "granted",
+    "axReady": true,
+    "axSupported": true,
+    "clipboardReady": true,
+    "eventAuthorization": "granted",
+    "inputReady": true,
+    "installed": true,
+    "locked": false,
+    "pointerQueryReady": true,
+    "queryReady": true,
+    "ready": true,
+    "reasonCode": "",
+    "supported": true,
+    "windowAuthorization": "granted",
+    "windowQueryReady": true,
+    "windowReady": true
+  },
+  "clicked": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 560.69921875,
+    "actual_y": 742,
+    "ok": true,
+    "protocolVersion": 1,
+    "reached": true,
+    "verification": "events_posted"
+  },
+  "focused": {
+    "acted": true,
+    "foreground_verified": true,
+    "matched": true,
+    "ok": true,
+    "protocolVersion": 1,
+    "window": {
+      "application": "receiver",
+      "handle": 1635,
+      "height": 528,
+      "pid": 84514,
+      "process_start": "1794300332:788460",
+      "target": {
+        "bounds": {
+          "height": 528,
+          "width": 760,
+          "x": 180,
+          "y": 319
+        },
+        "handle": 1635,
+        "pid": 84514,
+        "process_start": "1794300332:788460",
+        "ref": "C91D5EE9-1E68-4A24-9E9C-4FFE701ED3BD"
+      },
+      "title": "Ruyi P5 Input 84514",
+      "visible": true,
+      "width": 760,
+      "x": 180,
+      "y": 319
+    }
+  },
+  "scrolled": {
+    "acted": true,
+    "action_sent": true,
+    "actual_x": 606.80859375,
+    "actual_y": 759.8671875,
+    "code": "pointer_unconfirmed",
+    "error": "DesktopError: Cursor did not reach the requested start point",
+    "ok": false,
+    "outcome": "unconfirmed",
+    "reached": false
+  },
+  "typed": {
+    "acted": true,
+    "action_sent": true,
+    "change_count": 214,
+    "length": 14,
+    "method": "typewrite",
+    "ok": true,
+    "protocolVersion": 1,
+    "restore": "none",
+    "route": "explicit",
+    "verification": "events_posted"
+  },
+  "observedProcesses": [
+    {
+      "pid": 84518,
+      "ppid": 1,
+      "created": "1794300333816564"
+    },
+    {
+      "pid": 84527,
+      "ppid": 84518,
+      "created": "1794300333993134"
+    },
+    {
+      "pid": 84541,
+      "ppid": 84527,
+      "created": "1794300334115236"
+    },
+    {
+      "pid": 84540,
+      "ppid": 84527,
+      "created": "1794300334114310"
+    },
+    {
+      "pid": 84574,
+      "ppid": 84527,
+      "created": "1794300334518704"
+    },
+    {
+      "pid": 84577,
+      "ppid": 84527,
+      "created": "1794300334560379"
+    },
+    {
+      "pid": 84585,
+      "ppid": 84527,
+      "created": "1794300334607349"
+    },
+    {
+      "pid": 84586,
+      "ppid": 84585,
+      "created": "1794300334608879"
+    },
+    {
+      "pid": 84587,
+      "ppid": 84586,
+      "created": "1794300334609385"
+    },
+    {
+      "pid": 84598,
+      "ppid": 84527,
+      "created": "1794300334724497"
+    },
+    {
+      "pid": 84602,
+      "ppid": 84527,
+      "created": "1794300334799927"
+    },
+    {
+      "pid": 84603,
+      "ppid": 84602,
+      "created": "1794300334801606"
+    },
+    {
+      "pid": 84604,
+      "ppid": 84603,
+      "created": "1794300334801994"
+    },
+    {
+      "pid": 84613,
+      "ppid": 84527,
+      "created": "1794300334944344"
+    },
+    {
+      "pid": 84621,
+      "ppid": 84604,
+      "created": "1794300335066259"
+    },
+    {
+      "pid": 84648,
+      "ppid": 84604,
+      "created": "1794300335536741"
+    },
+    {
+      "pid": 84654,
+      "ppid": 84604,
+      "created": "1794300335588046"
+    },
+    {
+      "pid": 84657,
+      "ppid": 84604,
+      "created": "1794300335620718"
+    },
+    {
+      "pid": 84660,
+      "ppid": 84604,
+      "created": "1794300335649208"
+    },
+    {
+      "pid": 84663,
+      "ppid": 84604,
+      "created": "1794300335680034"
+    },
+    {
+      "pid": 84666,
+      "ppid": 84604,
+      "created": "1794300335704672"
+    },
+    {
+      "pid": 84675,
+      "ppid": 84527,
+      "created": "1794300335770895"
+    },
+    {
+      "pid": 84676,
+      "ppid": 84675,
+      "created": "1794300335772385"
+    },
+    {
+      "pid": 84677,
+      "ppid": 84676,
+      "created": "1794300335772720"
+    },
+    {
+      "pid": 84678,
+      "ppid": 84604,
+      "created": "1794300335773536"
+    },
+    {
+      "pid": 84680,
+      "ppid": 84527,
+      "created": "1794300335797295"
+    },
+    {
+      "pid": 84690,
+      "ppid": 84527,
+      "created": "1794300335938070"
+    },
+    {
+      "pid": 84704,
+      "ppid": 84527,
+      "created": "1794300335998110"
+    },
+    {
+      "pid": 84709,
+      "ppid": 84527,
+      "created": "1794300336054325"
+    },
+    {
+      "pid": 84717,
+      "ppid": 84527,
+      "created": "1794300336139812"
+    }
+  ],
+  "receiver": {
+    "textMatches": false,
+    "counts": {
+      "key_down": 18,
+      "key_up": 18,
+      "left_down": 1,
+      "left_up": 1
+    },
+    "pad": {
+      "height": 170,
+      "width": 720,
+      "x": 200,
+      "y": 657
+    },
+    "leftHeld": false,
+    "modifierFlags": 0,
+    "clipboardPreserved": false
+  }
+}

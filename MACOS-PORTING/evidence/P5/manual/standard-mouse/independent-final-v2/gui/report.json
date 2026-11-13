@@ -1,0 +1,253 @@
+{
+  "name": "gui",
+  "command": [
+    "/Users/jiming/.local/bin/node",
+    "dev-harness/macos-manual-record.e2e.js"
+  ],
+  "cwd": "/tmp/ruyi-p5-touch-worktree",
+  "startedAt": "2026-11-11T06:32:01.576972+00:00",
+  "elapsedSeconds": 34.813,
+  "exitCode": 0,
+  "passLines": 88,
+  "failLines": 0,
+  "skipLines": 0,
+  "allPassMarker": true,
+  "log": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui/e2e.txt",
+  "logDigest": {
+    "bytes": 7488,
+    "sha256": "33a2bfd0457eae1aee323a7974b3c8e1f6f91f34bd5b1ae66a768a92537be2db"
+  },
+  "environment": {
+    "HOME": "/tmp/ruyi-sm2-g-dr3tc_6k/h",
+    "USERPROFILE": "/tmp/ruyi-sm2-g-dr3tc_6k/u",
+    "APPDATA": "/tmp/ruyi-sm2-g-dr3tc_6k/a",
+    "LOCALAPPDATA": "/tmp/ruyi-sm2-g-dr3tc_6k/l",
+    "WCW_DATA_DIR": "/tmp/ruyi-sm2-g-dr3tc_6k/w",
+    "RUYI_HOME": "/tmp/ruyi-sm2-g-dr3tc_6k/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/ruyi-sm2-g-dr3tc_6k/c",
+    "TMPDIR": "/tmp/ruyi-sm2-g-dr3tc_6k/t",
+    "RUYI_REAL_HOME": "/Users/jiming",
+    "RUYI_ACC_PYTHON": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+    "RUYI_MACOS_AUTOMATION_HELPER": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "RUYI_P5_MANUAL_HELPER": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper",
+    "DYLD_FRAMEWORK_PATH": "/Users/jiming/.local/esp-runtimes",
+    "DYLD_LIBRARY_PATH": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/lib",
+    "PYTHONPATH": "/tmp/ruyi-p5-touch-worktree/mcp/ai-computer-control/src",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "RUYI_P5_MANUAL_REQUIRED": "1",
+    "RUYI_P5_MANUAL_EVIDENCE": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/manual/standard-mouse/independent-final-v2/gui"
+  },
+  "tmpdirPathBytes": 26,
+  "observedOwnedProcessIdentities": [
+    {
+      "pid": 61693,
+      "ppid": 61689,
+      "birth": "Wed Nov 11 14:32:01 2026",
+      "command": "/Users/jiming/.local/bin/node dev-harness/macos-manual-record.e2e.js"
+    },
+    {
+      "pid": 61695,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:01 2026",
+      "command": "/Library/Developer/CommandLineTools/usr/bin/clang -fobjc-arc -fblocks -Wall -Wextra -Werror -O2 -mmacosx-version-min=14.0 -arch arm64 -framework AppKit -framework ApplicationServices -framework ScreenCaptureKit -framework ImageIO -framework UniformTypeIdentifiers -framework Vision -framework Carbon -DRUYI_AUTOMATION_TESTING=1 /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-helper.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-input.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-events.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-ax.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-ocr.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-record.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-record-events.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-sequence.m /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-session.m -o /tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/blocked-sequence-helper.61693.tmp"
+    },
+    {
+      "pid": 61698,
+      "ppid": 61695,
+      "birth": "Wed Nov 11 14:32:02 2026",
+      "command": "(clang)"
+    },
+    {
+      "pid": 61717,
+      "ppid": 61695,
+      "birth": "Wed Nov 11 14:32:03 2026",
+      "command": "/Library/Developer/CommandLineTools/usr/bin/clang -cc1 -triple arm64-apple-macosx14.0.0 -Wundef-prefix=TARGET_OS_ -Wdeprecated-objc-isa-usage -Werror=deprecated-objc-isa-usage -Werror=implicit-function-declaration -emit-obj -dumpdir /tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/blocked-sequence-helper.61693.tmp- -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name macos-automation-record.m -mrelocation-model pic -pic-level 2 -mframe-pointer=non-leaf -fno-strict-return -ffp-contract=on -fno-rounding-math -funwind-tables=1 -fobjc-msgsend-selector-stubs -target-sdk-version=15.2 -fvisibility-inlines-hidden-static-local-var -fno-modulemap-allow-subdirectory-search -target-cpu apple-m1 -target-feature +v8.5a -target-feature +aes -target-feature +crc -target-feature +dotprod -target-feature +fp-armv8 -target-feature +fp16fml -target-feature +lse -target-feature +ras -target-feature +rcpc -target-feature +rdm -target-feature +sha2 -target-feature +sha3 -target-feature +neon -target-feature +zcm -target-feature +zcz -target-feature +fullfp16 -target-abi darwinpcs -debugger-tuning=lldb -target-linker-version 1115.7.3 -fcoverage-compilation-dir=/private/tmp/ruyi-p5-touch-worktree -resource-dir /Library/Developer/CommandLineTools/usr/lib/clang/16 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -D RUYI_AUTOMATION_TESTING=1 -I/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/local/include -internal-isystem /Library/Developer/CommandLineTools/usr/lib/clang/16/include -internal-externc-isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -internal-externc-isystem /Library/Developer/CommandLineTools/usr/include -O2 -Wall -Wextra -Werror -Wno-reorder-init-list -Wno-implicit-int-float-conversion -Wno-c99-designator -Wno-final-dtor-non-final-class -Wno-extra-semi-stmt -Wno-misleading-indentation -Wno-quoted-include-in-framework-header -Wno-implicit-fallthrough -Wno-enum-enum-conversion -Wno-enum-float-conversion -Wno-elaborated-enum-base -Wno-reserved-identifier -Wno-gnu-folding-constant -fdebug-compilation-dir=/private/tmp/ruyi-p5-touch-worktree -ferror-limit 19 -stack-protector 1 -fstack-check -mdarwin-stkchk-strong-link -fblocks -fencode-extended-block-signature -fregister-global-dtors-with-atexit -fgnuc-version=4.2.1 -fobjc-runtime=macosx-14.0.0 -fobjc-arc -fobjc-exceptions -fexceptions -fmax-type-align=16 -fcommon -vectorize-loops -vectorize-slp -clang-vendor-feature=+disableNonDependentMemberExprInCurrentInstantiation -fno-odr-hash-protocols -clang-vendor-feature=+enableAggressiveVLAFolding -clang-vendor-feature=+revert09abecef7bbf -clang-vendor-feature=+thisNoAlignAttr -clang-vendor-feature=+thisNoNullAttr -clang-vendor-feature=+disableAtImportPrivateFrameworkInImplementationError -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/ruyi-sm2-g-dr3tc_6k/t/macos-automation-record-8bd328.o -x objective-c /private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/resources/macos-automation-record.m"
+    },
+    {
+      "pid": 61730,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:04 2026",
+      "command": "/tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/blocked-sequence-helper --input-session"
+    },
+    {
+      "pid": 61743,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:05 2026",
+      "command": "/tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/blocked-sequence-helper"
+    },
+    {
+      "pid": 61762,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:06 2026",
+      "command": "/tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/receiver"
+    },
+    {
+      "pid": 61772,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61773,
+      "ppid": 61772,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61774,
+      "ppid": 61773,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61777,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61778,
+      "ppid": 61777,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61779,
+      "ppid": 61778,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61780,
+      "ppid": 61779,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper"
+    },
+    {
+      "pid": 61785,
+      "ppid": 61774,
+      "birth": "Wed Nov 11 14:32:07 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+    },
+    {
+      "pid": 61788,
+      "ppid": 61779,
+      "birth": "Wed Nov 11 14:32:08 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+    },
+    {
+      "pid": 61875,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61876,
+      "ppid": 61875,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61877,
+      "ppid": 61876,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61880,
+      "ppid": 61877,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+    },
+    {
+      "pid": 61888,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61889,
+      "ppid": 61888,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/private/tmp/ruyi-p5-touch-worktree/ruyi-workbench/runtime/macos/ruyi-process-helper --supervise-v2 /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61890,
+      "ppid": 61889,
+      "birth": "Wed Nov 11 14:32:20 2026",
+      "command": "/Users/jiming/.local/esp-runtimes/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -X utf8 -m ai_computer_control.server"
+    },
+    {
+      "pid": 61893,
+      "ppid": 61890,
+      "birth": "Wed Nov 11 14:32:21 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+    },
+    {
+      "pid": 61963,
+      "ppid": 61693,
+      "birth": "Wed Nov 11 14:32:31 2026",
+      "command": "/tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/blocked-sequence-helper --input-session"
+    },
+    {
+      "pid": 61985,
+      "ppid": 61779,
+      "birth": "Wed Nov 11 14:32:32 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper --input-session"
+    },
+    {
+      "pid": 62000,
+      "ppid": 61774,
+      "birth": "Wed Nov 11 14:32:34 2026",
+      "command": "/tmp/ruyi-sm1-build-mnhnvxh2/production-helper"
+    }
+  ],
+  "remainingObservedOwnedProcessIdentities": [],
+  "observationScope": "Popen-owned Node and descendants sampled once per second; transient children may not be observed. Script cleanup assertions cover its own exact identities. LaunchServices App process identities are checked separately from its native report.",
+  "receiverEvidenceDigest": {
+    "bytes": 374675,
+    "sha256": "75cefab912925553797acfa414fb91e29268d8ee5f7c48ee68c07e319ed599a8"
+  },
+  "inputSourceRestored": true,
+  "clipboardRestored": true,
+  "recordedCalls": 101,
+  "controlledProfileMismatchReceipts": [
+    {
+      "owner": 0,
+      "name": "record_stop",
+      "result": {
+        "ok": true,
+        "completion_scope": "exact_supported_events",
+        "excluded_features": [
+          "tablet",
+          "pressure_associations"
+        ],
+        "protocolVersion": 1,
+        "recording": {
+          "actions": [],
+          "application": {
+            "bundle_id": "",
+            "executable": "/tmp/ruyi-sm2-g-dr3tc_6k/t/ruyi-p5-manual-NOCOxw/receiver"
+          },
+          "bounds": {
+            "height": 528,
+            "width": 760,
+            "x": 220,
+            "y": 499
+          },
+          "complete": false,
+          "coordinate_space": "macos_global_points",
+          "end_reason": "recording_profile_mismatch",
+          "platform": "darwin",
+          "schema": 1,
+          "source": "controlled_native_requests"
+        },
+        "count": 0,
+        "complete": false,
+        "save_error": "Pass a complete bounded Mac recording from record_stop",
+        "saved": null
+      }
+    }
+  ],
+  "passed": true
+}

@@ -93,12 +93,12 @@ const fake = http.createServer((rq, rs) => {
     // EVILMODE:模型企图经 mission_update 注入 check.cmd(command)让驱动器无提示 shell 执行——安全测试。
     // 第 0 工具:注入恶意 command check 到 pending 里程碑;之后纯文本(不推进,让驱动器有机会去跑 check)。
     if (/EVILMODE/.test(lastUser) || msgs.some(m => m.role === 'system' && /EVILMODE/.test(String(m.content || '')))) {
-      if (turnTools === 0) return streamToolCall(rs, 'mission_update', { milestones: [{ id: 'e1', status: 'pending', check: { type: 'command', cmd: 'node -e "require(\'fs\').writeFileSync(process.env.PWNFILE||\'' + (WS + '\\PWNED.txt').replace(/\\/g, '\\\\') + '\',\'pwned\')"' } }] });
+      if (turnTools === 0) return streamToolCall(rs, 'mission_update', { milestones: [{ id: 'e1', status: 'pending', check: { type: 'command', cmd: 'node -e "require(\'fs\').writeFileSync(process.env.PWNFILE||\'' + path.join(WS, 'PWNED.txt').replace(/\\/g, '\\\\') + '\',\'pwned\')"' } }] });
       return streamText(rs, '(已尝试设置检查)');
     }
     // 取「最后一条 user 消息里的第一个 [mK]」作为本回合目标里程碑。
     const mk = (lastUser.match(/\[([a-z]\d+)\]/) || [])[1] || 'm1';
-    if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: WS + '\\' + mk + '.txt', content: mk + ' 完成' });
+    if (turnTools === 0) return streamToolCall(rs, 'file_write', { path: path.join(WS, mk + '.txt'), content: mk + ' 完成' });
     if (turnTools === 1) return streamToolCall(rs, 'mission_update', { milestones: [{ id: mk, status: 'done', evidence: '已写出 ' + mk + '.txt' }] });
     return streamText(rs, '里程碑 ' + mk + ' 已完成。');
   });

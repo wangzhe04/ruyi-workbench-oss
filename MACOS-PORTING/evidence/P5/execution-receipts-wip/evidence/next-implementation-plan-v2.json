@@ -1,0 +1,68 @@
+{
+  "schema": 2,
+  "at": "2026-11-11T17:08:27.708365+00:00",
+  "status": "next_stage_pending_implementation",
+  "goal": "Full original P5 remains active; these are implementation steps, not accepted runtime claims.",
+  "previousPlan": "next-implementation-plan-v1.json",
+  "implementedNow": [
+    "Actual SDK/native input-session receipts, strict product reader, versioned SDK-decoded numeric binding and real metadata probe.",
+    "Explicit required-context mode refuses absent host correlation at SDK, registered wrapper and native adapter; only receipt read and exact native status are contextless. Node ordinary runtime has not enabled this mode.",
+    "Shared ordinary-JSON descriptor copier and DurableJsonStore opt-in bounded/canonical/private reads, fixed queued bytes and exclusive private temp writes.",
+    "Node ledger factory with digests, persistent phases, old-epoch holds, current-host admission callback, canonical in-process authority drain, durable closed turn/rewind watermarks and mandatory retirement confirmation. File tests use simulated owner/current-turn/receipts; no actual server/controller activation."
+  ],
+  "nextSteps": [
+    "Integrate one actual root-owned runtime coordinator through an early hooks table consumed by existing modules; a late runtime module registers callbacks and may refer to the ledger. Keep02g/02h outside the existing SCC; do not add direct consumer edges that create cycles. Obtain live ServerOwnership proof before recovery/clients, initialize ledger before dispatch, and provide real owner/current-turn assertions tied to server/driver/admissionId/turnSeq/rewindGen.",
+    "Centralize bookkeeping in root service for CLI MCP children; process-local queues do not serialize multiple processes. Inspect authenticated loopback mechanisms and bind actual CLI request/driver lifetime. Full-mode direct ACC configuration currently bypasses Node and must be addressed or remain explicitly open.",
+    "Enable required-context environment before spawning each owned ACC. Safe probe must ACK contextRequired=true and bind the exact client object/incarnation plus ACC nonce/PID; repeat after replacement. Background diagnostics currently need a deliberately qualified safe control path or a traced host context before activation; do not silently break readiness or allow a legacy mutation fallback.",
+    "At final post-approval/privacy-restoration boundary use the same immutable argument snapshot for raw bytes/hash and semantic fingerprint. Verify final serialized packet and metadata; no hashing a mutable pre-serialization object, and no _meta merge from model arguments.",
+    "Wire main provider, adaptive proxy and subagent bridge paths to persistent prepare/dispatch barriers. Recheck actual client and live admission after await and immediately before send. Local pre-send refusals need host evidence rather than invented ACC acknowledgements.",
+    "After actual return, fetch independent strict receipts and compare saved worker/tool/session/turn/call/raw+semantic binding and actual terminal flags. Persist Node observation before exposing it; store no extra plaintext argument/result blobs in the Node ledger.",
+    "Only markDelivered after the existing actual strict durable session/history save. Receiving an MCP result is not durable history delivery. Main/proxy/subagent and CLI external-response semantics must be handled explicitly, including privacy projection, image result bounds and incomplete saves.",
+    "Add global session admission/continuation gates before provider/steward/subagent model requests, not only before the next desktop tool. Unknown calls must survive restart, new call IDs, worker replacement and rewind. Record late actual results after stop without allowing new dispatch.",
+    "Implement real restart reconciliation with saved worker identity and strict reader evidence. A recovered terminal without the original result/history must not fabricate the lost result or infer application consumption. Keep unresolved delivery/effects separate and prevent automatic mutation replay.",
+    "Implement trusted exact-scope retirement callbacks, acknowledged ACC private-blob retention, global byte/file quotas, deletion and rewind lifecycle. Never prune unknown traces or remove closed-turn replay protection. Current Node factory limits256 rows/4096 session watermarks/4MiB and ACC256 traces/32MiB each are not a completed shared lifetime policy.",
+    "Implement one-shot capture/OCR native receipts. Current context guard on one-shot request is admission only; actual native entry/terminal proof remains open for that route.",
+    "Qualify actual ordinary owned actions plus cancellation/storage/crash windows through normal provider/root paths. Strictly serial native/GUI. Qualify a separately reviewed bounded out-of-tree rescue before any held-state root fault; never historical Shift/left recovery or UserNotificationCenter.",
+    "Finish facts/README and fast/related e2e/final full gates before commit/integration. Durable71, module92 and route175 inventories were refreshed; actual module policy has no new cycle/forward edges and SCC31 excludes02g/02h. facts still108 because its generator probes only Windows venv; remeasure actual candidate registry with main interpreter and candidate src. Source union110 includes a platform alternative, not the platform registry count.",
+    "Keep original10 local+4 external IDs. Actual TCC/revoke/OS-lock, topology/non-Retina/mixed scale/negative origin, macOS14, same-candidate Windows, formal identity/App/release gates remain unproved. No unattended lock or revoke and no repeat physical你好/drag or Finder setup.",
+    "Restore original screensaver idleTime300 and stop only owned keep-awake after whole-P5 acceptance. Current original caffeinate PID31171 has12h lifetime; renew before expiry as needed, revalidating exact PID/command. Do not restore after a slice."
+  ],
+  "latestChecks": {
+    "requiredContextIndependent": {
+      "node": 12,
+      "python": 9,
+      "actualContext": 38,
+      "report": "independent-required-context-v1/report.json"
+    },
+    "nodeStorageIndependent": {
+      "nodeFileAndModel": 55,
+      "policy": 6,
+      "report": "independent-node-storage-v1/report.json"
+    },
+    "fullUnit": {
+      "pass": 2573,
+      "existingSkip": 18,
+      "fail": 0,
+      "log": "development/full-unit-node-storage-v2.log"
+    },
+    "syntax": {
+      "files": 1169,
+      "fail": 0
+    },
+    "durableInventory": {
+      "surfaces": 71,
+      "checked": true
+    },
+    "remainingEngineering": "Facts/README, full fast, normal dispatch/actual ownership/history/restart/retention, full-feature acceptance remain open.",
+    "moduleIsolation": {
+      "modules": 92,
+      "edges": 649,
+      "sccMembers": 31,
+      "newCycles": 0,
+      "newForwardEdges": 0,
+      "newModulesOutsideSCC": true,
+      "proof": "helper-relocation-binding-v1.json",
+      "qualificationLimit": "Primary61 passed after byte-preserving function relocation; independent61/full-unit source state is linked by exact reconstruction, not identical current raw file hashes."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "pid": 80020,
+  "status": 0,
+  "stdout": "",
+  "stderr": "Sampling process 80020 for 3 seconds with 20 milliseconds of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 80020 written to file /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p4-launchservices-diagnostic-yv93Ny/owned-node-sample.txt\n"
+}

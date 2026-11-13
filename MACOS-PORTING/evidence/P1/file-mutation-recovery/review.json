@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "blockingFindings": 0,
+  "reviewerAssertions": 20,
+  "finalErrorPrefixChange": "passed_static_review",
+  "scope": [
+    "Delete/copy/move commit cancellation",
+    "Partial copy and EXDEV source-delete failure snapshots",
+    "Case-only rename recovery path",
+    "Exact checkpoint sequence removal",
+    "Source identity refresh inside lock"
+  ]
+}

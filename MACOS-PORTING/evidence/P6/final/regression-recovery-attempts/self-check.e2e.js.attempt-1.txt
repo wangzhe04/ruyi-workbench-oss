@@ -1,0 +1,8 @@
+PASS workbench listening on :53165
+PASS tool_use file_write emitted (product write)
+PASS O3: self_check invoked before product-task completion
+PASS result ok=true (self-check did not break the turn)
+PASS report.txt written by file_write with correct content
+PASS O3: self_check fires exactly once (no infinite loop, selfCheckDone guards)
+
+SELF-CHECK E2E: ALL PASS

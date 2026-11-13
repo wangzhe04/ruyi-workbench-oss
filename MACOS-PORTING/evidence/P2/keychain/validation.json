@@ -1,0 +1,83 @@
+{
+  "date": "2026-11-06",
+  "os": "27.0.1",
+  "arch": "arm64",
+  "node": "v24.15.0",
+  "checks": [
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 25.3,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "build-check.txt"
+    },
+    {
+      "name": "static",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "seconds": 129.0,
+      "log": "static.txt"
+    },
+    {
+      "name": "macos-keychain",
+      "command": [
+        "node",
+        "dev-harness/macos-keychain.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 18.6,
+      "log": "macos-keychain.txt"
+    },
+    {
+      "name": "external-bot-discovery",
+      "command": [
+        "node",
+        "dev-harness/external-bot-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.7,
+      "log": "external-bot-discovery.txt"
+    },
+    {
+      "name": "external-bot-setup",
+      "command": [
+        "node",
+        "dev-harness/external-bot-setup.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 3.4,
+      "log": "external-bot-setup.txt"
+    }
+  ],
+  "implementationCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005",
+  "unitSummary": {
+    "pass": 2489,
+    "skip": 18,
+    "fail": 0
+  },
+  "staticSummary": {
+    "pass": 80,
+    "fail": 0
+  },
+  "relatedE2eGroups": 3,
+  "postGateDocumentation": "Only comments and generated inventory wording were refined after the full gate; inventory freshness and build freshness were rechecked successfully.",
+  "logNormalization": "Text logs have trailing whitespace removed; output content and results preserved."
+}

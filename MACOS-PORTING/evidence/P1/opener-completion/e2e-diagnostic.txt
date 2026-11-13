@@ -1,0 +1,5 @@
+FAIL Error: {"ok":false,"error":"无法启动打开程序 explorer.exe:spawn explorer.exe ENOENT","target":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-opener-CgtcKA"}
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-opener.e2e.js:35:27
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+MACOS OPENER E2E: FAIL (1)

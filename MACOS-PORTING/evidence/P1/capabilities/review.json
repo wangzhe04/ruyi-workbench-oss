@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "shared async/sync helper probe validation",
+    "live runtime overlay on cached capabilities",
+    "native provider tool discovery and prompt requirements",
+    "self status and health API",
+    "localized health UI and CLI severity",
+    "explicit ready-runtime schema fixtures"
+  ],
+  "independentTests": {
+    "capabilities": 15,
+    "runtime": 62,
+    "shell": 32,
+    "git": 28,
+    "cleanup": 32
+  },
+  "supplement": "CLI doctor severity mapping and final sixteenth capability assertion reviewed; no runtime change",
+  "findings": [],
+  "remaining": [
+    "CLI/MCP discovery and capability popover",
+    "Browser visual verification",
+    "Windows/macOS14"
+  ]
+}

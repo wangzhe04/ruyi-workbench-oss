@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "dc59e365fc598f0f0c9ff6de6bda01d24bcabdac",
+  "worktree": "/tmp/ruyi-p5-readiness-worktree",
+  "status": "candidate_not_run",
+  "files": [
+    {
+      "path": "dev-harness/macos-native-readiness.e2e.js",
+      "sha256": "0f4b2daebbefc2a38b7eaf2c5e1f27eea3e9b5f0e1377720c2f495df4dae9f5e"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "7f642fe3c8328baef1655114e97849cc3c6584efdd4274590cbd8d2147fdbb45"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "012364d502b02c79c6d4d71a3eca0b7b406e1d9665a8a69083e169be7bf7f7d1"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "bec6efae537d74caeba801c94f9d19f12d187c4810b91ae2567f9ffbbb48e8fa"
+    },
+    {
+      "path": "README.md",
+      "sha256": "80d48bb148e909807dc0e5f14f840c524cbdc71b6fbe251a801e18b0edd7117d"
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "d1e07ec8c36fea02c112fc0ccb446e1572bb6ee0d947fda0eaa5f199796d5088"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "d20b45cfa8977fe8e0622b688e78275f8a10d3ceab22da4f106e3016a1c8914b"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "a97a15494fba9eaecab2deb98ddeebf53d3f14a09423767d26963540a0ef9108"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "31adcf78fa3adb210d2cf58f08beaf78e9ecb5a7533b5f895febf221a228c017"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+    },
+    {
+      "path": "dev-harness/fixtures/macos-input-window.m",
+      "sha256": "61a8ae4c97c90ef6198bfa631155ab565b62f07d885724d82d2e8e1687a40211"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "sha256": "5cbf6e6347df8ae5196be4817aba6662a9227fdb14c80647affb424ae24189dc"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "sha256": "1bcbcd74be1b9a19ab31dc93b4341af5d2371abfeedbb2feb3b6ea6e608a90b2"
+    },
+    {
+      "path": "mcp/ai-computer-control/src/ai_computer_control/utils/macos_recording.py",
+      "sha256": "9d6e6483a4344e5be1e6e7680207ea974c63d96dabe0ee860998d49e725a6d31"
+    }
+  ],
+  "nativeHelper": {
+    "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/runtime/macos/ruyi-automation-helper",
+    "sha256": "1cc945ded67ff7b8bc487abeb7b7017aa07ca3256b8229f875e71bc249185dc5"
+  },
+  "phaseStatus": "in_progress"
+}

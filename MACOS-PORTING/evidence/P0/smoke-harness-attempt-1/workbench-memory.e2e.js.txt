@@ -1,0 +1,66 @@
+[fake] [fake-openai] listening on 51515
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 0168d8c8841b)
+[wb] UI: http://127.0.0.1:51516/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-gG1E83/.ruyi-workbench
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :51516
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-gG1E83/.ruyi-workbench/generated/workbench.mcp.json
+FAIL read workbench token from runtime.json (for content-GET token gate)
+PASS seed: saved 5 memories via POST /api/memory
+PASS (1) global memory file lands under memory/global/
+PASS (1) project memory file lands under memory/project/<key>/
+FAIL (4) cwd=A sees only project A memory
+FAIL (4) cwd=B sees only project B memory
+FAIL (4) A/B have distinct 16-hex projectKeys (undefined vs undefined)
+FAIL (4) global memory shows in every cwd
+PASS P2-1: GET /api/memory WITHOUT token → 403 (返回记忆条目含绝对路径,须自校验)
+PASS P2-1: GET /api/memory/item WITHOUT token → 403 (返回文件正文,须自校验)
+FAIL P2-1: GET /api/memory WITH token → 200 ok (前端 api() 已带 token,行为不变)
+FAIL P2-1: GET /api/memory/item WITH token → 200 ok
+PASS R4-S1 fixture: relation proposed and confirmed through HTTP
+PASS R4-S1 HTTP: relation catalog remains token-gated
+FAIL R4-S1 HTTP: authorized relation catalog is reachable through ROUTE_AUTH
+PASS R4-S3 HTTP: maintenance report remains token-gated
+FAIL R4-S3 HTTP: token-authorized maintenance endpoint returns the confirmed project cluster
+PASS AUD fixture: 一次性关系边 propose→delete 走真路由成功
+FAIL AUD1 四条记忆图谱事件都【真的写进了】 logs/*.ndjson(缺: memory_relation_propose, memory_relation_confirm, memory_relation_delete, memory_maintenance_scan)
+FAIL AUD2 建边事件带全 payload(id/type/from/to/scope 一个不少)—— 修前那份 meta 连字段都不会被拷进台账行(实测 [])
+FAIL AUD3 维护扫描事件带 scope/clusters/suggestions(实测 [])
+PASS AUD4 费用台账里没有任何「零 token 且零费用」的行 —— 空行守卫没有被放宽(实测 0 行)
+FAIL (2) provider prompt carries the <workbench-memory> fence (default relevance retrieval)
+FAIL (2) memory section carries the 「不得覆盖」 declaration
+FAIL (2) provider memory prompt requires a relevance check on every user message
+FAIL (2) provider memory line carries the marker + [id](scope) and NO file path (file_read cannot open the memory dir)
+FAIL R4-S1 provider real path: confirmed contradiction marks BOTH injected memories
+FAIL (2) provider index tells the model to use workbench_memory_read by bracketed id (not file_read)
+FAIL (2) provider built-in prompt exposes Workbench Memory as the sole user-confirmed memory capability
+FAIL (2) memory section length ≤ 6000 = memoryIndexCharCapV1 default (got 0)
+PASS (5) no relevant memory → no memory index payload
+FAIL (5) zero match still injects a machine-readable memory preflight receipt
+PASS (5) stream meta exposes checked/matched counts for the activity UI
+FAIL (5) relevant GLOBAL memory participates by default and is auto-retrieved
+PASS (5) default mode supports a per-session exclusion without switching to the 12-item fixed list
+FAIL (5) excluded global memory is omitted and the receipt reports the exclusion
+PASS (5) default project+global retrieval can be restored explicitly
+FAIL (5) current session can explicitly disable memory and the prompt reports that state
+FAIL fence: a literal </workbench-memory> in a description is neutralized to [/workbench-memory
+FAIL fence: exactly ONE real closing fence survives (spoofed one neutralized)
+FAIL P3-4(b): oversized memory index is clamped to ≤ 6000 (got -1)
+FAIL P3-4(b): truncated index still closes with </workbench-memory> (no dangling open fence)
+PASS P3-4(b): a narrow index cap still truncates with the ellipsis marker and a closed fence (got 2600)
+PASS P3-1: saving a body > 256KB is rejected with a structured limit error
+PASS P3-1: the rejected oversized memory did NOT land on disk (no ghost)
+PASS P3-1: a body just under 256KB still saves fine
+FAIL P2-4: migrating an id that already exists in the target group → 409 conflict
+FAIL P2-4: conflict did NOT delete the SOURCE memory (still in B)
+FAIL P2-4: TARGET memory was NOT overwritten by the rejected migration
+FAIL P2-4: migrating a non-conflicting id still succeeds (200)
+FAIL P3-3: enabling a project memory stamps the current projectKey (lock to source project)
+PASS P3-3: projectKey mismatch → NEITHER the original nor the same-id B impostor is injected
+PASS P3-3: a stderr notice fires — 记忆 pk-note 来源项目已变化,已暂停注入
+FAIL (1) POST /api/memory/draft returns a parsed {name,description,type,body} draft
+ERROR TypeError: Cannot read properties of undefined (reading 'sourceSessionId')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/workbench-memory.e2e.js:380:26
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+WORKBENCH-MEMORY E2E: FAIL (35)

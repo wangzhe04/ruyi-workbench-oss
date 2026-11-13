@@ -1,0 +1,19 @@
+PASS fake provider and workbench start
+PASS save response itself carries engine=claude
+PASS engine survives a save -> reload round-trip (was silently dropped to "")
+PASS E1 saving a cyclic workflow is rejected and names the cycle (got {"code":"agent_workflow.cycle","params":{"cycle":"a → c → b → a"},"message":"无效工作流：依赖成环(箭头指向所依赖的节点):a → c → b → a"})
+PASS E2 saving a node with an unknown role is rejected
+PASS E2b rejected workflows were not written
+PASS E3 launching a built-in template with no context is refused (got {"code":"api.request_failed","params":{},"message":"内置模板「正反辩论 → 裁决」的节点任务不含具体主题:请在 context 里写清对象(议题、需求、要排查的问题、目标文件或数据)再启动"})
+PASS E3b an explicit nodes list is not blocked by the built-in template context rule
+PASS E4 thread permission narrowed to default
+PASS E4 the run uses the thread mode, not the global bypass (got default)
+PASS 6-node DAG launches under default config (previously rejected: node count > subagentMaxPerTurn default of 4)
+PASS fake provider restarted for loop scenario
+PASS at least one node_loop event was observed
+PASS every node_loop event carries a finite noProgressCount (was undefined)
+PASS fake provider restarted for workflowId+context scenario
+PASS orchestrate_agents({workflowId, context}) resolves and runs (was: "nodes 必须是非空数组")
+PASS the node only matched subTextByGood because CONTEXT_MARKER reached its prompt — context is actually injected (envelope carries the structured summary)
+
+AGENT WORKFLOW AUDIT FIXES E2E: ALL PASS

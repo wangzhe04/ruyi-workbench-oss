@@ -377,7 +377,7 @@ const TOOL_RESULT_DISPLAY_CAP = 120000; // N3:落盘/发 SSE 的展示副本上�
 // 绝不产生半截坏图。替换后仍超限才回退平切(此时 base64 已缩为占位,平切不再切到图)。
 // 字段名白名单覆盖 ACC 截图族(image / image_base64)与常见 MCP 图片约定,值长度门槛防误伤非图大字段。
 const IMG_B64_TRIM_RE = /("(?:[A-Za-z0-9_]*?(?:image|base64|screenshot|thumbnail|b64)[A-Za-z0-9_]*?)"\s*:\s*")((?:data:[a-z0-9+.-]+\/[a-z0-9+.-]+;base64,)?[A-Za-z0-9+/=]{8000,})/g;
-const TOOL_EXEC_CLASS_RE = /^(?:powershell_run|script_run|shell_start|shell_send|shell_poll|git_[a-z_]+)$/;
+const TOOL_EXEC_CLASS_RE = /^(?:shell_run|shell_run|powershell_run|script_run|shell_start|shell_send|shell_poll|git_[a-z_]+)$/;
 const TOOL_OUTPUT_KEY_RE = /^(?:stdout|stderr|output|log|logs)$/;
 
 // 预算(字符)按估算 token 折算:同一批字符里 CJK 占比越高,能放的字符越少。只在串够长时才扫一遍(O(n),无分配)。
@@ -651,6 +651,16 @@ function findToolImageFields(value) {
   const found = [];
   const walk = (n, path, depth) => {
     if (depth > 3 || !n || typeof n !== 'object' || Array.isArray(n)) return;
+    // Native file_read and document readers use images:[{mimeType,data}], also understood by
+    // VisualPipeline. Preserve those actual bytes as attachments instead of truncating base64 text.
+    if (Array.isArray(n.images)) for (let index = 0; index < n.images.length; index++) {
+      const item = n.images[index];
+      if (!item || typeof item.data !== 'string' || item.data.length < TOOL_IMAGE_B64_MIN || item.data.length > 4000000
+          || typeof item.mimeType !== 'string' || !/^image\//.test(item.mimeType)) continue;
+      const match = TOOL_IMAGE_B64_BODY_RE.exec(item.data);
+      if (match && (match[1] === undefined || /^image\//.test(match[1])))
+        found.push({ path: path.concat('images', index, 'data'), mime: match[1] || item.mimeType, b64: match[2] });
+    }
     for (const k of Object.keys(n)) {
       const v = n[k];
       if (typeof v === 'string') {
@@ -2109,6 +2119,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       : (extraSignal || undefined);
     try {
       const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(bodyObj) : bodyObj;
+      await DesktopExecutionHooks.beforeModelRequest(econCtx?.sessionId);
       if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
       const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: mergedSignal });
       if (!res || !res.ok) {
@@ -3804,6 +3815,8 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
+    await DesktopExecutionHooks.guard(session.id);
+    assertSessionExecutionOwner(session.id, settleEntry);
     // Keep the admission check→owner registration synchronous. Legacy-history I/O happens only
     // after this turn owns the session, under the existing cancellation and finally cleanup.
     if (typeof PrivacyGateway !== 'undefined') {
@@ -3864,6 +3877,8 @@ async function runSessionTurn(input) {
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
       assertSessionExecutionOwner(session.id, settleEntry);
+      await DesktopExecutionHooks.guard(session.id);
+      assertSessionExecutionOwner(session.id, settleEntry);
       lastTurnTokens = 0;
       const atts = driverAuto ? [] : attachments;
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
@@ -3874,8 +3889,10 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
+        await DesktopExecutionHooks.run(session, async () => {
         if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
         else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -3938,6 +3955,7 @@ async function runSessionTurn(input) {
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
+    DesktopExecutionHooks.release(session.id, settleEntry);
     const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
     if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     if (session.kind === 'steward' && typeof PrivacyCore.configHooks.settleStewardPrivacy === 'function') {

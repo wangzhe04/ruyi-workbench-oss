@@ -1,0 +1,18 @@
+{
+  "startedAt": "2026-11-12T10:55:11.056398+00:00",
+  "assets": "/tmp/ruyi-p6-assets",
+  "sourceCommit": "b662fff21f912d8b217613f8cd57509b7340e0c3",
+  "sandboxProfile": "(version 1)(allow default)(deny network-outbound)",
+  "sequence": [
+    "full offline source candidate",
+    "full internal trial DMG",
+    "slim offline source candidate",
+    "slim internal trial DMG"
+  ],
+  "logs": [
+    "build-source-full.txt",
+    "build-dmg-full.txt",
+    "build-source-slim.txt",
+    "build-dmg-slim.txt"
+  ]
+}

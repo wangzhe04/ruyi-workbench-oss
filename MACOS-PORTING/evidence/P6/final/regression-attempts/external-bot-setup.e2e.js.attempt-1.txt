@@ -1,0 +1,27 @@
+PASS S0 incomplete immutable app identity is reported missing without creating a half-connection
+PASS S1 real model tool creates one generated disabled inbox connection
+PASS S2 setup navigation comes from the real prepare receipt, not forged model JSON
+PASS S3 actual provider request contains setup schema and bilingual stable setup discipline
+PASS S4 saved metadata is separate from absent credentials and verified traffic
+PASS S5 setup mutations require the local workbench token
+PASS S6 even a header token does not bypass the setup same-origin gate
+PASS S7 local credentials are actually readable before pairing (Windows uses DPAPI; Mac uses a real disposable Keychain)
+PASS S8 explicit local pairing has a five-minute 128-bit one-time code
+PASS S9 pairing never bypasses platform signature validation
+PASS S10 verified nonmatching messages remain setup-only and cannot become a candidate
+PASS S11 first signed pairing candidate remains fixed against a later different sender/chat
+PASS S12 pairing and ignored setup messages enter neither inbox, worker, model nor platform reply
+PASS S13 old waiting snapshot cannot approve a newly captured identity
+PASS S14 local activation additionally requires explicit scope confirmation
+PASS S15 activation atomically binds exact owner, both allowlists and control authority
+PASS S16 original proof and nonmatching setup messages remain deduplicated after activation
+PASS S17 setup-only dedupe receipts survive a real restart without replaying a command
+PASS S18 a new owner instruction runs the actual Steward tool and official reply adapter
+PASS S19 a verified external owner still cannot prepare another control connection
+PASS S20 enabled connections reject local credential replacement
+PASS S21 restart invalidates the in-memory window and old configuration confirmation
+PASS S22 local secret never enters configuration/vault plaintext, logs, model requests or management responses
+PASS S23 permanent setup-only evidence stores bounded semantic hashes rather than the pairing code
+PASS S24 fake provider has no hidden handler errors
+
+EXTERNAL BOT SETUP E2E: ALL PASS

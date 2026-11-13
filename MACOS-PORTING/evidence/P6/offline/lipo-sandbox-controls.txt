@@ -1,0 +1,4 @@
+{"file":"/tmp/ruyi-p6-candidate-full-fifth/Ruyi.app/Contents/MacOS/RuyiDesktop","viaFd":false,"status":0,"out":"arm64\n","err":""}
+{"file":"/tmp/ruyi-p6-candidate-full-fifth/Ruyi.app/Contents/MacOS/RuyiDesktop","viaFd":true,"status":0,"out":"arm64\n","err":""}
+{"file":"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop","viaFd":false,"status":0,"out":"arm64\n","err":""}
+{"file":"/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi.app/Contents/MacOS/RuyiDesktop","viaFd":true,"status":0,"out":"arm64\n","err":""}

@@ -1,10 +1,12 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 // E2E (第51波 51b / 02 Phase B): between-tools steer 中断(配对安全)。
-// FAKE_PARALLEL_TOOLS=3 file_read(一个 assistant 消息 3 tool_call)+ STREAM_DELAY=150 拉长流窗口,
+// Default: one controlled write followed by two reads; RUYI_STEER_READ_ISLAND=1: three reads.
+// FAKE_PARALLEL_TOOLS emits one assistant message with 3 calls; STREAM_DELAY=150 stretches the stream,
 // steer 在流期间到达 reg.steerQueue -> 第一个工具完成后 between-tools 检查(line 1623)中断剩余 2 个
 // (补配对 refusal),外层 continue 回 drainSteerQueue 注入插话(Codex 级立即生效)。
-// 验证: f1 真实执行 + f2/f3 refusal("用户插话中断") + 配对块连续(3 tool_call -> 3 role:tool 不劈)
+// 验证: serial first write executes + f2/f3 refusal; pure read island retains all three actual results.
+// 配对块连续(3 tool_call -> 3 role:tool 不劈)
 // + 插话在配对块后。与 steering.e2e ⑦(测配对块后注入,断言不区分真实/refusal)互补: 本件明确断言
 // between-tools 中断的 refusal 标志。
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
@@ -15,6 +17,7 @@ const HERE = __dirname;
 const HOME = path.join(os.tmpdir(), 'wcw-51b-interrupt');
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
 const STEER_TEXT = '改做其他事';
+const readIsland = process.env.RUYI_STEER_READ_ISLAND === '1';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
@@ -68,8 +71,12 @@ function checkToolBlockContiguity(ph) {
   const f1 = path.join(HOME, 'f1.txt'), f2 = path.join(HOME, 'f2.txt'), f3 = path.join(HOME, 'f3.txt');
   fs.writeFileSync(f1, 'content-1'); fs.writeFileSync(f2, 'content-2'); fs.writeFileSync(f3, 'content-3');
   writeConfig(HOME, FAKE_PORT);
-  // 3 个 file_read 在一个 assistant 消息(parallel batch)。STREAM_DELAY=150 拉长流窗口让 steer 在流期间到达。
-  const par = JSON.stringify([{ name: 'file_read', args: { path: f1 } }, { name: 'file_read', args: { path: f2 } }, { name: 'file_read', args: { path: f3 } }]);
+  // One declared batch; the selected first call determines serial vs read-island scheduling.
+  // A controlled file write is a serial barrier (list_tools is deliberately neutral).
+  // A pure read island intentionally keeps
+  // already executed results instead of falsely labelling them "not executed".
+  const par = JSON.stringify([readIsland ? { name: 'file_read', args: { path: f1 } } : { name: 'file_write', args: { path: f1, content: 'serial-first-write' } },
+    { name: 'file_read', args: { path: f2 } }, { name: 'file_read', args: { path: f3 } }]);
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_PARALLEL_TOOLS: par, FAKE_STREAM_DELAY_MS: '150' }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
@@ -101,9 +108,10 @@ function checkToolBlockContiguity(ph) {
     ok(toolUses.length === 3, '3 tool_use (f1/f2/f3, got ' + toolUses.length + ')');
     // between-tools 中断标志: f2/f3 refusal("用户插话中断")
     const refusals = toolResults.filter(r => r.content && r.content.error && /用户插话中断/.test(r.content.error));
-    ok(refusals.length === 2, '2 refusal tool_result (f2/f3 between-tools 中断, got ' + refusals.length + ')');
+    ok(refusals.length === (readIsland ? 0 : 2), (readIsland ? 'read island keeps executed results; 0 false refusals' : '2 refusal tool_result (f2/f3 between-tools 中断)') + ' (got ' + refusals.length + ')');
     const realResults = toolResults.filter(r => r.content && r.content.ok !== false && !(r.content && r.content.error && /用户插话中断/.test(r.content.error)));
-    ok(realResults.length === 1, '1 real tool_result (f1 执行, got ' + realResults.length + ')');
+    ok(realResults.length === (readIsland ? 3 : 1), (readIsland ? '3 actual read results retained' : '1 actual result before serial interruption') + ' (got ' + realResults.length + ')');
+    ok(fs.readFileSync(f1, 'utf8') === (readIsland ? 'content-1' : 'serial-first-write'), 'first tool has the expected actual filesystem effect for the selected scheduling mode');
     ok(!!ev.find(e => e.type === 'steered' && e.text === STEER_TEXT), 'steered event streamed');
     ok(!!ev.find(e => e.type === 'turn_summary'), 'turn_summary (回合正常结束, between-tools 中断不 abort)');
     ok(!!ev.find(e => e.type === 'result'), 'result event');

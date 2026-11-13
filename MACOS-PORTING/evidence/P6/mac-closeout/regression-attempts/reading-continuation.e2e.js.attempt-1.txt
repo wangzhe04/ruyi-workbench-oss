@@ -1,0 +1,17 @@
+PASS fixture exceeds the former 400K cache boundary
+PASS real provider + tool_invoke_read pages reconstruct full Chinese/escaped text without holes
+PASS links and cached continuation metadata survive provider reduction
+PASS cache stores all captured text beyond 400K and continuation does not refetch
+PASS subagent model view preserves the requested continuous middle page
+PASS CLI MCP reconstructs the same complete long webpage
+PASS steward web wrapper accepts offset/maxChars and preserves source/cache/page metadata
+PASS steward fence preserves text formatting and every delivered character
+PASS 12K control-character requests survive the real steward wrapper/model budget with source-only cursors
+PASS source byte truncation at the tail remains explicit and provides recovery instead of a looping cursor
+PASS observation recall recovers an original over 60K including its middle with serialized page budgets
+PASS steward file offset selects the existing character reader and does not drop lines or middle text
+PASS proxy file read preserves the complete continuous source window
+PASS delivered artifact uses the same continuous character reader
+PASS non-idempotent HTTP truncation does not recommend replay as continuation
+
+READING CONTINUATION E2E: ALL PASS

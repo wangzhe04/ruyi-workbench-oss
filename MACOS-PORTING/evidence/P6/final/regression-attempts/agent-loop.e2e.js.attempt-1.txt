@@ -1,0 +1,29 @@
+PASS hooks: fixed lifecycle phase contract
+PASS hooks: deterministic registration order
+PASS hooks: context is deeply frozen and mutation cannot leak
+PASS hooks: registry metadata is inspectable
+PASS hooks: exception is isolated and later hooks still run
+PASS hooks: timeout is bounded and fail-open (26ms)
+PASS hooks: unknown lifecycle phase is rejected
+PASS hooks: post-tool context uses bounded result metadata
+PASS hooks: Provider native loop wires all six lifecycle phases
+PASS hooks: Claude CLI adapter exposes honest turn/model boundaries only
+[fake] [fake-openai] listening on 8963
+PASS seq: workbench up
+PASS seq: one traceId spans every streamed lifecycle event (got ["trace_7432f00265d800f8"]; untraced )
+PASS seq: 3 tool_use events (got 3)
+PASS seq: tool_use order file_write -> file_read -> file_search (got file_write,file_read,file_search)
+PASS seq: 3 tool_result all ok
+PASS seq: usage.calls === 4 (3 tool rounds + 1 finish) (got 4)
+PASS seq: input_tokens === 4*42 (got 168)
+PASS seq: result ok=true
+[fake] [fake-openai] listening on 8965
+PASS par: workbench up
+PASS par: one traceId spans parallel tool events (got ["trace_7aa92ecdbacc2236"]; untraced )
+PASS par: 2 tool_use events (got 2)
+PASS par: ids call_1 & call_2 in one round
+PASS par: 2 tool_result all ok
+PASS par: usage.calls === 2 (parallel round + finish) (got 2)
+PASS par: result ok=true
+
+AGENT-LOOP E2E: ALL PASS

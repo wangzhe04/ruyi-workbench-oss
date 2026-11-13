@@ -44,7 +44,7 @@ test('all privacy modes retain native schemas and execute source views through t
     for (const name of names) {
       assert.ok(Object.hasOwn(app.TOOL_HANDLERS, name));
       const invalid = await app.toolCall(name, null, ctx(policy));
-      assert.equal(invalid.code, 'invalid-arguments');
+      assert.equal(invalid.code, process.platform === 'darwin' && name === 'powershell_run' ? 'tool-disabled' : 'invalid-arguments');
     }
     for (const [name, args] of [['file_search', { root: work, pattern: 'patientCode', context: 1 }], ['data_profile', { path: target }], ['project_snapshot', { root: work }]]) {
       const result = await app.PrivacyGateway.toolResult(await app.toolCall(name, args, ctx(policy)));

@@ -1,0 +1,38 @@
+[
+  {
+    "cleanup": false,
+    "backendPID": 47834,
+    "rootPID": 47823,
+    "rootExitCode": null,
+    "rootSignal": null,
+    "backendAlive": true,
+    "stderr": "",
+    "toolReply": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"query\": \"review_echo\",\n  \"matches\": [\n    {\n      \"name\": \"review__review_echo\",\n      \"pack\": \"desktop\",\n      \"tier\": \"exec\",\n      \"description\": \"review EOF fixture\"\n    }\n  ],\n  \"packs\": {\n    \"desktop\": \"screenshots, UI inspection and desktop control\"\n  },\n  \"next\": \"Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.\"\n}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "cleanup": true,
+    "backendPID": 47847,
+    "rootPID": 47836,
+    "rootExitCode": 0,
+    "rootSignal": null,
+    "backendAlive": false,
+    "stderr": "ACTIVE_RESOURCES {\"resources\":[\"PipeWrap\",\"PipeWrap\",\"Timeout\",\"Timeout\",\"Timeout\"],\"timers\":[{\"name\":\"setTimeout\",\"ms\":3500,\"stack\":\"Error\\n    at global.<computed> (/private/tmp/ruyi-p6-review-mcp-eof/cleanup-preload.cjs:1:173)\\n    at /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21785:30\\n    at new Promise (<anonymous>)\\n    at /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21785:11\\n    at Array.map (<anonymous>)\\n    at /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21779:49\\n    at collectBridgedToolsScan (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21821:5)\\n    at collectBridgedTools (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21765:19)\\n    at adaptiveCatalogForMcp (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:63757:25)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\"},{\"name\":\"setTimeout\",\"ms\":8000,\"stack\":\"Error\\n    at global.<computed> (/private/tmp/ruyi-p6-review-mcp-eof/cleanup-preload.cjs:1:173)\\n    at /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21825:83\\n    at new Promise (<anonymous>)\\n    at collectBridgedToolsScan (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21825:64)\\n    at collectBridgedTools (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:21765:19)\\n    at adaptiveCatalogForMcp (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:63757:25)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\\n    at async Object.handler (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:65432:27)\\n    at async toolCall (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:68268:12)\\n    at async /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:72975:28\"},{\"name\":\"setTimeout\",\"ms\":1000,\"stack\":\"Error\\n    at global.<computed> (/private/tmp/ruyi-p6-review-mcp-eof/cleanup-preload.cjs:1:173)\\n    at Socket.<anonymous> (/private/tmp/ruyi-p6-review-mcp-eof/cleanup-preload.cjs:1:337)\\n    at Object.onceWrapper (node:events:630:28)\\n    at Socket.emit (node:events:521:24)\\n    at endReadableNT (node:internal/streams/readable:1729:12)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)\"}]}\n",
+    "toolReply": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"query\": \"review_echo\",\n  \"matches\": [\n    {\n      \"name\": \"review__review_echo\",\n      \"pack\": \"desktop\",\n      \"tier\": \"exec\",\n      \"description\": \"review EOF fixture\"\n    }\n  ],\n  \"packs\": {\n    \"desktop\": \"screenshots, UI inspection and desktop control\"\n  },\n  \"next\": \"Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.\"\n}"
+        }
+      ],
+      "isError": false
+    }
+  }
+]

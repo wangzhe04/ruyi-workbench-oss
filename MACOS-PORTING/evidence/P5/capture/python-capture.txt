@@ -1,0 +1,18 @@
+test_black_image_is_a_failed_observation (__main__.CaptureTools.test_black_image_is_a_failed_observation) ... ok
+test_discovery_tracks_authorization_and_dependency_changes (__main__.CaptureTools.test_discovery_tracks_authorization_and_dependency_changes) ... ok
+test_failed_window_save_preserves_existing_file (__main__.CaptureTools.test_failed_window_save_preserves_existing_file) ... ok
+test_invalid_native_geometry_is_a_typed_failure (__main__.CaptureTools.test_invalid_native_geometry_is_a_typed_failure) ... ok
+test_invalid_regions_do_not_start_native_capture (__main__.CaptureTools.test_invalid_regions_do_not_start_native_capture) ... ok
+test_protected_output_is_rejected_before_observation (__main__.CaptureTools.test_protected_output_is_rejected_before_observation) ... ok
+test_retina_thumbnail_has_exact_separate_axis_scales (__main__.CaptureTools.test_retina_thumbnail_has_exact_separate_axis_scales) ... ok
+test_window_memory_and_file_results_preserve_mapping (__main__.CaptureTools.test_window_memory_and_file_results_preserve_mapping) ... ok
+test_invalid_envelope_and_protocol_fail_closed (__main__.NativeIPC.test_invalid_envelope_and_protocol_fail_closed) ... ok
+test_missing_helper_is_a_typed_dependency (__main__.NativeIPC.test_missing_helper_is_a_typed_dependency) ... ok
+test_permission_lock_and_query_capabilities_remain_distinct (__main__.NativeIPC.test_permission_lock_and_query_capabilities_remain_distinct) ... ok
+test_replacing_the_helper_cannot_publish_stale_readiness (__main__.NativeIPC.test_replacing_the_helper_cannot_publish_stale_readiness) ... ok
+test_timeout_and_output_limits_reap_the_child (__main__.NativeIPC.test_timeout_and_output_limits_reap_the_child) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.721s
+
+OK

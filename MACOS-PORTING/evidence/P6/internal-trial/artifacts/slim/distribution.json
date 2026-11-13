@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "channel": "local-internal-trial",
+  "variant": "slim",
+  "version": "3.0.1",
+  "signing": "ad-hoc-internal-trial",
+  "notarized": false,
+  "developerIdentityVerified": false,
+  "applicationSourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "packagerCommit": "3279b83d880a84be1e4fa86ae4e1aed80ef740bc",
+  "packagerFingerprint": {
+    "ruyi-workbench/tools/package-macos-trial.js": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+    "ruyi-workbench/tools/macos-offline-lib.js": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976"
+  },
+  "inputPackageManifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+  "inputAppTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+  "appTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+  "packageManifestSha256": "d3da81c89c3af508a7c725b9f1e107a3ee2a9c1017b14d4f1f3033718decb156",
+  "guideHashes": {
+    "INSTALL-CN.txt": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+    "INSTALL-EN.txt": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976"
+  },
+  "signatures": {
+    "nativeCount": 6,
+    "changes": [],
+    "signing": "ad-hoc-internal-trial",
+    "notarized": false,
+    "developerIdentityVerified": false,
+    "signedDependencyPolicy": "preserve-existing-valid-signatures"
+  },
+  "acceptanceScope": "current-account isolated install; clean standard user and downloaded-origin Gatekeeper approval unverified",
+  "image": "Ruyi-macos-arm64-slim-internal-trial.dmg",
+  "imageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+  "imageBytes": 51621693
+}

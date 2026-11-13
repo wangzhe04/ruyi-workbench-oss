@@ -1,0 +1,34 @@
+PASS native identity checks and interrupted-cleanup state restoration pass
+PASS libproc exposes exact microsecond process identities
+PASS helper refuses the calling process instead of treating an arbitrary PID as ownership
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS native helper runtime is protected from model file writes
+PASS helper alias is write-protected: ruyi-process-helper
+PASS helper alias is write-protected: helper-symlink
+PASS helper alias is write-protected: helper-hardlink
+PASS same-named ordinary workspace file remains writable
+PASS symlinked runtime directory protects its actual target
+PASS symlinked helper protects its single-link external target
+PASS missing helper stops the already-owned direct child and reports incomplete descendant cleanup
+PASS missing-helper cancellation stops further root writes
+PASS harness cleanup includes parent, child and detached grandchild
+PASS harness cleanup confirms all three observed identities have exited
+PASS harness descendants stop writing after cleanup
+PASS unrelated sibling remains alive
+PASS cleanup scope remains explicit until supervised lifetime registration is integrated
+PASS product cleanup includes parent, child and detached grandchild
+PASS product cleanup confirms all three observed identities have exited
+PASS product descendants stop writing after cleanup
+PASS unrelated sibling remains alive
+PASS cleanup scope remains explicit until supervised lifetime registration is integrated
+PASS mcp cleanup includes parent, child and detached grandchild
+PASS mcp cleanup confirms all three observed identities have exited
+PASS mcp descendants stop writing after cleanup
+PASS unrelated sibling remains alive
+PASS cleanup scope remains explicit until supervised lifetime registration is integrated
+
+MACOS PROCESS CLEANUP E2E: ALL PASS

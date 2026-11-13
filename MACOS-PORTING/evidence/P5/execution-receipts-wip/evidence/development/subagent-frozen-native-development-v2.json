@@ -1,0 +1,59 @@
+[
+  {
+    "test": "macos-execution-subagents",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/actual-subagents-v8.log",
+    "result": "/tmp/ruyi-p5-receipts-evidence/development/actual-subagents-v8.json",
+    "exitCode": 0,
+    "seconds": 15.393,
+    "before": {
+      "at": "2026-11-11T21:35:23.351245+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    },
+    "after": {
+      "at": "2026-11-11T21:35:38.754397+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    }
+  },
+  {
+    "test": "macos-execution-images",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/subagent-main-images-regression-v2.log",
+    "result": "/tmp/ruyi-p5-receipts-evidence/development/subagent-main-images-regression-v2.json",
+    "exitCode": 0,
+    "seconds": 5.62,
+    "before": {
+      "at": "2026-11-11T21:35:38.763815+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    },
+    "after": {
+      "at": "2026-11-11T21:35:44.393404+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    }
+  },
+  {
+    "test": "macos-execution-dispatch",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/subagent-main-dispatch-regression-v2.log",
+    "result": "/tmp/ruyi-p5-receipts-evidence/development/subagent-main-dispatch-regression-v2.json",
+    "exitCode": 1,
+    "seconds": 3.338,
+    "before": {
+      "at": "2026-11-11T21:35:44.401810+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    },
+    "after": {
+      "at": "2026-11-11T21:35:47.749208+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    }
+  }
+]

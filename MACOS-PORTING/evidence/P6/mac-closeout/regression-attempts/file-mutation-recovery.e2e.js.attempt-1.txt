@@ -1,0 +1,22 @@
+PASS file_delete cancellation after checkpoint prevents commit
+PASS file_delete pre-commit cancellation preserves files and removes only new entries
+PASS file_copy cancellation after checkpoint prevents commit
+PASS file_copy pre-commit cancellation preserves files and removes only new entries
+PASS file_move cancellation after checkpoint prevents commit
+PASS file_move pre-commit cancellation preserves files and removes only new entries
+PASS file_copy partial copy retains recovery records
+PASS file_copy retained snapshots contain original target and required source bytes
+PASS file_copy reports the actual partial filesystem state
+PASS file_move partial copy retains recovery records
+PASS file_move retained snapshots contain original target and required source bytes
+PASS file_move reports the actual partial filesystem state
+PASS cross-volume source deletion failure preserves both snapshots and both files
+PASS cross-volume commit finishes source deletion after late cancellation
+PASS cancelled EXDEV transition never begins fallback copy
+PASS copy preparation failure removes only its current checkpoint and retains earlier same-path entry
+PASS failed case-only restoration reports retained recovery path
+PASS failed case-only restoration retains source snapshot
+PASS copy is queued before source identity changes
+PASS source identity is refreshed inside lock before same-file classification
+
+FILE MUTATION RECOVERY E2E: ALL PASS

@@ -1,0 +1,29 @@
+✔ preparation commits only hashes/identities before returning an immutable dispatchable value (6.90275ms)
+✔ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (7.966542ms)
+✔ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (11.249625ms)
+✔ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (6.224625ms)
+✔ ordinary returned results require matching actual worker/tool/argument and terminal facts (19.3555ms)
+✔ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (4.321ms)
+✔ client replacement or lost ownership prevents a preparation being used for dispatch (4.395875ms)
+✔ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (2.36525ms)
+✔ corrupt, missing and replaced storage is refused rather than reinitialized as empty (2.052167ms)
+✔ capacity refuses without pruning any unresolved row (15.989292ms)
+✔ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (4.176ms)
+✔ unknown records cannot be retired even if a caller confirms closure (4.439916ms)
+✔ client facts and receipt content are snapshotted before asynchronous ledger IO (2.390291ms)
+✔ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (2.937917ms)
+✔ two live authorities for the same canonical directory cannot create independent write chains (3.107041ms)
+✔ strict root record validation rejects contradictory returned-unknown state without resetting the file (2.850416ms)
+✔ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (4.1005ms)
+✔ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (5.581583ms)
+✔ loss of authority during the actual write cannot return a dispatchable preparation (1.4045ms)
+✔ ordinary business exit codes remain result data and are not invented as receipt flags (2.129333ms)
+✔ receipt code projection uses Python code points and preserves astral-boundary distinctions (7.627125ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 219.905667

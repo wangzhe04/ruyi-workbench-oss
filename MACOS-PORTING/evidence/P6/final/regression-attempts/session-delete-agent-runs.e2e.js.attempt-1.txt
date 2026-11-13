@@ -1,0 +1,18 @@
+PASS 后台班组已登记并进入 provider
+PASS 其它线程在待删班组挂起时照常执行
+PASS 删除并清关联记录成功
+PASS 删除请求停止对应班组
+PASS 删除之后依赖的后续节点没有调用 provider
+PASS 被停班组完成收尾并撤销注册
+PASS purge 后收尾和迟到快照/事件都不复活目录
+PASS 会话本身没有复活
+PASS 其它线程和任务历史保持可用
+PASS 普通删除也停止后续节点
+PASS purge=false 保留停止终稿
+PASS purge=false 保留停止请求和收尾事件
+PASS 清盘等已开始的事件写链,不提前删除目录
+PASS 已开始的事件落完之后清盘成功
+PASS 启动预检 await 期间删线程,工作流拒绝注册
+PASS 启动在飞的班组不调模型也不重建目录
+
+SESSION DELETE AGENT RUNS E2E: ALL PASS

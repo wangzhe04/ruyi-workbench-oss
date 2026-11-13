@@ -1,0 +1,72 @@
+Collecting python-pptx>=0.6.23
+  Using cached python_pptx-1.0.2-py3-none-any.whl.metadata (2.5 kB)
+Collecting matplotlib>=3.8.0
+  Using cached matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl.metadata (80 kB)
+Collecting reportlab>=4.0.0
+  Using cached reportlab-5.1.0-py3-none-any.whl.metadata (1.6 kB)
+Collecting Pillow>=3.3.2 (from python-pptx>=0.6.23)
+  Using cached pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (9.1 kB)
+Collecting XlsxWriter>=0.5.7 (from python-pptx>=0.6.23)
+  Using cached xlsxwriter-3.3.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting lxml>=3.1.0 (from python-pptx>=0.6.23)
+  Using cached lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl.metadata (3.3 kB)
+Collecting typing-extensions>=4.9.0 (from python-pptx>=0.6.23)
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting contourpy>=1.0.1 (from matplotlib>=3.8.0)
+  Using cached contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (3.8 kB)
+Collecting cycler>=0.10 (from matplotlib>=3.8.0)
+  Using cached cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+Collecting fonttools>=4.28.2 (from matplotlib>=3.8.0)
+  Using cached fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl.metadata (139 kB)
+Collecting kiwisolver>=1.3.1 (from matplotlib>=3.8.0)
+  Using cached kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (5.2 kB)
+Collecting numpy>=1.25 (from matplotlib>=3.8.0)
+  Using cached numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl.metadata (6.6 kB)
+Collecting packaging>=20.0 (from matplotlib>=3.8.0)
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pyparsing>=3 (from matplotlib>=3.8.0)
+  Using cached pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+Collecting python-dateutil>=2.7 (from matplotlib>=3.8.0)
+  Downloading python_dateutil-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+Collecting charset-normalizer (from reportlab>=4.0.0)
+  Using cached charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (46 kB)
+Collecting tzdata (from python-dateutil>=2.7->matplotlib>=3.8.0)
+  Using cached tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Using cached python_pptx-1.0.2-py3-none-any.whl (472 kB)
+Using cached matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl (9.3 MB)
+Using cached reportlab-5.1.0-py3-none-any.whl (2.0 MB)
+Using cached contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl (284 kB)
+Using cached cycler-0.12.1-py3-none-any.whl (8.3 kB)
+Using cached fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl (3.1 MB)
+Using cached kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl (64 kB)
+Using cached lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl (8.6 MB)
+Using cached numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl (5.5 MB)
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Using cached pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl (4.9 MB)
+Using cached pyparsing-3.3.3-py3-none-any.whl (126 kB)
+Downloading python_dateutil-4.0.0-py3-none-any.whl (92 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Using cached xlsxwriter-3.3.1-py3-none-any.whl (180 kB)
+Using cached charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl (367 kB)
+Using cached tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Saved /private/tmp/ruyi-p3-office-wheels/python_pptx-1.0.2-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p3-office-wheels/reportlab-5.1.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p3-office-wheels/cycler-0.12.1-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl
+Saved /private/tmp/ruyi-p3-office-wheels/kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p3-office-wheels/lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl
+Saved /private/tmp/ruyi-p3-office-wheels/numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl
+Saved /private/tmp/ruyi-p3-office-wheels/packaging-26.3-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl
+Saved /private/tmp/ruyi-p3-office-wheels/pyparsing-3.3.3-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/python_dateutil-4.0.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/typing_extensions-4.16.0-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/xlsxwriter-3.3.1-py3-none-any.whl
+Saved /private/tmp/ruyi-p3-office-wheels/charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl
+Saved /private/tmp/ruyi-p3-office-wheels/tzdata-2026.6-py2.py3-none-any.whl
+Successfully downloaded python-pptx matplotlib reportlab contourpy cycler fonttools kiwisolver lxml numpy packaging Pillow pyparsing python-dateutil typing-extensions XlsxWriter charset-normalizer tzdata
+
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python -m pip install --upgrade pip

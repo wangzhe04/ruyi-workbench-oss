@@ -1,0 +1,185 @@
+'use strict';
+// Interactive native-host fixture. Drive its visible UI through CUA, then create quit.txt
+// in the printed output directory. Business data and all opened documents are fixtures.
+require('../../dev-harness/lib/self-isolate-home.js');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const cp = require('node:child_process');
+const zlib = require('node:zlib');
+const http = require('node:http');
+const { fixtureChildEnv } = require('../../dev-harness/lib/fixture-home');
+const { killOwnTree } = require('../../dev-harness/lib/kill-own-tree');
+const wb = path.resolve(__dirname, '../../ruyi-workbench');
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-host-ui-'));
+const fixture = fixtureChildEnv({ perTest: true });
+// VS Code's macOS IPC socket must fit sockaddr_un even when the system tmpdir is long.
+const uiHome = fs.mkdtempSync('/tmp/ruyi-e2e-home-');
+const localAppData = path.join(uiHome, 'AppData', 'Local');
+const roamingAppData = path.join(uiHome, 'AppData', 'Roaming');
+for (const directory of [localAppData, roamingAppData]) fs.mkdirSync(directory, { recursive: true });
+Object.assign(fixture.env, { HOME: uiHome, USERPROFILE: uiHome, LOCALAPPDATA: localAppData, APPDATA: roamingAppData });
+const codeSettings = path.join(uiHome, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
+fs.mkdirSync(path.dirname(codeSettings), { recursive: true });
+fs.writeFileSync(codeSettings, JSON.stringify({ 'editor.accessibilitySupport': 'off',
+  'diffEditor.renderSideBySide': true, 'diffEditor.useInlineViewWhenSpaceIsLimited': false }));
+const data = path.join(fixture.home, 'data');
+const workspace = path.join(fixture.home, 'P4 原生交互工作区');
+const alternate = path.join(fixture.home, 'P4 选择目标文件夹');
+for (const directory of [data, workspace, alternate]) fs.mkdirSync(directory);
+const revealFile = path.join(workspace, 'P4 Finder 可见定位.txt');
+const editorFile = path.join(workspace, 'P4-editor.py');
+const chosenFile = path.join(alternate, 'P4 选择验收文件.txt');
+fs.writeFileSync(revealFile, 'P4 controlled Finder selection\n');
+fs.writeFileSync(editorFile, 'answer = 42\n');
+fs.writeFileSync(chosenFile, 'P4 controlled file selection\n');
+fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({
+  configSchema: require(path.join(wb, 'app/server')).CONFIG_SCHEMA,
+  defaultWorkspace: workspace, workspaces: [{ path: workspace }, { path: alternate }], providers: [],
+  stewardEnabledV1: false, schedulerEnabledV1: false, autoImportClaudeCodeMcp: false,
+  includeWorkbenchMcp: false, enableMcpDropIn: false, desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [],
+}));
+const script = path.join(root, 'ui.js');
+const report = path.join(root, 'report.json');
+fs.writeFileSync(script, `
+const net = await import('/js/net.js');
+const host = await import('/js/host-bridge.js');
+const { parseEventStreamBlock } = await import('/js/event-stream.js');
+const api = host.withHostPickers(net.api);
+const lifecycle = { suspends: 0, wakes: 0, streams: [], frames: [] };
+const drops = { events: [], requests: [], sends: 0 };
+document.addEventListener('drop', event => {
+  drops.events.push({ trusted: event.isTrusted, types: [...event.dataTransfer.types],
+    entries: [...event.dataTransfer.items].map(item => {
+      const entry = item.webkitGetAsEntry?.();
+      return { kind: item.kind, name: entry?.name, file: entry?.isFile, directory: entry?.isDirectory };
+    }) });
+}, true);
+window.addEventListener('ruyi:host-suspend', () => lifecycle.suspends++);
+window.addEventListener('ruyi:host-wake', () => lifecycle.wakes++);
+async function observeFrames(response) {
+  const reader = response.clone().body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = '';
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      buffered += decoder.decode(part.value, {stream:true});
+      const blocks = buffered.split('\\n\\n'); buffered = blocks.pop();
+      for (const block of blocks) {
+        const frame = parseEventStreamBlock(block);
+        if (frame) lifecycle.frames.push({event:frame.event,id:frame.id || ''});
+      }
+      lifecycle.frames = lifecycle.frames.slice(-20);
+    }
+  } catch { /* Wake and shutdown can abort the old stream. */ }
+  finally { reader.releaseLock(); }
+}
+const originalFetch = window.fetch;
+window.fetch = function(input, options) {
+  const url = String(typeof input === 'string' ? input : input?.url || '');
+  if (/\\/api\\/(chat\\/stream|steer|steward\\/(message|act))/.test(url)) drops.sends++;
+  if (url === '/api/upload' || url === '/api/workspace/resolve') {
+    const body = JSON.parse(options?.body || '{}');
+    const entry = { path: url, body: url === '/api/upload'
+      ? { name: body.name, encodedBytes: body.data?.length } : body };
+    drops.requests.push(entry);
+    return originalFetch.call(this, input, options).then(response => {
+      entry.status = response.status;
+      response.clone().json().then(result => { entry.result = result; }).catch(() => {});
+      return response;
+    });
+  }
+  if (!url.includes('/api/events/stream')) return originalFetch.call(this, input, options);
+  const entry = {
+    path: '/api/events/stream', lastEventId: new Headers(options?.headers).get('Last-Event-ID'),
+  };
+  lifecycle.streams.push(entry);
+  return originalFetch.call(this, input, options).then(response => {
+    entry.ok = response.ok; entry.status = response.status;
+    if (response.ok && response.body) observeFrames(response).catch(() => {});
+    return response;
+  }, error => { entry.error = error.name; throw error; });
+};
+const created = await api('/api/sessions', {method:'POST',body:JSON.stringify({title:'P4 原生交互验收',cwd:${JSON.stringify(workspace)}})});
+const sessionId = created.session.id;
+const bar = document.createElement('section'); bar.style.cssText='position:fixed;bottom:8px;left:8px;z-index:99999;background:#202b42;padding:12px;border:1px solid #87a9ff;color:white;max-width:88vw';
+const output = document.createElement('output'); output.setAttribute('aria-live','polite'); output.style.display='block';
+const button = (label, action) => {
+  const b = document.createElement('button'); b.textContent = label;
+  b.onclick = async () => {
+    try { output.textContent = JSON.stringify(await action()); }
+    catch(error) { output.textContent = String(error); }
+  };
+  bar.appendChild(b);
+};
+button('选择验收文件',()=>api('/api/pick-file',{method:'POST',body:JSON.stringify({filter:'文本 (*.txt)|*.txt'})}));
+button('定位验收文件',()=>api('/api/file/reveal',{method:'POST',body:JSON.stringify({sessionId,path:${JSON.stringify(revealFile)},mode:'select'})}));
+button('打开验收编辑器',()=>api('/api/checkpoints/open-external',{method:'POST',body:JSON.stringify({sessionId,turnSeq:1,entrySeq:0,action:'open'})}));
+button('打开验收差异',()=>api('/api/checkpoints/open-external',{method:'POST',body:JSON.stringify({sessionId,turnSeq:1,entrySeq:0,action:'diff'})}));
+button('发送验收通知',()=>host.hostRequest('notify',{id:'ruyi-p4-ui-fixture',title:'如意 P4 通知验收',body:'仅用于本机开发验收的通知。'}));
+button('读取通知权限',async()=>({permission:await host.refreshHostPermissions(),os:await host.hostRequest('notificationStatus')}));
+button('读取唤醒状态',()=>lifecycle);
+button('读取拖放状态',()=>drops);
+const link = document.createElement('a');
+link.textContent = '打开验收外链'; link.href = '__P4_HANDOFF_URL__'; link.target = '_blank';
+bar.appendChild(link);
+bar.appendChild(output);document.body.appendChild(bar);
+return {sessionId};`);
+fs.writeFileSync(path.join(root, 'fixture.json'), JSON.stringify({ root, home: uiHome, data, workspace, alternate, revealFile, editorFile, chosenFile, report }, null, 2));
+let child;
+const handoffServer = http.createServer((request, response) => {
+  if (request.method !== 'GET' || request.url !== '/p4-external-handoff') {
+    response.writeHead(404); response.end(); return;
+  }
+  response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  response.end('<!doctype html><title>P4 外链验收</title><p>如意 P4 本机外链已交给默认浏览器。</p>');
+});
+let quitting = false;
+let ready = false;
+const timer = setInterval(() => {
+  if (!ready) {
+    try {
+      const result = JSON.parse(fs.readFileSync(report));
+      if (result.state === 'ready') {
+        ready = true;
+        const id = result.page.additional.sessionId;
+        const journal = path.join(data, 'checkpoints', id);
+        fs.mkdirSync(journal, { recursive: true });
+        fs.writeFileSync(path.join(journal, '1-0.gz'), zlib.gzipSync('answer = 41\n'));
+        fs.writeFileSync(path.join(journal, 'index.json'), JSON.stringify([
+          { turnSeq: 1, entrySeq: 0, tool: 'turn_baseline', path: editorFile, op: 'modify', bytes: 12, ts: new Date().toISOString() },
+        ]));
+        console.log('Interactive fixture ready ' + root);
+      }
+    } catch { /* Wait for the atomic readiness report. */ }
+  }
+  if (!quitting && fs.existsSync(path.join(root, 'quit.txt'))) { quitting = true; child.kill('SIGTERM'); }
+}, 100);
+(async () => {
+  try {
+    await new Promise((resolve, reject) => {
+      handoffServer.once('error', reject);
+      handoffServer.listen(0, '127.0.0.1', resolve);
+    });
+    const handoffURL = 'http://127.0.0.1:' + handoffServer.address().port + '/p4-external-handoff';
+    fs.writeFileSync(script, fs.readFileSync(script, 'utf8').replace('__P4_HANDOFF_URL__', handoffURL));
+    console.log('External handoff fixture ' + handoffURL);
+    child = cp.spawn(path.join(wb, 'dist/Ruyi.app/Contents/MacOS/RuyiDesktop'),
+      ['--acceptance-report', report, '--acceptance-script', script], {
+        env: { ...process.env, ...fixture.env, RUYI_HOME: data, RUYI_NODE_PATH: process.execPath },
+        cwd: root, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    console.log('Interactive fixture ' + root);
+    child.stderr.on('data', value => process.stderr.write(value));
+    const exit = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', (code, signal) => resolve({ code, signal })); });
+    console.log(JSON.stringify(exit));
+    process.exitCode = exit.code === 0 ? 0 : 1;
+  } finally {
+    clearInterval(timer);
+    await killOwnTree(child);
+    handoffServer.closeAllConnections();
+    await new Promise(resolve => handoffServer.close(resolve));
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });

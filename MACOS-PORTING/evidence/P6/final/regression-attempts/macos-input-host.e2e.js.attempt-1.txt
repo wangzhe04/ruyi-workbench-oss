@@ -1,0 +1,9 @@
+FAIL Error: Controlled App input acceptance timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:44:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-host.e2e.js:296:20
+PASS all observed App subtree identities are reaped on the final cleanup path
+PASS self-owned App event receiver is reaped
+
+MACOS INPUT HOST E2E: FAIL (1)
+
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-wzfvVA

@@ -1,0 +1,24 @@
+PASS fixture: 两条记忆落盘
+PASS relation_propose: 提议成功(kind=relation_propose)
+PASS relation_propose: 同回合先到者胜(alreadyPending)
+PASS relation_propose: 非法 type 被拒
+PASS relation_propose: 幽灵 to 被拒
+PASS relation_propose: 敏感 note 被拒
+PASS apply relation_propose 成功
+PASS relation_propose: confirmed 边已写入(跳过 pending)
+PASS memory_revise: 提议成功(kind=memory_revise)
+PASS memory_revise: 目标不存在被拒
+PASS memory_revise: 无修改字段被拒
+PASS memory_revise: 敏感 body 被拒
+PASS apply memory_revise 成功
+PASS memory_revise: 覆盖后 id/createdAt 保留
+PASS memory_revise: 正文已覆盖为修订后内容
+PASS revoke fixture: 建一条 pending 边
+PASS revoke fixture: confirm 成 confirmed 边
+PASS relation_revoke: 提议成功(kind=relation_revoke)
+PASS relation_revoke: 关系不存在被拒
+PASS apply relation_revoke 成功
+PASS relation_revoke: 边已删除
+PASS apply: 不存在的 proposal 被拒
+
+MEMORY-MAINTENANCE E2E: ALL PASS

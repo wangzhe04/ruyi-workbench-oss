@@ -1,0 +1,385 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T09:12:38.075Z",
+  "implementationCommit": "3279b83d880a84be1e4fa86ae4e1aed80ef740bc",
+  "applicationSourceCommit": "f059b7ebe30843386b7ab648f7ffad41b37db6de",
+  "environment": {
+    "macOS": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "node": "v24.15.0",
+    "arch": "arm64",
+    "uid": 501,
+    "groups": "staff everyone localaccounts _appserverusr admin _appserveradm _lpadmin com.apple.sharepoint.group.2 _appstore _lpoperator _developer _analyticsusers com.apple.access_ftp com.apple.access_screensharing com.apple.access_ssh com.apple.access_remote_ae com.apple.sharepoint.group.1",
+    "scope": "Current admin-group UID, isolated temporary HOME and Applications path, no elevated install"
+  },
+  "userScopeDecision": "User has no Apple Developer account or clean standard account/Mac; explicitly selected current-account isolated installation acceptance. Actual downloaded-origin Gatekeeper approval deferred.",
+  "codeReview": {
+    "result": "passed",
+    "sourceBindings": [
+      {
+        "file": "ruyi-workbench/tools/package-macos-trial.js",
+        "sha256": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+        "unchanged": true
+      },
+      {
+        "file": "ruyi-workbench/tools/macos-offline-lib.js",
+        "sha256": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+        "unchanged": true
+      },
+      {
+        "file": "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt",
+        "sha256": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+        "unchanged": true
+      },
+      {
+        "file": "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt",
+        "sha256": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+        "unchanged": true
+      },
+      {
+        "file": "dev-harness/macos-trial-install.e2e.js",
+        "sha256": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+        "unchanged": true
+      },
+      {
+        "file": "dev-harness/macos-offline-package.e2e.js",
+        "sha256": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+        "unchanged": true
+      },
+      {
+        "file": "dev-harness/unit/macos-trial-package.test.js",
+        "sha256": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+        "unchanged": true
+      }
+    ],
+    "committedBindings": [
+      {
+        "file": "ruyi-workbench/tools/package-macos-trial.js",
+        "expected": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+        "current": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+        "committed": "32805dcdcfb0a0b5eea0772f752031c3dee1d9e50e77ba6921a08ce45578a8f9",
+        "pass": true
+      },
+      {
+        "file": "ruyi-workbench/tools/macos-offline-lib.js",
+        "expected": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+        "current": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+        "committed": "206cda668ee8e5bc6d5a29e923023aa7dab4c1b61eb7a5f0710ec42bbdc3543d",
+        "pass": true
+      },
+      {
+        "file": "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt",
+        "expected": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+        "current": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+        "committed": "e8c0ea237da1f62108e836294f77a3508dbd0e31ad2d037624444c46f920d1f6",
+        "pass": true
+      },
+      {
+        "file": "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt",
+        "expected": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+        "current": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+        "committed": "15f2fb0d2769d6d54abd10f9603974a67475f3bfaac2ac68b9c833ea9e0d1976",
+        "pass": true
+      },
+      {
+        "file": "dev-harness/macos-trial-install.e2e.js",
+        "expected": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+        "current": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+        "committed": "a67e709374447e2ed709f300500f6c8970f4e48f6e049f28b99c9af30c66a699",
+        "pass": true
+      },
+      {
+        "file": "dev-harness/macos-offline-package.e2e.js",
+        "expected": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+        "current": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+        "committed": "dcc2c389d335b11a639da1030de62004ae3f3be60f938b585739c1193f677a3b",
+        "pass": true
+      },
+      {
+        "file": "dev-harness/unit/macos-trial-package.test.js",
+        "expected": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+        "current": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+        "committed": "92639764667502468bb36619284b0f5ca8963ebef30593085db83f51ea753d97",
+        "pass": true
+      }
+    ],
+    "findings": [
+      {
+        "id": "R1",
+        "finding": "P6-01 Resources-contained native code is not fully sealed by the outer Ruyi deep verification.",
+        "independentEvidence": {
+          "native": 209,
+          "unsigned": 18,
+          "missingResourceSeals": 10,
+          "report": "review-probes/signatures-before.json"
+        },
+        "resolution": "Current signer verifies every native target, explicitly repairs 18 unsigned native extensions and 10 Chromium missing-resource-seal containers inside-out, then seals/verifies outer Ruyi. Independently validated on the final committed Full/Slim DMGs: 209/6 native objects or resource-bearing containers passed verification and each final isolated installation/offline journey passed.",
+        "status": "closed_in_reviewed_code"
+      },
+      {
+        "id": "R2",
+        "finding": "Output reservation before temporary allocation was outside cleanup try.",
+        "before": {
+          "name": "output reservation before try",
+          "error": "injected temporary-directory allocation failure",
+          "outputRemains": true
+        },
+        "after": {
+          "name": "output reservation before try",
+          "error": "injected temporary-directory allocation failure",
+          "outputRemains": false
+        },
+        "status": "closed_in_reviewed_code"
+      },
+      {
+        "id": "R3",
+        "finding": "Post-attach metadata parse failure leaked an owned mounted image.",
+        "before": {
+          "name": "attach plist conversion failure",
+          "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+          "stillMounted": true
+        },
+        "after": {
+          "name": "attach plist conversion failure",
+          "error": "Unexpected token 'o', \"not JSON\" is not valid JSON",
+          "stillMounted": false
+        },
+        "status": "closed_in_reviewed_code",
+        "binding": "431cdd9632dcc8b3b7ad98cd305e3ad03f7872f244bd8c7cae3932631323a7a5"
+      },
+      {
+        "id": "R4",
+        "finding": "Repeated wrapper provenance fields could disagree while verification passed.",
+        "status": "closed_in_reviewed_code"
+      },
+      {
+        "id": "R5",
+        "finding": "Gatekeeper assessor timeout or spawn error could satisfy status !== 0.",
+        "status": "closed_in_reviewed_code",
+        "resolution": "spctl result is preserved as INFO only; it is no longer a passing Gatekeeper assertion, and actual downloaded-origin approval remains explicitly unverified."
+      },
+      {
+        "id": "R6",
+        "finding": "DMG checksum failure printed FAIL but continued mounting and launching.",
+        "status": "closed_in_reviewed_code",
+        "resolution": "verifyDistribution validates regular metadata/image/sidecar, exact hashes and provenance before mount; checksum FAIL stops immediately."
+      }
+    ],
+    "remainingBlockingCodeFindings": [],
+    "independentChecks": {
+      "unit": {
+        "pass": 5,
+        "fail": 0,
+        "skip": 0,
+        "log": "review-probes/unit-frozen.txt"
+      },
+      "cleanup": {
+        "pass": 2,
+        "fail": 0,
+        "report": "review-probes/cleanup-after.json"
+      },
+      "nativeAndAliasPreflight": {
+        "pass": 4,
+        "fail": 0,
+        "codeSignCallsBeforeReject": 0,
+        "report": "review-probes/native-inventory.json"
+      }
+    }
+  },
+  "artifacts": [
+    {
+      "variant": "full",
+      "image": "Ruyi-macos-arm64-full-internal-trial.dmg",
+      "imageBytes": 584255996,
+      "imageSha256": "46529feb8230abc7c5ccbec47eaf8f4f8dfaf678407d3acb93be4565a413387a",
+      "appTreeSha256": "73e3f6c1b11d348621d368560358affe4e3620c475232c41bd71574838e9b29d",
+      "sourceManifestSha256": "c1098d286b9a85a290270d35cc43662dc6f77ff06b4f7ce832ce0c8dc4c91a7f",
+      "sourceTreeSha256": "c65e1aa5e09f9091a44c1da4832d2fe02a550c331223e8e351eba20459e08e66",
+      "nativeObjects": 209,
+      "allNativeObjectsOrContainersCodesignVerified": true,
+      "signatureChanges": {
+        "previouslyUnsigned": 18,
+        "missingResourceSealContainers": 10
+      },
+      "sourceFingerprintCount": 484,
+      "checks": {
+        "applicationSourceCommit": true,
+        "packagerCommit": true,
+        "inputManifest": true,
+        "inputTree": true,
+        "sourceFingerprint": true,
+        "packagerFingerprint": true,
+        "nativeCount": true
+      },
+      "unchangedAfterAcceptance": true,
+      "installation": {
+        "exitCode": 0,
+        "pass": 12,
+        "fail": 0,
+        "allPass": true,
+        "fixture": "runs/independent-full/",
+        "evidence": "runs/independent-full/acceptance.json",
+        "nativeReady": true,
+        "launchServicesReady": true,
+        "originalFixturePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-G2zO4R",
+        "log": "independent-full.txt"
+      },
+      "offlineJourney": {
+        "pass": 19,
+        "fail": 0,
+        "allPass": true,
+        "fixture": "runs/independent-full/offline/",
+        "evidence": "runs/independent-full/offline-journey.txt",
+        "originalFixturePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-TzTwf4"
+      },
+      "gatekeeperAssessment": {
+        "classification": "INFO only; not acceptance",
+        "status": 3,
+        "stderr": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7V71i0/Applications/试用 安装😀/Ruyi.app: rejected\n"
+      }
+    },
+    {
+      "variant": "slim",
+      "image": "Ruyi-macos-arm64-slim-internal-trial.dmg",
+      "imageBytes": 51621693,
+      "imageSha256": "b40be048e49aa4dc4758d45ceb63edcc45a81b0f23f9f4cf75fda5806c09a9f9",
+      "appTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "sourceManifestSha256": "2664d58086cdb871b5f3094368f5e2b0b794278b3b395318101c3e99f3593f20",
+      "sourceTreeSha256": "1de8258fc18402ef6ad20cd706b91eb04724c8a2bd0308e298382f01b2e643ad",
+      "nativeObjects": 6,
+      "allNativeObjectsOrContainersCodesignVerified": true,
+      "signatureChanges": {
+        "previouslyUnsigned": 0,
+        "missingResourceSealContainers": 0
+      },
+      "sourceFingerprintCount": 484,
+      "checks": {
+        "applicationSourceCommit": true,
+        "packagerCommit": true,
+        "inputManifest": true,
+        "inputTree": true,
+        "sourceFingerprint": true,
+        "packagerFingerprint": true,
+        "nativeCount": true
+      },
+      "unchangedAfterAcceptance": true,
+      "installation": {
+        "exitCode": 0,
+        "pass": 12,
+        "fail": 0,
+        "allPass": true,
+        "fixture": "runs/independent-slim/",
+        "evidence": "runs/independent-slim/acceptance.json",
+        "nativeReady": true,
+        "launchServicesReady": true,
+        "originalFixturePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-trial-install-3WgQ5I",
+        "log": "independent-slim.txt"
+      },
+      "offlineJourney": {
+        "pass": 7,
+        "fail": 0,
+        "allPass": true,
+        "fixture": "runs/independent-slim/offline/",
+        "evidence": "runs/independent-slim/offline-journey.txt",
+        "originalFixturePath": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-offline-acceptance-8uDJwF"
+      },
+      "gatekeeperAssessment": {
+        "classification": "INFO only; not acceptance",
+        "status": 3,
+        "stderr": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ifdcvK/Applications/试用 安装😀/Ruyi.app: rejected\n"
+      }
+    }
+  ],
+  "cleanup": {
+    "time": "2026-11-12T09:11:04.832Z",
+    "ownedProcessLines": [],
+    "ownedMountedImages": [],
+    "reports": [
+      {
+        "file": "runs/independent-full/acceptance.json",
+        "pids": [
+          98893,
+          98900,
+          98941,
+          98945
+        ],
+        "presentInSnapshot": []
+      },
+      {
+        "file": "runs/independent-slim/acceptance.json",
+        "pids": [
+          99199,
+          99203,
+          99233,
+          99236
+        ],
+        "presentInSnapshot": []
+      },
+      {
+        "file": "runs/independent-full/offline/acceptance.json",
+        "pids": [],
+        "presentInSnapshot": []
+      },
+      {
+        "file": "runs/independent-full/offline/host.json",
+        "pids": [
+          99124,
+          99127
+        ],
+        "presentInSnapshot": []
+      },
+      {
+        "file": "runs/independent-slim/offline/acceptance.json",
+        "pids": [],
+        "presentInSnapshot": []
+      },
+      {
+        "file": "runs/independent-slim/offline/host.json",
+        "pids": [
+          99291,
+          99294
+        ],
+        "presentInSnapshot": []
+      }
+    ],
+    "pass": true
+  },
+  "verifiedBehavior": [
+    "real final DMG and checksum/provenance agreement",
+    "hdiutil verify and actual readonly mount",
+    "all actual native targets retain valid signatures after explicit unsigned/seal repair and outer ad-hoc sealing",
+    "normal complete App copy into isolated Unicode user Applications path",
+    "existing target refused without replacing bytes",
+    "DMG eject followed by native and LaunchServices ready startup without configured external Node",
+    "separate business data survives relaunch and App-only removal",
+    "installed and source payloads unchanged after actual workbench/MCP/native journeys",
+    "Full actual DOCX/PPTX/XLSX/PDF/chart and Chromium journeys with source/developer-path/public-network denial",
+    "Slim accurately omits unavailable Full dependencies",
+    "all owned observed application/service PIDs and mounts gone"
+  ],
+  "notAccepted": [
+    "Developer ID identity and formal distribution signing",
+    "Apple notarization and stapling",
+    "actual browser-downloaded/quarantined-origin Gatekeeper approval",
+    "real clean standard-user first installation",
+    "macOS 14 runtime compatibility",
+    "Keychain/TCC recovery",
+    "upgrades and rollback",
+    "Windows full CI"
+  ],
+  "securityPolicyChanges": [],
+  "artifactsAndInputsStable": true,
+  "pass": true,
+  "conclusion": "PASS for the user-authorized local/internal trial current-account isolated installation scope. Formal/public distribution and deferred acceptance gates remain unverified.",
+  "evidence": {
+    "sourceReview": "code-review.json",
+    "committedBinding": "review-probes/committed-source-binding.json",
+    "provenanceBefore": "review-probes/final-provenance-before.json",
+    "provenanceAfter": "review-probes/final-provenance-after.json",
+    "cleanup": "review-probes/cleanup-final.json",
+    "unit": "review-probes/unit-frozen.txt",
+    "negativeNativeInventory": "review-probes/native-inventory.json",
+    "negativeRealMountCleanup": "review-probes/cleanup-after.json"
+  },
+  "evidencePathBase": "Paths in evidence/report/log/file fields are relative to this archive directory; sourceBindings paths are repository-relative. originalFixturePath and raw diagnostic stderr preserve execution-time paths."
+}

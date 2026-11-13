@@ -1,0 +1,40 @@
+{
+  "at": "2026-11-11T08:33:16.602388+00:00",
+  "executor": "/root/p5_acceptance",
+  "head": "76248e2be527d74f38b227a7dc8158e4b59dbbc6",
+  "sourceCount": 106,
+  "allFrozenSourcesAndObserverStillMatch": true,
+  "authorization": "Parent explicitly authorized one independent Finder execution after user closed existing Finder windows. GUI reserved to this executor.",
+  "priorPrecondition": "Primary finder-v1 rejected existing AXWindow before controlled open/helper build; original failure remains retained.",
+  "changedPrecondition": "User explicitly closed existing windows; primary shallow diagnostic and finder-v2 now confirm windowless precondition. This is a changed environment, not a source fix or overwrite of v1.",
+  "finderWillCheckItsOwnBaselineAgain": true,
+  "priorEvidence": [
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v1/report.json",
+      "bytes": 916,
+      "sha256": "7f5e2c2c2613c78776dcd011e1e3b3eda6b3a3b6fe42ca36d9e8183468864e77"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-v2/report.json",
+      "bytes": 6160,
+      "sha256": "64e085fec73ae9d6fa900ed8734b7df50b81a03fc9db35b264c0762d9214968c"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/development/finder-baseline-diagnostic/after-user-response.json",
+      "bytes": 650,
+      "sha256": "fcc549e7cf8c1a2538bfc9a748e68c942e5f226e050bbde540dd24a2d48f5b15"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/acceptance-review.json",
+      "bytes": 14970,
+      "sha256": "6c7eee8a2b100a29b4fe4f8e5cf1e8895fdabf70e00f84be0930c6dee1d6a576"
+    },
+    {
+      "path": "/Users/jiming/Documents/ruyi-workbench-mac/MACOS-PORTING/evidence/P5/selected-current/independent-v1/report.json",
+      "bytes": 15281,
+      "sha256": "1e74fa77f958a5c4dd2a1112bb723ec4a406f7dadaa8cf9346cfe8bd82061157"
+    }
+  ],
+  "originalDefaultRendererReportsUnchanged": true,
+  "phaseStatus": "in_progress"
+}

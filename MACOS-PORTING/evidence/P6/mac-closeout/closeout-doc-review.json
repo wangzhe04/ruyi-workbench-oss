@@ -1,0 +1,1323 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-12T16:02:48.503716+00:00",
+  "kind": "Read-only final documentation/evidence audit before actual power-release actions",
+  "result": "pass_documentation_and_evidence_review",
+  "findings": [],
+  "reviewedBindings": [
+    {
+      "path": "MACOS-PORTING/README.md",
+      "sha256": "ff69bedcfb7e83150a392c519a81d37bb696a636666b17f2b4100c5e819f7ffa"
+    },
+    {
+      "path": "MACOS-PORTING/07-P6-RELEASE.md",
+      "sha256": "f64646851f8a2e5f5ad92a8d58a27a71bab43c2825805958350ab1bf2c094f1a"
+    },
+    {
+      "path": "MACOS-PORTING/10-TRACKING.md",
+      "sha256": "4453318c1a235f2e68e6a8d7a6aa4e42ff611874f4364a9809c70eaea1b3ef01"
+    },
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "sha256": "73034b46bd306bc47d2a66bb7ac3134c384bafeb5a528a06346eb51b5faa4521"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+      "sha256": "63c5b2a6aebf5098044603fbf59c988b4bd672d331a84a68dbff6b38644fb220"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/REGRESSION.md",
+      "sha256": "d2fe0bbc9aaf1dbd576d97a8a91e3ff0ec496a76f62fd8f00f6f8c3db32b1bc1"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/validation.json",
+      "sha256": "98ab66e5ae3e7f35da038710c0efa40ee32bdfca965c6626e8e7d7db2b4f0149"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/regression-coverage.json",
+      "sha256": "918db373fe4e6c491a191ea492966cbecefc62b9f62b3bbe2c43a23f090e28e9"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/regression-composite.json",
+      "sha256": "b90da842d6fea51fd756d2478cec0700b0e7811f138a53ba1a04f0c77687ac8f"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/artifact-binding.json",
+      "sha256": "3ea2318a21908892e661450c3a9780105beea9c70d5902f62e5bba9eec8e3bdd"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/source-freeze-package.json",
+      "sha256": "f3ce7ff7523cb53c0897f129d6de8670d04950985f5c011096a490c759ffb615"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/independent-closeout/review.json",
+      "sha256": "a1c6a48dcaab0803151448ef03c95e63c7c86f0e615fea90419a8561809c5fdc"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/independent-packages/review.json",
+      "sha256": "e2478d81dd43463849ef1b7a083944dff21174006b903eee27f5c6e1b9472696"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/pruned-development-candidates/cleanup.json",
+      "sha256": "f97af4b7eee081288351581940e4c0b696642a1014baf3eb028eb2efbc5a8692"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/archived-input-deduplication.json",
+      "sha256": "f81a256059d73a4c8baec3daa8bce5dcdb8ee3308a0dbd6400229a65a7bed713"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/power-release.json",
+      "sha256": "62a8ff3390e7dc83f4f0becd58c58dfce089c1c7c283a9e884efd7ee65dc5c28"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/sleep-request.json",
+      "sha256": "d0777af7582090a2247c07fa9c1d2694da3ca8e766bdad222ed0c2a26aeffeb1"
+    }
+  ],
+  "checks": {
+    "regression": {
+      "rawAttemptMetadataAndLogsChecked": 601,
+      "allRecordedRawLogSha256Match": true,
+      "actualSelectedSet": 594,
+      "repositoryInventory": 608,
+      "explicitLiveExcluded": 14,
+      "missingOrUnexpectedInventory": [],
+      "rawProcessSuccess": 588,
+      "rawProcessFailure": 6,
+      "rawRetryPass": 1,
+      "actualInternalSkipContainingFiles": 32,
+      "allRecordedSkipLinesMatchActualLogs": true,
+      "compositeRows": 594,
+      "compositeSuccess": 592,
+      "compositeUnpassed": [
+        "macos-capture-host.e2e.js",
+        "macos-input-host.e2e.js"
+      ],
+      "allCompositeOverrideEvidenceAndStatusesMatch": true,
+      "freshFinal594RunClaimed": false
+    },
+    "json": {
+      "parsedFiles": 714,
+      "invalidFiles": [],
+      "validationArtifactsExactlyMatchArtifactBinding": true,
+      "validationSourceAndFixtureMatchIndependentArtifactReview": true,
+      "P6TaskEvidenceReferencesChecked": 28,
+      "missingTaskEvidenceReferences": []
+    },
+    "links": {
+      "markdownFiles": 5,
+      "localTargetsChecked": 231,
+      "missing": [],
+      "targets": [
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P6/offline/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P6/mac-closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P6/mac-closeout/regression-composite.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P3/final-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P4/host/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "TASKS.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/manual/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/entry/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/selected-current/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/readiness/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/transition/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/remaining-audit.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/remaining-resolution-2026-11-11.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/remaining-resolution-2026-11-11-current.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/hard-abort/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/durable-history/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "11-P0-DECISIONS.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "01-P0-BASELINE.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "02-P1-RUNTIME.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "03-P2-AGENT-CORE.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "04-P3-DOCUMENT-BROWSER.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "05-P4-DESKTOP-APP.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "06-P5-AUTOMATION.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "07-P6-RELEASE.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "09-EFFORT-ESTIMATE.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "11-P0-DECISIONS.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "probes/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P0/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "00-ARCHITECTURE.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "08-VALIDATION.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "10-TRACKING.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "TASKS.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "../docs/MACOS-MIGRATION-AUDIT.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "../docs/MACOS-FILE-INVENTORY.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "../docs/MACOS-BASELINE-TESTS.txt",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P0/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P1/closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P2/final-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P3/acc-shared/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P3/office/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P3/final-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "05-P4-DESKTOP-APP.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P4/local-closeout.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P4/full-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P4/full-mac-acceptance/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/execution-receipts-wip/current-state.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/execution-receipts-wip/current-state.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/execution-receipts-wip/evidence/independent-balanced-input-v1/report.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/execution-receipts-wip/current-state.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/README.md",
+          "target": "evidence/P5/closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/package.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/tools/package-offline.ps1",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/tools/Manage-Overlay.ps1",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/app/src/13c-overlay-routes.js",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/app/src/13u-migration-center.js",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/resources/offline-manifest.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../mcp/ai-computer-control/installer",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../THIRD-PARTY-NOTICES.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../.github/workflows/e2e.yml",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/internal-trial/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/internal-trial/review-final.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/final/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/final/validation.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/docs/MACOS-RELEASE_CN.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/docs/MACOS-RELEASE_EN.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/final/REGRESSION.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/mac-closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "evidence/P6/mac-closeout/regression-composite.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "../ruyi-workbench/desktop-macos/OFFLINE-PACKAGING.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "10-TRACKING.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/07-P6-RELEASE.md",
+          "target": "08-VALIDATION.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/offline/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/internal-trial/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/mac-closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/mac-closeout/regression-composite.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P0/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "11-P0-DECISIONS.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P0/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P0/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/ownership/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/ownership/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/supervisor/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/process-integration/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/shell/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/files/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/helper-gate/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/helper-loss/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/capabilities/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/discovery-ui/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/worktree-runtime/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/cli-model-probe/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/process-handles/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/document-reader/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/media-runtime/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/rg-runtime/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/executable-probes/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/python-probes/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/synchronous-probe-audit/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/synchronous-probes/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/overlay-boundary/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/opener-completion/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/search-cancellation/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/path-cancellation/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/write-queue-cancellation/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/atomic-write-cancellation/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/file-mutation-recovery/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/temporary-cleanup/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/controlled-layout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/provider-stop/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/frozen-mac-regression/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P1/acceptance-audit.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/final-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/host/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/media/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/lifecycle/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/capture/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/events/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/apps/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ocr/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/composed/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/record/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/audit/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/entry/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/selected-current/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/readiness/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/transition/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/remaining-resolution-2026-11-11-current.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/mac-closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/mac-closeout/REGRESSION.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/entry/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/manual/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "TASKS.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "00-ARCHITECTURE.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "11-P0-DECISIONS.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/cli/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/keychain/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/core/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/bots/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/cli-live/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/kimi-lifecycle/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/claude-live/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/acceptance/HANDOFF.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/acceptance/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/local-closeout.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P2/final-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/acc-shared/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/office/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/browser/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/templates/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/acceptance/HANDOFF.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P3/final-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/media/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/lifecycle/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/workspace-alias/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/workspace-alias/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/unlocked-recovery/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/current-candidate/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/lifecycle/physical-system/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/editor-diff/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/media/physical/reporting-delay/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/media/physical/reporting-delay/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/bridge/native-drop/blocked-audit.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/local-closeout.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/final-scope-review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/local-closeout.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/full-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/full-mac-acceptance/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/full-mac-acceptance/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P4/full-mac-acceptance/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/capture/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/capture/independent-final-fixed/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/independent/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/events/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/events/independent/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/events/engineering.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/input/events/commit-binding.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/independent-final/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/engineering-final.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/commit-binding.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/apps/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/apps/bounded-wait/code-review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/apps/source-fingerprint-bounded.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/apps/final-delivery-review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ax/apps/commit-binding-review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ocr/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/ocr/independent/report.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/composed/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/composed/independent/report.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/record/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/audit/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/manual/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/manual/standard-mouse/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/selected-current/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/readiness/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/transition/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/hard-abort/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/durable-history/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/tool-effect-audit/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/remaining-resolution-2026-11-11-effects.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P5/closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/mac-closeout/README.md",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/10-TRACKING.md",
+          "target": "evidence/P6/mac-closeout/regression-composite.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "source-freeze-package.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "validation.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "regression-composite.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "regression-coverage.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "independent-closeout/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-full-p6-closeout/Ruyi-macos-arm64-full-internal-trial.dmg",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/Ruyi-macos-arm64-slim-p6-closeout/Ruyi-macos-arm64-slim-internal-trial.dmg",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "artifact-binding.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "independent-packages/review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "full-upgrade-enospc-protection.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "upgrade-staging-code-review.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "archived-input-deduplication.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "permission-qualification.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "power-release.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/README.md",
+          "target": "sleep-request.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/REGRESSION.md",
+          "target": "regression-coverage.json",
+          "exists": true
+        },
+        {
+          "file": "MACOS-PORTING/evidence/P6/mac-closeout/REGRESSION.md",
+          "target": "regression-composite.json",
+          "exists": true
+        }
+      ]
+    },
+    "phaseStatus": {
+      "P6": "in_progress",
+      "P6-04": "in_progress",
+      "fullOriginalP6Accepted": false,
+      "scope": "Local/internal candidate artifacts accepted only in recorded bounded scope. No authentication or original environment waiver inferred."
+    },
+    "artifacts": {
+      "productionAndPackagerCommit": "74d57c88681d32a3f31d115acecafbb5c55d77be",
+      "fixtureCommit": "b22837824d913f216a1733d55cc9f2cab8af850e",
+      "source54CurrentBindingsUnchanged": true,
+      "fingerprintSemantics": "492 actual checkout byte fingerprints use Git checkout filters for mandated CRLF; no claim of raw LF blob equality for batch/PowerShell files.",
+      "full": "normal install13/offline19/Trash12; explicit clone+checksummed-sync upgrade15. Actual normal second-copy ENOSPC remains failed and old/data protection documented.",
+      "slim": "normal install13/offline7/Trash12; ordinary-copy upgrade14.",
+      "newActualMainAndIndependentReceiptsPresent": true
+    },
+    "openQualifications": [
+      "Ruyi App-origin capture/AX/event authorization-positive tests denied and unpassed; basic package startup/direct Node input does not substitute.",
+      "Developer ID/notarization/stapling/formal hardened runtime; downloaded-origin Gatekeeper first approval; clean standard user/second Mac; macOS14 actual runtime; formal Keychain/TCC; Windows same-candidate; original P5 open scopes."
+    ],
+    "cleanup": {
+      "originalZipCount": 2,
+      "bothArchivesExistWithRecordedSizes": true,
+      "bothShaSidecarsContainRecordedOriginalHashes": true,
+      "redundantUnpackedDirectoriesAbsent": true,
+      "fullArchiveVsOriginalDirectoryComparison": "Parent recorded exact byte/mode/symlink verification before duplicate removal; not re-executed by reviewer after removal.",
+      "developmentTarCount": 3,
+      "allThreeActualTarSizesAndSHA256MatchRecords": true,
+      "allThreeTarsIgnoredByGit": true,
+      "untrackedBinaryArchiveFilesInTextEvidence": []
+    },
+    "power": {
+      "actualRestored": false,
+      "ownedAssertionReleased": false,
+      "releaseStatus": "pending_after_final_review",
+      "sleepStatus": "not_yet_requested",
+      "observedAsleep": false,
+      "reviewScope": "Documentation truthfully marks pending actions. No power restoration or sleep execution accepted yet; requires later actual-action record and independent read-only verification."
+    }
+  },
+  "noExecution": {
+    "testsRun": 0,
+    "builds": 0,
+    "appsLaunched": 0,
+    "desktopActions": 0,
+    "powerOrSecuritySettingsChanged": 0,
+    "rawHistoricalLogsModified": 0,
+    "oldPublishedZipOrDmgHashesRecomputed": 0
+  },
+  "notes": [
+    "10-TRACKING explicitly labels old dated statuses as historical snapshots; no current-status conflict is inferred from its old P6-planned paragraph.",
+    "New document/record mutations after this snapshot need a small delta audit, especially actual power-release and sleep-request records.",
+    "This audit does not turn the composite592 result into a final-candidate594-case fresh full pass."
+  ]
+}

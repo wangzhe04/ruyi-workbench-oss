@@ -1,0 +1,18 @@
+✔ bounded strict private file roundtrips using the shared store and exact canonical formatter (2.962708ms)
+✔ read/write capacity refuses while preserving the previously committed state (1.067083ms)
+✔ duplicate fields, alternate numeric tokens and discarded whitespace are rejected without normalization (1.734375ms)
+✔ invalid UTF-8 is rejected before JSON parsing can replace damaged bytes (0.425958ms)
+✔ symlinks, hardlinks and nonprivate leaf permissions are refused (1.131375ms)
+✔ non-regular files are refused without a blocking read (0.305917ms)
+✔ invalid byte bounds cannot accidentally enable an unbounded owned reader (0.13475ms)
+✔ strict read permits a missing initial file without writing, but rejects malformed/schema-less/unknown/invalid state without quarantine or fallback (3.922083ms)
+✔ strict read rejects transient failures and retries the real file next time; default stores retain their recovery behavior (1.202959ms)
+✔ a failed strict uncached write cannot become a committed inbox or dedupe record on the next read (1.287417ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 101.382167

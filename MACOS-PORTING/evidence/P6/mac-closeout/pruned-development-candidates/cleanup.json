@@ -1,0 +1,92 @@
+{
+  "recordedAt": "2026-11-12T15:27:38.830003+00:00",
+  "rows": [
+    {
+      "root": "/tmp/ruyi-p6-candidate-full-third",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84343197,
+        "uid": 501
+      },
+      "sourceCommit": "eee685123a2124b71522f59ed44a40f2c4f679ba",
+      "manifestSha256": "991d7c8fcbd0a624892f791362b245da6270fb9bf5f392acc7df5396cdb75370",
+      "archive": "MACOS-PORTING/evidence/P6/mac-closeout/pruned-development-candidates/full-third",
+      "preservedSourceAndNative": [
+        "Contents/Info.plist",
+        "Contents/MacOS",
+        "Contents/_CodeSignature",
+        "Contents/Resources/workbench/app",
+        "Contents/Resources/workbench/resources",
+        "Contents/Resources/workbench/config",
+        "Contents/Resources/workbench/docs",
+        "Contents/Resources/workbench/runtime/macos"
+      ],
+      "scope": "Obsolete pre-final P6-01 development draft only. Manifest, app/backend/frontend/native source and native helper bytes preserved; duplicate locked Node/Python/wheels/Chromium runtime removed. Actual accepted f059/b662 candidates and all released DMGs untouched.",
+      "removed": true,
+      "sourceNativeArchive": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/P6-mac-closeout-archived-development-source/full-third-source-and-native.tar.gz",
+        "sha256": "0b81fc9928c254740bc69d588103ed8d0c01166d2c69707a834e3c7c89b170a9",
+        "bytes": 7616888
+      },
+      "binaryArtifactStorage": "Ignored dist artifact directory; binary archives are not committed as phase text evidence."
+    },
+    {
+      "root": "/tmp/ruyi-p6-candidate-full-fourth",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84486841,
+        "uid": 501
+      },
+      "sourceCommit": "eee685123a2124b71522f59ed44a40f2c4f679ba",
+      "manifestSha256": "f7bd1d3f5bc48be04a2e67d1d594b84faecbc32da64aa244d441b86b5ef61d77",
+      "archive": "MACOS-PORTING/evidence/P6/mac-closeout/pruned-development-candidates/full-fourth",
+      "preservedSourceAndNative": [
+        "Contents/Info.plist",
+        "Contents/MacOS",
+        "Contents/_CodeSignature",
+        "Contents/Resources/workbench/app",
+        "Contents/Resources/workbench/resources",
+        "Contents/Resources/workbench/config",
+        "Contents/Resources/workbench/docs",
+        "Contents/Resources/workbench/runtime/macos"
+      ],
+      "scope": "Obsolete pre-final P6-01 development draft only. Manifest, app/backend/frontend/native source and native helper bytes preserved; duplicate locked Node/Python/wheels/Chromium runtime removed. Actual accepted f059/b662 candidates and all released DMGs untouched.",
+      "removed": true,
+      "sourceNativeArchive": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/P6-mac-closeout-archived-development-source/full-fourth-source-and-native.tar.gz",
+        "sha256": "6ad0f4bbfb51c3b122cb93e692eddbd382c884901c507a2b9ed4277fe1aea0d1",
+        "bytes": 7616980
+      },
+      "binaryArtifactStorage": "Ignored dist artifact directory; binary archives are not committed as phase text evidence."
+    },
+    {
+      "root": "/tmp/ruyi-p6-candidate-full-fifth",
+      "identity": {
+        "dev": 16777234,
+        "ino": 84622374,
+        "uid": 501
+      },
+      "sourceCommit": "eee685123a2124b71522f59ed44a40f2c4f679ba",
+      "manifestSha256": "e75e40c83ed152fd8c5b8000a199b6d6ecd6280f1767ed15447ddddedce29af5",
+      "archive": "MACOS-PORTING/evidence/P6/mac-closeout/pruned-development-candidates/full-fifth",
+      "preservedSourceAndNative": [
+        "Contents/Info.plist",
+        "Contents/MacOS",
+        "Contents/_CodeSignature",
+        "Contents/Resources/workbench/app",
+        "Contents/Resources/workbench/resources",
+        "Contents/Resources/workbench/config",
+        "Contents/Resources/workbench/docs",
+        "Contents/Resources/workbench/runtime/macos"
+      ],
+      "sourceNativeArchive": {
+        "path": "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/dist/P6-mac-closeout-archived-development-source/full-fifth-source-and-native.tar.gz",
+        "bytes": 7617334,
+        "sha256": "78739e0c968c5669aea42a8f703ebd28d2232f9e39eb01d5bb8ba1e24d405005"
+      },
+      "scope": "Historical pre-final development qualification only, explicitly superseded by f059 commit-bound P6-01 candidates. Small source/native/manifest snapshot is durable; repeated locked third-party runtime removed. f059/b662 accepted frozen inputs and released DMGs untouched.",
+      "removed": true,
+      "binaryArtifactStorage": "Ignored dist artifact directory; binary archives are not committed as phase text evidence."
+    }
+  ]
+}

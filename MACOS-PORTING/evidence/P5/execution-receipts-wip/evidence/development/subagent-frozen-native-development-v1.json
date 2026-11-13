@@ -1,0 +1,21 @@
+[
+  {
+    "test": "macos-execution-subagents",
+    "log": "/tmp/ruyi-p5-receipts-evidence/development/actual-subagents-v7.log",
+    "result": "/tmp/ruyi-p5-receipts-evidence/development/actual-subagents-v7.json",
+    "exitCode": 1,
+    "seconds": 1.507,
+    "before": {
+      "at": "2026-11-11T21:31:34.051563+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    },
+    "after": {
+      "at": "2026-11-11T21:31:35.567618+00:00",
+      "sourcesMatched": 122,
+      "artifactsMatched": 3,
+      "allMatch": true
+    }
+  }
+]

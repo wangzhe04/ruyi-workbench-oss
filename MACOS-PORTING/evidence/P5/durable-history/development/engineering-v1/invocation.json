@@ -1,0 +1,16 @@
+{
+  "mode": "gates",
+  "cwd": "/tmp/ruyi-p5-durable-history-worktree",
+  "outerRoot": "/tmp/p5hist-_kr6zdle",
+  "environment": {
+    "HOME": "/tmp/p5hist-_kr6zdle/h",
+    "TMPDIR": "/tmp/p5hist-_kr6zdle/t",
+    "USERPROFILE": "/tmp/p5hist-_kr6zdle/u",
+    "APPDATA": "/tmp/p5hist-_kr6zdle/a",
+    "LOCALAPPDATA": "/tmp/p5hist-_kr6zdle/l",
+    "WCW_DATA_DIR": "/tmp/p5hist-_kr6zdle/w",
+    "RUYI_HOME": "/tmp/p5hist-_kr6zdle/r",
+    "WIN_CLAUDE_WORKBENCH_HOME": "/tmp/p5hist-_kr6zdle/c",
+    "RUYI_REAL_HOME": "/Users/jiming"
+  }
+}

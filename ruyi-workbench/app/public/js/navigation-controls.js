@@ -10,7 +10,7 @@ import { privacyComposerMenuItem } from './privacy-settings.js';
 import { t, tCount } from './i18n.js';
 // 32 号文 §4（M1-b）：浮层原语（popover/closePopover）搬成叶子模块 js/popover.js —— 两壳共用同一份
 // 「开合」，而 3.0 不必为了它把本域的组合根（help-menu / help-viewer / onboarding-wizard）一起拉进来。
-import { popover, popoverAnchor } from './popover.js';
+import { popover } from './popover.js';
 // 118d: 常驻帮助菜单。菜单本体是壳无关工厂,住在这里只因为 popover 原语在本域;手册阅读器与新手向导
 // 都走各自模块的「共用实例登记处」(help-viewer / onboarding-wizard),所以组合根不必再多注入两条依赖。
 import { createHelpMenuDomain } from './help-menu.js';
@@ -600,9 +600,33 @@ function openContextPopover() {
 // boot/status and (while open) polled every 60s; opening also triggers an immediate fetch.
 let _caps = null;
 let _capPoll = null;
+let _capPopover = null;
+let _capRequestSeq = 0;
+let _capPending = false;
+let _capFailed = false;
+function refreshCapabilityPopover() {
+  const current = _capPopover?.node.querySelector('.cap-pop');
+  if (!current) return;
+  const updated = buildCapabilityPopoverContent();
+  current.replaceChildren(...updated.childNodes);
+  current.setAttribute('aria-label', updated.getAttribute('aria-label'));
+  _capPopover.reposition();
+}
 async function fetchCapabilities(force) {
-  try { const r = await api('/api/capabilities' + (force ? '?force=1' : '')); if (r && r.ok) { _caps = r; renderCapBadge(); } return r; }
-  catch { return null; }
+  const sequence = ++_capRequestSeq;
+  _capPending = true; _capFailed = false;
+  refreshCapabilityPopover();
+  try {
+    const result = await api('/api/capabilities' + (force ? '?force=1' : ''));
+    if (sequence !== _capRequestSeq) return result;
+    _capPending = false; _capFailed = !(result && result.ok);
+    if (!_capFailed) { _caps = result; renderCapBadge(); }
+    refreshCapabilityPopover();
+    return result;
+  } catch {
+    if (sequence === _capRequestSeq) { _capPending = false; _capFailed = true; refreshCapabilityPopover(); }
+    return null;
+  }
 }
 // Count "configured-but-unavailable" gaps (rg/git absence is NOT counted — only a configured endpoint that
 // is unreachable, and a desktop MCP that is enabled in config but failed to come up / be probed).
@@ -635,55 +659,78 @@ function renderCapBadge() {
 // 免得定位到不可见元素（getBoundingClientRect 全 0）。
 // 122-L1b（36 号文 §2.12）：回退锚点从退役的 #moreMenuBtn 换成齿轮钮 #appGearBtn —— 齿轮菜单
 // 一点开就会被 app-frame 的「点菜单外收起」收掉，#capBadge 那一刻已经不可见了，所以不能锚它自己。
+function buildCapabilityPopoverContent() {
+  const wrap = el('div', 'cap-pop');
+  // 键盘:弹层打开后焦点交给它(tabindex=-1 只接程序聚焦),Esc 由 popover 原语关,关后焦点回锚点(齿轮钮)。
+  wrap.tabIndex = -1;
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-label', t('capability.networkAndEngine'));
+  const caps = _caps || {};
+  const netLabel = (caps.network && caps.network.online === true) ? t('capability.network.online')
+    : (caps.network && caps.network.online === false) ? t('capability.network.offline') : t('capability.network.unknown');
+  const netCls = (caps.network && caps.network.online === true) ? 'ok'
+    : (caps.network && caps.network.online === false) ? 'bad' : 'muted';
+  const item = (k, v, cls) => {
+    const row = el('div', 'cap-item');
+    row.appendChild(el('span', 'cap-k', k));
+    row.appendChild(el('span', 'cap-v' + (cls ? ' ' + cls : ''), v));
+    return row;
+  };
+  wrap.appendChild(el('h4', null, t('capability.networkAndEngine')));
+  wrap.appendChild(item(t('capability.network.label'), netLabel, netCls));
+  wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? t('capability.engine.providerNative') : engineLabel()));
+  if (caps.provider) {
+    wrap.appendChild(item(t('capability.visionInput'), caps.provider.vision ? t('capability.supported') : t('capability.unsupported'), caps.provider.vision ? 'ok' : 'muted'));
+    wrap.appendChild(item(t('capability.reasoningModel'), caps.provider.reasoning ? t('common.yes') : t('common.no'), 'muted'));
+  }
+  wrap.appendChild(el('h4', null, t('capability.localTools')));
+  wrap.appendChild(item('git', caps.binaries && caps.binaries.git ? t('capability.available') : t('capability.missing'), caps.binaries && caps.binaries.git ? 'ok' : 'muted'));
+  wrap.appendChild(item(t('capability.projectSearch'), caps.binaries && caps.binaries.rg ? t('capability.ripgrepAccelerated') : t('capability.builtinSearch'), 'ok'));
+  const runtime = caps.runtime;
+  if (runtime && runtime.platform === 'darwin') {
+    wrap.appendChild(el('h4', null, t('capability.runtime')));
+    for (const [id, label] of [['process.supervisor', 'health.item.process-supervisor.label'],
+      ['shell.exec', 'capability.shellExec'], ['shell.session', 'capability.shellSession']]) {
+      const capability = runtime.capabilities && runtime.capabilities[id];
+      const ready = !_capPending && !_capFailed && capability?.ready === true;
+      const value = _capPending ? 'capability.checking' : _capFailed || !capability ? 'capability.network.unknown'
+        : ready ? 'capability.available' : 'capability.unavailable';
+      const row = item(t(label), t(value), ready ? 'ok' : _capPending || _capFailed || !capability ? 'muted' : 'bad');
+      row.dataset.capability = id;
+      wrap.appendChild(row);
+    }
+  }
+  const macShared = runtime?.platform === 'darwin';
+  wrap.appendChild(el('h4', null, t(macShared ? 'capability.sharedControl' : 'capability.desktopControl')));
+  const dm = caps.desktopMcp || {};
+  wrap.appendChild(item(t(macShared ? 'capability.sharedMcp' : 'capability.desktopMcp'), dm.present ? tCount('capability.connected', dm.toolCount || 0) : t('capability.notConnected'), dm.present ? 'ok' : 'muted'));
+  if (macShared) {
+    wrap.appendChild(item(t('capability.desktopControl'), t('capability.macDesktopUnsupported'), 'muted'));
+    const browser = dm.browser || {};
+    const ready = !_capPending && !_capFailed && browser.ready === true;
+    const value = _capPending ? 'capability.checking' : _capFailed ? 'capability.network.unknown'
+      : browser.mode === 'system' ? 'capability.browserHandoff'
+        : ready ? 'capability.available' : 'capability.browserUnverified';
+    const row = item(t('capability.browserControl'), t(value), ready ? 'ok' : 'muted');
+    row.dataset.browserCapability = 'dom';
+    wrap.appendChild(row);
+  }
+  const opt = dm.optional || {};
+  const optStr = ['ocr', 'uia', 'cv2', 'playwright'].filter(k => opt[k]).join(', ') || t('capability.none');
+  wrap.appendChild(item(t('capability.optionalModules'), optStr, opt.ocr || opt.uia ? 'ok' : 'muted'));
+  return wrap;
+}
 function openCapPopover(anchorOverride) {
   const badge = $('capBadge'); if (!badge || badge.classList.contains('hidden')) return;
   const anchor = anchorOverride || $('appGearBtn') || badge;
-  // Immediate refresh + poll every 60s WHILE OPEN only (spec §4). closePopover stops the poll via onClose.
+  const handle = popover(anchor, buildCapabilityPopoverContent, {
+    onOpen: node => { const pop = node.querySelector('.cap-pop'); if (pop) pop.focus(); },
+    onClose: () => { clearInterval(_capPoll); _capPoll = null; _capPopover = null; },
+  });
+  if (!handle) return;
+  _capPopover = handle;
   fetchCapabilities(true);
-  if (_capPoll) clearInterval(_capPoll);
   _capPoll = setInterval(() => fetchCapabilities(true), 60000);
-  const handle = popover(anchor, () => {
-    const wrap = el('div', 'cap-pop');
-    // 键盘:弹层打开后焦点交给它(tabindex=-1 只接程序聚焦),Esc 由 popover 原语关,关后焦点回锚点(齿轮钮)。
-    wrap.tabIndex = -1;
-    wrap.setAttribute('role', 'dialog');
-    wrap.setAttribute('aria-label', t('capability.networkAndEngine'));
-    const caps = _caps || {};
-    const netLabel = (caps.network && caps.network.online === true) ? t('capability.network.online')
-      : (caps.network && caps.network.online === false) ? t('capability.network.offline') : t('capability.network.unknown');
-    const netCls = (caps.network && caps.network.online === true) ? 'ok'
-      : (caps.network && caps.network.online === false) ? 'bad' : 'muted';
-    const item = (k, v, cls) => {
-      const row = el('div', 'cap-item');
-      row.appendChild(el('span', 'cap-k', k));
-      row.appendChild(el('span', 'cap-v' + (cls ? ' ' + cls : ''), v));
-      return row;
-    };
-    wrap.appendChild(el('h4', null, t('capability.networkAndEngine')));
-    wrap.appendChild(item(t('capability.network.label'), netLabel, netCls));
-    wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? t('capability.engine.providerNative') : engineLabel()));
-    if (caps.provider) {
-      wrap.appendChild(item(t('capability.visionInput'), caps.provider.vision ? t('capability.supported') : t('capability.unsupported'), caps.provider.vision ? 'ok' : 'muted'));
-      wrap.appendChild(item(t('capability.reasoningModel'), caps.provider.reasoning ? t('common.yes') : t('common.no'), 'muted'));
-    }
-    wrap.appendChild(el('h4', null, t('capability.localTools')));
-    wrap.appendChild(item('git', caps.binaries && caps.binaries.git ? t('capability.available') : t('capability.missing'), caps.binaries && caps.binaries.git ? 'ok' : 'muted'));
-    wrap.appendChild(item(t('capability.projectSearch'), caps.binaries && caps.binaries.rg ? t('capability.ripgrepAccelerated') : t('capability.builtinSearch'), 'ok'));
-    wrap.appendChild(el('h4', null, t('capability.desktopControl')));
-    const dm = caps.desktopMcp || {};
-    wrap.appendChild(item(t('capability.desktopMcp'), dm.present ? tCount('capability.connected', dm.toolCount || 0) : t('capability.notConnected'), dm.present ? 'ok' : 'muted'));
-    const opt = dm.optional || {};
-    const optStr = ['ocr', 'uia', 'cv2', 'playwright'].filter(k => opt[k]).join(', ') || t('capability.none');
-    wrap.appendChild(item(t('capability.optionalModules'), optStr, opt.ocr || opt.uia ? 'ok' : 'muted'));
-    return wrap;
-  }, { onOpen: node => { const pop = node.querySelector('.cap-pop'); if (pop) pop.focus(); } });
-  // Stop the poll when the popover closes (popover() returns {node, close}; but close via outside-click
-  // won't call our code — hook the badge: when the active popover's anchor is no longer ours, clear the
-  // interval on the next tick). 32 号文 §4（M1-b）：原语搬走后 activePopover 不再住本文件，走 accessor。
-  if (handle) {
-    const stop = () => { if (popoverAnchor() !== anchor) { if (_capPoll) { clearInterval(_capPoll); _capPoll = null; } clearInterval(mon); } };
-    const mon = setInterval(stop, 500);
-  }
 }
 
 // Session rename via an inline popover (§4.6) — replaces the native prompt(). Input + 确定 button.

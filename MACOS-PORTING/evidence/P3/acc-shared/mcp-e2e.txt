@@ -1,0 +1,16 @@
+PASS production stdio transport lists shared file, Office and browser tools
+PASS unsupported desktop backends are absent from the model tool registry
+PASS every live shared ACC write tool remains covered by the workbench checkpoint inventory
+PASS diagnostics distinguishes unsupported modules from failed imports
+PASS diagnostics accurately reports absent or unsupported optional backends
+PASS Unicode and space paths round-trip through real tools
+PASS real edit_file preserves the shared filesystem workflow
+PASS existing-file refusal preserves original content
+PASS Mac system protection is present in the live diagnostic contract
+PASS real tool refuses a symlink alias of a protected destination before creating anything
+PASS future protected directory rejects a case alias without creating parents: caseparent/FutureProtected/new.txt
+PASS future protected directory rejects a case alias without creating parents: CaseParent/futureprotected/new.txt
+PASS successful and refused writes both leave audit evidence
+PASS owned ACC process exits after client cleanup
+
+MACOS ACC SHARED E2E: ALL PASS

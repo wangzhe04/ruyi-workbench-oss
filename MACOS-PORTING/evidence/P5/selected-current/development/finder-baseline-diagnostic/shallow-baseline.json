@@ -1,0 +1,58 @@
+{
+  "scope": "Read-only shallow metadata only; no AX action, no window close, no full content recursion. Project source unchanged. Diagnostic source/compiled binary retained outside Git.",
+  "temporaryRoot": "/tmp/p5fd-b19frffz",
+  "exitCode": 0,
+  "ok": true,
+  "error": null,
+  "pid": 692,
+  "applicationVersion": "27.0",
+  "applicationBuild": "1865",
+  "windows": [
+    {
+      "role": "AXWindow",
+      "proxyRole": "AXImage",
+      "proxyChildCount": -1,
+      "treeRole": "AXWindow",
+      "treeChildCount": 6
+    },
+    {
+      "role": "AXScrollArea",
+      "proxyRole": null,
+      "proxyChildCount": null,
+      "treeRole": "AXScrollArea",
+      "treeChildCount": null
+    }
+  ],
+  "cgWindows": [
+    {
+      "handle": 4877,
+      "titlePresent": true,
+      "onScreen": true
+    },
+    {
+      "handle": 32,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 30,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 27,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 29,
+      "titlePresent": false,
+      "onScreen": false
+    },
+    {
+      "handle": 28,
+      "titlePresent": false,
+      "onScreen": false
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+✔ OS gate is exclusive; repeated old release cannot release a new owner (9.734208ms)
+✔ canonical roots collapse junctions and missing leaves without creating directories (1.1315ms)
+✔ protocol selection retains Node 20.0 and non-Linux POSIX compatibility (0.201375ms)
+✔ Mac kernel lock is independent of TMPDIR and retained through a live legacy socket (4.86125ms)
+✔ Mac refuses symlink and hardlink lock files without touching their targets (1.257208ms)
+✔ Mac preserves unknown residual sockets and malformed ownership evidence (76.923292ms)
+✔ unknown legacy runtime blocks without modifying files and releases the acquired gate (3.877625ms)
+✔ Mac never removes a live socket even with matching stale-owner metadata (24.108958ms)
+✔ Mac ownership namespace is protected from file tools even in bypass workspaces (4.994167ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 219.920041

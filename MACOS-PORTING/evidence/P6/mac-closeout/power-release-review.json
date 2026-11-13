@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "atUTC": "2026-11-12T16:07:12.167973+00:00",
+  "result": "pass_actual_owned_power_release_readonly_verification",
+  "findings": [],
+  "observations": {
+    "defaults": {
+      "args": [
+        "/usr/bin/defaults",
+        "-currentHost",
+        "read",
+        "com.apple.screensaver",
+        "idleTime"
+      ],
+      "exitCode": 0,
+      "stdout": "300\n",
+      "stderr": "",
+      "evidence": "independent-power-defaults.txt",
+      "sha256": "f807fe6dc767be2e7021d41540114b33b30fa7784f6de5521251f23a3eb66468"
+    },
+    "process": {
+      "args": [
+        "/bin/ps",
+        "-p",
+        "44774",
+        "-o",
+        "pid=,lstart=,command="
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "",
+      "evidence": "independent-power-process.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "assertions": {
+      "args": [
+        "/usr/bin/pmset",
+        "-g",
+        "assertions"
+      ],
+      "exitCode": 0,
+      "stdout": "2026-11-13 00:07:12 +0800 \nAssertion status system-wide:\n   BackgroundTask                 0\n   ApplePushServiceTask           0\n   UserIsActive                   0\n   PreventUserIdleDisplaySleep    0\n   SoftwareUpdateTask             0\n   PreventSystemSleep             0\n   PreventSystemSleepSecurityIndicator 0\n   ExternalMedia                  0\n   InternalPreventDisplaySleep    1\n   PreventUserIdleSystemSleep     1\n   NetworkClientActive            1\nListed by owning process:\n   pid 30625(ChatGPT): [0x0001b0150001969f] 30:21:36 NoIdleSleepAssertion named: \"Electron\"  \n   pid 839(ExcelDevMon): [0x0000009000018141] 61:02:44 PreventUserIdleSystemSleep named: \"Good Reason\"  \n   pid 517(cupsd): [0x0000008d00118077] 61:02:47 NetworkClientActive named: \"org.cups.cupsd\"  \n   pid 389(powerd): [0x00032d7b0001931f] 03:14:18 PreventUserIdleSystemSleep named: \"Powerd - Prevent sleep while display is on\"  \n   pid 389(powerd): [0x00035a79001086c9] 00:02:19 InternalPreventDisplaySleep named: \"com.apple.powermanagement.delayDisplayOff\"  \n\tTimeout will fire in 160 secs Action=TimeoutActionTurnOff\nKernel Assertions: 0x100=MAGICWAKE\n   id=542  level=255 0x100=MAGICWAKE creat=2026/11/10 11:06  mod=2026/11/12 10:21 description=en0 owner=IOSkywalkNetworkBSDClient\n",
+      "stderr": "",
+      "evidence": "independent-power-assertions.txt",
+      "sha256": "97184174734c51475a83e2c7d069962f7bc00b502a8710678cbe07a20ef2f875"
+    }
+  },
+  "verified": {
+    "actualScreensaverIdleTimeSeconds": 300,
+    "historicalRestoreSourceSeconds": 300,
+    "historicalEvidenceHashMatches": true,
+    "ownedPid44774Absent": true,
+    "ownedPid44774AbsentFromPowerAssertions": true,
+    "JSONAndTaskRecordsMatchActualState": true,
+    "currentP6Status": "in_progress",
+    "fullOriginalP5Accepted": false,
+    "fullOriginalP6Accepted": false,
+    "manualAppAuthorizationAccepted": false,
+    "sleepStatusAtVerification": "not_yet_requested",
+    "observedAsleep": false
+  },
+  "historicalSources": [
+    {
+      "path": "MACOS-PORTING/evidence/P5/unattended-instruction-2026-11-11.json",
+      "sha256": "43c2de3d27b733dbb34ddd14a494293237c7c0647e9c4ecf27a0e7facdfb9768"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P5/manual/development/sequence/current-source-v2.json",
+      "sha256": "2d11257d74971f28c6587debf7e542eebfa96e55490f987a205e00d4486c543d"
+    }
+  ],
+  "currentRecordBindings": [
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/power-release.json",
+      "sha256": "6fd1e01890fc1b6fe97549c14051843d1c700afdf832a09c7466b73fbdf3c3f2"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/sleep-request.json",
+      "sha256": "d0777af7582090a2247c07fa9c1d2694da3ca8e766bdad222ed0c2a26aeffeb1"
+    },
+    {
+      "path": "MACOS-PORTING/evidence/P6/mac-closeout/validation.json",
+      "sha256": "7ce976e679a77447ffe7f93eda119690b0947d2283c826f442d3a867346a1337"
+    },
+    {
+      "path": "MACOS-PORTING/TASKS.json",
+      "sha256": "12b26d50390553a89fd1e2bdeb45c7d7d95e39b5a8399cb80a8180c0a02a3374"
+    }
+  ],
+  "scope": [
+    "Independent current OS reads verify actual idleTime300 and no current44774 process/assertion. Parent prior birth/cmd checks and SIGTERM are recorded in power-release.json; reviewer did not signal any process.",
+    "Other application/system assertions remain present; this report does not claim all system sleep blockers are absent or alter them.",
+    "Screensaver idleTime restoration is verified. No broader automatic-lock password policy change or formal P5/P6 qualification is inferred.",
+    "Sleep has not been requested at this observation. A later detached queued/accepted request must remain distinct from observed machine sleep."
+  ],
+  "noMutation": {
+    "settingsChanged": false,
+    "processesSignaled": false,
+    "sleepRequested": false,
+    "testsRun": 0
+  }
+}

@@ -1,0 +1,199 @@
+{
+  "schema": 2,
+  "reviewedAt": "2026-11-11T15:13:44.575Z",
+  "reviewer": "/root/p5_review_resumed",
+  "priorReview": {
+    "path": "/tmp/ruyi-p5-receipts-evidence/context-source-review-v1.json",
+    "bytes": 7396,
+    "sha256": "cfc22f2384ecf31fd8d351a7be33b1c9224e592de085874244166ff856f5b628"
+  },
+  "priorReviewPreservedByteIdentical": true,
+  "reviewType": "Independent read-only source review and existing parent development evidence inspection. Reviewer executed two pure local SDK numeric-parser probes earlier in this review sequence, but no MCP/native/helper/GUI/build/test-suite execution and no source edits.",
+  "scope": "ruyi-sdk-json-v1 argument identity, metadata tool/received-argument guard, real transport-nonce/SDK-value probe, context/batch/receipt chain, shared wire vectors and development qualification sources.",
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 2906,
+      "sha256": "d3d8fe0a2d7f3a9124b1828a0481c5667c01b21ce34fd3054a70e9bf369b3d5d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/04-permission-runtime.js",
+      "bytes": 197473,
+      "sha256": "9b4a7639a1909d9d54e41e7b9a304a0f801e998da186dbc0b4ee41cad32b38d7"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_arguments.py",
+      "bytes": 2445,
+      "sha256": "f848b26905fe5a0c1de741d89169350acb4feef93e7db5b346d859f972cef78d"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_context.py",
+      "bytes": 11277,
+      "sha256": "840a68cf894af6b123019bcb941e793490aee9a33098fb18f6c8824d9ebb1901"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/server.py",
+      "bytes": 24609,
+      "sha256": "c95ff031827d88d6843a00d445ceb9533afb0565aefd2224ef1e21709ec3052b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/audit.py",
+      "bytes": 10779,
+      "sha256": "1656bb895ae8d5c9e21e8a3d5de541e3e12958b3e6ae7b29aeb94d8674f34eab"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/tools/batch.py",
+      "bytes": 11454,
+      "sha256": "744ff4eaafedafb8067a8f2cda763f8a31a29d2b054baca65d4ee28c0cd29ea2"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_journal.py",
+      "bytes": 18677,
+      "sha256": "959d5141f09bd2f75dcecb1f8aca9d8f47b46551aa3e4d9771855ffc23adc699"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/fixtures/execution-argument-vectors.json",
+      "bytes": 4762,
+      "sha256": "e5941ab4b5d1873c2a389a6381771205f9673531eb3657f55baf17348c81dd86"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4538,
+      "sha256": "de6eced6d8e3eebf8515fe97ec299fce019a0d67befcf10a9221dd5c356edb49"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_arguments.py",
+      "bytes": 3381,
+      "sha256": "8c515fd41b4cc36ed177ac8d8e9b1d71c086381710e68097d37a81474fb4fae5"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/macos-execution-context.e2e.js",
+      "bytes": 12078,
+      "sha256": "7c25eef6e345b52f995ef3ea2c45973a0dc8771843057bd86790bc0d56f86ce3"
+    }
+  ],
+  "implementationState": "Uncommitted full execution-receipts WIP. Node durable preparation/dispatcher activation and restart reconciliation are not integrated.",
+  "findings": [],
+  "findingsHandled": [
+    {
+      "id": "arbitrary-integer-f64-collision",
+      "status": "closed",
+      "origin": "Parent identified the candidate f64-v1 collision; independently confirmed in source analysis.",
+      "problem": "float(actual_python_int) conflated 9007199254740993 with 9007199254740992 and hid JSON.stringify complete-integer digits such as 1000000000000000100.",
+      "correction": "New domain/codec ruyi-sdk-json-v1. JS classifies each actual JSON.stringify number token as complete decimal integer i or binary64 d; Python int is encoded directly as arbitrary-precision decimal and float preserves exact binary64 bits. RequestExecution compares tool name and received digest before journal creation/tool entry.",
+      "counterexamples": "Shared wire vectors and actual SDK decoding checks; Python explicit distinct integer and float tests; real MCP JSON.rawJSON negative cases for 9007199254740993 and 1000000000000000128."
+    },
+    {
+      "id": "shared-vector-input-category",
+      "status": "closed",
+      "problem": "Parsing one numeric value literal independently in Node and Python did not model actual Node wire for -0.0 and 1e20.",
+      "correction": "Shared fixtures store wire strings produced for the intended JSON.stringify route. Python validates both json.loads and actual JSONRPCMessage->CallToolRequest decoded values against the digest."
+    },
+    {
+      "id": "shape-only-metadata-capability",
+      "status": "closed-for-probe-slice",
+      "problem": "SDK shape capability alone did not acknowledge a real metadata roundtrip.",
+      "correction": "Safe execution_receipt request uses a distinct reserved transport probe namespace and unpredictable nonce. Python reads actual SDK request metadata and fingerprints actual decoded dict[Any] probe values. Node checks returned nonce, codec, digest and valid worker incarnation/PID before success; actual accepted rows are compared with that worker in e2e.",
+      "limits": "This is correlation/support evidence, not authorization, native readiness, storage health for every later append, a per-action ACK, or permission to cache across client replacement."
+    }
+  ],
+  "encodingAssessment": [
+    "Type tags and terminators distinguish null/booleans/decimal integers/fixed-width binary64. Length-prefixed scalar UTF8 strings plus array/object counts make the structural byte encoding unambiguous.",
+    "Objects sort keys by UTF8 bytes and keep arrays ordered. String Unicode normalization is not performed; lone surrogates, cycles, unsupported host object shapes and capacity overflow refuse fingerprinting.",
+    "The JS non-integer numeric branch cannot normally receive zero because JSON.stringify zero produces an integer token; Python float negative zero remains distinct from positive zero and integer zero.",
+    "No new noncryptographic fingerprint collision was found in the supported immutable-JSON-snapshot domain. SHA256 collision resistance remains the ordinary hash assumption.",
+    "This binds expected versus actual SDK-decoded values, including numeric types. It intentionally does not prove equality of original JSON lexeme spelling or object insertion order."
+  ],
+  "reviewerPureSdkProbes": {
+    "environment": "Installed mcp 1.30.0, Python3.12 venv, JSONRPCMessage.model_validate_json followed by CallToolRequest.model_validate. Invoked local Node only to generate deterministic JSON.stringify numeric cases. No server/native/helper was started.",
+    "explicitCases": "Confirmed integer tokens preserve arbitrary precision; 1.0/1e0/1e21 are floats; 1000000000000000100 remains that exact int; 9007199254740993 remains distinct; subnormal/MAX finite values match; overflow/underflow and negative float zero are not silently relabeled as integer.",
+    "corpus": {
+      "samples": 24198,
+      "integerTokens": 327,
+      "floatTokens": 23871,
+      "mismatches": 0,
+      "coverage": "Powers across binary exponents -1074 through 1023, explicit boundaries, and a fixed-seed finite binary64 corpus."
+    },
+    "evidenceTreatment": "These facts are summarized from original tool-call responses in this chat. No standalone original-stdout artifact was captured; this JSON is a review summary, not a reconstructed raw log. The corpus checked proposed numeric classification/bit preservation, not the full product fingerprint implementation or an end-to-end gate."
+  },
+  "existingParentDevelopmentEvidence": {
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/argument-node-v2.log",
+        "bytes": 621,
+        "sha256": "a47f341646ac3c8a81626d7cd15e3bdf703641e1859d0b50e985ff60c257f0fa"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/argument-python-v2.log",
+        "bytes": 102,
+        "sha256": "b54d545a111951478a98644e5fadea29288884627062f9964e4657d242e3ed87"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v3.log",
+        "bytes": 1314,
+        "sha256": "93dde618bbc9c1b98667f91c8cffad7eda454927ee78af59463c93922f0f250e"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v4.log",
+        "bytes": 790,
+        "sha256": "e7e3b310aa57fdd89c3530c116cd3ccdafd0583a33fc96a73619f91e55b99ca7"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v5.log",
+        "bytes": 790,
+        "sha256": "1328786f3e79de47ea3ea29b6755810e57847f33dbe5a7716f7547690cca50c8"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v6.log",
+        "bytes": 2423,
+        "sha256": "98a5eb62b79b205f791a9f491277165e2891072349bd27ef84ff964c1769c27d"
+      }
+    ],
+    "correctedCounts": {
+      "nodeArgumentV2": 5,
+      "pythonArgumentV2": 4,
+      "realMcpContextV6": 29
+    },
+    "result": "Current positive runs show PASS/OK as recorded, with prior failed runs retained. They are parent development executions, not reviewer native/MCP executions or independent full-feature acceptance.",
+    "failedAttemptCorrection": "Both context-v4.log and context-v5.log stop at the first safe SDK probe assertion labeled owned worker. Neither reached the empty-base assertion. v5 results already contain a successful SDK nonce/hash/PID response. Parent clarified both failures were the guardian-PID versus ACC-PID fixture comparison; empty-base behavior was a subsequently found potential fixture error fixed before v6, not a separately observed failed run.",
+    "preservedResults": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v4/results.json",
+        "bytes": 1057,
+        "sha256": "057e7bec8251d2c6029f1fe62800e4d2802e283e5d4e411c7917bb93c9e7d643"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v5/results.json",
+        "bytes": 2363,
+        "sha256": "b738027cdb0b8f4bf0b2798057bbe06e77dc491729a8b2f0efcef3950d3613cd"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/context-v6/results.json",
+        "bytes": 80893,
+        "sha256": "d5a2e3a452eaafc877007f27da760ea6452c1fe690fa21140959834e748b3cf3"
+      }
+    ],
+    "scope": "wait and mouse-position read-only native query, reserved transport probes, altered argument/tool and numeric collision refusals; no posted-input/held-state test."
+  },
+  "mandatoryRemaining": [
+    "Node preparation must freeze the exact post-approval/restoration JSON snapshot once, derive raw and decoded-value fingerprints from that same snapshot, and send that immutable value. Getters, toJSON, JSON.rawJSON wrappers, sparse/unsupported values or later mutations must not change sent data after the hash is established.",
+    "Future Node must tie a successful probe to the actual client incarnation, repeat after replacement, compare each accepted/terminal worker identity and argument/tool binding, and preserve missing/mismatched evidence as unknown.",
+    "Node durable preparation, direct/proxy dispatch integration, result persistence and restart reconciliation.",
+    "Strict reader stage/field/reference semantics, retention/global disk management, single-request capture/OCR route coverage and broader source-bound fault-window acceptance.",
+    "Ordinary owned action acceptance and held-state fault gates remain separate. Held faults require independent qualified rescue."
+  ],
+  "outcome": "No new actionable source finding identified in the reviewed numeric/probe/context slice. The f64 integer collision is closed by the versioned i/d codec; this is not completion of the full execution-receipts feature.",
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; reviewer did not inspect or change locking settings."
+}

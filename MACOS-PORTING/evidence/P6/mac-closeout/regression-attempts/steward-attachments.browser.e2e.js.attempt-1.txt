@@ -1,0 +1,24 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS 候选里可以手选原任务
+PASS 候选面板说明搜索范围和未命中的边界
+PASS 真实附件控件完成上传
+PASS 回包丢失时显示未确认,原附件保留在对话中
+PASS 手选目标与附件一起递送
+PASS 未确认行可以核对回执
+PASS 核对结果显示已经递到
+PASS 候选里可以手选原任务
+PASS 明确拒绝时原提示保存原话、附件和目标
+PASS 附件恢复后可在原行重试
+PASS 重试成功有真实回执
+PASS 迟到重试结果不覆盖新草稿
+PASS 重试保持原 attempt、目标与附件身份
+PASS 两次递送各落一条消息,回包丢失和重试不重复执行
+PASS 选择 DeepSeek 后显示 API Key 与可选端点
+PASS 浏览器没有未捕获异常
+SCREENSHOT /private/tmp/ruyi-p6-closeout-final-79ido2bq/ruyi-e2e-tmp-Wh4fuP/ruyi-steward-attachments-ui-02nz7y/attachments-verified.png
+
+STEWARD ATTACHMENTS BROWSER E2E: ALL PASS

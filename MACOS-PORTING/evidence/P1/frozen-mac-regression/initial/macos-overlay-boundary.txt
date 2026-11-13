@@ -1,0 +1,21 @@
+PASS precheck retains authentication before platform rejection
+PASS precheck rejects Windows overlay on Mac with an explicit platform error
+PASS apply retains authentication before platform rejection
+PASS apply rejects Windows overlay on Mac with an explicit platform error
+PASS rollback retains authentication before platform rejection
+PASS rollback rejects Windows overlay on Mac with an explicit platform error
+PASS rejected operations launch no PowerShell and create no extraction/cache directory
+PASS read-only overlay status retains token authentication
+PASS status truthfully advertises unavailable overlay support
+PASS update controls start disabled until support is known
+(node:46690) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/i18n.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS Mac update panel disables all actions and explains the platform limit
+PASS programmatic clicks cannot submit unsupported update operations
+PASS unsupported update hint is localized in English
+PASS supported hosts enable selection/precheck/rollback while keeping apply gated by precheck
+PASS platform rejection leaves the service healthy
+
+MACOS OVERLAY BOUNDARY E2E: ALL PASS

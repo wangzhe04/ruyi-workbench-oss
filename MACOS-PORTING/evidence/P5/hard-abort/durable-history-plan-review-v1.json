@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "at": "2026-11-11T11:09:42.067Z",
+  "verdict": "proceed_with_scoped_durable_provider_history_fix_subject_to_commit_barrier_and_truthful_unknown_results",
+  "scope": "只读设计审查；本轮只写此报告，不修改产品/夹具/helper，不执行GUI、测试、编译、签名、进程采样、输入或故障注入。",
+  "agreedImplementationBoundary": "复用既有providerHistory及session存储：持久化normal provider localToolCalls原始调用意图，以及逐条已经接收并写入history的结果；任何所需保存未提交则停止后续调用。不是actual dispatch/最终执行args/ACC-entry/terminal独立receipt，也不是整个hard-abort门验收。不新增第二套ledger；held监督释放和独立救援资格另门。",
+  "reviewBasis": {
+    "head": "727379488ada610e084cde70cdaeae2ebfcd3039",
+    "mainCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+    "worktreeCommit": "97e389b312947475566ecdba90e91f29b9eb9589",
+    "sourceCount": 39,
+    "sourcesAtHeadUnmodified": true,
+    "readFileBindings": [
+      {
+        "path": "ruyi-workbench/app/src/02-session-store.js",
+        "bytes": 411515,
+        "sha256": "46788998fe3469817d265b382fa80b4aaccec960eb61a4c66648e2a08a114b1e"
+      },
+      {
+        "path": "ruyi-workbench/app/src/09-workflow.js",
+        "bytes": 356760,
+        "sha256": "2b19a860dd3e4d53221ba53a194319d4ea3907513d66f24c925a0c3a03863c2e"
+      },
+      {
+        "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "bytes": 301569,
+        "sha256": "f7c6905cc8f8f7018441f427daf2c0dc45ed0cca823c33d5920d976ca669739d"
+      },
+      {
+        "path": "ruyi-workbench/app/src/01h-process-runtime.js",
+        "bytes": 24619,
+        "sha256": "5ffcfe0163fb17e3cf596bfe4e4e22465c2223e6fbb2f3862e27e867e1fddc5e"
+      },
+      {
+        "path": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+        "bytes": 84195,
+        "sha256": "8469f2b59f3dc6741e3734aac72fa341ac87f18d2d8115290703560d9d5904ce"
+      },
+      {
+        "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+        "bytes": 195200,
+        "sha256": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593"
+      },
+      {
+        "path": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+        "bytes": 190122,
+        "sha256": "4aa6345e87ac919a3459f10231a6d59a21e82f0a464de7de39e5d1080d765562"
+      },
+      {
+        "path": "ruyi-workbench/app/src/13p-steward-runner-actions.js",
+        "bytes": 69467,
+        "sha256": "dc98a4bf271e2fd4400cf90c2cbfc41e3a93ee4bb15ad45d2d1864c4004e7755"
+      },
+      {
+        "path": "ruyi-workbench/app/public/js/session-experience.js",
+        "bytes": 118154,
+        "sha256": "b81d255013b5a0cffa53f87e219c9138663d86724e7608252134debc439859a6"
+      },
+      {
+        "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+        "bytes": 325079,
+        "sha256": "a9eadd8da327c5ba002e90b0a9378c587eacd067c4566e591ce2252f906bbbb2"
+      },
+      {
+        "path": "ruyi-workbench/app/public/locales/en-US.json",
+        "bytes": 338680,
+        "sha256": "cb8a706299e46909eeee21e3d93eada9604a2072c035325cdad2d33cf7d04c08"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/remaining-audit.json",
+        "bytes": 17014,
+        "sha256": "f88650d31737d8c8ddb9c071b9db52df7586427aa9ae6a83a3c8e3ee1d0462de"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/remaining-resolution-2026-11-11.json",
+        "bytes": 51090,
+        "sha256": "1e83bf3310faab559d9c2f212e147a036bf88453ea4332b65aa7f36cac12617d"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/hard-abort/README.md",
+        "bytes": 2581,
+        "sha256": "78949232a601265eca67f23cf6b0ddfa8829579cd946013ffe8ef749ad7cab28"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/hard-abort/freeze-v4.json",
+        "bytes": 7579,
+        "sha256": "9bacf2129436675236380f96ba25e8154de0fc9a32dceda5e87129b6f8f99ae7"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/hard-abort/commit-binding.json",
+        "bytes": 9808,
+        "sha256": "6d699000a30709af6d65679958220a7d01c8bbcd170d4392d7916d3afc72bcee"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-commit-binding.json",
+        "bytes": 92508,
+        "sha256": "4e5c296ecec1cec6b47a9f19d55a5f2fbd147d78e1f9c505b521cedabee26155"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/report.json",
+        "bytes": 13894,
+        "sha256": "1c0dc38970e886526c6f48dda990fee0101b44796f0dc56c126fc85057f6e6d4"
+      },
+      {
+        "path": "MACOS-PORTING/evidence/P5/hard-abort/independent-v1/durable-analysis.json",
+        "bytes": 11211,
+        "sha256": "440893e3389749496207e45d86e14a874294375da2c1b7582fbb0b1e543734f4"
+      }
+    ]
+  },
+  "baselineFacts": {
+    "sourceBoundMainCommit": "96db15f6b1ec3d8cc3c54a9edd709a306d7c451c",
+    "sourceBoundWorktreeCommit": "97e389b312947475566ecdba90e91f29b9eb9589",
+    "frozenSourceCount": 39,
+    "primaryAssertions": 12,
+    "independentAssertions": 12,
+    "calibrationScope": "现有主/独立各一次zero-input wait30根SIGKILL校准；沿用既有报告，不在本审查重跑或重新认证全部39来源。",
+    "alreadyPersisted": "interventions pending保留macro_run和wait30请求参数，随后applying/allowed记录保留允许意图；不得把这部分说成没有持久化。",
+    "currentGap": "messages/provider仅user；重启resumable.kind=user，没有可关联的provider assistant.tool_calls或tool结果。ACC wait-entry、dispatch确认和macro terminal持久归属仍未知。",
+    "existingRepair": "02 repair只补provider协议配对，不直接调用工具；其现有‘执行时中断’措辞在提前保存后过强。",
+    "storageCommitPoint": "02存储v2先写messages/provider正文，最后原子写head；head计数是提交点。await完成正常存储承诺可用于进程SIGKILL范围；不据此增加断电/fsync或跨文件事务保证。"
+  },
+  "findings": [
+    {
+      "id": "DH1",
+      "priority": 1,
+      "title": "仅await saveSession不能证明调用意图已提交",
+      "source": "ruyi-workbench/app/src/02-session-store.js:3662; 3798–3885",
+      "evidence": "executionOwner丢失、deleted墓碑、rewind高水位、turn superseded以及ifUnwrittenSince等dropped路径，在默认语义下可能返回同一个session。turnSaveOpts当前只有dropIfTurnSuperseded和executionOwner。",
+      "requiredForThisSlice": "新增opt-in requirePersisted，所有dropped均抛SESSION_SAVE_NOT_COMMITTED并携带不含参数的reason；保留既有默认行为。真实I/O异常继续抛出。不能用返回值===session、仅throwIfTurnSuperseded或throwIfStale作为全路径提交证明。"
+    },
+    {
+      "id": "DH2",
+      "priority": 1,
+      "title": "严格保存必须覆盖预执行和所有结果分支，失败不能转成可继续的工具错误",
+      "source": "ruyi-workbench/app/src/09-workflow.js:3093–3180; 3184–3674",
+      "evidence": "assistant.tool_calls目前仅push内存；并行read在串行for前执行。普通结果、拒绝、control-plane、agent分支、loop/steer填充存在多个push及continue/break；仅修改3608普通结果路径会漏分支。",
+      "requiredForThisSlice": "assistant行push后、任何本地预执行/permission/dispatch前，严格await保存。每for迭代try/finally严格保存可收敛continue/break，或统一append-result-and-save helper；所有已push结果均需在下一调用前提交。保存异常必须逃出普通tool catch和循环，不能变成普通result后继续。失败后可做既有受控收尾，不能发后续调用或声称结果已持久化。",
+      "raceBoundary": "保存后检查executionOwner及现有stop状态；权限/租约等await后、实际发起调用前也复查现有归属/中止条件。只在batch前检查一次不能覆盖等待审批期间被替换的执行。"
+    },
+    {
+      "id": "DH3",
+      "priority": 1,
+      "title": "异常收尾和并行剩余填充不能把已执行或未知改写成未执行",
+      "source": "ruyi-workbench/app/src/09-workflow.js:3207–3216; 3620–3629; 3834–3852",
+      "evidence": "并行read先完成到parallelReadResults，再按原序消费；steer及异常收尾当前给未配对调用补‘该调用未执行’。新增严格保存错误也会经过异常收尾，因此风险不只在02 pairing repair。",
+      "requiredForThisSlice": "本批已接收的parallel结果优先保留；只对确定未启动的调用使用not_executed。已发起但无可持久结果或无法证明未发起的项用明确unknown/operationMayHaveExecuted，不填假成功或假未执行。严格保存失败后不继续新dispatch；已并发在途动作不能倒称未发生。",
+      "boundedClaim": "逐条已接收结果的提交点是进入有序history并成功保存；仅在串行for保存不等于每个并行worker一返回就已持久化。保留并行调度时明确此窗口，不为此新建第二账本。"
+    },
+    {
+      "id": "DH4",
+      "priority": 2,
+      "title": "标识和参数需保留意图语义，不能冒充实际执行收据",
+      "source": "ruyi-workbench/app/src/09-workflow.js:3070–3098; 3184–3188; 3428–3432; 3145/3169/3520",
+      "evidence": "canonical/proxy归一、PrivacyGateway.prepareCall隐私引用还原、permission updatedInput和dispatcher参数归一会改变execution copy；providerHistoryToolCalls还会把非对象JSON参数记作{}。原始provider行只能证明已保存的协议意图。",
+      "requiredForThisSlice": "保持当前history隐私引用/协议归一边界，不把还原后的private args再写一份明文到日志、恢复信封或模型。跨迭代复用callId时按session/turn/assistant batch位置配对，不全历史去重；同一batch重复id应有明确拒绝/验证，不能让Map覆盖后误关联。",
+      "explicitlyDeferred": "若要声称实际dispatch参数或approval updatedInput已与调用ID持久绑定，需另立最小设计与验收；本轮不这样声称。历史非法参数的{}修复也不能被描述成一定实际执行过{}。"
+    },
+    {
+      "id": "DH5",
+      "priority": 2,
+      "title": "恢复配对不等于证明模型或自动继续不会重试未知动作",
+      "source": "ruyi-workbench/app/src/02-session-store.js:3179–3205; ruyi-workbench/app/src/09-workflow.js:1630–1635; ruyi-workbench/app/public/js/session-experience.js:774–800; ruyi-workbench/app/src/13p-steward-runner-actions.js:389–485",
+      "evidence": "repair本身不dispatch，但当前占位及系统消息写‘执行中中断’；UI继续发送泛化继续提示，steward自动续跑仅看dangling/计划等条件，未区分unknown调用。",
+      "requiredForThisSlice": "repair工具占位及配套系统文案改为‘调用已记录，是否派发/执行和结果未确认，可能已执行；勿自动重放，先核对’，既有已接收结果不覆盖。GET保持只读恢复观察，不自动执行工具。不得由kind=tool_calls推断执行过、未执行、已释放或已成功。",
+      "leftOpenByAgreement": "若本补丁不同时实现并验证UI/模型继续和steward/until-done的确定性未知动作防重发，就明确保持该门开放；不能仅靠模型文字指令宣称exactly-once或端到端自动重放防护。无需为当前实证history丢失修复扩大成新ledger/held架构。"
+    },
+    {
+      "id": "DH6",
+      "priority": 2,
+      "title": "09补toolCallId只改善native owner上下文，不建立ACC单调用生命周期",
+      "source": "ruyi-workbench/app/src/09-workflow.js:3145/3169/3520; ruyi-workbench/app/src/12-tool-dispatch.js:3422–3425; ruyi-workbench/app/src/04-permission-runtime.js:1115–1121; 2395–2401",
+      "evidence": "09三个native toolCall ctx漏tc.id；12会读取ctx.toolCallId构造ProcessRuntime owner。主bridge路径直接client.callTool，常驻MCP进程spawn owner只有kind=mcp/serverId，不能把该进程的出生/退出归于某个macro call。",
+      "requiredForThisSlice": "三处native ctx带String(tc.id)，proxy转发保留；核对nested owner不会丢上下文。仅称source owner字段改善，不称durable dispatch、ACK或terminal receipt。共享ACC进程不能按最后一个调用ID重新冒领。"
+    }
+  ],
+  "implementableSteps": [
+    {
+      "step": 1,
+      "files": [
+        "ruyi-workbench/app/src/02-session-store.js"
+      ],
+      "change": "saveSession增加requirePersisted opt-in：写链所有dropped经统一strict分支抛SESSION_SAVE_NOT_COMMITTED；默认调用者语义不变；I/O reject保留。不要让strict调用走自动重放mutator。"
+    },
+    {
+      "step": 2,
+      "files": [
+        "ruyi-workbench/app/src/09-workflow.js"
+      ],
+      "change": "为本normal-provider local batch使用严格save选项；assistant.tool_calls push立即保存，再允许本地预执行/permission/dispatch；现有owner/stop检查在相应await边界后生效。覆盖所有结果分支的逐迭代finally保存，不继续派发处理不了的保存错误。"
+    },
+    {
+      "step": 3,
+      "files": [
+        "ruyi-workbench/app/src/09-workflow.js"
+      ],
+      "change": "本批按已有parallelReadResults及当前batch范围处理收尾；真实接收结果保留，确定未执行才写skip，其余unknown。异常finalizer同样遵守；保留协议tool块连续性、图片在块后flush及跨迭代复用ID语义。"
+    },
+    {
+      "step": 4,
+      "files": [
+        "ruyi-workbench/app/src/02-session-store.js",
+        "ruyi-workbench/app/src/09-workflow.js"
+      ],
+      "change": "repair占位和系统说明使用unknown/可能已执行/不自动重放文案，明确是结果缺失占位，不是新执行结果。GET不开新模型请求、不修造成功；UI/自动继续门按本次约定保留后续，文档写清。"
+    },
+    {
+      "step": 5,
+      "files": [
+        "ruyi-workbench/app/src/09-workflow.js"
+      ],
+      "change": "三处native toolCall ctx增加toolCallId；不改helper或共享MCP owner归属，不把该字段当独立收据。按仓库既有构建生成server.js并做必要工程验证，当前审查不执行。"
+    }
+  ],
+  "closureMatrix": [
+    {
+      "requirement": "原审计approval_and_native_audit：hard-abort独立子项",
+      "canCloseAfterNewEvidence": "normal provider local调用意图在派发前落入既有session provider正文，可按callId/name/协议args关联；已接收结果逐条提交；未提交保存阻断后续本地调用。",
+      "doesNotClose": "实际ACC dispatch/wait-entry、macro terminal、native release、child cleanup durable receipt或整个approval/native audit要求。"
+    },
+    {
+      "requirement": "硬杀后provider仅user、泛化dangling=user的实证缺口",
+      "canCloseAfterNewEvidence": "成功intent提交后再SIGKILL，重新GET能找到持久assistant.tool_calls与未答ID，并报告kind=tool_calls；既有permission intent记录不丢。",
+      "doesNotClose": "调用实际进入ACC的证明，或杀在成功intent提交之前仍必有tool_calls。没有提交时不应发起调用，允许保留user-only。"
+    },
+    {
+      "requirement": "批末才保存导致已接收结果全丢",
+      "canCloseAfterNewEvidence": "成功逐结果提交后，该结果在同批后续等待/故障时保留；剩余结果未知，不抹掉已知。",
+      "doesNotClose": "动作完成到结果持久提交之间的窗口、尚未按序消费的并行结果立即持久化、断电或跨文件原子性。"
+    },
+    {
+      "requirement": "cancelled_action_audit",
+      "canCloseAfterNewEvidence": "不撤销既有协作取消已验范围；本轮仅补normal provider历史持久化。",
+      "doesNotClose": "不以旧协作取消结果顶替进程硬杀后的ACC审计和held/release证明。"
+    },
+    {
+      "requirement": "恢复语义",
+      "canCloseAfterNewEvidence": "repair本身不重放且以unknown补协议结果；GET观察不启动执行；不把缺行或allow解释成未派发/已完成。",
+      "doesNotClose": "UI继续、模型新发同参调用、steward/until-done自动恢复防重放，除非同补丁另有确定性实现与e2e。"
+    },
+    {
+      "requirement": "held-state root kill / rescue",
+      "canCloseAfterNewEvidence": "无；本次没有held输入、救援或helper更改。",
+      "doesNotClose": "监督释放、超时/失联处置、独立救援资格及真实held验证仍另门。"
+    }
+  ],
+  "requiredValidationPlan": [
+    {
+      "id": "E1",
+      "kind": "unit + isolated provider integration",
+      "scenario": "intent barrier真实I/O失败：provider append或head提交前失败；强制返回错误而不是吞掉。",
+      "assertions": "后续permission/dispatch计数为0；不能发成功/已保存事件；头声明计数与恢复读取一致，不从未提交尾巴推断已执行。"
+    },
+    {
+      "id": "E2",
+      "kind": "session-store targeted tests + isolated provider integration",
+      "scenario": "requirePersisted分别命中owner superseded、session deleted、rewind高水位、newer turn及其他dropped；默认模式对照。",
+      "assertions": "strict一律SESSION_SAVE_NOT_COMMITTED，默认行为兼容；session不复活、新turn不被旧save覆盖；old driver不继续dispatch。权限等待期间owner被替换也不能执行。"
+    },
+    {
+      "id": "E3",
+      "kind": "isolated normal provider no-input e2e",
+      "scenario": "保存intent成功后暂停在工具进入之前，读取磁盘和GET；随后控制root退出/重启仅GET。",
+      "assertions": "准确callId/name/规范化协议args可找到，未答对应kind=tool_calls；无新增模型请求/工具重放。故障后只是dispatch/outcome未知，不能冒称真正进过ACC。"
+    },
+    {
+      "id": "E4",
+      "kind": "isolated normal provider no-input e2e",
+      "scenario": "一批A返回结果且提交成功，B长wait未决；在B期间退出/重启。另令A结果保存失败。",
+      "assertions": "成功场景A结果保留且B未知；失败场景不启动后续调用、不把A已发生的影响说成未执行；不把loop/catch/finalizer填充当真实结果。"
+    },
+    {
+      "id": "E5",
+      "kind": "provider branch integration",
+      "scenario": "普通工具、args-invalid、policy/permission拒绝、control-plane、agent分支、loop拒绝和steer跳过各触发continue/break。",
+      "assertions": "每个已push结果在允许下一调用前提交；图片仍在完整tool块后；finally覆盖分支，严格保存异常不能被普通tool catch吸收后继续。"
+    },
+    {
+      "id": "E6",
+      "kind": "parallel/pool/mixed-batch integration",
+      "scenario": "≥2并行read及>8 pool/混合只读岛，完成顺序错位；steer/stop或一次结果提交失败。",
+      "assertions": "保存intent发生在所有预执行之前；已接收parallelReadResults保留；不把预执行的剩余项标未执行；已并发在途状态如实，失败已知后不再安排新的dispatch。"
+    },
+    {
+      "id": "E7",
+      "kind": "provider history pairing + recovery integration",
+      "scenario": "两个连续assistant批复用call_1；同批重复ID负例；一批部分结果与未知修复。",
+      "assertions": "按当前batch配对，旧结果不冒认新调用，已知结果不覆盖，缺项恰好一个unknown协议占位，strict-provider消息顺序合法；不存在直接工具重放。"
+    },
+    {
+      "id": "E8",
+      "kind": "privacy/approval integration",
+      "scenario": "private alias参数、alias恢复不可用、approval updatedInput、proxy归一和malformed rawArgs。",
+      "assertions": "history保持既有隐私/协议语义；GET受现有display投影保护；日志/模型不新增原文秘密；原provider args不冒称actual执行args；拒绝不误执行。"
+    },
+    {
+      "id": "E9",
+      "kind": "owner-context unit/integration",
+      "scenario": "09三处native ctx及proxy转发。",
+      "assertions": "12/ProcessRuntime可见对应toolCallId、session、turn；跨迭代及并发不串owner；共享MCP仍明确server进程级，不冒充ACC单调用receipt。"
+    },
+    {
+      "id": "E10",
+      "kind": "new frozen primary + independent zero-input root-kill acceptance",
+      "scenario": "产品修复冻结、必要工程门完成后，复用已审的零输入fixture并补持久history断言，主/独立各一次，保留故障与重启快照。",
+      "assertions": "新源码/实际产物绑定；意图与已接收结果在实际root-only SIGKILL后符合上述语义。不会仅沿用旧12项通过宣布新修复验收；仍不含held/rescue/ACC-entry或fullgate。"
+    }
+  ],
+  "deferredValidation": [
+    "UI显示未知调用与恢复按钮语义、模型新调用重复的确定性阻断、steward/until-done自动继续unknown门：若不在本patch实现及e2e，明确保持开放。",
+    "实际dispatch/实际执行args/ACC wait-entry ACK、macro terminal和监督清理持久归属：另有最小设计与独立source-bound验收后才能声称。",
+    "held输入状态下root kill、监督release与独立qualified rescue：另门，当前不测试、不修改helper。"
+  ],
+  "acceptanceWording": {
+    "acceptable": "当前主机normal provider local调用的协议意图在本地执行前提交，已接收并入history的结果逐条提交；所需保存未提交会阻断后续调用。故障后可恢复关联调用并保留未知语义。",
+    "unacceptable": [
+      "已证明ACC收到/开始wait30或宏已执行/未执行",
+      "拥有精确actual dispatch参数或独立terminal收据",
+      "历史缺结果表示未执行，可以自动重试",
+      "ctx.toolCallId已补即等于硬杀后持久审计完成",
+      "原12项加最小保存补丁即整个hard-abort/P5验收通过"
+    ]
+  },
+  "actionsThisReview": {
+    "GUIActions": 0,
+    "testsStarted": 0,
+    "builds": 0,
+    "signatures": 0,
+    "processSampling": 0,
+    "inputs": 0,
+    "rootKills": 0,
+    "productEdits": 0,
+    "helperEdits": 0,
+    "rawEvidenceEdits": 0,
+    "indexChanges": 0,
+    "commits": 0,
+    "newFiles": [
+      "MACOS-PORTING/evidence/P5/hard-abort/durable-history-plan-review-v1.json"
+    ]
+  },
+  "hardAbortGateStatus": "open",
+  "heldReleaseRescueGateStatus": "open_separate_gate",
+  "phaseStatus": "in_progress"
+}

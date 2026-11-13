@@ -1,0 +1,24 @@
+{
+  "scope": "standalone synthetic fixture diagnostics; existing tests unchanged",
+  "immediateExit": {
+    "exitCode": 0,
+    "bytes": 65536,
+    "jsonValid": false,
+    "endsWithNewline": false,
+    "stderr": ""
+  },
+  "flushCallback": {
+    "exitCode": 0,
+    "bytes": 200019,
+    "jsonValid": true,
+    "endsWithNewline": true,
+    "stderr": ""
+  },
+  "pathAlias": {
+    "literalDirectory": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p0-path-p9DnJK",
+    "realDirectory": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p0-path-p9DnJK",
+    "childFilename": "/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p0-path-p9DnJK/probe.cjs",
+    "literalPrefixMatches": false,
+    "canonicalPrefixMatches": true
+  }
+}

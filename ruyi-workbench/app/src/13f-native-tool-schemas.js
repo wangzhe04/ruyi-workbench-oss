@@ -143,8 +143,18 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'shell_run',
+    description: 'One-shot platform shell (macOS bash, Windows PowerShell). No profiles or stdin. Explicit language overrides default. Bounded output.',
+    inputSchema: { type: 'object', properties: {
+      command: { type: 'string', description: 'command text' },
+      language: { type: 'string', enum: process.platform === 'darwin' ? ['bash'] : ['bash', 'powershell'], description: 'default platform shell' },
+      cwd: { type: 'string', description: 'Conversation cwd, must exist' },
+      timeoutMs: { type: 'number', description: '1000..1800000 ms, default 60000' },
+    }, required: ['command'] },
+  },
+  {
     name: 'powershell_run',
-    description: 'Run a one-shot PowerShell command on Windows (stdin closed, prompts fail fast; timeoutMs default 60000, 1000..1800000). Result {ok, code, timedOut, error?, hint?, stderr, stdout}; long output keeps head+tail (stdoutOmitted). Long jobs: shell_start({command}).',
+    description: 'Windows PowerShell, closed stdin, prompts fail fast. Timeout 60000ms (1000..1800000). Returns code/timedOut/error/hint and head/tail stdout/stderr with omitted counts. Long jobs use shell_start.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -161,26 +171,27 @@ const MCP_TOOLS = [
   // these return a guiding error — use powershell_run for one-shot commands there.
   {
     name: 'shell_start',
-    description: 'Provider engine only: start PowerShell and return a shellId immediately. For slow independent work, supply command to run a finite background job; continue other work and use shell_poll to collect output/exitCode, shell_kill to cancel. Background jobs survive ordinary interjections and turn completion, but not server shutdown. Without command, starts an interactive session for shell_send.',
+    description: 'Provider only, non-TTY. Default macOS bash or Windows PowerShell. With command, run a finite background job (poll/kill). Otherwise retain cwd/variables for shell_send. Mac commands have closed stdin and private completion. Jobs survive turns, stop with server.',
     inputSchema: {
       type: 'object',
       properties: {
+        language: { type: 'string', enum: process.platform === 'darwin' ? ['bash'] : ['bash', 'powershell'], description: 'Default bash on macOS, powershell on Windows.' },
         cwd: { type: 'string', description: 'default: conversation folder' },
         name: { type: 'string', description: 'label' },
-        command: { type: 'string', description: 'Optional finite PowerShell command to run in the background; shell_poll.running becomes false on completion. Do not send input to this mode.' },
-        timeoutMs: { type: 'number', description: 'Background command deadline (default 30 minutes, maximum 24 hours). Polling does not extend it.' },
+        command: { type: 'string', description: 'Finite background command. Poll until running:false. This mode rejects input.' },
+        timeoutMs: { type: 'number', description: 'Background deadline, default 30min, max 24h. Polling does not extend it.' },
         shellId: { type: 'string', description: 'optional id [a-zA-Z0-9_-]{1,32}' },
       },
     },
   },
   {
     name: 'shell_send',
-    description: 'Send one line of input to a shell session; returns output that settles within timeoutMs (capped at maxChars). settled: quiet|silent|timeout|exit (timeout = still printing; track long tasks with shell_poll).',
+    description: 'Send a command. Mac commandExitCode is authoritative and commandRunning tracks unfinished work. settled=completed/quiet/silent/timeout/exit. Output is capped by maxChars.',
     inputSchema: {
       type: 'object',
       properties: {
         shellId: { type: 'string', description: 'id from shell_start' },
-        input: { type: 'string', description: 'one input line' },
+        input: { type: 'string', description: 'command input; macOS supports multiline up to 1MiB UTF-8, no NUL' },
         timeoutMs: { type: 'number', description: 'max settle wait, default 10000' },
         maxChars: { type: 'number', description: 'default 16000, 500..30000' },
       },
@@ -189,7 +200,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'shell_poll',
-    description: 'Read output of a shell or background command: {running, exitCode?, timedOut, mode, cursor, more?, omittedFrom?, omittedTo?, output}. A background job is done only when running:false (check exitCode, timedOut); for an interactive shell running just means the process is alive. cursor = UTF-16 offset where output ends: pass it back unchanged to continue. No cursor: beginning + latest part (omitted range reported); cursor>0: next page (more:true if any).',
+    description: 'Poll output. running means shell/job lifetime, Mac commandRunning means current command. Check exitCode/timedOut after running:false. cursor is an absolute UTF-16 offset. Omit for head/tail, or pass prior cursor/omittedFrom to page with more.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -203,7 +214,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'shell_kill',
-    description: 'Terminate a shell session and its process tree. CAUTION: any un-consumed buffered output of that session is lost, and any long-running command inside it is killed.',
+    description: 'Stop an owned shell and its jobs. Buffered output is discarded on removal. Mac verifies cleanupIncomplete before removal.',
     inputSchema: {
       type: 'object',
       properties: { shellId: { type: 'string' } },
@@ -217,11 +228,11 @@ const MCP_TOOLS = [
   },
   {
     name: 'script_run',
-    description: 'Run a temporary PowerShell (default), Python (UTF-8) or Node script; stdin closed; timeoutMs default 60000 (1000..1800000). Result {ok, code, timedOut, error?, hint?, stderr, stdout}; long output keeps head+tail.',
+    description: 'Run bash (Mac default), PowerShell (Windows default), Python or Node. Closed stdin. Timeout 60000ms by default, 1000..1800000. Output keeps bounded head/tail.',
     inputSchema: {
       type: 'object',
       properties: {
-        language: { type: 'string', enum: ['powershell', 'python', 'node', 'javascript'], description: 'default powershell' },
+        language: { type: 'string', enum: process.platform === 'darwin' ? ['bash', 'python', 'node', 'javascript'] : ['bash', 'powershell', 'python', 'node', 'javascript'], description: 'default bash on macOS, powershell on Windows' },
         code: { type: 'string', description: 'script source' },
         cwd: { type: 'string', description: 'default: conversation folder; must exist' },
         timeoutMs: { type: 'number', description: 'ms, default 60000' },
@@ -486,7 +497,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'desktop_screenshot',
-    description: 'Capture the primary Windows screen to a PNG file',
+    description: 'Capture the primary screen to a PNG file. On macOS, requires Screen Recording permission and returns global logical-point origin with image scale and scale_y.',
     inputSchema: {
       type: 'object',
       properties: { outputPath: { type: 'string', description: 'PNG path; default: app generated folder' }, timeoutMs: { type: 'number', description: 'ms' } },

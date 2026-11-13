@@ -1,0 +1,295 @@
+✔ actual metadata preparation and final RPC serialization never run inherited object/array toJSON (1.9165ms)
+✔ final serialized packet rejection makes zero actual stdin writes and clears pending request (0.305791ms)
+✔ own executable serialization hooks refuse before final callback and before stdin (0.117ms)
+✔ stripped tool text alone cannot acknowledge delivery after image flush was interrupted (0.133083ms)
+✔ required image must follow the matching actual tool row, and every image must be present (0.087375ms)
+✖ preparation commits only hashes/identities before returning an immutable dispatchable value (5.775334ms)
+✖ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (7.223042ms)
+✖ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (1.322667ms)
+✖ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (0.955833ms)
+✖ ordinary returned results require matching actual worker/tool/argument and terminal facts (1.031375ms)
+✖ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (0.700041ms)
+✖ client replacement or lost ownership prevents a preparation being used for dispatch (0.655541ms)
+✖ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (0.789667ms)
+✖ corrupt, missing and replaced storage is refused rather than reinitialized as empty (0.815083ms)
+✖ capacity refuses without pruning any unresolved row (0.843833ms)
+✖ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (0.771208ms)
+✖ unknown records cannot be retired even if a caller confirms closure (0.657375ms)
+✖ client facts and receipt content are snapshotted before asynchronous ledger IO (1.574834ms)
+✖ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (0.879458ms)
+✖ two live authorities for the same canonical directory cannot create independent write chains (0.940917ms)
+✖ strict root record validation rejects contradictory returned-unknown state without resetting the file (0.813958ms)
+✖ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (1.108417ms)
+✖ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (1.303875ms)
+✖ loss of authority during the actual write cannot return a dispatchable preparation (1.162333ms)
+✖ ordinary business exit codes remain result data and are not invented as receipt flags (1.025041ms)
+✖ receipt code projection uses Python code points and preserves astral-boundary distinctions (0.913ms)
+✖ authority handover refuses until the old write has drained, then preserves it as an unknown record (0.800916ms)
+✖ retired turns remain closed across reopen and explicit newer rewind generation gets a distinct admission (0.801625ms)
+✖ prepare and dispatch require the explicit live host turn, not a caller-supplied newer generation (1.081417ms)
+✖ late actual results remain recordable after the host turn stops, while new dispatch is refused (0.816375ms)
+✖ retirement confirmation receives an exact scope even when the turn has no records (1.075292ms)
+✖ actual admitted object prepares against live turn and stores no argument plaintext (84.909834ms)
+✖ copying session or owner identities cannot authorize preparation (32.5025ms)
+✖ cancel, supersede, sequence or generation mutation makes prior preparation hold the same-process successor (24.471542ms)
+✖ release revokes live preparation and an old finalizer cannot delete a newer admission (25.638625ms)
+✖ released actual OS owner blocks guard, admit and preparation without writing a new row (23.089959ms)
+✖ replacing owned data directory cannot create a fresh execution authority under the old root lock (22.5165ms)
+✖ string, null and nonfinite rewind generations cannot alias a real host generation (24.772875ms)
+✔ replacement between acquiring OS ownership and initializing runtime cannot reset execution evidence (65.343417ms)
+✖ cold missing data root binds its first identity under the original startup gate (24.262417ms)
+✖ legacy migration binds the acquired source inode even when its old name becomes a symlink (30.524667ms)
+✖ confirmed legacy rename releases startup gate when creating the old junction failed (27.166916ms)
+✖ candidate owned ACC environment covers recognized aliases and overrides context-off entry env (21.973417ms)
+✔ candidate inserts every later tool reply before already persisted images and returns actual tool index (0.898167ms)
+✔ batch anchor and requested call identity must remain current before inserting history (0.252666ms)
+✔ real stale metadata snapshot cannot overwrite an inserted tool result or its image (165.727333ms)
+✔ stamped disk remains protected after candidate flag off and rejects unstamped stale object (91.41275ms)
+✔ stamp zero is an existing protected revision, not absence (89.086375ms)
+✔ queued same-object writer takes revision/body/head from one chain-time snapshot (97.432083ms)
+✔ missing, null and malformed existing heads never reset an initialized revision (297.617709ms)
+✔ invalid or future revisions refuse before replacing body; rewrite overflow is bounded (104.051042ms)
+✔ head commit updates live revision even if a later body stat step fails (94.744792ms)
+✔ actual branded wrapper cannot use fabricated meta/checker as a private root dispatch permit (0.732375ms)
+✔ same-length protected rewrite rolls back both bodies when head commit fails (97.502666ms)
+✔ cold reader restores simulated same-count interrupted rewrite by committed body hashes rather than line count (95.32675ms)
+✔ either surviving protection field refuses legacy downgrade with flag off (204.106791ms)
+✔ cached append and metadata saves refuse corrupted head commit or actual body (304.749792ms)
+✔ partial rollback copy failure preserves both snapshots for a later cold recovery (107.142833ms)
+✔ exception after real head publication does not roll committed bodies or live revision back (102.302416ms)
+✔ write-chain recovery removes only verified uncommitted tails on either body (319.134792ms)
+✔ failed uncommitted-tail truncation refuses save without blessing the tail (107.106583ms)
+✔ protected head cannot masquerade as a legacy storage version (100.287875ms)
+✔ rewind watermark follows actual head publication even when its acknowledgement is lost (227.779625ms)
+ℹ tests 63
+ℹ suites 0
+ℹ pass 26
+ℹ fail 37
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2730.070917
+
+✖ failing tests:
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ preparation commits only hashes/identities before returning an immutable dispatchable value (5.775334ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ simultaneous preparations serialize without losing records or confusing a just-committed live preparation (7.223042ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ every pending prior-epoch phase becomes a durable hold on reopen without invoking any tool (1.322667ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ a duplicate call identity never becomes a second dispatch, even after a verified result and delivery (0.955833ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ ordinary returned results require matching actual worker/tool/argument and terminal facts (1.031375ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ reported unknown is held independently of a claimed complete lifecycle; failed tools are not claimed undispatched (0.700041ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ client replacement or lost ownership prevents a preparation being used for dispatch (0.655541ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ storage failure after dispatch leaves a durable hold and never substitutes a memory-only success (0.789667ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ corrupt, missing and replaced storage is refused rather than reinitialized as empty (0.815083ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ capacity refuses without pruning any unresolved row (0.843833ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ retirement requires verified delivered records and a root-side closed-history/ACC-retention confirmation (0.771208ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ unknown records cannot be retired even if a caller confirms closure (0.657375ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ client facts and receipt content are snapshotted before asynchronous ledger IO (1.574834ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ a prepared sibling is refused if another call becomes uncertain before its dispatch marker (0.879458ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ two live authorities for the same canonical directory cannot create independent write chains (0.940917ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ strict root record validation rejects contradictory returned-unknown state without resetting the file (0.813958ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ SDK validation failure may prove non-dispatch only with no actual wrapper and no conflicting action flags (1.108417ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ the root ledger does not execute inherited serialization hooks during prepare, receipt validation or delivery (1.303875ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ loss of authority during the actual write cannot return a dispatchable preparation (1.162333ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ ordinary business exit codes remain result data and are not invented as receipt flags (1.025041ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ receipt code projection uses Python code points and preserves astral-boundary distinctions (0.913ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ authority handover refuses until the old write has drained, then preserves it as an unknown record (0.800916ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ retired turns remain closed across reopen and explicit newer rewind generation gets a distinct admission (0.801625ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ prepare and dispatch require the explicit live host turn, not a caller-supplied newer generation (1.081417ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ late actual results remain recordable after the host turn stops, while new dispatch is refused (0.816375ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-ledger.test.js:5:23
+✖ retirement confirmation receives an exact scope even when the turn has no records (1.075292ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ actual admitted object prepares against live turn and stores no argument plaintext (84.909834ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ copying session or owner identities cannot authorize preparation (32.5025ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ cancel, supersede, sequence or generation mutation makes prior preparation hold the same-process successor (24.471542ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ release revokes live preparation and an old finalizer cannot delete a newer admission (25.638625ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ released actual OS owner blocks guard, admit and preparation without writing a new row (23.089959ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ replacing owned data directory cannot create a fresh execution authority under the old root lock (22.5165ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ string, null and nonfinite rewind generations cannot alias a real host generation (24.772875ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ cold missing data root binds its first identity under the original startup gate (24.262417ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ legacy migration binds the acquired source inode even when its old name becomes a symlink (30.524667ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ confirmed legacy rename releases startup gate when creating the old junction failed (27.166916ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25
+
+test at dev-harness/unit/desktop-execution-runtime.test.js:5:28
+✖ candidate owned ACC environment covers recognized aliases and overrides context-off entry env (21.973417ms)
+  TypeError: snapshot.entries is not iterable
+      at read (/private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9809:33)
+      at async /private/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/server.js:9940:25

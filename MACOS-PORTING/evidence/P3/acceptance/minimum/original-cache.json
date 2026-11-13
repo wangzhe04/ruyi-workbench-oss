@@ -1,0 +1,1397 @@
+{
+  "target": [
+    14,
+    0,
+    0
+  ],
+  "scope": "Static arm64 Mach-O load commands only; not macOS14 execution or signed release validation",
+  "wheels": [
+    {
+      "wheel": "ai_computer_control-1.9.1-py3-none-any.whl",
+      "sha256": "a2be2b5da8ae0e1081a10628650927b812fedd7478e03d5f1e761c58b7cd755a",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "annotated_doc-0.0.5-py3-none-any.whl",
+      "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "annotated_types-0.8.0-py3-none-any.whl",
+      "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "anyio-4.16.0-py3-none-any.whl",
+      "sha256": "c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "attrs-26.1.0-py3-none-any.whl",
+      "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "certifi-2026.10.23-py3-none-any.whl",
+      "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "f81b3b8f3d4e343550fa4baa0e479bba9f2d29ce9c2e9b51d1ce1718d7442fcf",
+      "arm64Binaries": [
+        {
+          "path": "_cffi_backend.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "charset_normalizer-3.5.2-cp312-cp312-macosx_10_13_universal2.whl",
+      "sha256": "ed2a239c0ea213acc1908150a3037257083c7c083128f1a4cec2ec4b97dca491",
+      "arm64Binaries": [
+        {
+          "path": "charset_normalizer/cd.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "charset_normalizer/md.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "click-8.5.0-py3-none-any.whl",
+      "sha256": "255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "c76f3a5318164db7d9401132fc1b5364b784c613c93fa506e3b5e6d1bf353ec8",
+      "arm64Binaries": [
+        {
+          "path": "contourpy/_contourpy.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl",
+      "sha256": "fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb",
+      "arm64Binaries": [
+        {
+          "path": "cryptography/hazmat/bindings/_rust.abi3.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "cycler-0.12.1-py3-none-any.whl",
+      "sha256": "85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "et_xmlfile-2.0.0-py3-none-any.whl",
+      "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl",
+      "sha256": "f265c85432c398d86f26add143423924a4747879b2dce001a3ffe0a5fed30638",
+      "arm64Binaries": [
+        {
+          "path": "fontTools/qu2cu/qu2cu.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "fontTools/misc/bezierTools.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "fontTools/cu2qu/cu2qu.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "fontTools/varLib/iup.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "fontTools/pens/momentsPen.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "fontTools/feaLib/lexer.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "greenlet-3.5.6-cp312-cp312-macosx_11_0_universal2.whl",
+      "sha256": "a5876d0a60355af98d535c47f6cd6eb0f8a432396dab26845d380b92f8412422",
+      "arm64Binaries": [
+        {
+          "path": "greenlet/_greenlet.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "greenlet/tests/_test_extension.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "greenlet/tests/_test_extension_cpp.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "h11-0.16.0-py3-none-any.whl",
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "httpcore-1.0.9-py3-none-any.whl",
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "httpx-0.28.1-py3-none-any.whl",
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "httpx_sse-0.4.3-py3-none-any.whl",
+      "sha256": "0ac1c9fe3c0afad2e0ebb25a934a59f4c7823b60792691f779fad2c5568830fc",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "idna-3.20-py3-none-any.whl",
+      "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "jsonschema-4.26.0-py3-none-any.whl",
+      "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+      "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "1798e83840c3f627246104c4d8a9639c60fa068adf9ce92b61791781fa8a68c1",
+      "arm64Binaries": [
+        {
+          "path": "kiwisolver/_cext.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "lxml-6.1.3-cp312-cp312-macosx_10_13_universal2.whl",
+      "sha256": "0c0710ac085a157b593c38fbcacd950f15c4afa8e2057527185875ab302752bc",
+      "arm64Binaries": [
+        {
+          "path": "lxml/builder.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "lxml/sax.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "lxml/_elementpath.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "lxml/etree.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "lxml/objectify.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "lxml/html/diff.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "lxml/html/_difflib.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "markdown_it_py-4.2.0-py3-none-any.whl",
+      "sha256": "9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "ef31985c4dedb5f1424e1aec6849a47dd37689cb7fa3c20b1b82187f26806261",
+      "arm64Binaries": [
+        {
+          "path": "matplotlib/_image.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/_tri.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/_qhull.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/_path.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/ft2font.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/_c_internal_utils.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/backends/_tkagg.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/backends/_macosx.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "matplotlib/backends/_backend_agg.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "mcp-1.30.0-py3-none-any.whl",
+      "sha256": "666edb5009503e1047c9d60346a756f94b261f05cc2625f23d41c728ffc484d0",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "mdurl-0.1.2-py3-none-any.whl",
+      "sha256": "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl",
+      "sha256": "9cb18a327b49c5c337f972b03682f6a49855525faaf3c0d3e9c96cd0fd8880a8",
+      "arm64Binaries": [
+        {
+          "path": "numpy/linalg/lapack_lite.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/linalg/_umath_linalg.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_operand_flag_tests.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_struct_ufunc_tests.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_rational_tests.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_multiarray_tests.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_umath_tests.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_simd.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/_core/_multiarray_umath.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/fft/_pocketfft_umath.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/bit_generator.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_pcg64.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_mt19937.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_philox.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_bounded_integers.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/mtrand.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_common.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_sfc64.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "numpy/random/_generator.cpython-312-darwin.so",
+          "minimums": [
+            [
+              14,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "openpyxl-3.1.5-py2.py3-none-any.whl",
+      "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pdfminer_six-20260107-py3-none-any.whl",
+      "sha256": "366585ba97e80dffa8f00cebe303d2f381884d8637af4ce422f1df3ef38111a9",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pdfplumber-0.11.10-py3-none-any.whl",
+      "sha256": "7741ea81bf165b474b153e6789d10d18e06b6ddcf3ec84289c3ef2fed6802580",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "fc481f742ccda20e9ed760b8f978dff50f2a4e9bc253ac167fb0a05b0783ef52",
+      "arm64Binaries": [
+        {
+          "path": "PIL/_webp.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_imagingcms.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_imagingft.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_imagingmath.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_imaging.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_imagingmorph.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_imagingtk.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/_avif.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libbrotlicommon.1.2.0.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libbrotlidec.1.2.0.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/liblcms2.2.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libpng16.16.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libxcb.1.1.0.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libjpeg.62.4.0.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libfreetype.6.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libharfbuzz.0.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libsharpyuv.0.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libopenjp2.2.5.4.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libavif.16.4.2.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libz.1.3.1.zlib-ng.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libwebp.7.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libXau.6.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libwebpmux.3.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libwebpdemux.2.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/liblzma.5.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "PIL/.dylibs/libtiff.6.dylib",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "playwright-1.64.1-py3-none-macosx_11_0_arm64.whl",
+      "sha256": "59f7b041284ce8d1b72098ae50ca48a2d83692eec25154ab5ba79d4b6b4fe8a9",
+      "arm64Binaries": [
+        {
+          "path": "playwright/driver/node",
+          "minimums": [
+            [
+              13,
+              5,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl",
+      "sha256": "1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979",
+      "arm64Binaries": [
+        {
+          "path": "psutil/_psutil_osx.abi3.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "pycparser-3.12-py3-none-any.whl",
+      "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pydantic-2.14.3-py3-none-any.whl",
+      "sha256": "3f7b347782ab7e4cf4c798496ae3a82787d9f21ec12676a9c564355eeef8daa8",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pydantic_core-2.50.4-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "1e20cbde2b6deb33a51d08cd168454dd9044ec7d4474056f4d98d63f51578783",
+      "arm64Binaries": [
+        {
+          "path": "pydantic_core/_pydantic_core.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "pydantic_settings-2.16.2-py3-none-any.whl",
+      "sha256": "8d523e5c129b097686bde019bd6109bff53f4c8c3f63f1ddf9933ffa42e5ab4f",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pyee-14.0.0-py3-none-any.whl",
+      "sha256": "3ac2d3229a9677f7de2c33d7f52fe25b638a46b19c413fea2edc8c6d0a644e4d",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pygments-2.21.0-py3-none-any.whl",
+      "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pyjwt-2.15.1-py3-none-any.whl",
+      "sha256": "42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pyparsing-3.3.3-py3-none-any.whl",
+      "sha256": "ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl",
+      "sha256": "2de384df66ba55fcaab0775f30f28ec1090af3dfa60276a07821efc96d993118",
+      "arm64Binaries": [
+        {
+          "path": "pypdfium2_raw/libpdfium.dylib",
+          "minimums": [
+            [
+              13,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "pyperclip-1.11.0-py3-none-any.whl",
+      "sha256": "299403e9ff44581cb9ba2ffeed69c7aa96a008622ad0c46cb575ca75b5b84273",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "python_dateutil-4.0.0-py3-none-any.whl",
+      "sha256": "a5e246f79eb80475e691bf93862cead98decd8a498cf53ba0516fcdc0f50dc1c",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "python_docx-1.2.0-py3-none-any.whl",
+      "sha256": "3fd478f3250fbbbfd3b94fe1e985955737c145627498896a8a6bf81f4baf66c7",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "python_dotenv-1.2.4-py3-none-any.whl",
+      "sha256": "42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "python_multipart-0.0.33-py3-none-any.whl",
+      "sha256": "8f16c07b36add9da6b2ee87d3efcaf0a45a6de9c3d0a5dd94e9ccf7675a7bc45",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "python_pptx-1.0.2-py3-none-any.whl",
+      "sha256": "160838e0b8565a8b1f67947675886e9fea18aa5e795db7ae531606d68e785cba",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "referencing-0.37.0-py3-none-any.whl",
+      "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "reportlab-5.1.0-py3-none-any.whl",
+      "sha256": "59fdbaec5efe437095ad1d7292ec9a271c8ca2d3ec75e889c6e61400929b90df",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "rich-15.0.0-py3-none-any.whl",
+      "sha256": "33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "rpds_py-2026.9.1-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "e21c1429e205828ea886a2293a4a2c8e01f4c25d9893ca330e97a6cf73f52e7b",
+      "arm64Binaries": [
+        {
+          "path": "rpds/rpds.cpython-312-darwin.so",
+          "minimums": [
+            [
+              11,
+              0,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "wheel": "shellingham-1.5.4-py2.py3-none-any.whl",
+      "sha256": "7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "sse_starlette-3.6.0-py3-none-any.whl",
+      "sha256": "e4dfa4d237d2712cb2b4d4918eda9b457cd6b44bbecdc838af75de836565bafd",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "starlette-1.10.0-py3-none-any.whl",
+      "sha256": "478c0ab3b4ced6e82719849c118fa406f0278a3499c1a898cd15cd31bdc38ce4",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "typer-0.28.0-py3-none-any.whl",
+      "sha256": "afd18929180b706c5e9a239f53c3c8136903553c0c2d460598bbaa924191d4ab",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "typing_inspection-0.4.5-py3-none-any.whl",
+      "sha256": "bc210535442b39e1bf2805e0c7a17dfd6a4ace760c84c7f7d16245d23a6b1c39",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "tzdata-2026.6-py2.py3-none-any.whl",
+      "sha256": "0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "uvicorn-0.54.0-py3-none-any.whl",
+      "sha256": "505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf",
+      "arm64Binaries": []
+    },
+    {
+      "wheel": "xlsxwriter-3.3.1-py3-none-any.whl",
+      "sha256": "8e2c89e59d733fe59e112317218c64fbbc276d90a8c144ebd6f7fa15e7ab184a",
+      "arm64Binaries": []
+    }
+  ],
+  "browser": [
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Google Chrome for Testing Framework",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 251226256,
+      "sha256": "6373f7e8990350a8dfb729f9af25c349b0f926e3ac25984cdf3692a21c4b1e35"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 69792,
+      "sha256": "d145ca0ce6fe302724e5bad48c900f88c81a8f62e32b4a26635bd993d2fcd9a0"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif Alerts)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 33600,
+      "sha256": "d5af05c9bc69cf81f40cc3ecb499fc3c703767909df5844e2066d7f611a459ab"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif GPU)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 33584,
+      "sha256": "37b9d745f5c6f3e3b4c0551a0611e23370730ace2d20c7b532968517a3a762f6"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif Renderer)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 33600,
+      "sha256": "774cf55bf62e670f9bfb33ff2727f3216f4e5e69f368b2157c6f557319623fec"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Aperitif).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 33584,
+      "sha256": "8efc8d986086484abbf70d269edbcd91bd00182fca27d90ee98e503daf9283ae"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app/Contents/MacOS/Google Chrome for Testing Helper (GPU)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 69792,
+      "sha256": "b80eb6e934dc4a21c26f4561dbb7f4fa35e78ad05b88abc90e110d405cfc3346"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 69792,
+      "sha256": "3e4f95cc73e0c5becd64c405e1f4eb8d66d8173da6ae7b471b82b868b7617ac6"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 69792,
+      "sha256": "20de44187df30fe2eee3e6bfed24391e89a35f5da16981ae4cf01003230ab42d"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/app_mode_loader",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 810608,
+      "sha256": "27eccaecffd440c6402de5a56cf218accb93681e3d0f1a1925ac7da1f1e68d47"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/chrome_crashpad_handler",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 1360608,
+      "sha256": "8420a9cd5d1f1802ba427607a6f3465dfd557be5361698c01dc0a02c56bda73d"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/web_app_shortcut_copier",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 33488,
+      "sha256": "8f0f1963f026f4469d13008b19cd1f8d11dc19629a318e32994eec12c1f2aa6d"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/WidevineCdm/_platform_specific/mac_arm64/libwidevinecdm.dylib",
+      "minimums": [
+        [
+          12,
+          0,
+          0
+        ]
+      ],
+      "bytes": 20416896,
+      "sha256": "e1e9f6b0c77f4251542a2f49dda419c85eda88c5d9ef2721d5d594dc195a6e5f"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libaperitif.dylib",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 69760,
+      "sha256": "f601048958cbe07c25117d56a43e498e79ccecc13682e3249c0589b18f279df5"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvk_swiftshader.dylib",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 16326576,
+      "sha256": "ffac89c5953500b93fc97e3191a8b38f446594bd503126f67c221608057f2160"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Libraries/libvulkan.dylib",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 499488,
+      "sha256": "39fd23b6edf852a12cefb0c801f687282ae4763fdf48469d62fe76073ef48a31"
+    },
+    {
+      "path": "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "minimums": [
+        [
+          13,
+          0,
+          0
+        ]
+      ],
+      "bytes": 52112,
+      "sha256": "c8509aee32abd6977968e9999769980b7a420dea05402d90042d9e5b41db15ef"
+    },
+    {
+      "path": "ffmpeg-1013/ffmpeg-mac",
+      "minimums": [
+        [
+          15,
+          0,
+          0
+        ]
+      ],
+      "bytes": 3012616,
+      "sha256": "e71dd6610cbc984022ff51b07a95f8d2526aba120406d8cdd0686f6421c464ac"
+    }
+  ],
+  "errors": [],
+  "overTarget": [
+    {
+      "path": "ffmpeg-1013/ffmpeg-mac",
+      "minimums": [
+        [
+          15,
+          0,
+          0
+        ]
+      ],
+      "bytes": 3012616,
+      "sha256": "e71dd6610cbc984022ff51b07a95f8d2526aba120406d8cdd0686f6421c464ac"
+    }
+  ],
+  "wheelCount": 64,
+  "arm64BinaryCount": 99,
+  "maxDeclaredMinimum": [
+    15,
+    0,
+    0
+  ],
+  "staticDeploymentCheckPassed": false
+}

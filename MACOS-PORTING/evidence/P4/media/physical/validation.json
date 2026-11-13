@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-08",
+  "status": "partial_physical_strict_probe_failed",
+  "entry": "direct development executable with isolated HOME and loopback fake ASR",
+  "webPermission": "CUA observed native WebKit origin microphone refusal then retry and allowance",
+  "sample": {
+    "file": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-physical-microphone-YqKImO/capture-1-voice.wav",
+    "bytes": 32364,
+    "sha256": "c12253382615827cc28b19883165af8bb1140934933208215bb391398da9548e",
+    "format": "RIFF/WAVE PCM",
+    "channels": 1,
+    "sampleRate": 16000,
+    "bitsPerSample": 16,
+    "dataBytes": 32320,
+    "durationSeconds": 1.01
+  },
+  "page": {
+    "trackEndedMs": 1009,
+    "uploads": 1,
+    "httpStatus": 200,
+    "input": "P4 本机短录音验收完成",
+    "sends": 0
+  },
+  "native": {
+    "observedCaptureMs": 3000.2713333815336,
+    "limitFired": true,
+    "strictExitCode": 1,
+    "interpretation": "JS track release and WK capture-state release differed in this run; cause unconfirmed"
+  },
+  "independentInspection": {
+    "reviewer": "/root/p4_host_review",
+    "wavDurationSeconds": 1.01,
+    "hashMatched": true,
+    "nonzeroSamples": 14577,
+    "sampleFrames": 16160,
+    "rms": 0.00276375,
+    "peak": 1272
+  },
+  "limitations": [
+    "This direct-entry run does not independently establish the development App own TCC microphone identity",
+    "No native source fingerprint was saved for this earlier failed physical candidate before the bundle was rebuilt; monitor source and runtime records are retained",
+    "Next LaunchServices candidate adds explicit native normal-release cleanup, detailed times and startup source binding; physical run pending"
+  ]
+}

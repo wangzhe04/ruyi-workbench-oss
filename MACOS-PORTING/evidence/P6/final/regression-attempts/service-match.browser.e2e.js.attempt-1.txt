@@ -1,0 +1,27 @@
+PASS A0 workbench started
+PASS A1 Edge/Chrome found
+PASS A2 CDP target found
+PASS A3 app booted (state + skillBtn/skillSearch present)
+PASS A4 技能库经 #skillBtn 真实打开并渲出列表
+PASS B1 「整理下载」服务条 = 资料整理·可直接用 — 实得 "服务「资料整理」：6 个模板可直接用"
+PASS B2 「守望变化」服务条 = 变化守望·暂无模板 — 实得 "服务「变化守望」：这类还没有模板"
+PASS B3 无关词 → 服务条不存在(零行为)
+PASS B4 再次键入服务条复现
+PASS B4 清空查询 → 服务条消失(不常驻)
+PASS C0 夹具前提:network.online === null(实得 null)
+PASS C0 夹具模板 status = 两条联网 unknown + 一条视觉 needs_config(实得 ["unknown","unknown","needs_config"])
+PASS C1 「写代码修 bug」服务条 = 代码任务·状态未知、不含「可用」 — 实得 "服务「代码任务」：状态未知，1 个模板要用的能力还没检测过"
+PASS C2 技能库行 pb:f01-unknown-coding:状态行「未知」、整行不含「可用」、未置灰 — 实得 {"status":"状态未知：这张卡要用的能力还没检测过","dataStatus":"unknown","rowText":"🧪代码体检联网版pb:f01-unknown-coding夹具:要联网的代码任务状态未知：这张卡要用的能力还没检测过","greyed":false}
+PASS C3 研究比较服务条可直接用数 = 2(status===available),未知 1 条单独说 — 实得 "服务「研究比较」：2 个模板可直接用，另有 1 个状态未知"
+PASS C4 首页未知卡:状态行「未知」、整卡不含「可用」、仍是可点的 button — 实得 {"tag":"BUTTON","status":"状态未知：这张卡要用的能力还没检测过","reason":null,"text":"🧪代码体检联网版夹具:要联网的代码任务状态未知：这张卡要用的能力还没检测过"}
+PASS C4 状态行只长在非可用模板上(可用卡零新增节点)— 实得 {"cards":19,"statusLines":6,"expectedLines":6,"availableWithLine":0}
+PASS C5 首页需配置卡:状态行「需要配置」+ 原有 ⛔ 原因行、置灰不可点 — 实得 {"tag":"DIV","status":"需要配置","reason":"需要视觉模型（当前引擎未开启视觉）","text":"🧪看图夹具夹具:要视觉模型需要配置需要视觉模型（当前引擎未开启视觉）"}
+PASS D0 以死探测地址重启 workbench
+PASS D0 夹具前提:network.online === false(实得 false)
+PASS D1 页面重载后启动完成
+PASS D2 首页离线卡:一句降级文案(要联网、现在离线、下一步)替掉 ⛔ 原因行、置灰 — 实得 {"tag":"DIV","status":"需要联网，现在离线：可以先改用本地文件处理，或等网络恢复后再打开","dataStatus":"unavailable","reasons":0}
+PASS D3 重开技能库
+PASS D3 技能库离线行:只一行降级文案(不叠同义原因)、置灰 — 实得 {"status":"需要联网，现在离线：可以先改用本地文件处理，或等网络恢复后再打开","reasons":1,"greyed":true}
+PASS D4 离线时代码任务服务条 = 需配置·引导查网络(离线引导仍是 network)— 实得 "服务「代码任务」：需要先检查网络连接"
+
+SERVICE-MATCH BROWSER E2E: ALL PASS

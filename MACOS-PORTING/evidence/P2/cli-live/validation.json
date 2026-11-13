@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-06",
+  "baselineSha": "aa9d57c03b1381e34e45aa728ae93a12da6e56d2",
+  "cli": "@moonshot-ai/kimi-code@0.37.2",
+  "packageIntegrity": "sha512-TAteYb84mV44MEzCaAlfz5f3TiN2yMHuwj9Kd0ePEIMBUqgjlqV1w7PvMT9TN0t87LYfv7BhIYz+ZCHDOM5aJw==",
+  "installation": "Temporary isolated npm prefix; --ignore-scripts; no repository dependencies added",
+  "model": "existing deterministic loopback model; no real account or credentials",
+  "command": [
+    "node",
+    "dev-harness/kimi-acp-live-probe.js"
+  ],
+  "exitCode": 0,
+  "seconds": 14.9,
+  "log": "kimi-protocol.txt",
+  "workingTreeIncrement": "POSIX global npm symlink identity and canonical edit permission fix",
+  "checks": [
+    {
+      "name": "kimi-protocol",
+      "command": [
+        "node",
+        "dev-harness/kimi-acp-live-probe.js"
+      ],
+      "exitCode": 0,
+      "seconds": 14.9,
+      "log": "kimi-protocol.txt"
+    },
+    {
+      "name": "kimi-agent-cli",
+      "command": [
+        "node",
+        "dev-harness/kimi-agent-cli.e2e.js"
+      ],
+      "exitCode": 0,
+      "log": "kimi-agent-cli.txt"
+    },
+    {
+      "name": "macos-discovery",
+      "command": [
+        "node",
+        "dev-harness/macos-agent-cli-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.5,
+      "log": "macos-discovery.txt"
+    },
+    {
+      "name": "registry-unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/agent-cli-registry.test.js",
+        "dev-harness/unit/agent-cli-adapters.test.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.3,
+      "log": "registry-unit.txt"
+    },
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 24.7,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "build-check.txt"
+    },
+    {
+      "name": "static",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "seconds": 127.7,
+      "log": "static.txt"
+    }
+  ],
+  "implementationCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
+  "finalSummary": {
+    "realCliAssertionsPassed": 84,
+    "realCliAssertionsFailed": 0,
+    "realCliAssertionsSkipped": 0,
+    "unitPassed": 2490,
+    "unitSkipped": 18,
+    "staticPassed": 80
+  },
+  "developmentFailures": [
+    "kimi-protocol-red.txt and validation-red.json: original implementation 73 passed/11 failed"
+  ]
+}

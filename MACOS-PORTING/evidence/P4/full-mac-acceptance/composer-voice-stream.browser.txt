@@ -1,0 +1,47 @@
+PASS A0 fake-openai(第二遍桩)已起
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS A1 假流式组件被如意自动拉起(登记经 RUYI_TOOLBOX_HOME)
+PASS A2 asrStream* 自动配成假流式组件,第二遍仍是 fake/whisper-1(实得 ["toolbox-fake-stream","fake-stream-model","fake"])
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS A3 首屏就绪,页面里的 config 带着 asrStream*(实得 ["toolbox-fake-stream","fake-stream-model"])
+PASS A4 麦克风空闲、悬停提示是流式那句(实得 state=idle title="语音输入：点一下开始说，文字边说边出；每句说完自动校正错字；再点一下结束，Esc 取消。不会自动发送")
+PASS B1 点麦克风进入录音态(流式会话已开)
+PASS B2 临时文字实时出现在光标处(实得 "前缀 p5460后缀")
+PASS B3 第一句定稿(句1)随即被第二遍静默换成回显文本,临时文字还接在后面(实得 "前缀 [fake-asr] model=whisper-1 filename=voice.wav bytes=21884 p21840后缀")
+PASS B3b 下一句的临时文字接在定稿句后面
+PASS B4 结束后:尾句也进来了、每句都被换成回显、没有临时文字残留、前缀后缀原样(实得 "前缀 [fake-asr] model=whisper-1 filename=voice.wav bytes=21884 [fake-asr] model=whisper-1 filename=voice.wav bytes=13676后缀")
+PASS B5 走的是流式代理:开会话 → 若干块 PCM(偶数字节) → finish(实得 7 次,首=/api/audio/stream/sessions)
+PASS B6 第二遍每句一发 /api/audio/transcribe(实得 2 发,换了 2 句)
+PASS B7 不自动发送(发送计数增量 0)
+PASS B8 播报过「正在听」与「已填入」(实得 ["正在听，说话就会出字；再按一次结束，Esc 取消","已填入输入框，看一眼再发送"])
+PASS C1 第一句已定稿并被换成回显(实得 "[fake-asr] model=whisper-1 filename=voice.wav bytes=21884 p21840")
+PASS C2 被用户改过的那一句一个字不动;后面的句子照样接上、照样被第二遍换成回显(每句各管各的段)(实得 "[FAKE-asr] model=whisper-1 filename=voice.wav bytes=21884 [fake-asr] model=whisper-1 filename=voice.wav bytes=24588 [fake-asr] model=whisper-1 filename=voice.wav bytes=24620 [fake-asr] model=whisper-1 filename=voice.wav bytes=13698")
+PASS D1 Esc:临时文字撤掉、已定稿的字留着(实得 "[fake-asr] model=whisper-1 filename=voice.wav bytes=21884 ")
+PASS D2 服务端会话被 DELETE 掉(组件 deleted 计数 0 → 1)
+PASS D3 Esc 之后在途回包不再往输入框落字(取消时 "",2 秒后 "")
+PASS G0 加一条假大模型服务商 fix(实得 200)
+PASS G1a 配成 llm / fix / fix-echo
+PASS G1 只改字:每句被换成 LLM:句N、没重听、没临时文字残留、不自动发送(实得 {"value":"LLM:句1 LLM:尾句","asr":0,"sends":0})
+PASS G2a 配成 auto
+PASS G2 自动 = 重听 + 合成:句子被换成 LLM:[fake-asr] …(大模型拿到了重听那一版)(实得 "LLM:[fake-asr] model=whisper-1 filename=voice.wav bytes=21884 LLM:[fake-asr] model=whisper-1 filename=voice.wav bytes=13676")
+PASS G3a 改字模型换成 fix-empty
+PASS G3 大模型回空正文 → 回落到重听结果(实得 "[fake-asr] model=whisper-1 filename=voice.wav bytes=21884 [fake-asr] model=whisper-1 filename=voice.wav bytes=13676")
+PASS G4a 配成 llm / fix-answer
+PASS G4 答题形输出被拦下、保留第一遍(实得 "句1 尾句")
+PASS G5a 配成 off
+PASS G5 关闭 → 句子保留第一遍、不发第二遍(实得 "句1 尾句" correct=0)
+PASS G6 回到 audio(E 段验回落时第二遍仍走重听)
+PASS E1 把实时识别指向一个开不了会话的端点(实得 200 {
+  "ok": true,
+  "config": {
+    "configSchema": 14,
+    "configExplicitKeysV1": [
+      "activeProvider",
+      "asrFi)
+PASS E2 开会话失败 → 说一句「实时识别没起来」、这次走按停顿切段、转写照样回填(实得 "[fake-asr] model=whisper-1 filename=voice.wav bytes=48044" toasts=["实时识别没起来，这次按停顿切段转写"])
+PASS F1 零未捕获异常(页面 [] / CDP [])
+
+COMPOSER VOICE STREAM BROWSER E2E: ALL PASS

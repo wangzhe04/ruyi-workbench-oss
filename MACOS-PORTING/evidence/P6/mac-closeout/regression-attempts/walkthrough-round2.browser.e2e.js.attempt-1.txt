@@ -1,0 +1,49 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 起点是全新 HOME：一条线程都没有（实测 0 条）
+PASS A4 Edge/Chrome found
+PASS A5 browser target available
+PASS A6 首屏就绪（config 真到达、外框已挂上）
+PASS B1 全新 HOME（没存过视角偏好）启动落【管家视角】—— 这枚入口要救的就是这批人（实得 steward）
+PASS B2 首跑那条（renderFirstRun：自我介绍 ＋ 三个例子）下有且只有一枚「开始引导」且看得见（实测例子 3 枚、按钮 ["开始引导"]）
+PASS B2b 每一行按钮仍在 K6b 的 ≤2 预算内（实测每行枚数 [1]）
+PASS B3 点它，首跑向导真的打开了（role=dialog，aria-label「欢迎向导」）
+PASS B4 向导关掉了（走 __close，不写 skipped —— 下一组还要量「没配完」）
+PASS B5a 刷新后首屏再次就绪
+PASS B5 同一个到访窗口里刷新：全新安装仍是首跑那条（自我介绍、没有「你回来了」「知道了」），「开始引导」仍在（实测 ["开始引导"]）
+PASS B6a config.onboarding 写成「已完成」（HTTP 200）
+PASS B6b 再刷新后首屏就绪
+PASS B6 走完向导之后重画，那枚按钮消失（实测剩下的按钮 []）
+PASS C0a 线程已建（sess_60288ba5edca15c8）
+PASS C0a2 刷新后首屏就绪（左栏能看见刚建的那条线程）
+PASS C0a3 左栏那一行在场
+PASS C0 切到工作台视角（线程头那组 chip 住在这一侧）
+PASS C0b 工作台里打开了那条线程（chip 要有 sessionId 才是可点的）
+PASS C1a 点得到权限 chip（点了 1 下）
+PASS C1 权限 chip 菜单展开、四档 ＋「跟随全局」都在
+PASS C2a 菜单里量到 11 个标签／提示节点（四档各两个 ＋「跟随全局」一个）
+PASS C2 每个 .steward-chip-option-label／-hint 都没有横向溢出（scrollWidth ≤ clientWidth；越界的：[]）
+PASS C3 计算样式真的是 white-space: normal（不是继承 base.css 那条全局 button nowrap；实得「normal」）
+PASS C4 菜单自己也没被文字撑出横向滚动（scrollWidth − clientWidth = 0px，宽 299px）
+PASS D0 齿轮菜单真的展开了
+PASS D1 「更多」#moreMenuBtn 零枚（实得 0）
+PASS D2 齿轮菜单 role=menuitem 恰七枚、顺序＝设置／帮助／快捷键／清理历史／主题／界面／能力矩阵（实得 ["openSettingsBtn","helpMenuBtn","helpBtn","themeToggle","uiModeToggle","capBadge","bulkCleanupBtn"]）
+PASS D3 七项各自【看得见】（宽高 ≥4px 且 display 非 none；不可见的：[]）
+PASS D4 七项各有人话文案（主题／界面两项由 syncMoreMenuLabels 补出 .mm-label；空文案的：[]） 实测 ["设置1","帮助","快捷键","主题：深色","界面：专家","●\n                能力矩阵","清理历史"]
+PASS D5a 点了「主题」那一项
+PASS D5 点主题项主题【真的变了】（data-theme dark → light）—— 不再需要先进「更多」那一层
+PASS D5b 这一项自己的文案跟着变（「主题：深色」→「主题：浅色」）—— applyTheme 的 iconTextBtn 清空按钮之后 syncMoreMenuLabels 补了回来
+PASS D5c 主题切完菜单还开着（切换是就地的，不该把菜单收掉）
+PASS D6 从齿轮钮起连按 Tab 能走遍七项（7 下走到的：["openSettingsBtn","helpMenuBtn","helpBtn","themeToggle","uiModeToggle","capBadge","bulkCleanupBtn"]）
+PASS E0 /api/status 已被扣住，延迟窗开着（拦到 1 发、尚未放行）
+PASS E1a config 还没到，分段钮已经在屏幕上、也已经绑好
+PASS E1 扣住期间画面停在【工作台】（预绘写 steward → bind 期 canEnterSteward() 恒 false 回落 classic；实得 classic）—— 这就是「同值」的由来
+PASS E1b 此刻本机偏好还是空的（实得「」）—— 默认落点因此会在 config 到达后把画面翻成管家
+PASS E2a 这一下点击确实发生在延迟窗里（/api/status 还扣着）
+PASS E2 点「工作台」这一下【没有被同值早退吞掉】：本机偏好当场写成 classic（实得「classic」）
+PASS E3a 放行后首屏就绪（config 到了、boot 走完）
+PASS E3b /api/status 真的被扣了 1502 ms（≥1500）
+PASS E4 放行 2000 ms 之后画面【仍然是工作台】（实得 classic）—— 用户那一下点击没有被默认落点翻掉
+PASS E5 本机偏好也仍是 classic（实得「classic」）
+PASS E6 分段钮自己也对到工作台（实得「steward:false classic:true」）
+WALKTHROUGH ROUND2 BROWSER E2E: ALL PASS

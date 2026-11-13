@@ -3,6 +3,8 @@ name: 功能开发
 description: 跨多个文件的功能开发：先读项目约束，再实现并验证
 ---
 
+Platform selection: use the host platform. On macOS run checks with shell_run or script_run (bash/Python/Node), use POSIX paths, and do not request PowerShell or Windows desktop tools. On Windows keep the PowerShell path below.
+
 # Feature Development
 
 Use this skill for a feature or behavior change that touches several files and needs the project's own rules read before editing and a real verification afterwards, in an offline Windows environment. A one-line fix or a question does not need it.

@@ -1,0 +1,20 @@
+PASS actual MCP discovers ready native input and application tools
+PASS new input registrations preserve live file-write checkpoint coverage
+PASS input starts with the exact owned window in foreground
+PASS empty chord components are refused before input
+PASS unknown Mac key is refused before input
+PASS short text reaches the real AppKit editor through keyboard events
+PASS Cmd+A and direct Unicode events preserve Chinese and surrogate pairs
+PASS fixture saves the current clipboard immediately before seeding its own image and private format
+PASS automatic Chinese multiline route uses real Cmd+V and preserves text verbatim
+PASS Cmd+V restores the prior image and private clipboard bytes
+PASS auto-pasted single-line trailing newline becomes a real Enter
+PASS clipboard changed by another writer during paste is preserved
+FAIL Error: Owned persistent native worker was not observed
+    at stopWorkerAfter (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-events.e2e.js:85:28)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-input-events.e2e.js:143:26
+PASS owned input MCP and native worker cleanup is confirmed
+PASS fixture restores the pre-test clipboard after its last controlled content
+PASS owned input receiver is reaped
+
+MACOS INPUT EVENTS E2E: FAIL (1)

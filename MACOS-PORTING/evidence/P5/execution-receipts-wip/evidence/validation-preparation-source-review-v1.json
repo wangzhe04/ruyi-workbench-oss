@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "reviewedAt": "2026-11-11T15:33:09.429Z",
+  "reviewer": "/root/p5_review_resumed",
+  "reviewType": "Independent source review with narrow read-only pure graph/isolated-JS-VM probes. No native/helper, MCP, GUI, build or test-suite execution; no source edits.",
+  "scope": "New standalone receipt semantic/private-blob validator and pure Node argument preparation helper only. They are not connected to the product receipt reader, Node durable storage, dispatcher or provider workflow.",
+  "scopeSeparation": "Prior SDK context freeze (69 sources/3 artifacts and its independent checks) belongs to its earlier scope. This report neither revalidates nor extends that acceptance to these changed/new modules or refreshed build artifacts.",
+  "inputs": [
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/src/ai_computer_control/utils/execution_receipt_validation.py",
+      "bytes": 19893,
+      "sha256": "9ee32da54e86a439b60ce8e9a9fcabc34df9b9198cbcab1922cace2be063087b"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/mcp/ai-computer-control/tests/smoke_execution_receipt_validation.py",
+      "bytes": 17687,
+      "sha256": "64d0eb5a92146e0c10b9a585875f6b80b15ebf051e9ef72376e6570bf2a03c8a"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/ruyi-workbench/app/src/02g-desktop-executions.js",
+      "bytes": 6192,
+      "sha256": "5f8900407070b0afb4237de335768b7929779db4fd4a3d828f4c8756d72e98df"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-preparation.test.js",
+      "bytes": 5108,
+      "sha256": "42156db36ad63030bbf6ea5e24e7fcfc6263896c2892e1b6d145cbb2c31f43f8"
+    },
+    {
+      "path": "/tmp/ruyi-p5-execution-receipts-worktree/dev-harness/unit/execution-arguments.test.js",
+      "bytes": 4538,
+      "sha256": "de6eced6d8e3eebf8515fe97ec299fce019a0d67befcf10a9221dd5c356edb49"
+    }
+  ],
+  "findings": [
+    {
+      "id": "missing-top-wrapper-false-lifecycle-completion",
+      "priority": 1,
+      "status": "closed",
+      "original": "Accepted plus successful SDK terminal without any top-level tool entry/terminal produced effects_unknown=false.",
+      "correction": "Successful transport with missing/incomplete top-level wrapper keeps lifecycle_unknown=true. Explicit pre-wrapper non-dispatch may complete the SDK lifecycle without inventing a wrapper.",
+      "verification": "Current source inspected. Pure final graph probe returns lifecycle_unknown=true for the original two-row counterexample."
+    },
+    {
+      "id": "facts-after-terminal-ancestor",
+      "priority": 1,
+      "status": "closed",
+      "original": "A child tool terminal, deeper child entry or native fact could appear after an already terminal ancestor and still complete the graph.",
+      "correction": "Every new child entry, child tool terminal and native phase walks the complete ancestor chain and requires all ancestors open.",
+      "verification": "Current source and new ancestor counterexamples inspected. Original late-child-terminal pure probe now rejects."
+    },
+    {
+      "id": "native-snapshot-not-transport-admissible",
+      "priority": 2,
+      "status": "closed",
+      "original": "Matching-hash native snapshots could contain reserved receipt, raw LF or exceed 65536 bytes, though those frames cannot reach native handler entry. Features could carry a noncanonical extra-field envelope.",
+      "correction": "Exact native snapshots require one nonempty LF-free frame <=65536 bytes, no reserved top-level receipt, strict ID/version, exact receipt control binding, and exact three-field session.features envelope.",
+      "verification": "Current source and hash-valid-but-impossible snapshot tests inspected; existing validation-v8 log includes all 24 current pure graph/private-disk cases passing."
+    },
+    {
+      "id": "root-nondispatch-contradicts-wrapper-entry",
+      "priority": 2,
+      "status": "closed",
+      "original": "A complete tool/native execution graph could be paired with root outcome=not_dispatched and still validate.",
+      "correction": "Root not_dispatched is rejected if any tool_entered already exists, matching the RequestExecution writer contract rather than guessing safety from missing flags.",
+      "verification": "Current source and both continued-native/refused-native contradiction tests inspected. Original complete-graph pure counterexample now rejects."
+    },
+    {
+      "id": "prepared-array-inherits-serialization-hook",
+      "priority": 2,
+      "status": "closed",
+      "original": "Array.prototype/Object.prototype toJSON could run during preparation or after an async boundary, yielding bytes inconsistent with the prepared fingerprint despite frozen arrays.",
+      "correction": "Copied objects, arrays and returned preparation object have null prototypes. Arrays are built and fingerprinted by index; no push or iterator dependency remains. Frozen snapshots may be safely prepared again.",
+      "verification": "Isolated VM reproduced old hookCalls=1/digest mismatch and post-freeze reserialization drift. The current-source pure VM probe returns hookCalls=0, matching decoded semantic digest, stable serialization and stable repeated preparation with both inherited hooks installed."
+    }
+  ],
+  "semanticAssessment": {
+    "lifecycle_unknown": "Describes missing/incomplete lifecycle evidence and expected wrapper closure; it does not claim application consumption or absence of side effects.",
+    "reported_unknown_operation_ids": "Reports only explicitly present outcome=unknown separately from lifecycle completeness.",
+    "terminal_flags": "Preserves only actual reported fields. Complete ok=false without action_sent/outcome does not acquire invented non-dispatch, rollback or safety flags.",
+    "replay_safe": "Not emitted and not derivable from lifecycle_unknown=false or handler/root terminal.",
+    "pureFinalCounterexampleResults": {
+      "successWithoutWrapperUnknown": true,
+      "rootNondispatchAfterEntryRejected": true,
+      "lateChildTerminalRejected": true,
+      "completeFailedTerminalPreservesOnlyReportedFlags": true,
+      "replaySafeAbsent": true
+    }
+  },
+  "descriptorAssessment": [
+    "Reads committed journal prefix first and validates graph/typed identities rather than trusting summary booleans.",
+    "Argument reference names derive from validated operation IDs; total referenced bytes are bounded.",
+    "Leaf opens use NONBLOCK and NOFOLLOW; owned single-link regular file checks, expected size, device/inode/mtime stability, exact read extent and SHA256 are checked.",
+    "Every leaf descriptor closes in finally before JSON/semantic decoding; parent and invocation directory descriptors also close in outer finally. No descriptor leak was identified on the reviewed ordinary exception paths.",
+    "Accepted private blob content is fingerprinted and compared with received semantic digest. Native snapshots are parsed and checked against recorded frame/control identity. Private blob contents are not returned."
+  ],
+  "pureProbeEvidenceTreatment": "Original narrow probe outputs are available in this chat tool trace. No standalone original-stdout artifact was captured by reviewer; the facts above are summaries, not reconstructed raw logs. No reviewer private-disk fixture test or native operation was run.",
+  "existingParentDevelopmentEvidence": {
+    "artifacts": [
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v1.log",
+        "bytes": 1098,
+        "sha256": "a25fc93825826b8a19533ba989fb9fdc567ff2091478f625661763d1bce361c0"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v2.log",
+        "bytes": 109,
+        "sha256": "006ac55040db8bd82eeb2e5abab682d80dc719e313b23af3bbac2921bafb69a1"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v3.log",
+        "bytes": 115,
+        "sha256": "ff2a79a1f2404ecfc8857849789da516f2f3746d366fe73a84307eb588cdf0b5"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v4.log",
+        "bytes": 117,
+        "sha256": "f3c930d08877d4766715f8e0afc706874e2d9ebee39b291d6a422d15344ea749"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v5.log",
+        "bytes": 117,
+        "sha256": "568f9e7d580a053057ae5eab80b3abaf03ba99073ed1ee374f32186f18e303c8"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v6.log",
+        "bytes": 120,
+        "sha256": "6cc13b4201b0100695e0534f1bd3ff8c55c576a098dc02d14956aedc3e229386"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v7.log",
+        "bytes": 122,
+        "sha256": "db6190e909a5821eb7fada606230f45bfd25603c86bf1f3d41339dc236171eac"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/validation-v8.log",
+        "bytes": 123,
+        "sha256": "ec5b20098ac7af189f4ba04453d5107f971f65b2bd9b4c64d346fdba994c276a"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/preparation-v1.log",
+        "bytes": 631,
+        "sha256": "549f3a3d70a9c41b96dc4d0216f1a4acdaeb8a7c4bae81ee1201df9bd83339f2"
+      },
+      {
+        "path": "/tmp/ruyi-p5-receipts-evidence/development/preparation-arguments-v2.log",
+        "bytes": 1364,
+        "sha256": "47766177a4423dc3481e45e2fb7bbe39369f46da27bff3c8b137c8dfe25dc77c"
+      }
+    ],
+    "currentCounts": {
+      "validatorV8": 24,
+      "combinedNodeArgumentAndPreparationV2": 12
+    },
+    "historicalAttempts": "validation-v1 failed one expectation that optional tool_terminal.ok must be rejected; corrected semantics retains unknown instead. v2=10, v3=16, v4/v5=18, v6=21, and v7/v8 further refine transport/root contradictions; all original logs are retained byte-for-byte. v4 mixed explicit outcome unknown into lifecycle uncertainty; current two-axis semantics is distinct.",
+    "reviewerExecuted": false,
+    "limitations": "These are parent pure development runs, not new independent runtime acceptance or whole-feature gate closure."
+  },
+  "outcome": "All five actionable findings identified in this review are closed in the current standalone drafts. No remaining actionable source finding identified within the reviewed scope.",
+  "mandatoryIntegrationLimits": [
+    "Product execution_receipt still must explicitly opt into validated semantics; legacy incomplete/request_terminal summaries alone are not equivalent to semantic validation.",
+    "A complete observed graph is not proof that every tool-specific native/one-shot effect layer was covered. Future gate consumers must check the required backend/receipt scope as well as worker, tool and actual-argument binding.",
+    "Node preparation helper must be invoked after approval/restoration at the actual bridge boundary, and that same frozen snapshot/json must feed durable preparation and transmission. No later code may substitute mutable original arguments.",
+    "Node durable preparation, provider direct/proxy activation, result persistence and restart reconciliation are unfinished.",
+    "Retention/global-space management, single-request helper coverage and source-bound end-to-end fault-window acceptance remain open.",
+    "Held-state fault qualification remains separate and requires independent qualified rescue."
+  ],
+  "originalGate": {
+    "status": "in_progress",
+    "closed": false
+  },
+  "P5": {
+    "status": "in_progress",
+    "accepted": false
+  },
+  "heldFaultGate": {
+    "status": "open",
+    "requiresIndependentQualifiedRescue": true
+  },
+  "automaticLockRestoration": "Only after whole P5 acceptance; no locking settings inspected or changed."
+}

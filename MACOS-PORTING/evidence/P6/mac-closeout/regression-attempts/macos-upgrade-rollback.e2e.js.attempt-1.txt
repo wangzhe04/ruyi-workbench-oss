@@ -1,0 +1,3 @@
+SKIP actual upgrade/rollback requires old and new Mac trial distributions
+
+MACOS UPGRADE ROLLBACK E2E: ALL PASS

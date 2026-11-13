@@ -92,6 +92,13 @@ const BUILTIN_SKILL_AVAILABILITY_I18N_KEYS = Object.freeze({
   '需要联网(当前离线)': 'skills.requirements.networkOffline',
   '需要桌面控制(未检测到 ai-computer-control)': 'skills.requirements.desktopControl',
   '需要视觉模型(当前引擎未开启视觉)': 'skills.requirements.vision',
+  '当前平台尚未实现 OCR 后端': 'skills.requirements.ocrUnsupported',
+  '当前平台尚未实现桌面操控后端': 'skills.requirements.desktopUnsupported',
+  '后端未就绪或系统授权已拒绝': 'skills.requirements.backendNotReady',
+  '需要可用的 OCR 后端': 'skills.requirements.ocrBackend',
+  '需要桌面操控后端': 'skills.requirements.desktopBackend',
+  '系统浏览器只接收网址；填表需要桌面后端或配置 DOM 浏览器目标': 'skills.requirements.browserTarget',
+  '需要配置浏览器自动化并预备 Playwright 与浏览器运行时': 'skills.requirements.browserRuntime',
 });
 const BUILTIN_PLAYBOOK_INPUT_I18N_KEYS = Object.freeze({
   'archive-by-content:folder': 'skills.playbook.inputs.archiveByContent.folder',

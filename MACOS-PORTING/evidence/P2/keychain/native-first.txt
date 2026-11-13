@@ -1,0 +1,21 @@
+PASS production protocol rejects test-domain selection before touching Keychain
+PASS new protected bytes identify Keychain and schema without containing plaintext
+PASS real isolated Keychain wraps and unwraps through the production Node protector
+PASS a fresh protector instance reads the existing Keychain key
+PASS decrypt_failed rejects without fallback
+PASS provider_mismatch rejects without fallback
+PASS decrypt_failed rejects without fallback
+PASS Windows rejects Keychain records before invoking DPAPI
+PASS real vault cold load decrypts protected references without plaintext persistence
+PASS existing password-protected recovery package rewraps under the Mac protector
+FAIL locked Keychain remains typed through the vault and does not change stored data
+PASS unlocking restores cold vault access without replacing any key
+PASS changed Keychain identity does not decrypt or replace old records
+PASS damaged wrapping key is not silently regenerated
+FAIL Error: disposable Keychain remove-key failed: {"status":-25244}
+
+    at control (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-keychain.e2e.js:14:40)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-keychain.e2e.js:69:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+MACOS KEYCHAIN E2E: FAIL (2)

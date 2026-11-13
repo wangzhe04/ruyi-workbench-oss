@@ -1,0 +1,13 @@
+── 静态锁: P1 回退 + P2 verifyManifest 快路径 ──
+PASS S1 P1 readConfig 缓存已回退(对抗验证:5 件 e2e 直接写 config.json 依赖 uncached readConfig)
+PASS S2 P2 verifyManifest 缓存 + 60s 强制全量
+PASS S3 P2 mtime+size 快路径(未变跳过 SHA)
+PASS S4 P2 manifest.version 变更即失效(新 overlay 落地重算)
+PASS S5 P2 无 manifest 环境清缓存返回 present:false
+PASS workbench up
+── P2 行为: verifyManifest 缓存安全 ──
+PASS P2a 连发 5x GET /api/status 全 200(缓存负载安全)
+PASS P2b manifest 字段 5x 一致(缓存安全,不抖动)
+PASS P2c manifest 可达(无 overlay 则 present:false,缓存路径不崩)
+
+PERF CONFIG CACHE E2E: ALL PASS

@@ -1,0 +1,6 @@
+PASS all text defaults to LF
+PASS *.cmd remains an explicit CRLF exception
+PASS *.bat remains an explicit CRLF exception
+PASS *.ps1 remains an explicit CRLF exception
+PASS all 3074 tracked text files match their declared EOL
+EOL POLICY STATIC E2E: ALL PASS

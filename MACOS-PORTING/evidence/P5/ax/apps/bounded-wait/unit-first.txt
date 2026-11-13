@@ -1,0 +1,13 @@
+✔ CDP target deadline cancels a server that never sends headers (288.518333ms)
+✔ CDP deadline survives trickling response bytes without an end event (383.9595ms)
+✔ shared request abort after headers settles without an unhandled response error (154.506334ms)
+✔ an exited launcher may still publish its real browser target (62.840333ms)
+✔ complete responses retain HTTP status and target-list failure diagnostics (203.241291ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1138.107667

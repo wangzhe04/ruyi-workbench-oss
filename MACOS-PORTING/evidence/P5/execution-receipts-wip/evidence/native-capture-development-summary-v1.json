@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "at": "2026-11-11T22:20:28.535528+00:00",
+  "status": "native_capture_OCR_uncommitted_WIP_not_independently_runtime_accepted_full_P5_active",
+  "integratedCoreCommit": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "integratedDocumentationCommit": "9415e9b244a4db468e5e4d655c4b67944e67ea84",
+  "worktreeBase": "f671a00461450b3b144fb6fd93b52badb4141b80",
+  "freeze": {
+    "path": "native-capture-wip-freeze-v1.json",
+    "sha256": "11194e8efec9b0f4d2611d1737205fb26b3e2bcb04d6fd5944898be2189f08a9",
+    "bindingLimit": "Post-development byte preservation; no before/after hashes recorded for primary early native commands. Final frozen independent acceptance still required."
+  },
+  "implemented": [
+    "Active execution context native generic4 requests use explicitly negotiated receipt worker; untraced legacy one-shot remains contextless only. No fallback when old helper lacks generic operations.",
+    "Exact valid-control generic native frames use async common dispatcher; finish is one-shot captured exact-frame and publishes on mainrunloop. Native OCR60s/other12s, caller65/15/3 unchanged. Active generic work shares input lock, legacy2-slot route unchanged.",
+    "Real SDK request closure/cancellation propagates Event+writeLock through copied thread contexts. Async cancel signals before terminal fsync and scope close before journal close. Independent cancellation observer exits owned worker.",
+    "Observer join-timeout race fixed: an old alive observer forces retirement/quarantine of that exact Popen and typed unknown before releasing request lock; successor cannot reuse it."
+  ],
+  "sourceInitialReview": {
+    "path": "native-capture-production-source-review-v1.json",
+    "sha256": "b382c55e9869331cbfaa01d35e303fb2483d329726eae8eac77bc7719b687fd7",
+    "runtimeIndependence": false
+  },
+  "primaryChecks": {
+    "realRootOwnedScreenshotVision": {
+      "pass": 35,
+      "fail": 0,
+      "log": "development/actual-native-capture-v3.log",
+      "json": "development/actual-native-capture-v3.json",
+      "scope": "Actual root/ACC/native own window PNG1640x896 saved in image history; next model delivery barrier; local bilingual image and actual captured image Vision English+Chinese; real missing window error no invented image; unchanged owned UI controls. No input."
+    },
+    "nativeInputReceiptTransportRegression": {
+      "pass": 23,
+      "fail": 0,
+      "log": "development/native-capture-native-protocol-v1.log"
+    },
+    "adapter": {
+      "pass": 21,
+      "fail": 0,
+      "log": "development/native-capture-smoke_macos_receipt_session-v4.log",
+      "scope": "Includes actual RequestExecution async cancellation/real native worker while thread blocked; this is not actual root/MCP Stop. Includes simulated-exchange/real-thread delayed observer successor isolation."
+    },
+    "pure": {
+      "nativeReceipts": 16,
+      "executionRequired": 12,
+      "journal": 18,
+      "control": 4,
+      "failed": 0,
+      "logs": [
+        "development/native-capture-smoke_native_receipts-v1.log",
+        "development/native-capture-smoke_execution_required-v1.log",
+        "development/native-capture-smoke_execution_journal-v1.log",
+        "development/native-capture-smoke_execution_control-v1.log"
+      ]
+    },
+    "fullUnitAndFast": {
+      "unitTests": 2644,
+      "unitPass": 2626,
+      "unitExistingSkip": 18,
+      "unitFail": 0,
+      "fastPass": 80,
+      "liveSkip": 13,
+      "fastFail": 0,
+      "log": "development/native-capture-fast-v1.log"
+    },
+    "syntax": {
+      "files": 1179,
+      "fail": 0,
+      "log": "development/native-capture-syntax-v1.log"
+    },
+    "build": "Node server fresh and manifest ranges consistent; no Node production source changed in this native slice"
+  },
+  "preservedDevelopmentFailures": [
+    {
+      "log": "development/native-capture-smoke_macos_receipt_session-v1.log",
+      "cause": "Primary runner omitted pre-existing RUYI_RECEIPT_SESSION_LEGACY_HELPER env; one KeyError, new cases passed. Env-only v2 passed19; v3 after observer repair20, v4 actual shared cancellation21."
+    },
+    {
+      "log": "development/actual-native-capture-v1.log",
+      "cause": "Fixture enabled desktop,vision but omitted actual ocr toolset; actual screenshot/status passed, OCR unknown-tool before business dispatch. Config corrected desktop,ocr,vision; predicates unchanged. V2 passed35 before final observer repair, V3 passed35 after repair."
+    }
+  ],
+  "stillRequiredBeforeNativeSliceAcceptance": [
+    "Actual root/MCP Stop after generic handler entry and after continue, no later same-batch mutation/model; do not equate coroutine cancellation with worker exit.",
+    "Generic async EOF/cleanup, caller deadline/worker quarantine, terminal evidence EIO and actual result/history save fault with cold restart holds.",
+    "Duplicate/late async callback safety and old/malformed generic feature refusing before native business send.",
+    "Real bounded image snapshots; over-capacity refusal/hold without silently dropping required image data.",
+    "Final byte freeze, source review closure, independent runtime qualification; only then stage commit/integration."
+  ],
+  "fullP5StillOpen": [
+    "Independent workflow background/API0/resume scope/schema, authenticated CLI relay, manual admission",
+    "Historical reconciliation, trusted connector locator, retention ACK/global byte/file quotas/delete/rewind",
+    "Balanced actual root input, independent qualified bounded rescue before held root faults",
+    "All original10local+4external including actual revoke/action-time lock, displays, macOS14, finalcandidateWindows, App/formal release identity/credentials/clean-install"
+  ],
+  "standingInstructions": {
+    "unattended": true,
+    "restoreAutoLockOnlyAfter": "full_P5_acceptance",
+    "currentIdle": 0,
+    "originalIdle": 300,
+    "ownedCaffeinate": 19820,
+    "noRepeatPhysical你好DragOrFinder": true,
+    "noIntentionalUnattendedLockOrTCCRevoke": true
+  }
+}

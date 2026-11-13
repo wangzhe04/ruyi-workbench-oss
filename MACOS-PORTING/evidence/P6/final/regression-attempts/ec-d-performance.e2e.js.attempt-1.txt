@@ -1,0 +1,15 @@
+PASS EC-D benchmark server started
+PASS EC-D benchmark found Edge/Chrome
+PASS CDP page target available
+PASS warm-up renders the baseline session before sampling
+PASS warm-up background requests finish before cold navigation
+PASS captured 3/3 cold interactive samples
+STARTUP_SAMPLES [{"ready":true,"timeOrigin":1794481886205.3,"interactiveMs":223.7000000178814,"domInteractiveMs":32.70000001788139,"loadEventMs":77.40000000596046,"resourceCount":119,"cssCount":26,"jsCount":77,"transferBytes":4105621,"resourceDurationMs":214.7000000178814,"slowResources":[{"path":"/api/status","duration":110.5,"responseEnd":200.90000000596046},{"path":"/js/confirm-panel.js","duration":25.299999982118607,"responseEnd":60.599999994039536},{"path":"/js/composer-voice.js","duration":23.099999994039536,"responseEnd":58.400000005960464},{"path":"/js/rail-pocket.js","duration":23,"responseEnd":58.30000001192093},{"path":"/js/migration-center.js","duration":23,"responseEnd":58.30000001192093}]},{"ready":true,"timeOrigin":1794481886438.2,"interactiveMs":157.80000001192093,"domInteractiveMs":31.700000017881393,"loadEventMs":84.40000000596046,"resourceCount":118,"cssCount":26,"jsCount":77,"transferBytes":4105321,"resourceDurationMs":149.90000000596046,"slowResources":[{"path":"/js/migration-center.js","duration":32,"responseEnd":65.90000000596046},{"path":"/api/status","duration":31.5,"responseEnd":129.2000000178814},{"path":"/js/composer-voice.js","duration":31.30000001192093,"responseEnd":65.2000000178814},{"path":"/js/notify-policy.js","duration":31,"responseEnd":64.80000001192093},{"path":"/js/rail-pocket.js","duration":30.69999998807907,"responseEnd":64.5}]},{"ready":true,"timeOrigin":1794481886606.2,"interactiveMs":139.80000001192093,"domInteractiveMs":28.400000005960464,"loadEventMs":73.90000000596046,"resourceCount":117,"cssCount":26,"jsCount":77,"transferBytes":4102327,"resourceDurationMs":131.59999999403954,"slowResources":[{"path":"/api/status","duration":31.099999994039536,"responseEnd":119.90000000596046},{"path":"/js/migration-center.js","duration":24.30000001192093,"responseEnd":55.5},{"path":"/js/composer-voice.js","duration":24.100000023841858,"responseEnd":55.30000001192093},{"path":"/js/rail-pocket.js","duration":23.100000023841858,"responseEnd":54.30000001192093},{"path":"/js/notify-policy.js","duration":22.900000005960464,"responseEnd":54.099999994039536}]}]
+PASS first interactive max < 1500ms (samples 223.7, 157.8, 139.8ms)
+PASS captured 30 main-view switch samples
+PASS main-view switch P95 < 200ms (got 34.5ms)
+PASS captured 30 tool-view switch samples
+PASS tool-view switch P95 < 200ms (got 34.4ms)
+METRICS {"startupMs":[223.7,157.8,139.8],"startupMaxMs":223.7,"mainViewP95Ms":34.5,"toolViewP95Ms":34.4,"resourceCount":117,"cssCount":26,"jsCount":77,"transferBytes":4102327,"resourceDurationMs":131.6}
+
+EC-D PERFORMANCE E2E: ALL PASS

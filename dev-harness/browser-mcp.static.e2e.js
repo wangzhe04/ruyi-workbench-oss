@@ -33,9 +33,9 @@ ok(names.has('mcp_list') && names.has('mcp_configure'), 'provider tool surface i
 const browserTool = tools.find(tool => tool.function && tool.function.name === 'browser_open');
 ok(browserTool && /Never navigate or close the current Ruyi Workbench tab/.test(browserTool.function.description),
   'native browser tool contract preserves the current Workbench tab');
-const chromeOpen = srv.buildBrowserOpenSpawn('https://example.invalid', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe');
-const firefoxOpen = srv.buildBrowserOpenSpawn('https://example.invalid', 'C:\\Program Files\\Mozilla Firefox\\firefox.exe');
-const folderOpen = srv.buildBrowserOpenSpawn('C:\\data', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe');
+const chromeOpen = srv.buildBrowserOpenSpawn('https://example.invalid', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', 'win32');
+const firefoxOpen = srv.buildBrowserOpenSpawn('https://example.invalid', 'C:\\Program Files\\Mozilla Firefox\\firefox.exe', 'win32');
+const folderOpen = srv.buildBrowserOpenSpawn('C:\\data', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', 'win32');
 ok(chromeOpen.mode === 'new-tab' && chromeOpen.args[0] === '--new-tab' && chromeOpen.preservesWorkbench,
   'Chromium browser handoff explicitly opens a new tab');
 ok(firefoxOpen.mode === 'new-tab' && firefoxOpen.args[0] === '-new-tab',
@@ -45,9 +45,12 @@ ok(folderOpen.command === 'explorer.exe' && folderOpen.preservesWorkbench,
 ok(srv.classifyToolPacks('请把浏览器目标改成我的默认浏览器').includes('integrations'),
   'browser/tool customization requests preload the integrations tool pack');
 
-const systemHint = srv.buildBrowserAutomationHint({ browserAutomation: { mode: 'system' } });
+const systemHint = srv.buildBrowserAutomationHint({ browserAutomation: { mode: 'system' } }, 'win32');
 ok(/Chrome for Testing/.test(systemHint) && /accessibilityLimited/.test(systemHint),
   'system prompt forbids bundled test Chrome and explains the Direct3D UIA fallback');
+const macSystemHint = srv.buildBrowserAutomationHint({ browserAutomation: { mode: 'system' } }, 'darwin');
+ok(/only requests URL handoff/.test(macSystemHint) && /not implemented/.test(macSystemHint),
+  'Mac system hint reports URL handoff and unavailable desktop automation truthfully');
 // 108b: 文案迁入 06b registry 并双语化; 本断言锁的是英文包原文,故显式选 en-US(断言语义/文字未改)。
 const customizationHint = srv.buildToolCustomizationHint({ locale: 'en-US' });
 ok(/explicitly asks/.test(customizationHint) && /mcp_list/.test(customizationHint) && /permission/.test(customizationHint),

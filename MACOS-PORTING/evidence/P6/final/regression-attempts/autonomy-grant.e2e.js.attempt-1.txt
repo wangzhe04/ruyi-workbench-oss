@@ -1,0 +1,129 @@
+
+── [S] 静态源锁 ──
+PASS S1 /api/autonomy/ 在 ROUTE_AUTH 表标 token(header-token 门)
+PASS S2 /api/autonomy 不在 body-token 路由(不可 body-token 绕过)
+PASS S3 授权书路由区可定位
+PASS S3 三路由各自 tokenOk 自查(≥3 处 403)
+PASS S3 授权书路由区【无】body-token 兜底(R-P2-2)
+PASS S4 provider 主 gate 消耗点(ask+!bridge, native)
+PASS S4 CLI 桥消耗点(cli, 命中直接 allow)
+PASS S4 CLI 桥的闸门判定吃到工具名与入参(与原生主 gate 同口径)
+PASS S4c CLI 桥的档位先查 CLI 表(Edit→edit、Read→read)，认不出的才回落原生表
+PASS S4 CLI 桥消耗前复检闸门天花板(P3 对称；只降 ask，plan 的 block 永不放行)
+PASS S4 auto 档判 allow 时 CLI 桥直接放行(不再弹窗；只对 auto 档短路)
+PASS S4 native 消耗点在 gate===block 判定之前(只降 ask,永不碰 block)
+PASS S5 runSubAgentCore 可定位
+PASS S5 子代理执行体【无】consumeGrant(R-P1-1:不消耗父授权)
+PASS S6 saveSession 不落 autonomyGrants(不进会话文件)
+PASS S6 normalizeConfig 不含 autonomyGrants(不进 config)
+PASS S7 任务账本 digest 不含授权书字段(不进上下文)
+PASS S8 grantIssueTierInfo 禁 spawn_agent/orchestrate_agents/通配
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.git[\\/]hooks[\\/]/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.git[\\/]config(?:\.worktree)?$/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.githooks[\\/]/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.husky[\\/]/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.vscode[\\/]tasks\.json$/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.vscode[\\/]launch\.json$/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.github[\\/]workflows[\\/]/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])\.gitlab-ci\.yml$/i
+PASS S9 03 AUTOEXEC_DENYLIST 含条目 /(^|[\\/])Jenkinsfile$/i
+PASS S9 AUTOEXEC_DENYLIST 经 14-main 导出(导出关系不漂移)
+PASS S10 06f GRANT_EDIT_AUTOEXEC_DENY = [整条 .git/, ...AUTOEXEC_DENYLIST](并集字面量钉死)
+PASS S10 06f 授权书块内不再有 CI 条目的正则字面量副本(唯一事实源在 03;注释提及不算)
+
+── [P] 纯逻辑源抽取(new Function 实跑)──
+PASS P 源抽取授权书核心块
+PASS P 取到 AUTOEXEC_DENYLIST(03 工具层表,产物导出)
+PASS P 取到 hashArgs(00-boot.js 单一事实源,产物导出)
+PASS P 并集表长度 = 03 表 + 1(整条 .git/)
+PASS P1 spawn_agent → null(禁签)
+PASS P1 orchestrate_agents → null(禁签)
+PASS P1 通配 * → null
+PASS P1 file_write → native/edit
+PASS P1 file_read → read
+PASS P1 powershell_run → exec
+PASS P1 Edit → cli/edit
+PASS P1 Bash → cli/exec
+PASS P1 未知工具 → null(不可签)
+PASS P1 script_run → null(field-shadow:执行 code≠校验字段,禁签 exec)
+PASS P1 git_commit → null(触发 .git/hooks,禁签 exec)
+PASS P1 field-exact:powershell_run 只取 command,忽略夹带 code
+PASS P1 script_run 签发被拒(不可签 exec 授权)
+PASS P2 native file_write 抽 path
+PASS P2 CLI Edit 抽 file_path(不复用 native path 键)
+PASS P2 CLI Edit 无路径键 → pathArgs 空(fileFamily → 后续 fail-closed)
+PASS P2 CLI Bash 抽 command
+PASS P2 native powershell_run 抽 command+cwd
+PASS P3 exec 无 cmdAllow → 拒收
+PASS P3 cmdAllow 去 ^ 锚存前缀
+PASS P3 pathGlob 含 .. 被裁剪
+PASS P3 裁剪原因回显
+PASS P3 cmdAllow 含元字符前缀被剔除
+PASS P3 exec maxUses 夹到 ≤5(实 5)
+PASS P3 exec TTL 夹到 ≤30min
+PASS P3 edit maxUses 夹到 ≤200
+PASS P3 edit TTL 夹到 ≤6h
+PASS P3 文件族无 glob → 默认 **
+PASS P4 范围内 file_write 命中,remaining 递减(20-1)
+PASS P4 再次命中,usedCount 累进
+PASS P4 glob 外路径 → 不命中(fail-closed)
+PASS P4 敏感 denylist 路径 → 不命中(denylist 先行)
+PASS P4 越 grantRoot 路径 → 不命中
+PASS P4 edit → .git/hooks 自动执行文件 → 不命中(R-P2-1)
+PASS P4 edit → .vscode/tasks.json → 不命中
+PASS P4 edit → 普通文件 → 命中
+PASS B2 edit 授权 → .github/workflows/x.yml → 不命中(回落弹窗)
+PASS B2 edit 授权 → .gitlab-ci.yml → 不命中(回落弹窗)
+PASS B2 edit 授权 → Jenkinsfile → 不命中(回落弹窗)
+PASS B2 edit 授权 → .git/ 整目录(授权书层比工具层严,拍板口径) → 不命中(回落弹窗)
+PASS B2 CLI Edit 授权 → .github/workflows/x.yml → 不命中(回落弹窗)
+PASS P4 文件族抽不到路径 → fail-closed(R-P1-2)
+PASS P5 ^npm run build 命中
+PASS P5 前缀后接空格+参数 命中
+PASS P5 前缀边界:buildEVIL 不命中(挡粘连)
+PASS P5 元字符 ; → 失配
+PASS P5 默认禁网:curl 失配(netAllowed=false)
+PASS P5 netAllowed=true → curl 命中
+PASS P5 cwd 越 grantRoot → 失配
+PASS P6 native grant 被 cli 入口调用 → entrypoint 不符,不命中
+PASS P6 scope=run 无活动 run → 不命中
+PASS P6 bindDriverRun 补绑后 → 命中
+PASS P6 换 run(drun_2)→ 旧 run 授权不命中(scope 隔离)
+PASS P6 TTL 过期 → 不命中
+PASS P6 maxUses=2 第1次命中
+PASS P6 第2次命中
+PASS P6 第3次耗尽 → 不命中
+PASS P6 撤销前命中
+PASS P6 撤销后 → 不命中(现读无缓存)
+PASS P6 revokeGrantsForRun 只撤 scope=run 匹配项,session 授权存活
+
+── [P7] 对抗验证修复回归 ──
+PASS P7 archive_zip 抽全部源(paths[])+dest
+PASS P7 file_move 抽 from+to
+PASS P7 archive_unzip 抽 src+destDir
+PASS P7 archive_zip 全源在范围内 → 命中
+PASS P7 archive_zip 有源越 grantRoot → 不命中(源受约束)
+PASS P7 archive_zip 源命中敏感 denylist → 不命中
+PASS P7 file_move 两端在范围 → 命中(不再永久 fail-closed)
+PASS P7 file_move 目标越界 → 不命中
+PASS P7 .git. 尾点组件 → 归一后仍拦(自动执行文件)
+PASS P7 .git␠ 尾空格组件 → 归一后仍拦
+PASS S9 archive_zip 源(读)+dest(写)过 guardFileToolPath(Gap B)
+PASS S9 archive_unzip src(读)+destDir(写)过 guardFileToolPath(Gap B)
+
+── [H] Live HTTP ──
+PASS H workbench up on :59260
+PASS H 建会话
+PASS H1 无 header token → 403
+PASS H1 body.token===RUNTIME.token 但无 header → 仍 403(签发主权律)
+PASS H2 exec 无 cmdAllow → 400
+PASS H2 spawn_agent 签发 → 400(红线#4)
+PASS H3 header-token 签发 file_write@src/** 成功
+PASS H3 dry-run 命中 2 个 src 文件(所见即所授)实 2
+PASS H3 列举含该 grant
+PASS H4 grant 不落 session 文件(纯内存)
+PASS H5 撤销成功
+PASS H5 撤销后列举清空
+PASS H6 审计含 签发/撤销 事件
+
+AUTONOMY-GRANT E2E: ALL PASS

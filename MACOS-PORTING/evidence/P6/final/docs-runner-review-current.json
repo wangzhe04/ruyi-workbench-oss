@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p6_02_review",
+  "reviewedAt": "2026-11-12T09:57:50.034Z",
+  "stage": "Final Mac deployment/recovery documentation and opt-in per-attempt runner evidence code review",
+  "sourceBindings": {
+    "ruyi-workbench/docs/MACOS-RELEASE_CN.md": "d91646c68fed94ea15b832a1d73cf2dea00132933769416135d4bb2c7adf8b72",
+    "ruyi-workbench/docs/MACOS-RELEASE_EN.md": "a6da9baa91e5397ec943e04522d6b90925e1c63cf65f11e61c07ad122041554f",
+    "ruyi-workbench/docs/manuals/USER-GUIDE_CN.md": "1a8e8d756fadf50b1f96c75fd2eda17f3a135639a81bf70ed42fe67031904004",
+    "ruyi-workbench/docs/manuals/USER-GUIDE_EN.md": "9d8d5837df0fbec10abf4e26386416bf15b141587db60dcf40ad80df6781b50d",
+    "ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md": "316df8beddadc03e331a25c0db1db9661de9b52c1c0799b377c51d45e6c37a92",
+    "ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md": "9b228d2c9526312aaf55a568cb3c87b1a38c64acc21af6a1cfdc24134136ea7e",
+    "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md": "60649d68c710e79223adc8a17daea23d29858cf7bdf3a109a7396276c83457fe",
+    "ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md": "c7f63cc4d5c0f862781f350d1ae8a1b0f2537194235cbdeb92ce0a7b2aa42e39",
+    "ruyi-workbench/desktop-macos/INTERNAL-TRIAL.md": "373728b27f9d3125791a6007f73b158349b285b7ac1021cd9f3fedf11122c751",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-CN.txt": "f59ccf7ee2e1f46c83b3c14034417873737ed92c4883ee971881addc279c1e01",
+    "ruyi-workbench/desktop-macos/trial/INSTALL-EN.txt": "a148250bbf240628e503a06f5f64a4b432e8f64dd59b1b43cc551149066632a7",
+    "README.md": "21d65cf728a6a95e0f10e81569a4305d65c29d64e9dfc153793be9f5455953e9",
+    "README_EN.md": "f6ee0fe8cbaf40942261bbdac0f85b1d30bd316c1be5aa31e44b333eefbcab61",
+    "dev-harness/run-all.js": "4812ba10e265e094727871a2b10a6a801073269738dd88b82155ec34f6d91be7"
+  },
+  "findings": [
+    {
+      "id": "D1",
+      "finding": "Both Mac release guides incorrectly pointed readers to trial-manifest.json for the DMG image checksum.",
+      "resolution": "Both languages now distinguish application/packager commits in trial-manifest.json from image checksum in distribution.json and .dmg.sha256.",
+      "status": "closed"
+    }
+  ],
+  "documentationChecks": {
+    "same301BuildToBuildAndSnapshotBoundsPreserved": true,
+    "manualWholeAppReplacementNotAtomic": true,
+    "quitAllInstancesAndCLIServiceBeforeBackup": true,
+    "completeDataBackupToFreshExternalDirectory": true,
+    "oldAppAndPostUpgradeDataRetained": true,
+    "restoreSnapshotToFreshRUYI_HOME": true,
+    "noArbitraryFutureSchemaRollbackPromise": true,
+    "keychainTCCAndExternalWorkspacesCLIExcludedFromDataSnapshot": true,
+    "passwordProtectedCredentialRecoveryAndDPAPIBoundaries": true,
+    "FullSlimCapabilitiesAndExternalModelsGitCLIAccurate": true,
+    "formalDownloadedOriginCleanUserMacOS14WindowsAndP5GatesExplicitlyDeferred": true,
+    "windowsManualEntrypointsRouteToMacGuides": true,
+    "relativeLinksResolve": true
+  },
+  "brokenLinks": [],
+  "runnerReview": {
+    "sourceSha256": "4812ba10e265e094727871a2b10a6a801073269738dd88b82155ec34f6d91be7",
+    "noBlockingCodeFindings": true,
+    "exclusiveNewEvidenceDir": true,
+    "exclusivePerAttemptWrites": true,
+    "unmodifiedDefaultBehavior": true,
+    "firstAndRetryAttemptsRetained": true,
+    "successfulSkipInfoKept": true,
+    "probe": "/tmp/ruyi-p603-review/runner-evidence-probe.json",
+    "probePassed": 5,
+    "probeFailed": 0,
+    "scope": "Exact recordAttempt helper invoked using repository source-slice in VM only. No runner, direct E2E, UI, Trash or mount.",
+    "outputContract": "Logs preserve existing stdout+stderr concatenation and result status/timedOut/ms fields; no cross-stream ordering or per-stream claim."
+  },
+  "remainingBlockingFindings": [],
+  "remainingAcceptance": [
+    "actual final new candidates and source bindings",
+    "real serial Trash and old/new DMG upgrade/rollback",
+    "complete applicable regression accounting with failures/flakies/skips and candidate binding"
+  ],
+  "conclusion": "Documentation and runner evidence code review passed. This is not final runtime or full-regression acceptance.",
+  "pass": true
+}

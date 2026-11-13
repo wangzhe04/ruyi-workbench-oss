@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "/root/p5_review_resumed",
+  "reviewedAt": "2026-11-10T11:22:26.012382+00:00",
+  "status": "incomplete_stopped_on_capture_marker_failure",
+  "candidateBinding": "../source-fingerprint-bounded.json",
+  "frozenFiles": 61,
+  "runs": "runs.json",
+  "processEvidence": "process-cleanup.json",
+  "executedCommands": 15,
+  "passedPositiveCommands": 12,
+  "passedPositiveNodeAssertions": 262,
+  "focusedNodeUnitTestsPassed": 8,
+  "pythonTestsExecuted": 0,
+  "caseSummary": [
+    {
+      "name": "ax-ttl",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 38,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 76.096,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "app-ax",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 12,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 5.343,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "app-unicode",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 13,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 5.01,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "app-paste",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 16,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 5.496,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "events",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 42,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 26.732,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "window-clipboard",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 37,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 7.639,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "selected-apps",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 19,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 8.396,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "apps-ax-default",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 31,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 8.601,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "apps-ax-renderer",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 33,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 8.829,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "finder",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 10,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 6.143,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "finder-forced-failure",
+      "exitCode": 1,
+      "naturalExit": true,
+      "passLines": 8,
+      "failLines": 1,
+      "nodeUnitTests": null,
+      "durationSeconds": 4.601,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "browser-deadline-unit",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 0,
+      "failLines": 0,
+      "nodeUnitTests": 8,
+      "durationSeconds": 1.72,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "theme-browser",
+      "exitCode": 0,
+      "naturalExit": true,
+      "passLines": 11,
+      "failLines": 0,
+      "nodeUnitTests": null,
+      "durationSeconds": 3.154,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "apps-blocked-cdp",
+      "exitCode": 1,
+      "naturalExit": true,
+      "passLines": 10,
+      "failLines": 1,
+      "nodeUnitTests": null,
+      "durationSeconds": 20.428,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "capture",
+      "exitCode": 1,
+      "naturalExit": true,
+      "passLines": 27,
+      "failLines": 4,
+      "nodeUnitTests": null,
+      "durationSeconds": 8.194,
+      "expectedOutcomeMatched": false
+    }
+  ],
+  "intentionalNegatives": [
+    {
+      "name": "finder-forced-failure",
+      "exitCode": 1,
+      "passLines": 8,
+      "failLines": 1,
+      "expectedOutcomeMatched": true
+    },
+    {
+      "name": "apps-blocked-cdp",
+      "exitCode": 1,
+      "passLines": 10,
+      "failLines": 1,
+      "expectedOutcomeMatched": true
+    }
+  ],
+  "blockedDiscoveryElapsedMs": 15004.410417,
+  "failedRun": {
+    "name": "capture",
+    "log": "capture/run.txt",
+    "exitCode": 1,
+    "naturalExit": true,
+    "passLines": 27,
+    "failLines": 4,
+    "failures": [
+      "region logical-point marker image mapping",
+      "region-full-resolution logical-point marker image mapping",
+      "monitor-0 logical-point marker image mapping",
+      "monitor-all logical-point marker image mapping"
+    ],
+    "passedContrastingChecks": [
+      "window and covered-window marker mapping",
+      "restoring owned window recovers capture",
+      "remaining capture dispatch, output and fixture cleanup assertions"
+    ],
+    "cause": "Undetermined. No GUI diagnostic or retry performed."
+  },
+  "allExecutedBeforeAfterAndFinalSourceHashesMatch": true,
+  "allObservedOwnedProcessesAbsent": true,
+  "sharedFinderSurvivedAndOwnedWindowsClosed": true,
+  "allExecutedCommandsExitedNaturally": true,
+  "externalManualIntervention": false,
+  "outerDeadlineAttention": null,
+  "binaryStableDuringExecutedCommands": true,
+  "defaultHelperSha256": "a5d755f54b36c544b40e705faceaf9634ad2038d448a7cd5248e84104270f029",
+  "pathCompatibility": {
+    "defaultWrapper19Passed": true,
+    "rendererBinarySymlink33Passed": true,
+    "source": "selected-apps/result.json and apps-ax-renderer/result.json plus selected-apps evidence"
+  },
+  "notYetExecuted": [
+    "capture-contract",
+    "shared",
+    "python-ax",
+    "python-input",
+    "python-shared",
+    "python-events",
+    "python-capture",
+    "app-ax-forced-exit"
+  ],
+  "executionPolicy": "Stopped on the first unexpected exit. No automatic retry, source edit or manual process intervention. Remaining commands are paused.",
+  "historicalEvidence": "Earlier symlink launch failure and externally cancelled CFT startup hang remain in independent/ and independent-final/; these successful startup cases do not erase the earlier evidence. The exact startup-hang cause remains undetermined.",
+  "acceptance": "Application-slice functional cases passed on this candidate, but complete acceptance remains pending because the requested capture regression failed and eight commands remain unexecuted. P5 and P5-03 remain in_progress."
+}
