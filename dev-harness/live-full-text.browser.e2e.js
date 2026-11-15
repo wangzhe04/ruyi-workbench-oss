@@ -367,7 +367,9 @@ try {
       window.__ruyiLiveIntervals = () => [...live.values()];
     })();`,
   });
-  await cdp.evaluate('location.reload(); true');
+  // Navigate to the intended app even if the newly advertised target is still about:blank.
+  const navigation = await cdp.send('Page.navigate', { url: appUrl });
+  if (navigation.errorText) throw new Error('Browser navigation failed: ' + navigation.errorText);
   ok(Boolean(await waitForEval(cdp, READY)), 'A6 经典壳载入,侧栏里有这条线程');
   ok(Boolean(await waitForEval(cdp, 'Array.isArray(window.__ruyiLiveIntervals && window.__ruyiLiveIntervals()) ? 1 : null')),
     'A7 计时器探针已装上');

@@ -382,6 +382,15 @@ async function startBrowserFixture(opts = {}) {
     const shot = await fx.cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false, ...(clip ? { clip: { ...clip, scale: 1 } } : {}) });
     return Buffer.from(shot.data || '', 'base64');
   };
+  // A target can advertise appUrl while its committed document is still about:blank.
+  // Explicit navigation binds readiness to the application document itself.
+  try {
+    const navigation = await fx.cdp.send('Page.navigate', { url: appUrl });
+    if (navigation.errorText) throw new Error('Browser navigation failed: ' + navigation.errorText);
+  } catch (error) {
+    try { await fx.close({ keepRoot: true }); } catch (cleanupError) { error.cleanupError = cleanupError; }
+    throw error;
+  }
   ok(Boolean(await fx.waitForEval(READY)), 'F0e 首屏就绪');
   return fx;
 }
