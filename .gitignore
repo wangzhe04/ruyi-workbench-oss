@@ -27,6 +27,9 @@ offline_wheels/
 # Live model benchmark outputs (may contain local paths and provider responses)
 /benchmark-results/
 
+# Local acceptance fixtures and raw receipts; curated evidence belongs in docs.
+/output/
+
 # Archives & logs
 *.zip
 *.log
